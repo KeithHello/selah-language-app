@@ -66,9 +66,11 @@ struct QuizCard: View {
         withAnimation(.selahStandard) {
             isRevealed = true
         }
-        // Haptic: light impact on flip
+        // Haptic: light impact on flip (iOS only)
+        #if os(iOS)
         let generator = UIImpactFeedbackGenerator(style: .light)
         generator.impactOccurred()
+        #endif
     }
 }
 
