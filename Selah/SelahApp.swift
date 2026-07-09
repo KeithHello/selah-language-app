@@ -36,12 +36,12 @@ final class AppState: ObservableObject {
 
     let modelContainer: ModelContainer
 
-    // Services (injected)
-    var sentenceGenService: SentenceGenerationService!
-    var audioGenService: AudioGenerationService!
-    var speechService: SpeechRecognitionService!
-    var recommendationEngine: RecommendationEngine!
-    var reviewScheduler: ReviewScheduler!
+    // Services (injected, initialized during `initialize()`)
+    var sentenceGenService: (any SentenceGenerationService)?
+    var audioGenService: (any AudioGenerationService)?
+    var speechService: (any SpeechRecognitionService)?
+    var recommendationEngine: (any RecommendationEngine)?
+    var reviewScheduler: (any ReviewScheduler)?
 
     struct ToastInfo: Identifiable {
         let id = UUID()
@@ -84,7 +84,7 @@ final class AppState: ObservableObject {
 
             // Load or create companion
             let compDescriptor = FetchDescriptor<Companion>(
-                predicate: #Predicate { $0.active == true }
+                predicate: #Predicate<Companion> { $0.active == true }
             )
 
             if let existing = try context.fetch(compDescriptor).first {
@@ -112,9 +112,10 @@ final class AppState: ObservableObject {
             audioGenService = mockAudio
             speechService = mockSpeech
 
-            // Wire up core engines with mock repositories
-            // In production, these would use real SwiftData-backed repositories
-            // For now, we'll use a simple in-memory approach
+            // Note: recommendationEngine and reviewScheduler require
+            // repository implementations. These will be wired up when
+            // SwiftData-backed repositories are implemented in M1.
+            // For M0 prototype, the UI uses mock data directly.
         } catch {
             print("Initialization error: \(error)")
         }

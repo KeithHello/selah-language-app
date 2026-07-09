@@ -138,7 +138,7 @@ enum GenerationJobStatus: String, Codable {
 }
 
 /// Sprite companion type identifier.
-enum CompanionKey: String, Codable {
+enum CompanionKey: String, Codable, CaseIterable {
     case seedSprite = "seed_sprite"  // MVP: the only companion
 }
 
@@ -167,12 +167,12 @@ enum VoiceProfile: String, Codable, CaseIterable {
 }
 
 /// Supported source languages.
-enum SourceLanguage: String, Codable {
+enum SourceLanguage: String, Codable, CaseIterable {
     case zhHant = "zh-Hant"
 }
 
 /// Supported target languages. MVP: English only.
-enum TargetLanguage: String, Codable {
+enum TargetLanguage: String, Codable, CaseIterable {
     case en
     case ja  // future
 }
@@ -216,7 +216,7 @@ enum LearningEventType: String, Codable {
 }
 
 /// Today's recommended next action type.
-enum TodayRecommendationType: String {
+enum TodayRecommendationType: String, Codable {
     case practice
     case listen
     case nightPreview = "night_preview"

@@ -74,7 +74,7 @@ struct iOSRow: View {
 
 /// Pill-shaped label. Used for categories, states, and counts.
 struct Badge: View {
-    enum Style {
+    enum Style: String, CaseIterable {
         case coral, sage, amber, lavender
 
         var bg: Color {

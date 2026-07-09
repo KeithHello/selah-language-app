@@ -1,4 +1,4 @@
-import Foundation
+import SwiftUI
 
 // MARK: - Design Tokens: Spacing
 // 4pt base grid
@@ -26,27 +26,33 @@ enum SelahCornerRadius {
 
 // MARK: - Design Tokens: Shadows
 
-import SwiftUI
+/// Tuple type for shadow definitions used across components.
+struct SelahShadowTuple {
+    let color: Color
+    let radius: CGFloat
+    let x: CGFloat
+    let y: CGFloat
+}
 
 enum SelahShadow {
-    /// Small shadow — card default
-    static let sm = (
+    /// Small shadow - card default
+    static let sm = SelahShadowTuple(
         color: Color.black.opacity(0.04),
         radius: CGFloat(2),
         x: CGFloat(0),
         y: CGFloat(1)
     )
 
-    /// Medium shadow — hover / active
-    static let md = (
+    /// Medium shadow - hover / active
+    static let md = SelahShadowTuple(
         color: Color.black.opacity(0.06),
         radius: CGFloat(8),
         x: CGFloat(0),
         y: CGFloat(4)
     )
 
-    /// Large shadow — modal / floating
-    static let lg = (
+    /// Large shadow - modal / floating
+    static let lg = SelahShadowTuple(
         color: Color.black.opacity(0.08),
         radius: CGFloat(20),
         x: CGFloat(0),
@@ -56,22 +62,27 @@ enum SelahShadow {
 
 // MARK: - Animation Tokens
 
-enum SelahAnimation {
+/// Animation duration constants (in seconds).
+enum SelahAnimationDuration {
     static let quick: Double    = 0.2     // button state, chip select
     static let standard: Double = 0.35    // card hover, page element
     static let slow: Double     = 0.5     // page transition, coach hint
     static let push: Double     = 0.4     // push navigation slide
+}
 
-    /// Standard ease-out for entrance animations.
-    static let easeOut = UnitCurve.bezier(
-        startControlPoint: UnitPoint(x: 0.32, y: 0.72),
-        endControlPoint: UnitPoint(x: 0, y: 1)
-    )
+/// Convenience extensions for SwiftUI Animation.
+extension Animation {
+    /// Quick animation for button states and chip selection.
+    static var selahQuick: Animation { .easeInOut(duration: SelahAnimationDuration.quick) }
 
-    /// Spring for bounce animations (sprite jump, celebration).
-    static let bounce: Animation = .spring(
-        response: 0.5,
-        dampingFraction: 0.6,
-        blendDuration: 0
-    )
+    /// Standard animation for card hover and page elements.
+    static var selahStandard: Animation { .easeInOut(duration: SelahAnimationDuration.standard) }
+
+    /// Slow animation for page transitions and coach hints.
+    static var selahSlow: Animation { .easeInOut(duration: SelahAnimationDuration.slow) }
+
+    /// Spring bounce for sprite jump and celebration.
+    static var selahBounce: Animation {
+        .spring(response: 0.5, dampingFraction: 0.6, blendDuration: 0)
+    }
 }
