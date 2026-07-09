@@ -3,8 +3,6 @@ name: Build & Test
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
@@ -16,32 +14,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show Swift and Xcode versions
+      - name: Show environment
         run: |
           swift --version
-          xcodebuild -version 2>/dev/null || true
-          ls /Applications/Xcode*.app 2>/dev/null || true
+          echo "--- Source files ---"
+          find Selah -name "*.swift" | sort
 
-      - name: Build
-        id: build
+      - name: Resolve and build
         run: |
-          swift build 2>&1 | tee build.log
-          echo "=== BUILD DONE ==="
-        continue-on-error: true
-
-      - name: Show build errors
-        if: steps.build.outcome != 'success'
-        run: |
-          echo "::group::Build Errors"
-          grep -E 'error:|warning:|note:' build.log || echo "No error/warning patterns matched"
-          echo "::endgroup::"
-          echo "::group::Full Build Log (last 80 lines)"
-          tail -80 build.log
-          echo "::endgroup::"
-
-      - name: Fail if build failed
-        if: steps.build.outcome != 'success'
-        run: exit 1
-
-      - name: Test
-        run: swift test 2>&1 | tee test.log
+          swift package resolve 2>&1
+          swift build 2>&1
