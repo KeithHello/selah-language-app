@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seed 種子精靈 — 動畫素材庫 v1.0</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FBF8F4;--card:#FFFFFF;--card-alt:#F8F5F0;--text:#1A1614;--text-2:#706B65;--text-3:#A9A49E;--coral:#E06B54;--coral-soft:#FEF0ED;--sage:#5A9E82;--sage-soft:#ECF7F1;--amber:#E5A244;--amber-soft:#FDF5E6;--lavender:#8B7FC7;--lavender-soft:#F0EEF8;--sky:#5B9FD4;--sky-soft:#EAF3FB;--border:#EBE7E1;--border-light:#F3F0EC;--r:16px;--font:'Plus Jakarta Sans',system-ui,sans-serif;--mono:'JetBrains Mono',monospace}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;line-height:1.6}
+.container{max-width:1000px;margin:0 auto;padding:40px 24px 80px}
+.header{text-align:center;margin-bottom:48px}
+.header-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 14px;background:var(--amber-soft);color:var(--amber);border-radius:999px;font-size:12px;font-weight:700;margin-bottom:16px}
+.header h1{font-size:32px;font-weight:800;letter-spacing:-.04em;margin-bottom:8px}
+.header p{font-size:15px;color:var(--text-2);max-width:650px;margin:0 auto}
+
+/* Stage Section */
+.stage-section{margin-bottom:56px}
+.stage-header{display:flex;align-items:center;gap:16px;margin-bottom:8px}
+.stage-icon{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;flex-shrink:0}
+.stage-title{font-size:22px;font-weight:800;letter-spacing:-.03em}
+.stage-subtitle{font-size:13px;color:var(--text-2);margin-bottom:4px}
+.stage-desc{font-size:13px;color:var(--text-2);margin-bottom:20px;max-width:700px;line-height:1.7}
+.stage-stats{display:flex;gap:12px;margin-bottom:20px;flex-wrap:wrap}
+.stat-chip{padding:6px 14px;border-radius:999px;font-size:11px;font-weight:700;display:flex;align-items:center;gap:4px}
+
+/* Category */
+.category{margin-bottom:24px}
+.cat-header{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.cat-icon{font-size:16px}
+.cat-title{font-size:14px;font-weight:700}
+.cat-count{font-size:10px;color:var(--text-3);font-weight:600}
+
+/* Animation Table */
+.anim-table{width:100%;border-collapse:collapse;background:var(--card);border-radius:var(--r);overflow:hidden;border:1px solid var(--border);margin-bottom:16px}
+.anim-table thead{background:var(--card-alt)}
+.anim-table th{padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;border-bottom:1px solid var(--border)}
+.anim-table td{padding:8px 12px;border-bottom:1px solid var(--border-light);font-size:11px;vertical-align:top;line-height:1.5}
+.anim-table tr:last-child td{border-bottom:none}
+.anim-table tr:hover{background:var(--card-alt)}
+.anim-name{font-weight:700;font-size:12px}
+.anim-id{font-family:var(--mono);font-size:9px;color:var(--text-3);display:block;margin-top:1px}
+.anim-trigger{font-size:10px;padding:2px 8px;border-radius:999px;font-weight:600;display:inline-block}
+.trigger-idle{background:var(--sage-soft);color:var(--sage)}
+.trigger-action{background:var(--lavender-soft);color:var(--lavender)}
+.trigger-time{background:var(--sky-soft);color:var(--sky)}
+.trigger-emotion{background:var(--coral-soft);color:var(--coral)}
+.trigger-milestone{background:var(--amber-soft);color:var(--amber)}
+.trigger-random{background:var(--card-alt);color:var(--text-2)}
+.anim-loop{font-family:var(--mono);font-size:10px;font-weight:600}
+.loop-yes{color:var(--sage)}
+.loop-no{color:var(--coral)}
+.anim-dur{font-family:var(--mono);font-size:10px;color:var(--text-2)}
+.anim-priority{font-weight:700;font-size:10px}
+.p-high{color:var(--coral)}
+.p-med{color:var(--amber)}
+.p-low{color:var(--sage)}
+
+/* Visual Spec */
+.visual-spec{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:20px}
+.visual-spec-title{font-size:14px;font-weight:700;margin-bottom:8px}
+.visual-spec-desc{font-size:12px;color:var(--text-2);line-height:1.7;margin-bottom:12px}
+.spec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.spec-item{background:var(--card-alt);border-radius:10px;padding:12px}
+.spec-label{font-size:10px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.spec-value{font-size:12px;font-weight:600}
+.spec-value code{font-family:var(--mono);font-size:11px;background:var(--border-light);padding:1px 6px;border-radius:4px}
+
+/* Implementation Guide */
+.impl-guide{background:linear-gradient(135deg,var(--amber-soft),#FFF5E0);border:1px solid rgba(229,162,68,.2);border-radius:20px;padding:24px;margin-bottom:32px}
+.impl-title{font-size:16px;font-weight:800;color:var(--amber);margin-bottom:6px}
+.impl-desc{font-size:13px;color:var(--text-2);margin-bottom:14px;line-height:1.7}
+.impl-code{background:var(--text);color:#E8E4DE;border-radius:10px;padding:16px;font-family:var(--mono);font-size:11px;line-height:1.7;overflow-x:auto;white-space:pre}
+
+/* Summary */
+.summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:24px}
+@media(max-width:640px){.summary-grid{grid-template-columns:repeat(2,1fr)}}
+.summary-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:16px;text-align:center}
+.summary-num{font-size:28px;font-weight:800;font-family:var(--mono)}
+.summary-label{font-size:11px;color:var(--text-2);margin-top:2px}
+
+/* TOC */
+.toc{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:40px}
+.toc-title{font-size:14px;font-weight:700;margin-bottom:10px}
+.toc-list{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:6px}
+.toc-item{font-size:12px;padding:4px 0}
+.toc-item a{color:var(--text);text-decoration:none;font-weight:600}
+.toc-item a:hover{color:var(--coral)}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <div class="header-badge">🌱 Animation Library v1.0</div>
+  <h1>Seed 種子精靈 · 動畫素材庫</h1>
+  <p>4 個成長階段 × 30 種動作變化 = 120 種動畫。按觸發場景分類，附動作描述、時長、循環方式和優先級，可直接交付開發。</p>
+</div>
+
+<!-- Summary -->
+<div class="summary-grid">
+  <div class="summary-card"><div class="summary-num" style="color:var(--amber)">120</div><div class="summary-label">總動畫數</div></div>
+  <div class="summary-card"><div class="summary-num" style="color:var(--sage)">4</div><div class="summary-label">成長階段</div></div>
+  <div class="summary-card"><div class="summary-num" style="color:var(--lavender)">6</div><div class="summary-label">觸發類別</div></div>
+  <div class="summary-card"><div class="summary-num" style="color:var(--coral)">30</div><div class="summary-label">每階段動畫</div></div>
+</div>
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-title">📑 目錄</div>
+  <ul class="toc-list">
+    <li class="toc-item"><a href="#stage1">🟡 Stage 1 — 種子（Day 1-3）</a></li>
+    <li class="toc-item"><a href="#stage2">🌿 Stage 2 — 發芽（Day 4-6）</a></li>
+    <li class="toc-item"><a href="#stage3">🍃 Stage 3 — 雙葉（Day 7-9）</a></li>
+    <li class="toc-item"><a href="#stage4">🌸 Stage 4 — 開花（Day 10+）</a></li>
+    <li class="toc-item"><a href="#trigger">🎯 觸發器對照表</a></li>
+    <li class="toc-item"><a href="#impl">⚙️ 開發實現指南</a></li>
+  </ul>
+</div>
+
+<!-- ============================================= -->
+<!-- TRIGGER REFERENCE -->
+<!-- ============================================= -->
+<div class="stage-section" id="trigger">
+  <div class="stage-header">
+    <div class="stage-icon" style="background:var(--lavender-soft)">🎯</div>
+    <div><div class="stage-title">觸發器對照表</div></div>
+  </div>
+  <div class="stage-desc">所有動畫按以下 6 類觸發器歸類。開發時對應 App 事件即可。</div>
+  <table class="anim-table">
+    <thead><tr><th>觸發類別</th><th>標籤</th><th>觸發時機</th><th>App 事件</th><th>佔比</th></tr></thead>
+    <tbody>
+      <tr><td class="anim-name">Idle 待機</td><td><span class="anim-trigger trigger-idle">idle</span></td><td>無用戶操作時自動播放</td><td>App 打開後 3-5 秒無操作</td><td>每階段 ~8 個</td></tr>
+      <tr><td class="anim-name">Action 學習動作</td><td><span class="anim-trigger trigger-action">action</span></td><td>用戶完成特定學習行為</td><td>完成聆聽/Quiz/錄音/跟讀/預覽</td><td>每階段 ~10 個</td></tr>
+      <tr><td class="anim-name">Time 時段</td><td><span class="anim-trigger trigger-time">time</span></td><td>根據當前時間變化</td><td>NSDate 判斷早/午/晚/深夜</td><td>每階段 ~4 個</td></tr>
+      <tr><td class="anim-name">Emotion 情緒</td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>根據用戶行為模式</td><td>連續天數/缺席回歸/高頻使用</td><td>每階段 ~4 個</td></tr>
+      <tr><td class="anim-name">Milestone 里程碑</td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>達成特定成就時</td><td>首次猜對/連續7天/第N句等</td><td>每階段 ~2 個</td></tr>
+      <tr><td class="anim-name">Random 隨機驚喜</td><td><span class="anim-trigger trigger-random">random</span></td><td>低概率隨機觸發</td><td>每次打開 App 10-20% 概率</td><td>每階段 ~2 個</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- ============================================= -->
+<!-- STAGE 1: SEED (Day 1-3) -->
+<!-- ============================================= -->
+<div class="stage-section" id="stage1">
+  <div class="stage-header">
+    <div class="stage-icon" style="background:var(--amber-soft)">🟡</div>
+    <div>
+      <div class="stage-title">Stage 1 — 種子</div>
+      <div class="stage-subtitle">Day 1-3 · 圓潤種子 + 眼睛 · 無芽無葉</div>
+    </div>
+  </div>
+  <div class="stage-desc">
+    最簡單的階段。種子是一顆暖琥珀色的圓球，只有兩個小點眼睛和微笑。沒有葉子、沒有芽——所有動畫只能靠身體的搖晃、滾動、擠壓和眼睛表情來表達。這正是它的魅力：用最小的視覺語言傳達最多的情感。
+  </div>
+  <div class="stage-stats">
+    <div class="stat-chip" style="background:var(--sage-soft);color:var(--sage)">8 idle</div>
+    <div class="stat-chip" style="background:var(--lavender-soft);color:var(--lavender)">10 action</div>
+    <div class="stat-chip" style="background:var(--sky-soft);color:var(--sky)">4 time</div>
+    <div class="stat-chip" style="background:var(--coral-soft);color:var(--coral)">4 emotion</div>
+    <div class="stat-chip" style="background:var(--amber-soft);color:var(--amber)">2 milestone</div>
+    <div class="stat-chip" style="background:var(--card-alt);color:var(--text-2)">2 random</div>
+  </div>
+
+  <!-- Idle -->
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">💤</div><div class="cat-title">Idle 待機動畫</div><div class="cat-count">8 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td><span class="anim-name">gentle-float</span><span class="anim-id">S1-IDLE-01</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>種子緩慢上下漂浮，幅度 4px，像在水裡輕輕漂。預設待機動畫。</td><td class="anim-dur">3s</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>2</td><td><span class="anim-name">soft-sway</span><span class="anim-id">S1-IDLE-02</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>種子左右輕輕搖晃 ±5°，像在微風中擺動。比 float 更慵懶。</td><td class="anim-dur">4s</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>3</td><td><span class="anim-name">blink</span><span class="anim-id">S1-IDLE-03</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>眼睛快速閉合再張開（一次眨眼）。每 3-5 秒隨機觸發一次。</td><td class="anim-dur">0.3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>4</td><td><span class="anim-name">slow-roll</span><span class="anim-id">S1-IDLE-04</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>種子在原地緩慢旋轉 15° 再轉回來，像在思考。偶爾觸發。</td><td class="anim-dur">2.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>5</td><td><span class="anim-name">squish</span><span class="anim-id">S1-IDLE-05</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>種子身體稍微壓扁（scaleY 0.85）再彈回，像打了個呵欠。低概率觸發。</td><td class="anim-dur">1s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>6</td><td><span class="anim-name">look-around</span><span class="anim-id">S1-IDLE-06</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>眼睛先看向左邊（偏移 2px），停 0.5s，再看向右邊，停 0.5s，回到中間。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>7</td><td><span class="anim-name">tiny-bounce</span><span class="anim-id">S1-IDLE-07</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>種子快速小跳一下（translateY -3px），落地後微彈。像在原地踏步。</td><td class="anim-dur">0.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>8</td><td><span class="anim-name">glow-pulse</span><span class="anim-id">S1-IDLE-08</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>種子身體微微發光（box-shadow 脈動），像呼吸一樣。深夜時段優先觸發。</td><td class="anim-dur">2s</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Action -->
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🎯</div><div class="cat-title">Action 學習動作</div><div class="cat-count">10 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>9</td><td><span class="anim-name">listen-tilt</span><span class="anim-id">S1-ACT-01</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>進入聆聽頁面時：種子向一側歪斜 12°，像在側耳傾聽。維持到離開頁面。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>10</td><td><span class="anim-name">listen-vibrate</span><span class="anim-id">S1-ACT-02</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>音頻播放中：種子身體微微震動（scale 0.98-1.02 快速交替），像在感受聲波。</td><td class="anim-dur">loop</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>11</td><td><span class="anim-name">predict-think</span><span class="anim-id">S1-ACT-03</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>預測階段：種子慢慢左右搖晃（像搖頭思考），眼睛向上看，表情認真。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>12</td><td><span class="anim-name">reveal-surprise</span><span class="anim-id">S1-ACT-04</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>揭示答案時：種子快速向後仰（rotateX -10°），眼睛變大 1.5 倍，0.5s 後回彈。</td><td class="anim-dur">0.8s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>13</td><td><span class="anim-name">quiz-peek</span><span class="anim-id">S1-ACT-05</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz 翻卡前：種子身體微微前傾，眼睛瞇起來偷看，像在期待答案。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>14</td><td><span class="anim-name">quiz-happy</span><span class="anim-id">S1-ACT-06</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz 選「記得很清楚」：種子開心小跳（translateY -8px），落地後旋轉 15°。</td><td class="anim-dur">0.6s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>15</td><td><span class="anim-name">quiz-confused</span><span class="anim-id">S1-ACT-07</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz 選「差一點」：種子左右搖擺 2 次（rotate ±8°），像在說「差一點點」。</td><td class="anim-dur">1s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>16</td><td><span class="anim-name">quiz-sad</span><span class="anim-id">S1-ACT-08</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz 選「完全不會」：種子慢慢下沉 5px，眼睛閉上 0.3s，再重新張開（鼓勵）。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>17</td><td><span class="anim-name">rec-listening</span><span class="anim-id">S1-ACT-09</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>錄音中：種子微微歪向一側（rotated 8°），身體脈動（配合 wave 動畫），像在認真聽。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>18</td><td><span class="anim-name">vocab-nod</span><span class="anim-id">S1-ACT-10</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>加入生詞本時：種子快速點頭 2 次（translateY -2px × 2），表示認可。</td><td class="anim-dur">0.6s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Time -->
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🕐</div><div class="cat-title">Time 時段動畫</div><div class="cat-count">4 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>19</td><td><span class="anim-name">morning-stretch</span><span class="anim-id">S1-TIME-01</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>早晨（6-10 點）首次打開：種子向上伸展（scaleY 1.1），像剛睡醒伸懶腰，再回彈。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>20</td><td><span class="anim-name">afternoon-yawn</span><span class="anim-id">S1-TIME-02</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>午後（13-17 點）首次打開：種子壓扁（squish）再回彈，嘴巴微微張開，像在打呵欠。</td><td class="anim-dur">1.2s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>21</td><td><span class="anim-name">evening-glow</span><span class="anim-id">S1-TIME-03</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>傍晚（18-21 點）：種子身體帶暖橘色光暈（box-shadow），持續發光。</td><td class="anim-dur">3s</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+        <tr><td>22</td><td><span class="anim-name">night-dim</span><span class="anim-id">S1-TIME-04</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>深夜（22-5 點）：種子亮度降低（opacity 0.7），眼睛半閉，進入安靜模式。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Emotion -->
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">💭</div><div class="cat-title">Emotion 情緒動畫</div><div class="cat-count">4 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>23</td><td><span class="anim-name">welcome-back</span><span class="anim-id">S1-EMO-01</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>缺席 2+ 天後回歸：種子輕輕小跳 1 次，身體微微變亮（saturate +0.1），表示歡迎。</td><td class="anim-dur">1s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>24</td><td><span class="anim-name">streak-happy</span><span class="anim-id">S1-EMO-02</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>連續 3 天打開：種子旋轉 360° + 小跳，眼睛變成彎月形（開心），持續 2s 後恢復。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>25</td><td><span class="anim-name">quiet-miss</span><span class="anim-id">S1-EMO-03</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>缺席 1 天：種子安靜漂浮，亮度稍低（opacity 0.8），不責備，只是安靜等待。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>26</td><td><span class="anim-name">extra-busy</span><span class="anim-id">S1-EMO-04</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>單次學習完成 5+ 句聆聽：種子快速跳 3 下 + 旋轉，像在慶祝完成大任務。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Milestone -->
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🏆</div><div class="cat-title">Milestone 里程碑</div><div class="cat-count">2 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>27</td><td><span class="anim-name">first-guess</span><span class="anim-id">S1-MS-01</span></td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>首次預測猜對：種子大跳（translateY -15px）+ 旋轉 180°，落地後小彈 2 次。配合 toast。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>28</td><td><span class="anim-name">first-recording</span><span class="anim-id">S1-MS-02</span></td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>首次完成錄音：種子身體脈動發光（glow-pulse × 3 次），像在感受自己的聲音。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Random -->
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">✨</div><div class="cat-title">Random 隨機驚喜</div><div class="cat-count">2 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>29</td><td><span class="anim-name">dream-bubble</span><span class="anim-id">S1-RND-01</span></td><td><span class="anim-trigger trigger-random">random</span></td><td>10% 概率：種子頭頂冒出小氣泡（「⋯」），2s 後氣泡消散。像在作夢。</td><td class="anim-dur">2.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>30</td><td><span class="anim-name">seed-sneeze</span><span class="anim-id">S1-RND-02</span></td><td><span class="anim-trigger trigger-random">random</span></td><td>8% 概率：種子突然劇烈搖晃 2 次 → 靜止 0.3s → 彈出一個小「！」符號 → 恢復。像打了個噴嚏。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================= -->
+<!-- STAGE 2: SPROUT (Day 4-6) -->
+<!-- ============================================= -->
+<div class="stage-section" id="stage2">
+  <div class="stage-header">
+    <div class="stage-icon" style="background:var(--sage-soft)">🌿</div>
+    <div>
+      <div class="stage-title">Stage 2 — 發芽</div>
+      <div class="stage-subtitle">Day 4-6 · 種子 + 一片小葉芽 · 新增「葉片語言」</div>
+    </div>
+  </div>
+  <div class="stage-desc">
+    進入發芽階段後，種子頭頂長出一片小葉芽。這片葉子成為新的表情載體——除了身體動作，葉子也能表達情感：開心時葉子豎起、放鬆時葉子自然下垂、興奮時葉子抖動。這讓動畫表達力翻倍。繼承 Stage 1 的所有身體動畫，並在此基礎上新增葉片動作。
+  </div>
+  <div class="stage-stats">
+    <div class="stat-chip" style="background:var(--sage-soft);color:var(--sage)">8 idle</div>
+    <div class="stat-chip" style="background:var(--lavender-soft);color:var(--lavender)">10 action</div>
+    <div class="stat-chip" style="background:var(--sky-soft);color:var(--sky)">4 time</div>
+    <div class="stat-chip" style="background:var(--coral-soft);color:var(--coral)">4 emotion</div>
+    <div class="stat-chip" style="background:var(--amber-soft);color:var(--amber)">2 milestone</div>
+    <div class="stat-chip" style="background:var(--card-alt);color:var(--text-2)">2 random</div>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">💤</div><div class="cat-title">Idle 待機動畫</div><div class="cat-count">8 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>31</td><td><span class="anim-name">leaf-breeze</span><span class="anim-id">S2-IDLE-01</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>葉芽隨風輕輕搖擺 ±10°，身體保持不動。新增的標誌性 idle 動畫。</td><td class="anim-dur">3s</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>32</td><td><span class="anim-name">leaf-curl</span><span class="anim-id">S2-IDLE-02</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>葉芽慢慢捲曲（rotate -30° + scale 0.9），像害羞地縮起來，再慢慢展開。</td><td class="anim-dur">4s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>33</td><td><span class="anim-name">sprout-grow</span><span class="anim-id">S2-IDLE-03</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>葉芽突然向上伸展（translateY -3px + scaleY 1.1），像在努力長大，再恢復。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>34</td><td><span class="anim-name">seed-rock</span><span class="anim-id">S2-IDLE-04</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>繼承 S1 的 gentle-float，但幅度加大（6px），配合葉芽同步搖擺。</td><td class="anim-dur">3s</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>35</td><td><span class="anim-name">leaf-peek</span><span class="anim-id">S2-IDLE-05</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>葉芽向一側彎曲（像在偷看），眼睛跟著葉子方向看，再恢復。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>36</td><td><span class="anim-name">double-blink</span><span class="anim-id">S2-IDLE-06</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>連續眨眼 2 次 + 葉芽跟著抖 2 下。比 S1 的單次眨眼更活潑。</td><td class="anim-dur">0.8s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>37</td><td><span class="anim-name">seed-spin-leaf</span><span class="anim-id">S2-IDLE-07</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>種子原地旋轉 90°，葉芽因慣性延遲跟隨（像甩頭），再轉回。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>38</td><td><span class="anim-name">leaf-dewdrop</span><span class="anim-id">S2-IDLE-08</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>葉芽尖端凝聚一顆小水滴符號（💧），2s 後水滴滑落消失。早晨優先。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🎯</div><div class="cat-title">Action 學習動作</div><div class="cat-count">10 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>39</td><td><span class="anim-name">listen-leaf-up</span><span class="anim-id">S2-ACT-01</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>聆聽播放中：葉芽豎起（rotate 0° → 直立），像在張開耳朵聽。配合 S1 的 vibrate。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>40</td><td><span class="anim-name">listen-leaf-wave</span><span class="anim-id">S2-ACT-02</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>第 3 遍聆聽時：葉芽跟著節奏左右搖擺，像在打拍子。</td><td class="anim-dur">loop</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>41</td><td><span class="anim-name">predict-leaf-think</span><span class="anim-id">S2-ACT-03</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>預測階段：葉芽捲曲（像在思考），身體左右微擺。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>42</td><td><span class="anim-name">reveal-leaf-burst</span><span class="anim-id">S2-ACT-04</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>揭示答案：葉芽突然展開（scale 1.3 → 1.0），像在張開雙手擁抱答案。</td><td class="anim-dur">0.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>43</td><td><span class="anim-name">shadow-speak</span><span class="anim-id">S2-ACT-05</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>跟讀錄音中：葉芽跟著說話節奏微微抖動（scale 0.95-1.05 快速交替）。</td><td class="anim-dur">loop</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>44</td><td><span class="anim-name">quiz-leaf-peek</span><span class="anim-id">S2-ACT-06</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz 翻卡前：葉芽彎下來遮住一隻眼睛，像在偷看。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>45</td><td><span class="anim-name">quiz-leaf-cheer</span><span class="anim-id">S2-ACT-07</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz「記得很清楚」：葉芽快速上下抖動 3 次（像在鼓掌），種子小跳。</td><td class="anim-dur">1s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>46</td><td><span class="anim-name">quiz-leaf-droop</span><span class="anim-id">S2-ACT-08</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz「完全不會」：葉芽慢慢下垂（rotate 0° → -40°），身體下沉，2s 後慢慢恢復。</td><td class="anim-dur">2.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>47</td><td><span class="anim-name">rec-leaf-listen</span><span class="anim-id">S2-ACT-09</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>錄音中：種子歪頭 + 葉芽向說話方向彎曲，像在認真聽你說話。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>48</td><td><span class="anim-name">preview-leaf-curl</span><span class="anim-id">S2-ACT-10</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>夜間預覽時：葉芽放鬆捲曲（像在窩著看書），身體微微下沉。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🕐</div><div class="cat-title">Time 時段動畫</div><div class="cat-count">4 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>49</td><td><span class="anim-name">morning-leaf-stretch</span><span class="anim-id">S2-TIME-01</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>早晨首次打開：葉芽向上伸展到最大（scaleY 1.2），像在迎接陽光。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>50</td><td><span class="anim-name">afternoon-leaf-shade</span><span class="anim-id">S2-TIME-02</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>午後：葉芽微微彎曲遮在種子上方，像在遮陽。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+        <tr><td>51</td><td><span class="anim-name">evening-leaf-glow</span><span class="anim-id">S2-TIME-03</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>傍晚：葉芽尖端微微發光（綠色 glow），像螢火蟲。</td><td class="anim-dur">3s</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+        <tr><td>52</td><td><span class="anim-name">night-leaf-sleep</span><span class="anim-id">S2-TIME-04</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>深夜：葉芽完全垂下貼在種子身體上，種子眼睛半閉，整體像蓋被子。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">💭</div><div class="cat-title">Emotion 情緒動畫</div><div class="cat-count">4 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>53</td><td><span class="anim-name">welcome-leaf-wave</span><span class="anim-id">S2-EMO-01</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>回歸時：葉芽快速左右搖擺（像在揮手打招呼），種子輕輕跳。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>54</td><td><span class="anim-name">proud-leaf-up</span><span class="anim-id">S2-EMO-02</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>連續 5 天：葉芽挺直到最大角度，種子微微抬高，整體看起來很驕傲。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>55</td><td><span class="anim-name">lonely-leaf-droop</span><span class="anim-id">S2-EMO-03</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>缺席 3+ 天：葉芽完全下垂，種子顏色稍暗，安靜地漂浮。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>56</td><td><span class="anim-name">excited-leaf-shake</span><span class="anim-id">S2-EMO-04</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>單次學 8+ 句：葉芽瘋狂抖動 + 種子快速旋轉 + 小跳 2 次。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🏆</div><div class="cat-title">Milestone 里程碑</div><div class="cat-count">2 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>57</td><td><span class="anim-name">sprout-appear</span><span class="anim-id">S2-MS-01</span></td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>Day 4 進入 Stage 2 的瞬間：葉芽從種子頂部緩緩長出（scaleY 0→1，duration 1.5s），配合 toast「小種子發芽了！🌱」。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>58</td><td><span class="anim-name">first-vocab-use</span><span class="anim-id">S2-MS-02</span></td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>首次在錄音中主動使用學過的詞：葉芽尖端發光 2s + 種子開心旋轉。</td><td class="anim-dur">2.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">✨</div><div class="cat-title">Random 隨機驚喜</div><div class="cat-count">2 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>59</td><td><span class="anim-name">butterfly-visit</span><span class="anim-id">S2-RND-01</span></td><td><span class="anim-trigger trigger-random">random</span></td><td>12% 概率：一隻小蝴蝶 emoji 飛入停在葉芽上，2s 後飛走。種子看著蝴蝶飛走。</td><td class="anim-dur">4s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>60</td><td><span class="anim-name">leaf-unfurl</span><span class="anim-id">S2-RND-02</span></td><td><span class="anim-trigger trigger-random">random</span></td><td>15% 概率：葉芽從捲曲狀態突然完全展開（像打開傘），維持 1s 後恢復。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================= -->
+<!-- STAGE 3: TWO LEAVES (Day 7-9) -->
+<!-- ============================================= -->
+<div class="stage-section" id="stage3">
+  <div class="stage-header">
+    <div class="stage-icon" style="background:var(--sage-soft)">🍃</div>
+    <div>
+      <div class="stage-title">Stage 3 — 雙葉</div>
+      <div class="stage-subtitle">Day 7-9 · 種子 + 兩片對稱葉子 · 新增「葉片互動」</div>
+    </div>
+  </div>
+  <div class="stage-desc">
+    第二片葉子長出來了！兩片葉子可以互動——交叉、擊掌（葉尖碰觸）、像手一樣揮舞。種子的身體也稍微變大。新增「葉片語言」：兩片葉子可以表達更複雜的情感，例如一片葉子遮住眼睛（害羞）、兩片葉子交叉（放鬆）、葉子像翅膀一樣扇動（興奮）。
+  </div>
+  <div class="stage-stats">
+    <div class="stat-chip" style="background:var(--sage-soft);color:var(--sage)">8 idle</div>
+    <div class="stat-chip" style="background:var(--lavender-soft);color:var(--lavender)">10 action</div>
+    <div class="stat-chip" style="background:var(--sky-soft);color:var(--sky)">4 time</div>
+    <div class="stat-chip" style="background:var(--coral-soft);color:var(--coral)">4 emotion</div>
+    <div class="stat-chip" style="background:var(--amber-soft);color:var(--amber)">2 milestone</div>
+    <div class="stat-chip" style="background:var(--card-alt);color:var(--text-2)">2 random</div>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">💤</div><div class="cat-title">Idle 待機動畫</div><div class="cat-count">8 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>61</td><td><span class="anim-name">dual-breeze</span><span class="anim-id">S3-IDLE-01</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>兩片葉子交替搖擺（左葉前 → 右葉前），像呼吸一樣有節奏。預設 idle。</td><td class="anim-dur">3s</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>62</td><td><span class="anim-name">leaf-cross</span><span class="anim-id">S3-IDLE-02</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>兩片葉子交叉疊在種子頭頂（像在抱頭），維持 2s 再展開。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>63</td><td><span class="anim-name">leaf-high-five</span><span class="anim-id">S3-IDLE-03</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>兩片葉子的葉尖碰觸一下（像在擊掌），快速分開。低概率。</td><td class="anim-dur">0.8s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>64</td><td><span class="anim-name">wing-flap</span><span class="anim-id">S3-IDLE-04</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>兩片葉子像翅膀一樣上下扇動 3 次，種子微微浮起。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>65</td><td><span class="anim-name">leaf-scratch</span><span class="anim-id">S3-IDLE-05</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>右葉彎下來觸碰種子頭部（像在撓頭），像在思考。再恢復。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>66</td><td><span class="anim-name">symmetric-sway</span><span class="anim-id">S3-IDLE-06</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>兩片葉子和種子身體同步左右搖擺，幅度一致，像跳慢舞。</td><td class="anim-dur">4s</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+        <tr><td>67</td><td><span class="anim-name">leaf-shield</span><span class="anim-id">S3-IDLE-07</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>兩片葉子突然合攏擋在種子前面（像盾牌），0.5s 後展開。像在保護自己。</td><td class="anim-dur">1.2s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>68</td><td><span class="anim-name">leaf-sunbathe</span><span class="anim-id">S3-IDLE-08</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>兩片葉子完全平展到最大角度，種子微微仰起，像在曬太陽。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🎯</div><div class="cat-title">Action 學習動作</div><div class="cat-count">10 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>69</td><td><span class="anim-name">listen-dual-ears</span><span class="anim-id">S3-ACT-01</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>聆聽中：兩片葉子像耳朵一樣同時豎起，播放時跟著節奏微擺。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>70</td><td><span class="anim-name">predict-leaf-cover</span><span class="anim-id">S3-ACT-02</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>預測階段：一片葉子遮住一隻眼睛，另一片豎起，像在認真思考。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>71</td><td><span class="anim-name">reveal-applause</span><span class="anim-id">S3-ACT-03</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>揭示答案：兩片葉子快速交替拍動 4 次（像在拍手鼓掌）。</td><td class="anim-dur">1.2s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>72</td><td><span class="anim-name">deconstruct-point</span><span class="anim-id">S3-ACT-04</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>拆解階段：右葉像教鞭一樣指向拆解區域，種子歪頭看。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>73</td><td><span class="anim-name">shadow-duet</span><span class="anim-id">S3-ACT-05</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>跟讀錄音：兩片葉子跟著語音節奏左右交替擺動，像在指揮。</td><td class="anim-dur">loop</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>74</td><td><span class="anim-name">quiz-leaf-guess</span><span class="anim-id">S3-ACT-06</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz 思考中：兩片葉子交叉在胸前，種子微微前傾，像在認真回憶。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>75</td><td><span class="anim-name">quiz-victory-dance</span><span class="anim-id">S3-ACT-07</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz 連續 2 題「記得很清楚」：種子旋轉 + 葉子像翅膀扇動 + 小跳 2 次。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>76</td><td><span class="anim-name">quiz-leaf-comfort</span><span class="anim-id">S3-ACT-08</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz「完全不會」：兩片葉子合攏抱著種子身體，像在安慰。2s 後慢慢展開。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>77</td><td><span class="anim-name">rec-cheer</span><span class="anim-id">S3-ACT-09</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>錄音完成：兩片葉子舉到最高（像在歡呼），種子開心眯眼。</td><td class="anim-dur">1.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>78</td><td><span class="anim-name">vocab-leaf-hug</span><span class="anim-id">S3-ACT-10</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>加入生詞本時：右葉彎下來輕觸種子頭部（像在摸頭），表示認可。</td><td class="anim-dur">1s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🕐</div><div class="cat-title">Time 時段動畫</div><div class="cat-count">4 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>79</td><td><span class="anim-name">morning-open-leaves</span><span class="anim-id">S3-TIME-01</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>早晨：兩片葉子從貼合狀態緩緩展開到最大角度，像花朵綻放。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>80</td><td><span class="anim-name">afternoon-lazy</span><span class="anim-id">S3-TIME-02</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>午後：一片葉子搭在種子上方遮陽，另一片懶洋洋下垂。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+        <tr><td>81</td><td><span class="anim-name">evening-leaf-glow</span><span class="anim-id">S3-TIME-03</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>傍晚：兩片葉尖同時發出微弱綠色 glow，交替明滅。</td><td class="anim-dur">4s</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+        <tr><td>82</td><td><span class="anim-name">night-blanket</span><span class="anim-id">S3-TIME-04</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>深夜：兩片葉子交叉覆蓋在種子上方，像蓋被子。種子閉眼。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">💭</div><div class="cat-title">Emotion 情緒動畫</div><div class="cat-count">4 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>83</td><td><span class="anim-name">welcome-wave-leaves</span><span class="anim-id">S3-EMO-01</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>回歸時：兩片葉子交替上下揮動（像雙手揮舞歡迎），種子跳 2 次。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>84</td><td><span class="anim-name">week-pride</span><span class="anim-id">S3-EMO-02</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>連續 7 天：種子抬高 + 葉子完全展開 + 微微發光 3s，像在慶祝一週。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>85</td><td><span class="anim-name">miss-you-hug</span><span class="anim-id">S3-EMO-03</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>缺席 3+ 天：兩片葉子合攏抱緊種子身體，整體顏色偏暗，靜靜漂浮。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>86</td><td><span class="anim-name">marathon-joy</span><span class="anim-id">S3-EMO-04</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>單次學習 10+ 句：葉子瘋狂扇動 + 種子跳躍 + 旋轉 + 葉尖發光。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🏆</div><div class="cat-title">Milestone 里程碑</div><div class="cat-count">2 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>87</td><td><span class="anim-name">second-leaf-grow</span><span class="anim-id">S3-MS-01</span></td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>Day 7 進入 Stage 3：第二片葉子從種子另一側緩緩長出，兩片葉子對稱展開。toast「長出第二片葉子了！🍃」。</td><td class="anim-dur">2.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>88</td><td><span class="anim-name">tenth-sentence</span><span class="anim-id">S3-MS-02</span></td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>累計第 10 句錄音：葉子擊掌（leaf-high-five）× 3 次 + 種子大跳 + 發光。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">✨</div><div class="cat-title">Random 隨機驚喜</div><div class="cat-count">2 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>89</td><td><span class="anim-name">leaf-dance</span><span class="anim-id">S3-RND-01</span></td><td><span class="anim-trigger trigger-random">random</span></td><td>10% 概率：兩片葉子做出一段協調的「舞蹈」（左右→交叉→展開→旋轉），像跳了一段 3s 的小舞。</td><td class="anim-dur">3.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>90</td><td><span class="anim-name">seed-sneeze-leaf</span><span class="anim-id">S3-RND-02</span></td><td><span class="anim-trigger trigger-random">random</span></td><td>8% 概率：種子打噴嚏 → 兩片葉子被氣流吹到後方 → 慢慢回彈。比 S1 的噴嚏更有戲劇性。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================= -->
+<!-- STAGE 4: BLOOM (Day 10+) -->
+<!-- ============================================= -->
+<div class="stage-section" id="stage4">
+  <div class="stage-header">
+    <div class="stage-icon" style="background:var(--coral-soft)">🌸</div>
+    <div>
+      <div class="stage-title">Stage 4 — 開花</div>
+      <div class="stage-subtitle">Day 10+ · 種子 + 多葉 + 珊瑚色花苞/花朵 · 新增「花瓣語言」</div>
+    </div>
+  </div>
+  <div class="stage-desc">
+    最終形態。多片葉子中長出一個珊瑚色花苞，隨後綻放成花朵。花瓣成為新的表情載體——可以散落、旋轉、發光。這是最大的視覺獎勵：用戶的堅持讓種子開花了。花朵是珊瑚色（品牌主色），與整個 App 的色調完美融合。此階段動畫最豐富、最有戲劇感。
+  </div>
+  <div class="stage-stats">
+    <div class="stat-chip" style="background:var(--sage-soft);color:var(--sage)">8 idle</div>
+    <div class="stat-chip" style="background:var(--lavender-soft);color:var(--lavender)">10 action</div>
+    <div class="stat-chip" style="background:var(--sky-soft);color:var(--sky)">4 time</div>
+    <div class="stat-chip" style="background:var(--coral-soft);color:var(--coral)">4 emotion</div>
+    <div class="stat-chip" style="background:var(--amber-soft);color:var(--amber)">2 milestone</div>
+    <div class="stat-chip" style="background:var(--card-alt);color:var(--text-2)">2 random</div>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">💤</div><div class="cat-title">Idle 待機動畫</div><div class="cat-count">8 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>91</td><td><span class="anim-name">bloom-sway</span><span class="anim-id">S4-IDLE-01</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>整體（葉+花+種子）優雅地左右搖擺，花朵在最頂端像王冠。預設 idle。</td><td class="anim-dur">4s</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>92</td><td><span class="anim-name">petal-glow</span><span class="anim-id">S4-IDLE-02</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>花瓣微微發光脈動（coral glow），像心跳一樣有節奏。</td><td class="anim-dur">3s</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>93</td><td><span class="anim-name">petal-scatter</span><span class="anim-id">S4-IDLE-03</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>1-2 片小花瓣從花朵飄落（粒子效果），飄到種子身體旁消失。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>94</td><td><span class="anim-name">flower-rotate</span><span class="anim-id">S4-IDLE-04</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>花朵在原位慢慢旋轉 360°（8s），像在展示自己。偶爾觸發。</td><td class="anim-dur">8s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>95</td><td><span class="anim-name">leaf-flower-play</span><span class="anim-id">S4-IDLE-05</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>一片葉子輕輕碰觸花朵，像在摸花瓣。花朵微微顫動回應。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-med">P1</td></tr>
+        <tr><td>96</td><td><span class="anim-name">full-bloom-bounce</span><span class="anim-id">S4-IDLE-06</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>整體輕輕上浮 5px 再下沉，花朵跟著微擺。像在呼吸。</td><td class="anim-dur">3.5s</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+        <tr><td>97</td><td><span class="anim-name">pollen-sparkle</span><span class="anim-id">S4-IDLE-07</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>花朵周圍冒出 3-4 個小金色光點（花粉），2s 後消散。</td><td class="anim-dur">2.5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>98</td><td><span class="anim-name">proud-posture</span><span class="anim-id">S4-IDLE-08</span></td><td><span class="anim-trigger trigger-idle">idle</span></td><td>整體微微抬高（translateY -3px），花朵挺直到最高，像在驕傲地展示。持續一段時間。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🎯</div><div class="cat-title">Action 學習動作</div><div class="cat-count">10 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>99</td><td><span class="anim-name">listen-flower-turn</span><span class="anim-id">S4-ACT-01</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>聆聽中：花朵像向日葵一樣轉向音頻方向，葉子微微展開。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>100</td><td><span class="anim-name">listen-petal-pulse</span><span class="anim-id">S4-ACT-02</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>音頻播放中：花瓣跟著聲波節奏開合（scale 0.9-1.1 循環）。</td><td class="anim-dur">loop</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>101</td><td><span class="anim-name">predict-flower-think</span><span class="anim-id">S4-ACT-03</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>預測階段：花朵微微低頭（像在沉思），葉子交叉在胸前。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>102</td><td><span class="anim-name">reveal-bloom-burst</span><span class="anim-id">S4-ACT-04</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>揭示答案：花朵瞬間放大 1.3x + 散落 5-6 片花瓣 + 回彈。華麗的視覺效果。</td><td class="anim-dur">1s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>103</td><td><span class="anim-name">shadow-flower-sing</span><span class="anim-id">S4-ACT-05</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>跟讀錄音：花朵跟著語音微微搖擺，花瓣節奏性開合，像在唱歌。</td><td class="anim-dur">loop</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>104</td><td><span class="anim-name">quiz-flower-peek</span><span class="anim-id">S4-ACT-06</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz 思考中：花朵轉向一側（像偷看答案），一片葉子遮在種子眼睛前。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>105</td><td><span class="anim-name">quiz-flower-bloom</span><span class="anim-id">S4-ACT-07</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz「記得很清楚」：花朵綻放到最大 + 金色花粉飛散 + 種子小跳。</td><td class="anim-dur">2s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>106</td><td><span class="anim-name">quiz-flower-close</span><span class="anim-id">S4-ACT-08</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>Quiz「完全不會」：花朵緩緩閉合（花瓣收攏），葉子下垂。3s 後慢慢重新綻放（鼓勵）。</td><td class="anim-dur">4s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>107</td><td><span class="anim-name">rec-flower-listen</span><span class="anim-id">S4-ACT-09</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>錄音中：花朵轉向說話方向，花瓣微微收攏（像在聚焦聆聽）。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+        <tr><td>108</td><td><span class="anim-name">complete-celebration</span><span class="anim-id">S4-ACT-10</span></td><td><span class="anim-trigger trigger-action">action</span></td><td>完成全部聆聽 playlist：花朵快速旋轉 + 大量花瓣散落 + 種子連續跳躍 + 金色粒子爆發。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🕐</div><div class="cat-title">Time 時段動畫</div><div class="cat-count">4 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>109</td><td><span class="anim-name">morning-bloom</span><span class="anim-id">S4-TIME-01</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>早晨：花朵從閉合狀態緩緩綻開，像日出一樣。葉子同時展開。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>110</td><td><span class="anim-name">afternoon-shade-flower</span><span class="anim-id">S4-TIME-02</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>午後：葉子彎曲遮在花朵上方，花朵半閉，像在午休。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-low">P2</td></tr>
+        <tr><td>111</td><td><span class="anim-name">evening-flower-glow</span><span class="anim-id">S4-TIME-03</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>傍晚：花朵散發出溫暖的珊瑚色光暈，像夕陽。持續發光。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>112</td><td><span class="anim-name">night-flower-sleep</span><span class="anim-id">S4-TIME-04</span></td><td><span class="anim-trigger trigger-time">time</span></td><td>深夜：花朵完全閉合（花瓣收攏成苞），葉子貼合種子，整體亮度降低。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-high">P0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">💭</div><div class="cat-title">Emotion 情緒動畫</div><div class="cat-count">4 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>113</td><td><span class="anim-name">welcome-petal-rain</span><span class="anim-id">S4-EMO-01</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>回歸時：花朵綻放 + 大量花瓣飄落（petal rain），種子跳躍，歡迎感最強。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>114</td><td><span class="anim-name">two-week-crown</span><span class="anim-id">S4-EMO-02</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>連續 14 天：花朵發光 + 金色花粉圍繞旋轉 + 整體抬高，像戴上王冠。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>115</td><td><span class="anim-name">long-absence-wilt</span><span class="anim-id">S4-EMO-03</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>缺席 5+ 天：花朵閉合成花苞，葉子下垂，顏色暗淡。回歸後緩緩重新綻放。</td><td class="anim-dur">hold</td><td class="anim-loop loop-yes">♻️</td><td class="p-med">P1</td></tr>
+        <tr><td>116</td><td><span class="anim-name">epic-session</span><span class="anim-id">S4-EMO-04</span></td><td><span class="anim-trigger trigger-emotion">emotion</span></td><td>單次學 15+ 句：花朵完全綻放 + 持續花瓣雨 + 金色粒子環繞 + 種子跳舞。</td><td class="anim-dur">4s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">🏆</div><div class="cat-title">Milestone 里程碑</div><div class="cat-count">2 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>117</td><td><span class="anim-name">flower-bloom-first</span><span class="anim-id">S4-MS-01</span></td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>Day 10 進入 Stage 4：花苞從葉子中央緩緩升起 → 停頓 1s → 綻放成花朵。最華麗的動畫。toast「開花了！🌸 你的堅持有了果實」。</td><td class="anim-dur">4s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+        <tr><td>118</td><td><span class="anim-name">hundredth-day</span><span class="anim-id">S4-MS-02</span></td><td><span class="anim-trigger trigger-milestone">milestone</span></td><td>Day 100：花朵發金色光 + 大量花瓣旋轉環繞 + 種子連續跳 5 次 + 全屏撒花瓣粒子效果。持續 5s。</td><td class="anim-dur">5s</td><td class="anim-loop loop-no">▶️</td><td class="p-high">P0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="category">
+    <div class="cat-header"><div class="cat-icon">✨</div><div class="cat-title">Random 隨機驚喜</div><div class="cat-count">2 個</div></div>
+    <table class="anim-table">
+      <thead><tr><th>#</th><th>名稱</th><th>觸發</th><th>動作描述</th><th>時長</th><th>循環</th><th>優先</th></tr></thead>
+      <tbody>
+        <tr><td>119</td><td><span class="anim-name">bird-visit</span><span class="anim-id">S4-RND-01</span></td><td><span class="anim-trigger trigger-random">random</span></td><td>8% 概率：一隻小鳥 emoji 飛來停在花朵上，種子好奇看著，3s 後小鳥飛走，種子目送。</td><td class="anim-dur">5s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+        <tr><td>120</td><td><span class="anim-name">rainbow-glow</span><span class="anim-id">S4-RND-02</span></td><td><span class="anim-trigger trigger-random">random</span></td><td>5% 概率：花朵突然發出彩虹色漸變光暈（coral→amber→sage→lavender 循環），維持 3s。最稀有的驚喜。</td><td class="anim-dur">3s</td><td class="anim-loop loop-no">▶️</td><td class="p-low">P2</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ============================================= -->
+<!-- IMPLEMENTATION GUIDE -->
+<!-- ============================================= -->
+<div id="impl">
+  <div class="impl-guide">
+    <div class="impl-title">⚙️ 開發實現指南</div>
+    <div class="impl-desc">動畫素材庫的使用方式。所有動畫在 App 中通過 AnimationManager 統一管理，根據當前 Stage + 觸發事件 + 隨機因子選擇播放。</div>
+    <div class="impl-code">
+// 偽代碼：動畫觸發邏輯
+class SeedAnimationManager {
+  currentStage: 1-4  // 根據 Day 計算
+  animationPool: Map&lt;Stage, Animation[]&gt;
+
+  // 每次 App 打開或學習事件時調用
+  triggerAnimation(event: EventType) {
+    const stage = this.currentStage
+    const candidates = this.animationPool[stage]
+      .filter(a => a.trigger === event.type)
+      .filter(a => a.priority <= currentPriorityThreshold)
+
+    // P0 動畫直接播放，P1/P2 隨機選一個
+    const anim = this.selectByPriority(candidates)
+
+    // 檢查是否與當前動畫衝突
+    if (!anim.isLoop || !this.isPlaying) {
+      this.play(anim)
+    }
+  }
+
+  // Idle 動畫由計時器觸發（每 3-8 秒隨機選一個）
+  scheduleIdleAnimations() {
+    setInterval(() => {
+      if (noUserAction for 3s) {
+        this.triggerAnimation({ type: 'idle' })
+      }
+    }, random(3000, 8000))
+  }
+}
+
+// CSS 動畫命名規則
+// .seed-s{stage}-{category}-{name}
+// 例：.seed-s2-action-listen-leaf-up
+// 例：.seed-s4-idle-bloom-sway
+// 例：.seed-s3-time-night-blanket</div>
+  </div>
+</div>
+
+<!-- Priority Legend -->
+<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;margin-bottom:24px">
+  <div style="font-size:14px;font-weight:700;margin-bottom:10px">📊 優先級說明</div>
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;font-size:12px;line-height:1.7">
+    <div>
+      <div style="font-weight:700;color:var(--coral)">P0 — 必須實現</div>
+      <div style="color:var(--text-2)">核心體驗動畫。沒有這些，種子會感覺「死的」。MVP 階段必須全部實現。</div>
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--amber)">P1 — 應該實現</div>
+      <div style="color:var(--text-2)">豐富度動畫。有了這些，種子才有「個性」。v1.1 前實現。</div>
+    </div>
+    <div>
+      <div style="font-weight:700;color:var(--sage)">P2 — 可以延後</div>
+      <div style="color:var(--text-2)">驚喜動畫。讓用戶感到「哇！」。可以逐步加入。</div>
+    </div>
+  </div>
+</div>
+
+<!-- Stats Summary -->
+<div style="background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px">
+  <div style="font-size:14px;font-weight:700;margin-bottom:12px">📈 各階段動畫分佈</div>
+  <table class="anim-table" style="border:none">
+    <thead><tr><th>階段</th><th>Idle</th><th>Action</th><th>Time</th><th>Emotion</th><th>Milestone</th><th>Random</th><th>總計</th><th>P0 數</th></tr></thead>
+    <tbody>
+      <tr><td class="anim-name">🟡 S1 種子</td><td>8</td><td>10</td><td>4</td><td>4</td><td>2</td><td>2</td><td><strong>30</strong></td><td style="color:var(--coral);font-weight:700">13</td></tr>
+      <tr><td class="anim-name">🌿 S2 發芽</td><td>8</td><td>10</td><td>4</td><td>4</td><td>2</td><td>2</td><td><strong>30</strong></td><td style="color:var(--coral);font-weight:700">13</td></tr>
+      <tr><td class="anim-name">🍃 S3 雙葉</td><td>8</td><td>10</td><td>4</td><td>4</td><td>2</td><td>2</td><td><strong>30</strong></td><td style="color:var(--coral);font-weight:700">13</td></tr>
+      <tr><td class="anim-name">🌸 S4 開花</td><td>8</td><td>10</td><td>4</td><td>4</td><td>2</td><td>2</td><td><strong>30</strong></td><td style="color:var(--coral);font-weight:700">15</td></tr>
+      <tr style="background:var(--card-alt);font-weight:700"><td>合計</td><td>32</td><td>40</td><td>16</td><td>16</td><td>8</td><td>8</td><td><strong>120</strong></td><td style="color:var(--coral)">54</td></tr>
+    </tbody>
+  </table>
+</div>
+
+</div>
+</body>
+</html>

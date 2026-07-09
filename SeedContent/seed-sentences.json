@@ -1,0 +1,280 @@
+{
+  "version": "v8.0",
+  "language": "en",
+  "sentences": [
+    {
+      "id": "seed-001",
+      "zh_text": "今天過得怎麼樣？",
+      "en_translation": "How was your day today?",
+      "category": "friends",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "How was", "meaning": "……怎麼樣？", "type": "pattern" },
+        { "surfaceText": "your day", "meaning": "你的一天", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "How was your day", "meaningInContext": "今天過得怎麼樣？", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-002",
+      "zh_text": "這很好吃",
+      "en_translation": "This is really good.",
+      "category": "daily_life",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "really good", "meaning": "很好吃、很好", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "really good", "meaningInContext": "很好吃", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-003",
+      "zh_text": "我快累死了",
+      "en_translation": "I'm exhausted.",
+      "category": "work",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "exhausted", "meaning": "累死了、筋疲力盡", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "exhausted", "meaningInContext": "累死了", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-004",
+      "zh_text": "明天見！",
+      "en_translation": "See you tomorrow!",
+      "category": "daily_life",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "See you", "meaning": "再見、見面", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "See you tomorrow", "meaningInContext": "明天見", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-005",
+      "zh_text": "我需要幫忙",
+      "en_translation": "I need some help.",
+      "category": "daily_life",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "need some help", "meaning": "需要幫忙", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "need some help", "meaningInContext": "需要幫忙", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-006",
+      "zh_text": "聽起來不錯",
+      "en_translation": "Sounds good.",
+      "category": "friends",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "Sounds good", "meaning": "聽起來不錯", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "Sounds good", "meaningInContext": "聽起來不錯", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-007",
+      "zh_text": "我不同意",
+      "en_translation": "I don't agree with that.",
+      "category": "debate",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "don't agree with", "meaning": "不同意……", "type": "pattern" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "don't agree with", "meaningInContext": "不同意", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-008",
+      "zh_text": "等一下，讓我查一下",
+      "en_translation": "Hold on, let me check.",
+      "category": "work",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "Hold on", "meaning": "等一下、稍等", "type": "phrase" },
+        { "surfaceText": "let me check", "meaning": "讓我查一下", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "Hold on", "meaningInContext": "等一下", "suggestedHelpState": "new" },
+        { "surfaceText": "let me check", "meaningInContext": "讓我查一下", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-009",
+      "zh_text": "我知道你的意思",
+      "en_translation": "I see what you mean.",
+      "category": "debate",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "I see what you mean", "meaning": "我知道你在說什麼、我懂你的意思", "type": "pattern" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "see what you mean", "meaningInContext": "懂你的意思", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-010",
+      "zh_text": "慢慢來，不用急",
+      "en_translation": "Take your time, no rush.",
+      "category": "heartfelt",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "Take your time", "meaning": "慢慢來", "type": "phrase" },
+        { "surfaceText": "no rush", "meaning": "不用急", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "Take your time", "meaningInContext": "慢慢來", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-011",
+      "zh_text": "今天工作忙翻了，但還是準時下班了",
+      "en_translation": "I was swamped at work today, but I still got off on time.",
+      "category": "work",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "swamped", "meaning": "忙翻了、忙到不行", "type": "phrase" },
+        { "surfaceText": "got off on time", "meaning": "準時下班", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "swamped", "meaningInContext": "忙翻了", "suggestedHelpState": "learning" },
+        { "surfaceText": "got off on time", "meaningInContext": "準時下班", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-012",
+      "zh_text": "同事說的笑話一點都不好笑",
+      "en_translation": "My coworker's joke wasn't funny at all.",
+      "category": "friends",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "wasn't funny at all", "meaning": "一點都不好笑", "type": "pattern" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "wasn't ... at all", "meaningInContext": "一點都不……", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-013",
+      "zh_text": "我真的受不了這個天氣了",
+      "en_translation": "I seriously can't take this weather anymore.",
+      "category": "vent",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "seriously", "meaning": "真的、認真的", "type": "phrase" },
+        { "surfaceText": "can't take ... anymore", "meaning": "再也受不了……", "type": "pattern" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "seriously", "meaningInContext": "真的", "suggestedHelpState": "new" },
+        { "surfaceText": "can't take this anymore", "meaningInContext": "受不了了", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-014",
+      "zh_text": "想約朋友吃飯，但大家都好忙",
+      "en_translation": "I want to grab dinner with friends, but everyone's so busy.",
+      "category": "friends",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "grab dinner", "meaning": "吃飯（隨意的說法）", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "grab dinner", "meaningInContext": "吃飯", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-015",
+      "zh_text": "我覺得這不太對",
+      "en_translation": "I don't think that's quite right.",
+      "category": "debate",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "I don't think", "meaning": "我不覺得、我不認為", "type": "pattern" },
+        { "surfaceText": "quite right", "meaning": "不太對、不完全正確", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "quite right", "meaningInContext": "不太對", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-016",
+      "zh_text": "有時候就只是想一個人待著",
+      "en_translation": "Sometimes I just want to be alone.",
+      "category": "heartfelt",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "I just want to", "meaning": "我就只是想……", "type": "pattern" },
+        { "surfaceText": "be alone", "meaning": "一個人待著", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "be alone", "meaningInContext": "一個人待著", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-017",
+      "zh_text": "廁所在哪裡？",
+      "en_translation": "Where's the restroom?",
+      "category": "daily_life",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "Where's the", "meaning": "……在哪裡？", "type": "pattern" },
+        { "surfaceText": "restroom", "meaning": "廁所", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "restroom", "meaningInContext": "廁所", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-018",
+      "zh_text": "可以再便宜一點嗎？",
+      "en_translation": "Can you give me a better price?",
+      "category": "daily_life",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "give me a better price", "meaning": "便宜一點、更好的價錢", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "better price", "meaningInContext": "便宜一點", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-019",
+      "zh_text": "最近壓力很大，但會撐過去的",
+      "en_translation": "I've been under a lot of pressure lately, but I'll get through it.",
+      "category": "vent",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "under a lot of pressure", "meaning": "壓力很大", "type": "phrase" },
+        { "surfaceText": "get through it", "meaning": "撐過去、熬過去", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "under a lot of pressure", "meaningInContext": "壓力很大", "suggestedHelpState": "learning" },
+        { "surfaceText": "get through it", "meaningInContext": "撐過去", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-020",
+      "zh_text": "我覺得自己比幾個月前進步了",
+      "en_translation": "I think I've improved a lot compared to a few months ago.",
+      "category": "heartfelt",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "I've improved a lot", "meaning": "進步了很多", "type": "pattern" },
+        { "surfaceText": "compared to", "meaning": "跟……比起來", "type": "pattern" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "compared to", "meaningInContext": "跟……比起來", "suggestedHelpState": "learning" }
+      ]
+    }
+  ]
+}

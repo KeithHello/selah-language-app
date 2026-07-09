@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selah 生詞系統深度分析</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#FBF8F4;--card:#fff;--text:#1A1614;--t2:#706B65;--t3:#A9A49E;
+--coral:#E06B54;--coral-s:#FEF0ED;--sage:#5A9E82;--sage-s:#ECF7F1;
+--amber:#E5A244;--amber-s:#FDF5E6;--lav:#8B7FC7;--lav-s:#F0EEF8;
+--sky:#5B9FD4;--sky-s:#EAF3FB;--border:#EBE7E1;--bl:#F3F0EC;
+--font:'Plus Jakarta Sans',system-ui,sans-serif}
+body{font-family:var(--font);background:var(--bg);color:var(--text);padding:32px 20px;max-width:920px;margin:0 auto;line-height:1.7;-webkit-font-smoothing:antialiased}
+h1{font-size:24px;font-weight:800;letter-spacing:-.03em;margin-bottom:4px}
+.sub{font-size:14px;color:var(--t2);margin-bottom:36px}
+h2{font-size:17px;font-weight:800;margin:44px 0 14px;padding-bottom:6px;border-bottom:2px solid var(--border)}
+h3{font-size:15px;font-weight:700;margin:24px 0 10px}
+h4{font-size:14px;font-weight:700;margin:18px 0 8px}
+p{font-size:14px;color:var(--t2);margin-bottom:12px}
+strong{color:var(--text)}
+.box{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px;margin:14px 0}
+.box-coral{border-left:4px solid var(--coral)}
+.box-sage{border-left:4px solid var(--sage)}
+.box-amber{border-left:4px solid var(--amber)}
+.box-sky{border-left:4px solid var(--sky)}
+.box-lav{border-left:4px solid var(--lav)}
+.tag{display:inline-block;padding:2px 8px;border-radius:6px;font-size:10px;font-weight:700;margin-right:4px}
+.tag-r{background:var(--coral-s);color:var(--coral)}
+.tag-g{background:var(--sage-s);color:var(--sage)}
+.tag-y{background:var(--amber-s);color:var(--amber)}
+.tag-b{background:var(--sky-s);color:var(--sky)}
+
+/* Journey flow */
+.journey{display:flex;align-items:stretch;gap:0;margin:20px 0;flex-wrap:wrap}
+.j-step{flex:1;min-width:120px;padding:14px 12px;border:1px solid var(--border);text-align:center;position:relative;font-size:12px}
+.j-step:first-child{border-radius:12px 0 0 12px}
+.j-step:last-child{border-radius:0 12px 12px 0}
+.j-step-num{width:22px;height:22px;border-radius:50%;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-bottom:6px}
+.j-step-title{font-weight:700;font-size:12px;margin-bottom:3px}
+.j-step-desc{font-size:10px;color:var(--t2);line-height:1.5}
+.j-arrow{position:absolute;right:-8px;top:50%;transform:translateY(-50%);font-size:14px;color:var(--t3);z-index:1}
+
+/* Word type table */
+.wt{width:100%;border-collapse:collapse;margin:12px 0;font-size:13px}
+.wt th{background:var(--card);padding:10px 12px;text-align:left;font-weight:700;font-size:11px;color:var(--t2);border-bottom:2px solid var(--border)}
+.wt td{padding:10px 12px;border-bottom:1px solid var(--bl);background:var(--card)}
+.wt .ex{font-style:italic;color:var(--sage);font-weight:600}
+
+/* Sentence breakdown */
+.sentence-box{background:var(--sage-s);border-radius:14px;padding:16px;margin:12px 0}
+.sentence-en{font-size:15px;font-weight:700;color:var(--sage);margin-bottom:10px}
+.word-chip{display:inline-block;padding:3px 10px;border-radius:8px;font-size:12px;font-weight:600;margin:2px}
+.word-learn{background:var(--amber-s);color:var(--amber);border:1.5px solid var(--amber)}
+.word-known{background:var(--bl);color:var(--t3);border:1.5px solid var(--bl)}
+.word-phrase{background:var(--lav-s);color:var(--lav);border:1.5px solid var(--lav)}
+
+/* Recording flow */
+.rec-flow{background:var(--card);border-radius:16px;border:1px solid var(--border);padding:20px;margin:16px 0}
+.rec-step{display:flex;align-items:flex-start;gap:14px;padding:12px 0;border-bottom:1px solid var(--bl)}
+.rec-step:last-child{border:none}
+.rec-num{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:#fff;flex-shrink:0}
+.rec-body{flex:1}
+.rec-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.rec-desc{font-size:12px;color:var(--t2);line-height:1.6}
+.rec-example{font-size:11px;background:var(--bl);padding:6px 10px;border-radius:8px;margin-top:6px;color:var(--t2)}
+
+/* Tier cards */
+.tier{border-radius:16px;padding:20px;margin:14px 0}
+.tier-best{background:var(--sage-s);border:2px solid var(--sage)}
+.tier-mid{background:var(--amber-s);border:2px solid var(--amber)}
+.tier-low{background:var(--bl);border:2px solid var(--t3)}
+.tier-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.tier h3{margin:0 0 8px}
+.tier p{font-size:13px;margin-bottom:8px}
+
+/* Verdict */
+.verdict{background:linear-gradient(135deg,var(--text),#2A2624);color:#fff;border-radius:18px;padding:24px;margin:36px 0}
+.verdict h3{color:#fff;margin:0 0 10px}
+.verdict p{color:rgba(255,255,255,.75)}
+.verdict strong{color:#fff}
+</style>
+</head>
+<body>
+
+<h1>Selah 生詞系統深度分析</h1>
+<p class="sub">生詞在 Selah 中的本質角色、哪些詞值得學、錄音流程怎麼產生生詞、以及三套方案。</p>
+
+<!-- ═══════ CORE INSIGHT ═══════ -->
+<h2>🧠 生詞的本質：不是功能，是副產品</h2>
+
+<div class="box box-coral">
+<h4>核心洞察：Selah 不需要一個「生詞系統」</h4>
+<p>回想自己學語言的過程：詞彙從來不是以「單詞卡」的形式被真正學會的。一個詞被記住，是因為它在<strong>有意義的句子中反覆出現</strong>，而且最終你<strong>在說話時主動用了它</strong>。</p>
+<p>所以 Selah 裡不應該有一個獨立的「生詞學習」功能。生詞應該是句子學習流程的<strong>自然副產品</strong>——用戶在學句子的過程中遇見生詞、在練習中再次遇見它、在錄音時嘗試使用它。生詞本（筆記頁的那個列表）只是一個「參考索引」，不是學習界面。</p>
+</div>
+
+<h3>生詞的真實生命週期</h3>
+<p>一個生詞從「不認識」到「自然脫口而出」，要經歷五個階段。目前 Selah 只覆蓋了前兩個。</p>
+
+<div class="journey">
+<div class="j-step" style="background:var(--lav-s)">
+<div class="j-step-num" style="background:var(--lav)">1</div>
+<div class="j-step-title">遇見</div>
+<div class="j-step-desc">夜間預習時看到不認識的詞，點擊查看意思</div>
+<div class="j-arrow">→</div>
+</div>
+<div class="j-step" style="background:var(--sky-s)">
+<div class="j-step-num" style="background:var(--sky)">2</div>
+<div class="j-step-title">聽見</div>
+<div class="j-step-desc">聆聽練習中聽到這個詞在句子裡的聲音</div>
+<div class="j-arrow">→</div>
+</div>
+<div class="j-step" style="background:var(--sage-s)">
+<div class="j-step-num" style="background:var(--sage)">3</div>
+<div class="j-step-title">理解</div>
+<div class="j-step-desc">句子拆解中看到這個詞的用法和結構</div>
+<div class="j-arrow">→</div>
+</div>
+<div class="j-step" style="background:var(--amber-s)">
+<div class="j-step-num" style="background:var(--amber)">4</div>
+<div class="j-step-title">回憶</div>
+<div class="j-step-desc">Quiz 中看到中文，試圖回憶包含這個詞的英文</div>
+<div class="j-arrow">→</div>
+</div>
+<div class="j-step" style="background:var(--coral-s)">
+<div class="j-step-num" style="background:var(--coral)">5</div>
+<div class="j-step-title">使用</div>
+<div class="j-step-desc">錄音時在自己的句子中主動使用這個詞</div>
+</div>
+</div>
+
+<div class="box box-amber">
+<h4>目前的問題：生詞在 Step 1 之後就「消失」了</h4>
+<p>現在的 v6 原型中，用戶在夜間預習裡點擊一個生詞、看到翻譯、被加入生詞本——然後呢？這個詞就靜靜躺在生詞本裡，再也不會主動出現在用戶面前。<strong>沒有 Step 2-5 的機制。</strong></p>
+<p>這等於用戶「遇見」了一個詞，但從未真正「學會」它。生詞本變成了一個只進不出的倉庫。</p>
+</div>
+
+
+<!-- ═══════ WHICH WORDS ═══════ -->
+<h2>🎯 哪些詞值得學？</h2>
+
+<p>一個句子裡的詞不是平等的。有些詞不值得花時間學，有些詞才是核心。</p>
+
+<div class="sentence-box">
+<div class="sentence-en">Can I get a large <span class="word-chip word-phrase">iced latte</span>, <span class="word-chip word-learn">light ice</span>, no sugar?</div>
+<div style="margin-top:10px;font-size:12px;line-height:2">
+<span class="word-chip word-known">Can</span>
+<span class="word-chip word-known">I</span>
+<span class="word-chip word-known">get</span>
+<span class="word-chip word-known">a</span>
+<span class="word-chip word-known">large</span>
+<span class="word-chip word-phrase">iced latte</span>
+<span class="word-chip word-learn">light ice</span>
+<span class="word-chip word-known">no</span>
+<span class="word-chip word-known">sugar</span>
+</div>
+</div>
+
+<table class="wt">
+<tr><th>詞的類型</th><th>例子</th><th>值得學？</th><th>原因</th></tr>
+<tr><td><span class="tag tag-g">已知基礎詞</span></td><td class="ex">I, the, get, go, is</td><td>❌ 不需要</td><td>用戶早已認識，花時間在上面是浪費</td></tr>
+<tr><td><span class="tag tag-y">情境詞組</span></td><td class="ex">light ice, iced latte, save a seat</td><td>✅ 核心</td><td>特定場景才用到，不會從基礎詞推導出來</td></tr>
+<tr><td><span class="tag tag-r">高頻口語詞</span></td><td class="ex">swamped, deadline, worth it</td><td>✅ 核心</td><td>日常對話中反覆出現，是「活」的詞</td></tr>
+<tr><td><span class="tag tag-b">語法結構</span></td><td class="ex">changed the requirements again</td><td>⚠️ 視情況</td><td>句型比單詞更重要，應該在句子拆解中處理</td></tr>
+<tr><td><span class="tag tag-g">用戶個人弱點</span></td><td class="ex">Quiz 中反覆卡住的詞</td><td>✅ 最優先</td><td>數據證明用戶不會的詞，比任何分類都精準</td></tr>
+</table>
+
+<div class="box box-sage">
+<h4>結論：誰來決定哪些詞是生詞？</h4>
+<p><strong>主要靠用戶自己。</strong>在夜間預習時，用戶點擊不認識的詞——這個動作本身就是最好的篩選器。用戶知道自己不會什麼。</p>
+<p><strong>其次靠數據。</strong>如果用戶在 Quiz 中反覆在某個詞上卡住（選了「卡住了」），系統可以自動標記這個詞為需要加強。</p>
+<p><strong>不該靠 AI 預判。</strong>AI 無法知道這個用戶的具體水平和背景。一個在外商工作的用戶和一個大學生，不認識的詞完全不同。讓 AI 猜「你可能不會這個詞」只會增加噪音。</p>
+</div>
+
+
+<!-- ═══════ RECORDING FLOW ═══════ -->
+<h2>🎙️ 錄音 → 生詞：完整的數據流</h2>
+
+<p>你提到「錄音之後會轉寫、變中文、再進入下一頁」——這個流程目前的 v6 原型中確實不存在。讓我設計它。</p>
+
+<h3>場景一：晚安語錄音</h3>
+<div class="rec-flow">
+<div class="rec-step">
+<div class="rec-num" style="background:var(--lav)">1</div>
+<div class="rec-body">
+<div class="rec-title">用戶按住麥克風說話</div>
+<div class="rec-desc">「Today I was swamped at work, but I managed to finish the report.」</div>
+<div class="rec-example">🎙️ 語音輸入（英文）</div>
+</div>
+</div>
+<div class="rec-step">
+<div class="rec-num" style="background:var(--sky)">2</div>
+<div class="rec-body">
+<div class="rec-title">AI 語音轉文字（STT）</div>
+<div class="rec-desc">將語音轉為文字。同時標示出用戶<strong>實際使用過的生詞</strong>。</div>
+<div class="rec-example">"Today I was <strong style="color:var(--amber)">swamped</strong> at work, but I <strong style="color:var(--amber)">managed to</strong> finish the report."<br>→ 系統識別到：swamped（生詞本裡有）、managed to（新詞組）</div>
+</div>
+</div>
+<div class="rec-step">
+<div class="rec-num" style="background:var(--sage)">3</div>
+<div class="rec-body">
+<div class="rec-title">AI 翻譯為中文</div>
+<div class="rec-desc">將整句翻譯為中文，讓用戶確認意思正確。</div>
+<div class="rec-example">「今天工作忙翻了，但我設法完成了報告。」</div>
+</div>
+</div>
+<div class="rec-step">
+<div class="rec-num" style="background:var(--amber)">4</div>
+<div class="rec-body">
+<div class="rec-title">顯示結果 + 生詞反饋</div>
+<div class="rec-desc">展示英文原文 + 中文翻譯。如果用戶用了生詞本裡的詞，給一個小鼓勵。如果有新的高價值詞組，建議加入。</div>
+<div class="rec-example">✅ 你用了「swamped」！這個詞你在 3 天前學的，現在能主動使用了，很棒！<br>💡「managed to」= 設法做到了，要加入生詞嗎？</div>
+</div>
+</div>
+<div class="rec-step">
+<div class="rec-num" style="background:var(--coral)">5</div>
+<div class="rec-body">
+<div class="rec-title">存入筆記 + 進入下一步</div>
+<div class="rec-desc">這句話自動加入筆記頁（我的句子）。新詞組（如果用戶確認）加入生詞本。精靈做出開心的反應。頁面顯示「晚安 🌙」。</div>
+</div>
+</div>
+</div>
+
+<h3>場景二：聆聽練習中的句子拆解</h3>
+<div class="rec-flow">
+<div class="rec-step">
+<div class="rec-num" style="background:var(--sky)">1</div>
+<div class="rec-body">
+<div class="rec-title">聆聽完成 → 進入預測</div>
+<div class="rec-desc">用戶聽了 3 遍 "I'm swamped today — my boss changed the requirements again."</div>
+</div>
+</div>
+<div class="rec-step">
+<div class="rec-num" style="background:var(--lav)">2</div>
+<div class="rec-body">
+<div class="rec-title">用戶點擊「揭示答案」</div>
+<div class="rec-desc">顯示完整英文句子。<strong>系統自動標出核心詞組</strong>（不需要用戶手動選擇）。</div>
+<div class="rec-example" style="background:var(--sage-s)">
+<strong style="color:var(--amber)">be swamped</strong> = 忙翻了（比 busy 更口語）<br>
+<strong style="color:var(--amber)">changed the requirements</strong> = 改需求<br>
+<span style="color:var(--t3)">句型：抱怨 + 原因</span>
+</div>
+</div>
+</div>
+<div class="rec-step">
+<div class="rec-num" style="background:var(--sage)">3</div>
+<div class="rec-body">
+<div class="rec-title">用戶點擊不認識的詞</div>
+<div class="rec-desc">點擊 "swamped" 或 "requirements"，彈出簡短釋義 + 發音。點擊的詞自動加入生詞本。</div>
+</div>
+</div>
+</div>
+
+<h3>場景三：Quiz 中的被動生詞發現</h3>
+<div class="box box-sky">
+<p>用戶在 Quiz 中看到「今天忙死了，老闆又改需求了」，揭示了答案後發現自己在 "swamped" 這個詞上卡住了（需要很長時間才回憶起來，或者選了「卡住了」）。</p>
+<p><strong>系統行為：</strong>自動把 "swamped" 加入生詞本（即使用戶之前在預習時沒有點擊它）。標記來源為「Quiz 中發現的弱點」。</p>
+<p>這是比用戶主動選擇更精準的數據——因為它反映的是「你以為自己會，但實際上不會」的詞。</p>
+</div>
+
+
+<!-- ═══════ THREE TIERS ═══════ -->
+<h2>📐 生詞系統三策</h2>
+
+<!-- UPPER -->
+<div class="tier tier-best">
+<div class="tier-label" style="color:var(--sage)">上策</div>
+<h3>生詞完全融入句子流程，沒有獨立功能</h3>
+
+<p><strong>核心理念：</strong>生詞不存在於自己的「世界」裡。它永遠活在某個句子中，通過句子的各個學習階段自然被複習。</p>
+
+<p><strong>具體做法：</strong></p>
+<p>① <strong>遇見</strong>（夜間預習）：用戶點擊句子中不認識的詞 → 彈出釋義 → 自動加入生詞本。這是唯一的「添加」入口。</p>
+<p>② <strong>聽見</strong>（聆聽）：聽到包含這個詞的句子。不需要特殊處理，就是正常聆聽。</p>
+<p>③ <strong>理解</strong>（句子拆解）：揭示答案後，核心詞組被高亮並附上解釋。如果其中有生詞本裡的詞，額外標註「📖 你收藏的詞」。</p>
+<p>④ <strong>回憶</strong>（Quiz）：Quiz 的句子本身包含生詞。當用戶卡住時，揭示答案後顯示「這個句子包含你的生詞：<strong>swamped</strong>」。</p>
+<p>⑤ <strong>使用</strong>（錄音）：用戶錄音後，AI 識別轉寫文本中是否使用了生詞本裡的詞。如果使用了，給正面反饋。如果有新的高價值詞組，建議加入。</p>
+<p>⑥ <strong>生詞本</strong>（筆記頁）：只是一個參考列表，每個詞都帶著它的來源句子。沒有獨立的複習功能——因為詞已經在句子流程中被反覆練習了。</p>
+
+<p><strong>筆記頁的生詞長這樣：</strong></p>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin:8px 0;font-size:12px">
+<div style="font-weight:700">swamped</div>
+<div style="color:var(--t2);font-size:11px">忙翻了</div>
+<div style="color:var(--t3);font-size:10px;margin-top:4px;font-style:italic">「I'm swamped today — my boss changed the requirements again.」</div>
+<div style="color:var(--sage);font-size:10px;margin-top:4px">✓ 已在錄音中使用過 1 次</div>
+</div>
+
+<p style="margin-top:10px"><strong>優點：</strong>零額外功能。生詞通過句子流程自然被複習，不需要任何額外的「生詞複習」環節。極簡到極致。</p>
+<p><strong>風險：</strong>如果用戶很長時間沒有碰到某個生詞所在的句子，那個詞可能會被遺忘。沒有間隔重複（spaced repetition）的保障。</p>
+</div>
+
+<!-- MIDDLE -->
+<div class="tier tier-mid">
+<div class="tier-label" style="color:var(--amber)">中策</div>
+<h3>在上策基礎上，加入輕量的「每日生詞」提醒</h3>
+
+<p><strong>核心理念：</strong>保持上策的所有設計，但在「今日」頁面加一個小模塊：「今日生詞」——從生詞本中挑選 2-3 個最需要複習的詞（最久沒被遇到的、或者在 Quiz 中反覆卡住的）。</p>
+
+<p><strong>具體做法：</strong></p>
+<p>在「今日」頁面的任務列表下方，顯示一個小卡片：</p>
+<div style="background:var(--card);border:1px solid var(--amber);border-radius:10px;padding:12px;margin:8px 0;font-size:12px">
+<div style="font-weight:700;color:var(--amber)">📖 今日生詞</div>
+<div style="margin-top:6px">
+<div style="padding:4px 0;border-bottom:1px solid var(--bl)"><strong>swamped</strong> · 忙翻了 · <span style="color:var(--t3)">出自：今天忙死了…</span></div>
+<div style="padding:4px 0;border-bottom:1px solid var(--bl)"><strong>light ice</strong> · 少冰 · <span style="color:var(--t3)">出自：我要一個大杯…</span></div>
+<div style="padding:4px 0"><strong>save a seat</strong> · 留位子 · <span style="color:var(--t3)">出自：可以幫我留一個…</span></div>
+</div>
+<div style="font-size:10px;color:var(--t3);margin-top:6px">這些詞在你今天的句子裡會再次出現 🎧</div>
+</div>
+
+<p style="margin-top:10px"><strong>優點：</strong>解決了上策「長時間不碰到就忘記」的問題。用戶打開 App 就知道今天需要關注哪些詞。而且這些詞會在後續的聆聽/練習中自然再次出現，形成「預熱 → 再遇見」的循環。</p>
+<p><strong>風險：</strong>增加了一個概念（「今日生詞」），但只是一個小卡片，不是一個獨立功能。</p>
+</div>
+
+<!-- LOWER -->
+<div class="tier tier-low">
+<div class="tier-label" style="color:var(--t3)">下策</div>
+<h3>加入獨立的生詞複習流程（類似 Anki）</h3>
+
+<p><strong>核心理念：</strong>在上策基礎上，加入一個獨立的「生詞複習」環節——類似 Anki 的閃卡系統，用戶翻卡看中文猜英文。</p>
+
+<p><strong>具體做法：</strong></p>
+<p>在「今日」頁面增加一個任務：「生詞複習 · 5 詞」。點進去後是閃卡模式：顯示中文 → 用戶猜英文 → 翻轉揭示 → 自評（記住了/模糊/忘了）。忘記的詞明天會再次出現。</p>
+
+<p><strong>優點：</strong>科學的間隔重複保障，確保不會忘記。對於「認真想學好」的用戶有明確的價值。</p>
+<p><strong>致命問題：</strong>這完全違背 Selah 的極簡理念。它把 Selah 變成了一個「句子學習 + 單詞學習」的雙功能 App。用戶的認知負荷翻倍。而且，孤立地背單詞跟 Selah「在語境中自然習得」的哲學矛盾。</p>
+<p><strong>結論：不推薦。</strong>如果用戶真的需要 Anki，讓他們自己去用 Anki。Selah 不該試圖做所有事。</p>
+</div>
+
+
+<!-- ═══════ RECORDING FLOW TIERS ═══════ -->
+<h2>🎙️ 錄音流程三策</h2>
+
+<p>你提到「錄音之後轉寫、變中文、進入下一頁」——這個流程在 v6 中確實缺失。以下是三套方案：</p>
+
+<div class="tier tier-best">
+<div class="tier-label" style="color:var(--sage)">上策</div>
+<h3>完整的 AI 處理鏈：語音 → 文字 → 翻譯 → 生詞識別 → 反饋</h3>
+<p>① 用戶錄音（英文）</p>
+<p>② AI 語音轉文字（STT），生成英文文本</p>
+<p>③ AI 翻譯英文 → 中文</p>
+<p>④ AI 識別文本中的「高價值詞組」（新出現的、或生詞本中已有的）</p>
+<p>⑤ 顯示結果頁：英文 + 中文 + 生詞反饋（鼓勵已使用的 + 建議新增的）</p>
+<p>⑥ 用戶確認後，句子存入筆記，新詞存入生詞本，精靈給反饋</p>
+<p style="margin-top:8px"><strong>優點：</strong>錄音不只是「記錄」，它變成了一個<strong>主動學習閉環</strong>——用戶說出來的詞被識別和反饋，這是最強的生詞鞏固方式（從被動認識到主動使用）。</p>
+</div>
+
+<div class="tier tier-mid">
+<div class="tier-label" style="color:var(--amber)">中策</div>
+<h3>簡化鏈：語音 → 文字 → 翻譯，不做生詞識別</h3>
+<p>① 用戶錄音</p>
+<p>② AI 轉文字</p>
+<p>③ AI 翻譯為中文</p>
+<p>④ 顯示結果頁：英文 + 中文。沒有生詞識別和反饋。</p>
+<p>⑤ 句子存入筆記。</p>
+<p style="margin-top:8px"><strong>優點：</strong>實現成本低，流程簡單。用戶仍然能看到自己的英文和中文對照。</p>
+<p><strong>缺點：</strong>錯過了「主動使用生詞被識別」這個最有價值的反饋環節。錄音只是記錄，不是學習。</p>
+</div>
+
+<div class="tier tier-low">
+<div class="tier-label" style="color:var(--t3)">下策</div>
+<h3>最簡：用戶自己打字，不經過 AI</h3>
+<p>用戶直接在文字框中輸入英文（或中文），沒有語音轉寫、沒有翻譯、沒有生詞識別。就是一個純文字輸入框。</p>
+<p style="margin-top:8px"><strong>優點：</strong>零開發成本。</p>
+<p><strong>缺點：</strong>完全失去了 Selah 的價值——用戶在練習「打字」而不是「說話」。而且不會英文的用戶根本無法參與。這跟「不需要人指導就能用」的理念矛盾。</p>
+</div>
+
+
+<!-- ═══════ WHAT I MISSED ═══════ -->
+<h2>🔍 我还有什么沒有考慮到的？</h2>
+
+<div class="box box-coral">
+<h4>1. 同一個詞出現在不同句子中</h4>
+<p>"deadline" 可能出現在「專案的 deadline 被提前了」和「I have a deadline next week」兩句不同的句子中。目前的生詞本只記錄一個來源句子。但一個詞在不同語境中被遇見，是學會它最有效的方式。</p>
+<p><strong>修正：</strong>生詞本中的每個詞應該關聯<strong>所有包含它的句子</strong>。當用戶再次碰到 "deadline"（在新句子中），系統提示「這個詞你之前也遇見過！」並列出之前的句子。</p>
+</div>
+
+<div class="box box-amber">
+<h4>2. 生詞的「遺忘」問題</h4>
+<p>上策方案中，如果用戶很長時間沒有碰到某個生詞所在的句子，那個詞會自然被遺忘。目前沒有機制來處理這個問題。</p>
+<p><strong>可能的輕量解法：</strong>不需要做 Anki。而是在 Quiz 的題目選擇中，<strong>優先選擇包含生詞本中詞語的句子</strong>。這樣生詞會在練習中被自然帶回來，用戶不會感覺到「在背單詞」，但實際上在做間隔重複。</p>
+</div>
+
+<div class="box box-sky">
+<h4>3. 「被動詞彙」到「主動詞彙」的轉化指標</h4>
+<p>怎麼知道一個詞用戶已經真正「學會」了？目前沒有明確的判斷標準。</p>
+<p><strong>建議標準：</strong>當用戶在錄音中<strong>主動使用了這個詞</strong>（不是在被提示的情況下），這個詞就從「學習中」變為「已掌握」。這是唯一可靠的標準——你能說出來的詞，才是你的詞。</p>
+</div>
+
+<div class="box box-lav">
+<h4>4. 日語場景的差異</h4>
+<p>英語的生詞是「一個不認識的詞」。日語的生詞更複雜——可能是「這個漢字我認識但不知道日語怎麼讀」（訓讀 vs 音讀），或者「這個助詞的用法我不確定」。</p>
+<p><strong>架構預留：</strong>生詞數據結構中加一個 <code>type</code> 字段（vocabulary / reading / grammar-particle），日語模式下可以區分不同類型的「生詞」。</p>
+</div>
+
+<div class="box box-sage">
+<h4>5. 錄音場景不只是「晚安語」</h4>
+<p>上一輪我主要考慮了「晚安語」的錄音。但實際上錄音場景有三個：</p>
+<p><strong>① 跟讀</strong>（聆聽流程的最後一步）——讀的是固定句子，不需要 AI 轉寫，只需要語音評分。</p>
+<p><strong>② 晚安語</strong>（每日反思）——用戶自由說英文，需要完整的 AI 處理鏈。</p>
+<p><strong>③ 靈光乍現</strong>（如果保留）——用戶隨時記錄一句話，需要 AI 處理鏈。</p>
+<p>② 和 ③ 本質相同（自由說英文），所以上一輪把它們合併是對的。</p>
+</div>
+
+
+<!-- ═══════ VERDICT ═══════ -->
+<div class="verdict">
+<h3>我的建議</h3>
+<p><strong>生詞系統用上策，錄音流程用上策。</strong></p>
+<p>生詞不是一個獨立功能——它是句子學習流程的自然副產品。用戶在預習中遇見它、在聆聽中聽到它、在拆解中理解它、在 Quiz 中回憶它、在錄音中使用它。這五步走完，一個詞才真正變成你的詞。</p>
+<p style="margin-top:8px">錄音的 AI 處理鏈（語音 → 轉寫 → 翻譯 → 生詞識別 → 反饋）是 Selah 的<strong>核心技術差異化</strong>。它讓錄音不只是記錄，而是一個主動學習閉環。用戶說出來的詞被識別和鼓勵——這是把被動詞彙轉為主動詞彙的最有效方式。</p>
+<p style="margin-top:8px">生詞本只是一個參考索引，每個詞帶著它的來源句子和使用記錄。筆記頁不需要獨立的生詞複習功能。</p>
+</div>
+
+</body>
+</html>

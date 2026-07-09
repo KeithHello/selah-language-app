@@ -1,0 +1,1192 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selah - Prototype v4</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#FBF8F4;--card:#FFFFFF;--card-alt:#F8F5F0;
+--text:#1A1614;--text-2:#706B65;--text-3:#A9A49E;
+--coral:#E06B54;--coral-soft:#FEF0ED;
+--sage:#5A9E82;--sage-soft:#ECF7F1;
+--amber:#E5A244;--amber-soft:#FDF5E6;
+--lavender:#8B7FC7;--lavender-soft:#F0EEF8;
+--sky:#5B9FD4;--sky-soft:#EAF3FB;
+--rose:#D4829C;--rose-soft:#F9EEF2;
+--border:#EBE7E1;--border-light:#F3F0EC;
+--shadow-sm:0 1px 2px rgba(26,22,20,.04),0 1px 3px rgba(26,22,20,.06);
+--shadow-md:0 4px 6px rgba(26,22,20,.04),0 2px 12px rgba(26,22,20,.06);
+--shadow-lg:0 10px 25px rgba(26,22,20,.06),0 4px 10px rgba(26,22,20,.04);
+--r-sm:12px;--r-md:16px;--r-lg:22px;--r-xl:28px;--r-pill:999px;
+--font:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+html{font-family:var(--font);-webkit-font-smoothing:antialiased;background:#E8E4DE}
+body{display:flex;justify-content:center;align-items:center;min-height:100vh;background:linear-gradient(160deg,#E8E4DE,#D5D0C8)}
+
+.phone{position:relative;width:390px;height:844px;background:var(--bg);border-radius:48px;overflow:hidden;
+box-shadow:0 0 0 10px #1A1614,0 0 0 12px #3A3632,0 40px 80px rgba(0,0,0,.25),0 20px 40px rgba(0,0,0,.15)}
+.phone::before{content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);width:126px;height:34px;background:#1A1614;border-radius:0 0 20px 20px;z-index:60}
+.phone::after{content:'9:41';position:absolute;top:10px;left:50%;transform:translateX(-50%);font-size:14px;font-weight:600;color:var(--text);z-index:61;letter-spacing:-.02em}
+
+.screen-container{position:relative;width:100%;height:100%;overflow:hidden}
+.screen{position:absolute;inset:0;padding:50px 20px 90px;overflow-y:auto;overflow-x:hidden;
+opacity:0;transform:translateX(30px);pointer-events:none;transition:all .5s cubic-bezier(.32,.72,0,1);
+scrollbar-width:none}.screen::-webkit-scrollbar{display:none}
+.screen.active{opacity:1;transform:translateX(0);pointer-events:auto}
+.screen.slide-left{opacity:0;transform:translateX(-30px)}
+
+.tab-bar{position:absolute;bottom:0;left:0;right:0;height:88px;
+background:rgba(251,248,244,.92);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+border-top:1px solid var(--border-light);display:flex;align-items:flex-start;justify-content:space-around;
+padding-top:10px;z-index:50}
+.tab-item{display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;padding:4px 12px;border-radius:var(--r-sm);transition:all .3s cubic-bezier(.32,.72,0,1)}
+.tab-item .tab-icon{font-size:22px;transition:transform .3s cubic-bezier(.32,.72,0,1)}
+.tab-item .tab-label{font-size:10px;font-weight:500;color:var(--text-3);transition:color .3s}
+.tab-item.active .tab-icon{transform:scale(1.1)}
+.tab-item.active .tab-label{color:var(--coral);font-weight:600}
+
+.section-title{font-size:20px;font-weight:700;letter-spacing:-.03em;line-height:1.3}
+.section-sub{font-size:13px;color:var(--text-2);line-height:1.5;margin-top:4px}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:var(--r-pill);font-size:11px;font-weight:600}
+.badge-coral{background:var(--coral-soft);color:var(--coral)}
+.badge-sage{background:var(--sage-soft);color:var(--sage)}
+.badge-amber{background:var(--amber-soft);color:var(--amber)}
+.badge-lavender{background:var(--lavender-soft);color:var(--lavender)}
+.badge-rose{background:var(--rose-soft);color:var(--rose)}
+.badge-sky{background:var(--sky-soft);color:var(--sky)}
+.card{background:var(--card);border-radius:var(--r-lg);padding:20px;box-shadow:var(--shadow-sm);border:1px solid var(--border-light)}
+
+/* === PET === */
+.pet-stage{width:140px;height:140px;position:relative;margin:0 auto;display:flex;align-items:center;justify-content:center}
+.pet-bird{width:100px;height:110px;position:relative;animation:petFloat 3s ease-in-out infinite}
+.pet-bird .body{width:80px;height:80px;background:linear-gradient(145deg,#B8D9F0,#8FC4E8);border-radius:50% 50% 48% 48%;position:relative;margin:10px auto 0;box-shadow:0 12px 30px rgba(91,159,212,.12)}
+.pet-bird .tuft{position:absolute;top:-10px;left:50%;transform:translateX(-50%);width:6px;height:18px;background:#8FC4E8;border-radius:3px 3px 0 0;transform-origin:bottom}
+.pet-bird .tuft::before{content:'';position:absolute;top:0;left:-5px;width:5px;height:14px;background:#A5D0EC;border-radius:3px;transform:rotate(-15deg)}
+.pet-bird .tuft::after{content:'';position:absolute;top:0;left:5px;width:5px;height:14px;background:#A5D0EC;border-radius:3px;transform:rotate(15deg)}
+.pet-bird .eye{position:absolute;width:12px;height:12px;background:#1A1614;border-radius:50%;top:32%}
+.pet-bird .eye::after{content:'';position:absolute;top:2px;right:2px;width:4px;height:4px;background:#fff;border-radius:50%}
+.pet-bird .eye-l{left:22%}.pet-bird .eye-r{right:22%}
+.pet-bird .beak{position:absolute;top:48%;left:50%;transform:translateX(-50%);width:0;height:0;border-left:8px solid transparent;border-right:8px solid transparent;border-top:10px solid #F0B860}
+.pet-bird .blush{position:absolute;width:12px;height:7px;background:rgba(212,130,156,.25);border-radius:50%;top:46%}
+.pet-bird .blush-l{left:10%}.pet-bird .blush-r{right:10%}
+.pet-bird .bwing{position:absolute;width:22px;height:35px;background:linear-gradient(145deg,#A5D0EC,#7BB8DE);border-radius:50% 0 50% 50%;top:30%}
+.pet-bird .bwing-l{left:-10px;transform:rotate(10deg)}.pet-bird .bwing-r{right:-10px;border-radius:0 50% 50% 50%;transform:rotate(-10deg)}
+@keyframes petFloat{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-8px) rotate(1deg)}}
+
+/* === ISLAND PAGE === */
+.island-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px}
+.help-btn{width:32px;height:32px;border-radius:50%;background:var(--card);border:1px solid var(--border-light);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .3s}
+.help-btn:hover{box-shadow:var(--shadow-md)}
+
+.xp-progress{margin:6px 0 12px}
+.xp-bar-wrap{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.xp-bar{flex:1;height:6px;background:var(--border-light);border-radius:3px;overflow:hidden}
+.xp-bar-fill{height:100%;background:linear-gradient(90deg,var(--coral),#F0976E);border-radius:3px;transition:width .8s cubic-bezier(.32,.72,0,1)}
+.xp-text{font-size:11px;font-weight:600;color:var(--text-2);white-space:nowrap}
+.xp-stages{display:flex;justify-content:center;gap:16px;padding:0 20px}
+.xp-stage{display:flex;flex-direction:column;align-items:center;gap:2px}
+.xp-stage-dot{width:7px;height:7px;border-radius:50%;border:2px solid var(--border)}
+.xp-stage-dot.done{background:var(--coral);border-color:var(--coral)}
+.xp-stage-dot.current{border-color:var(--coral);background:var(--coral-soft);box-shadow:0 0 0 3px var(--coral-soft)}
+.xp-stage-label{font-size:8px;color:var(--text-3);font-weight:500}
+
+.status-grid-2{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.stat-pill{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 4px;background:var(--card);border-radius:var(--r-md);border:1px solid var(--border-light)}
+.stat-pill-icon{font-size:14px}
+.stat-pill-bar{width:100%;height:3px;background:var(--border-light);border-radius:2px;overflow:hidden}
+.stat-pill-fill{height:100%;border-radius:2px}
+.stat-pill-label{font-size:8px;font-weight:600;color:var(--text-3);text-transform:uppercase;letter-spacing:.04em}
+
+/* Quick action grid - reordered for learning flow */
+.quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px}
+.quick-card{display:flex;align-items:center;gap:10px;padding:12px;background:var(--card);border-radius:var(--r-md);border:1px solid var(--border-light);cursor:pointer;transition:all .3s cubic-bezier(.32,.72,0,1);position:relative}
+.quick-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+.quick-card.recommended{border-color:var(--coral);box-shadow:0 0 0 1px var(--coral)}
+.quick-card.recommended::after{content:'建議';position:absolute;top:-6px;right:8px;background:var(--coral);color:#fff;font-size:8px;font-weight:700;padding:2px 6px;border-radius:var(--r-pill)}
+.quick-card-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.quick-card-text{font-size:12px;font-weight:600}
+.quick-card-sub{font-size:10px;color:var(--text-3)}
+
+.task-card{background:linear-gradient(135deg,var(--coral),#E8856F);color:#fff;border-radius:var(--r-lg);padding:16px;position:relative;overflow:hidden}
+.task-card::after{content:'';position:absolute;top:-30px;right:-30px;width:110px;height:110px;background:rgba(255,255,255,.08);border-radius:50%}
+.task-row{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:500}
+.task-row-xp{font-size:10px;opacity:.7;margin-left:auto;white-space:nowrap}
+.task-check{width:18px;height:18px;border-radius:50%;border:2px solid rgba(255,255,255,.4);display:flex;align-items:center;justify-content:center;font-size:9px;cursor:pointer;flex-shrink:0;transition:all .3s}
+.task-check.done{background:rgba(255,255,255,.3);border-color:rgba(255,255,255,.8)}
+
+/* === FLOATING BUTTON === */
+.fab-clink{position:absolute;bottom:100px;right:16px;width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,var(--amber),#F0B860);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:0 4px 16px rgba(229,162,68,.35);z-index:45;transition:all .3s;border:none;animation:fabPulse 3s ease-in-out infinite}
+.fab-clink:hover{transform:scale(1.1);box-shadow:0 6px 24px rgba(229,162,68,.45)}
+@keyframes fabPulse{0%,100%{box-shadow:0 4px 16px rgba(229,162,68,.35)}50%{box-shadow:0 4px 24px rgba(229,162,68,.55)}}
+
+/* === OVERLAYS === */
+.help-overlay,.guide-overlay,.clink-overlay,.gn-overlay{position:fixed;inset:0;background:rgba(26,22,20,.5);backdrop-filter:blur(8px);z-index:80;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .4s}
+.guide-overlay{z-index:90;align-items:center}
+.clink-overlay,.gn-overlay{z-index:85}
+.help-overlay.show,.guide-overlay.show,.clink-overlay.show,.gn-overlay.show{opacity:1;pointer-events:auto}
+.help-sheet,.clink-sheet,.gn-sheet{background:var(--bg);border-radius:24px 24px 0 0;width:100%;max-width:390px;max-height:75%;padding:24px 20px 40px;overflow-y:auto;transform:translateY(100%);transition:transform .5s cubic-bezier(.32,.72,0,1)}
+.help-overlay.show .help-sheet,.clink-overlay.show .clink-sheet,.gn-overlay.show .gn-sheet{transform:translateY(0)}
+.guide-sheet{background:var(--bg);border-radius:24px;width:calc(100% - 40px);max-width:350px;max-height:80%;padding:28px 24px;overflow-y:auto;transform:scale(.9);transition:transform .5s cubic-bezier(.32,.72,0,1)}
+.guide-overlay.show .guide-sheet{transform:scale(1)}
+.help-handle,.clink-handle,.gn-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 16px}
+.help-row{display:flex;align-items:flex-start;gap:12px;padding:12px 0;border-bottom:1px solid var(--border-light)}
+.help-row:last-child{border:none}
+.help-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.help-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.help-desc{font-size:11px;color:var(--text-2);line-height:1.5}
+.guide-step{display:flex;align-items:flex-start;gap:14px;padding:14px 0;border-bottom:1px solid var(--border-light)}
+.guide-step:last-child{border:none}
+.guide-num{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex-shrink:0;color:#fff}
+.guide-step-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.guide-step-desc{font-size:11px;color:var(--text-2);line-height:1.5}
+
+/* === VOCAB MODAL === */
+.vocab-modal-overlay{position:fixed;inset:0;background:rgba(26,22,20,.5);backdrop-filter:blur(8px);z-index:86;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .4s}
+.vocab-modal-overlay.show{opacity:1;pointer-events:auto}
+.vocab-modal-sheet{background:var(--bg);border-radius:24px 24px 0 0;width:100%;max-width:390px;height:80%;padding:0;transform:translateY(100%);transition:transform .5s cubic-bezier(.32,.72,0,1);display:flex;flex-direction:column}
+.vocab-modal-overlay.show .vocab-modal-sheet{transform:translateY(0)}
+.vocab-modal-header{padding:20px 20px 12px;border-bottom:1px solid var(--border-light);flex-shrink:0}
+.vocab-modal-search{width:100%;padding:10px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);font-size:13px;font-family:var(--font);color:var(--text);outline:none;transition:border-color .3s;margin-top:10px}
+.vocab-modal-search:focus{border-color:var(--amber)}
+.vocab-modal-search::placeholder{color:var(--text-3)}
+.vocab-modal-body{flex:1;overflow-y:auto;padding:12px 20px 40px}
+.vocab-modal-item{display:flex;align-items:center;gap:12px;padding:12px;background:var(--card);border-radius:var(--r-md);border:1px solid var(--border-light);margin-bottom:6px;transition:all .3s}
+.vocab-modal-item:hover{box-shadow:var(--shadow-sm)}
+.vocab-modal-word{font-size:14px;font-weight:700;flex:1}
+.vocab-modal-meaning{font-size:12px;color:var(--text-2)}
+.vocab-modal-level{font-size:9px;font-weight:600;padding:2px 8px;border-radius:var(--r-pill)}
+.vocab-modal-remove{width:28px;height:28px;border-radius:50%;border:1px solid var(--border-light);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .3s;color:var(--text-3);flex-shrink:0}
+.vocab-modal-remove:hover{background:var(--coral-soft);color:var(--coral);border-color:var(--coral)}
+
+/* === CORPUS / NOTES === */
+.radar-wrap{display:flex;justify-content:center;margin:12px 0 16px}
+.radar-svg{width:180px;height:180px}
+.cat-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px}
+.cat-chip{display:flex;align-items:center;gap:6px;padding:8px 10px;background:var(--card);border-radius:var(--r-sm);border:1px solid var(--border-light);cursor:pointer;transition:all .3s}
+.cat-chip.active{border-color:var(--coral);background:var(--coral-soft)}
+.cat-chip-icon{font-size:16px}
+.cat-chip-name{font-size:11px;font-weight:600}
+.cat-chip-pct{font-size:10px;color:var(--text-3);margin-left:auto}
+
+/* === VOCAB RECENT (notes page) === */
+.vocab-recent{display:flex;flex-direction:column;gap:4px;margin-bottom:4px}
+.vocab-recent-item{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--card);border-radius:var(--r-sm);border:1px solid var(--border-light)}
+.vocab-recent-word{font-size:13px;font-weight:700;flex:1}
+.vocab-recent-meaning{font-size:11px;color:var(--text-2)}
+.vocab-recent-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+
+/* === TEXT INPUT AREA === */
+.input-area{background:var(--card);border-radius:var(--r-lg);padding:16px;border:1px solid var(--border-light);margin-top:12px}
+.input-area-title{font-size:12px;font-weight:700;margin-bottom:8px;display:flex;align-items:center;gap:6px}
+.input-textarea{width:100%;min-height:60px;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 12px;font-size:13px;font-family:var(--font);resize:none;outline:none;transition:border-color .3s;line-height:1.5;color:var(--text)}
+.input-textarea:focus{border-color:var(--coral)}
+.input-textarea::placeholder{color:var(--text-3)}
+.input-bottom{display:flex;align-items:center;justify-content:space-between;margin-top:8px}
+.input-mic{width:40px;height:40px;border-radius:50%;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:0 4px 12px rgba(90,158,130,.25);transition:all .3s}
+.input-mic:hover{transform:scale(1.05)}
+.input-mic.recording{background:var(--coral);animation:micPulse 1.5s ease-in-out infinite}
+@keyframes micPulse{0%,100%{box-shadow:0 4px 12px rgba(224,107,84,.25)}50%{box-shadow:0 4px 24px rgba(224,107,84,.45)}}
+.input-send{padding:8px 16px;background:var(--coral);color:#fff;border:none;border-radius:var(--r-pill);font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all .3s}
+.input-tag-preview{display:flex;gap:4px;flex-wrap:wrap;margin-top:8px}
+.input-tag-preview .badge{font-size:10px;padding:2px 8px}
+.free-record-toggle{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--card-alt);border-radius:var(--r-sm);margin-bottom:10px;cursor:pointer;font-size:11px;font-weight:500;color:var(--text-2);border:1px solid var(--border-light);transition:all .3s}
+.free-record-toggle.active{border-color:var(--sage);background:var(--sage-soft);color:var(--sage)}
+
+/* === NIGHT PREVIEW === */
+.preview-group-label{font-size:11px;font-weight:700;color:var(--text-3);text-transform:uppercase;letter-spacing:.06em;margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.preview-group-label::after{content:'';flex:1;height:1px;background:var(--border-light)}
+.preview-card{background:var(--card);border-radius:var(--r-lg);padding:16px;border:1px solid var(--border-light);margin-bottom:8px;transition:all .3s}
+.preview-card:hover{box-shadow:var(--shadow-md)}
+.preview-card-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.preview-idx{font-size:10px;font-weight:600;color:var(--text-3)}
+.preview-play-btn{width:28px;height:28px;border-radius:50%;background:var(--lavender-soft);border:none;display:flex;align-items:center;justify-content:center;font-size:12px;cursor:pointer;transition:all .3s;color:var(--lavender)}
+.preview-play-btn:hover{background:var(--lavender);color:#fff}
+.preview-play-btn.playing{background:var(--lavender);color:#fff;animation:micPulse 1.5s ease-in-out infinite}
+.preview-zh{font-size:14px;font-weight:600;margin-bottom:4px}
+.preview-en{font-size:12px;color:var(--text-2);line-height:1.5}
+.preview-vocab{display:inline-flex;align-items:center;gap:4px;padding:2px 8px;background:var(--amber-soft);border-radius:var(--r-pill);font-size:10px;font-weight:500;color:var(--amber);margin-top:4px;cursor:pointer;transition:all .3s}
+.preview-vocab:hover{background:var(--amber);color:#fff}
+.preview-vocab-new{background:var(--coral-soft);color:var(--coral);animation:vocabPop .4s ease}
+@keyframes vocabPop{0%{transform:scale(.8)}50%{transform:scale(1.1)}100%{transform:scale(1)}}
+.preview-done-check{display:flex;align-items:center;gap:8px;padding:10px 16px;background:var(--sage-soft);border-radius:var(--r-pill);font-size:12px;font-weight:600;color:var(--sage);cursor:pointer;border:none;margin:0 auto;transition:all .3s}
+.preview-done-check:hover{background:var(--sage);color:#fff}
+.preview-done-check.checked{background:var(--sage);color:#fff}
+.preview-vocab-hint{display:flex;align-items:center;gap:6px;padding:8px 12px;background:var(--amber-soft);border-radius:var(--r-md);font-size:10px;color:var(--amber);font-weight:500;margin-bottom:12px}
+
+/* === QUIZ === */
+.quiz-card{background:var(--card);border-radius:var(--r-xl);padding:24px;box-shadow:var(--shadow-md);border:1px solid var(--border-light);margin-bottom:16px}
+.quiz-zh{font-size:20px;font-weight:700;letter-spacing:-.02em;margin-bottom:16px;line-height:1.4}
+.quiz-reveal-area{min-height:60px;display:flex;align-items:center;justify-content:center;background:var(--card-alt);border-radius:var(--r-md);padding:16px;cursor:pointer;transition:all .4s cubic-bezier(.32,.72,0,1);border:2px dashed var(--border)}
+.quiz-reveal-area.revealed{border-style:solid;border-color:var(--sage);background:var(--sage-soft)}
+.quiz-reveal-text{font-size:17px;font-weight:600;color:var(--sage);opacity:0;transition:opacity .3s}
+.quiz-reveal-area.revealed .quiz-reveal-text{opacity:1}
+.quiz-reveal-hint{font-size:13px;color:var(--text-3)}
+.quiz-reveal-area.revealed .quiz-reveal-hint{display:none}
+.quiz-actions{display:flex;gap:10px}
+.quiz-btn{flex:1;padding:16px;border:none;border-radius:var(--r-lg);font-size:15px;font-weight:600;font-family:var(--font);cursor:pointer;transition:all .3s cubic-bezier(.32,.72,0,1)}
+.quiz-btn:active{transform:scale(.96)}
+.quiz-btn-pass{background:var(--sage);color:#fff;box-shadow:0 4px 12px rgba(90,158,130,.25)}
+.quiz-btn-fail{background:var(--coral-soft);color:var(--coral)}
+.quiz-end-cta{text-align:center;padding:12px 0}
+.quiz-end-cta button{padding:12px 24px;background:var(--amber);color:#fff;border:none;border-radius:var(--r-pill);font-size:13px;font-weight:600;font-family:var(--font);cursor:pointer;box-shadow:0 4px 12px rgba(229,162,68,.25);transition:all .3s}
+
+/* === LISTEN === */
+.listen-art{width:120px;height:120px;margin:12px auto;border-radius:50%;background:linear-gradient(145deg,var(--lavender-soft),#E0DAEF);display:flex;align-items:center;justify-content:center;position:relative;box-shadow:0 16px 40px rgba(139,127,199,.1)}
+.listen-art::before{content:'';position:absolute;inset:-8px;border-radius:50%;border:2px solid rgba(139,127,199,.12);animation:listenPulse 3s ease-in-out infinite}
+@keyframes listenPulse{0%,100%{transform:scale(1);opacity:.5}50%{transform:scale(1.05);opacity:1}}
+.listen-controls{display:flex;align-items:center;justify-content:center;gap:20px;margin-bottom:12px}
+.listen-btn{width:48px;height:48px;border-radius:50%;border:1px solid var(--border-light);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:18px;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .3s}
+.listen-btn-play{width:60px;height:60px;background:var(--lavender);color:#fff;font-size:24px;box-shadow:0 6px 20px rgba(139,127,199,.3);border:none}
+
+/* === GROWTH / STAGE === */
+.stage-selector{display:flex;flex-direction:column;gap:6px;margin:16px 0}
+.stage-item{display:flex;align-items:flex-start;gap:12px;padding:14px 16px;background:var(--card);border-radius:var(--r-lg);border:2px solid var(--border-light);cursor:pointer;transition:all .3s}
+.stage-item.current{border-color:var(--coral);background:var(--coral-soft)}
+.stage-item.done{border-color:var(--sage);background:var(--sage-soft)}
+.stage-item.locked{opacity:.5}
+.stage-item:hover:not(.locked){box-shadow:var(--shadow-md)}
+.stage-icon{width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.stage-info{flex:1}
+.stage-name{font-size:14px;font-weight:700}
+.stage-desc{font-size:11px;color:var(--text-2);margin-top:2px;line-height:1.4}
+.stage-check{font-size:11px;font-weight:600;color:var(--text-3)}
+.stage-slider-wrap{margin:0 0 16px;padding:0 16px}
+.stage-slider-label{font-size:10px;color:var(--text-3);font-weight:500;margin-bottom:4px;display:flex;justify-content:space-between}
+.stage-slider{-webkit-appearance:none;width:100%;height:6px;border-radius:3px;background:var(--border-light);outline:none;transition:all .3s}
+.stage-slider::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--coral);cursor:pointer;box-shadow:0 2px 6px rgba(224,107,84,.3)}
+
+/* === CLINK SELECT + MIC === */
+.clink-select{width:100%;padding:12px 14px;background:var(--card);border:1.5px solid var(--border);border-radius:var(--r-md);font-size:13px;font-family:var(--font);color:var(--text);outline:none;appearance:none;cursor:pointer;margin-bottom:12px}
+.clink-select:focus{border-color:var(--amber)}
+.clink-mic{width:48px;height:48px;border-radius:50%;background:var(--amber);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;cursor:pointer;box-shadow:0 4px 12px rgba(229,162,68,.25);transition:all .3s;margin:0 auto 12px}
+.clink-mic:hover{transform:scale(1.05)}
+.clink-mic.recording{background:var(--coral);animation:micPulse 1.5s ease-in-out infinite}
+
+/* === GOODNIGHT === */
+.gn-mic{width:72px;height:72px;border-radius:50%;background:linear-gradient(135deg,var(--lavender),#A594D6);margin:0 auto 14px;display:flex;align-items:center;justify-content:center;font-size:32px;cursor:pointer;box-shadow:0 8px 24px rgba(139,127,199,.3);transition:all .35s cubic-bezier(.32,.72,0,1)}
+.gn-mic:hover{transform:scale(1.05)}
+.gn-mic.recording{animation:micPulse 1.5s ease-in-out infinite;background:linear-gradient(135deg,var(--coral),#E8856F);box-shadow:0 8px 24px rgba(224,107,84,.35)}
+.gn-textarea{width:100%;min-height:50px;border:1.5px solid var(--border);border-radius:var(--r-md);padding:10px 12px;font-size:13px;font-family:var(--font);resize:none;outline:none;transition:border-color .3s;line-height:1.5;color:var(--text);margin-bottom:12px}
+.gn-textarea:focus{border-color:var(--lavender)}
+.gn-textarea::placeholder{color:var(--text-3)}
+.gn-wave{display:flex;align-items:center;justify-content:center;gap:3px;height:32px;margin:8px 0}
+.gn-wave span{width:3px;border-radius:2px;background:var(--lavender);animation:wave 1s ease-in-out infinite}
+.gn-wave span:nth-child(1){height:10px;animation-delay:0s}
+.gn-wave span:nth-child(2){height:18px;animation-delay:.1s}
+.gn-wave span:nth-child(3){height:24px;animation-delay:.2s}
+.gn-wave span:nth-child(4){height:14px;animation-delay:.3s}
+.gn-wave span:nth-child(5){height:20px;animation-delay:.4s}
+.gn-wave span:nth-child(6){height:28px;animation-delay:.5s}
+.gn-wave span:nth-child(7){height:16px;animation-delay:.6s}
+@keyframes wave{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.4)}}
+
+/* === SHADOW READ (跟讀 redesign) === */
+.shadow-card{background:var(--card);border-radius:var(--r-lg);padding:18px;border:1px solid var(--border-light);text-align:center}
+.shadow-en-text{font-size:14px;font-weight:600;color:var(--sage);line-height:1.6;margin-bottom:14px;padding:12px;background:var(--sage-soft);border-radius:var(--r-md)}
+.shadow-mic-area{display:flex;flex-direction:column;align-items:center;gap:8px}
+.shadow-mic{width:52px;height:52px;border-radius:50%;background:var(--sage);color:#fff;display:flex;align-items:center;justify-content:center;font-size:22px;cursor:pointer;box-shadow:0 6px 16px rgba(90,158,130,.25);transition:all .3s}
+.shadow-mic:hover{transform:scale(1.05)}
+.shadow-mic.recording{background:var(--coral);animation:micPulse 1.5s ease-in-out infinite}
+.shadow-complete{padding:10px 24px;background:var(--sage);color:#fff;border:none;border-radius:var(--r-pill);font-size:12px;font-weight:600;font-family:var(--font);cursor:pointer;box-shadow:0 4px 12px rgba(90,158,130,.2);transition:all .3s;margin-top:4px}
+.shadow-complete:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(90,158,130,.3)}
+
+/* === DARK XP CARD === */
+.xp-card-dark{background:linear-gradient(135deg,var(--text),#2A2624);color:#fff;border-radius:var(--r-lg);padding:18px;margin-bottom:10px}
+.milestone-card{background:var(--card);border-radius:var(--r-lg);padding:16px;border:1px solid var(--border-light);margin-bottom:8px}
+
+/* === ANIMATIONS === */
+@keyframes fadeInUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.anim-in{animation:fadeInUp .5s cubic-bezier(.32,.72,0,1) both}
+.d1{animation-delay:.08s}.d2{animation-delay:.16s}.d3{animation-delay:.24s}.d4{animation-delay:.32s}.d5{animation-delay:.4s}.d6{animation-delay:.48s}.d7{animation-delay:.56s}
+
+/* === ONBOARDING (refined) === */
+.onboard{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;text-align:center;padding-top:0!important;padding-bottom:0!important;background:radial-gradient(ellipse at 50% 40%,rgba(254,240,237,.6) 0%,transparent 60%)}
+.onboard h1{font-size:34px;font-weight:800;letter-spacing:-.04em;margin-bottom:8px}
+.onboard h1 span{color:var(--coral)}
+.onboard p{font-size:14px;color:var(--text-2);line-height:1.6;max-width:260px;margin-bottom:28px}
+.onboard-tagline{font-size:11px;color:var(--text-3);letter-spacing:.08em;text-transform:uppercase;margin-bottom:24px}
+.btn-primary{display:inline-flex;align-items:center;gap:8px;padding:14px 28px;background:var(--coral);color:#fff;border:none;border-radius:var(--r-pill);font-size:14px;font-weight:600;font-family:var(--font);cursor:pointer;box-shadow:0 4px 16px rgba(224,107,84,.3);transition:all .35s cubic-bezier(.32,.72,0,1)}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(224,107,84,.35)}
+.btn-primary:active{transform:scale(.97)}
+.btn-arrow{width:26px;height:26px;background:rgba(255,255,255,.2);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px}
+.name-input{width:100%;max-width:260px;padding:14px 18px;background:var(--card);border:2px solid var(--border);border-radius:var(--r-lg);font-size:18px;font-weight:600;font-family:var(--font);text-align:center;color:var(--text);outline:none;transition:border-color .3s}
+.name-input:focus{border-color:var(--coral)}
+.name-input::placeholder{color:var(--text-3);font-weight:400}
+
+.seed-list{width:100%;display:flex;flex-direction:column;gap:8px;margin-bottom:20px;max-height:280px;overflow-y:auto}
+.seed-item{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--card);border:2px solid var(--border-light);border-radius:var(--r-md);cursor:pointer;transition:all .3s}
+.seed-item.selected{border-color:var(--coral);background:var(--coral-soft)}
+.seed-check{width:20px;height:20px;border-radius:50%;border:2px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;transition:all .3s}
+.seed-item.selected .seed-check{background:var(--coral);border-color:var(--coral);color:#fff}
+.seed-text{font-size:12px;line-height:1.4;color:var(--text)}
+.seed-tag{font-size:9px;font-weight:600;color:var(--text-3);margin-top:2px}
+
+.onboard-egg{width:100px;height:130px;background:linear-gradient(145deg,#FFE8D6,#FFD4BC);border-radius:50% 50% 50% 50%/60% 60% 40% 40%;margin-bottom:20px;animation:eggFloat 4s ease-in-out infinite;box-shadow:0 16px 30px rgba(224,107,84,.1),inset 0 -8px 16px rgba(224,107,84,.08);position:relative}
+.onboard-egg::after{content:'';position:absolute;top:18%;left:22%;width:28%;height:22%;background:rgba(255,255,255,.3);border-radius:50%;filter:blur(5px)}
+.onboard-egg::before{content:'';position:absolute;inset:-20px;border-radius:50%;background:radial-gradient(circle,rgba(224,107,84,.08) 0%,transparent 70%);animation:eggGlow 3s ease-in-out infinite;z-index:-1}
+@keyframes eggFloat{0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-10px) rotate(1deg)}}
+@keyframes eggGlow{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
+
+.hatch-overlay{position:fixed;inset:0;background:rgba(26,22,20,.6);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;z-index:100;opacity:0;pointer-events:none;transition:opacity .5s}
+.hatch-overlay.show{opacity:1;pointer-events:auto}
+.hatch-content{text-align:center;color:#fff}
+.hatch-egg{width:100px;height:130px;background:linear-gradient(145deg,#FFE8D6,#FFD4BC);border-radius:50% 50% 50% 50%/60% 60% 40% 40%;margin:0 auto 24px;animation:hatchWobble 1s ease-in-out infinite;position:relative}
+@keyframes hatchWobble{0%,100%{transform:rotate(-3deg)}50%{transform:rotate(3deg)}}
+.hatch-crack{position:absolute;top:40%;left:10%;right:10%;height:2px;background:#1A1614;transform:rotate(-5deg);opacity:0;transition:opacity .3s}
+.hatch-text{font-size:22px;font-weight:700;opacity:0;transform:translateY(10px);transition:all .5s .3s}
+.hatch-overlay.show .hatch-text{opacity:1;transform:translateY(0)}
+.hatch-sparkle{position:absolute;width:4px;height:4px;background:#F0B860;border-radius:50%;opacity:0}
+.hatch-overlay.show .hatch-sparkle{animation:sparkle 1.5s ease-out .5s forwards}
+@keyframes sparkle{0%{opacity:0;transform:scale(0) translate(0,0)}50%{opacity:1}100%{opacity:0;transform:scale(1) translate(var(--tx),var(--ty))}}
+
+@media(max-width:420px){body{background:var(--bg)}.phone{width:100%;height:100%;border-radius:0;box-shadow:none}.phone::before,.phone::after{display:none}.screen{padding-top:40px}}
+</style>
+</head>
+<body>
+<div class="phone">
+<div class="screen-container">
+
+<!-- ONBOARDING (refined) -->
+<div class="screen active" id="screen-onboard">
+<div class="onboard">
+<div class="onboard-egg" id="onboard-egg"></div>
+<div class="onboard-tagline anim-in">Language Companion</div>
+<h1 class="anim-in">Welcome to <span>Selah</span></h1>
+<p class="anim-in d1">停下來，聽。<br>你的語言精靈正在等你。</p>
+<div id="ob-step1" class="anim-in d2">
+<button class="btn-primary" onclick="obNext(2)">開始孵化 <span class="btn-arrow">→</span></button>
+</div>
+<div id="ob-step2" style="display:none;width:100%">
+<p style="font-size:13px;color:var(--text-2);margin-bottom:14px">給你的精靈取個名字</p>
+<input class="name-input" id="pet-name" type="text" placeholder="例如：小豆" maxlength="8" style="margin-bottom:14px">
+<button class="btn-primary" onclick="obNext(3)">下一步 <span class="btn-arrow">→</span></button>
+</div>
+<div id="ob-step3" style="display:none;width:100%">
+<p style="font-size:13px;color:var(--text-2);margin-bottom:10px">挑選 3 句跟你生活最像的種子句</p>
+<div class="seed-list" id="seed-list"></div>
+<button class="btn-primary" id="hatch-btn" style="opacity:.4;pointer-events:none" onclick="doHatch()">孵化精靈 <span class="btn-arrow">✨</span></button>
+</div>
+</div>
+</div>
+
+<!-- ISLAND (小窩) -->
+<div class="screen" id="screen-island">
+<div class="island-header anim-in">
+<div class="section-title">🏠 小窩</div>
+<div style="display:flex;gap:8px">
+<div class="help-btn" onclick="showGuide()" title="使用指南">📖</div>
+<div class="help-btn" onclick="showHelp()">?</div>
+</div>
+</div>
+
+<div style="text-align:center" class="anim-in d1">
+<div class="pet-stage">
+<div id="pet-display">
+<div class="pet-bird"><div class="body"><div class="tuft"></div><div class="eye eye-l"></div><div class="eye eye-r"></div><div class="beak"></div><div class="blush blush-l"></div><div class="blush blush-r"></div><div class="bwing bwing-l"></div><div class="bwing bwing-r"></div></div></div>
+</div>
+</div>
+<div style="font-size:18px;font-weight:700" id="pet-name-display">小豆</div>
+<div style="font-size:11px;color:var(--text-2)">成長期 · 312 XP</div>
+</div>
+
+<div class="xp-progress anim-in d2">
+<div class="xp-bar-wrap">
+<div class="xp-bar"><div class="xp-bar-fill" style="width:31%"></div></div>
+<div class="xp-text">312 / 1000</div>
+</div>
+<div class="xp-stages">
+<div class="xp-stage"><div class="xp-stage-dot done"></div><div class="xp-stage-label">蛋</div></div>
+<div class="xp-stage"><div class="xp-stage-dot done"></div><div class="xp-stage-label">幼體</div></div>
+<div class="xp-stage"><div class="xp-stage-dot current"></div><div class="xp-stage-label">成長</div></div>
+<div class="xp-stage"><div class="xp-stage-dot"></div><div class="xp-stage-label">成熟</div></div>
+<div class="xp-stage"><div class="xp-stage-dot"></div><div class="xp-stage-label">傳說</div></div>
+</div>
+</div>
+
+<div class="status-grid-2 anim-in d2">
+<div class="stat-pill"><div class="stat-pill-icon">🍎</div><div class="stat-pill-bar"><div class="stat-pill-fill" style="width:68%;background:var(--amber)"></div></div><div class="stat-pill-label">飽食</div></div>
+<div class="stat-pill"><div class="stat-pill-icon">💗</div><div class="stat-pill-bar"><div class="stat-pill-fill" style="width:82%;background:var(--coral)"></div></div><div class="stat-pill-label">心情</div></div>
+<div class="stat-pill"><div class="stat-pill-icon">🌿</div><div class="stat-pill-bar"><div class="stat-pill-fill" style="width:90%;background:var(--sage)"></div></div><div class="stat-pill-label">健康</div></div>
+<div class="stat-pill"><div class="stat-pill-icon">🔮</div><div class="stat-pill-bar"><div class="stat-pill-fill" style="width:35%;background:var(--lavender)"></div></div><div class="stat-pill-label">親密</div></div>
+</div>
+
+<!-- Quick actions: reordered by learning flow (預習→聆聽→練習→收集) -->
+<div class="quick-grid anim-in d3">
+<div class="quick-card recommended" onclick="switchTab('preview')"><div class="quick-card-icon" style="background:var(--amber-soft)">🌙</div><div><div class="quick-card-text">夜間預習</div><div class="quick-card-sub">10 句待預習</div></div></div>
+<div class="quick-card" onclick="switchTab('listen')"><div class="quick-card-icon" style="background:var(--lavender-soft)">🎧</div><div><div class="quick-card-text">聆聽播放</div><div class="quick-card-sub">回收死時間</div></div></div>
+<div class="quick-card" onclick="switchTab('quiz')"><div class="quick-card-icon" style="background:var(--sage-soft)">✏️</div><div><div class="quick-card-text">今日練習</div><div class="quick-card-sub">3 句待測</div></div></div>
+<div class="quick-card" onclick="switchTab('corpus')"><div class="quick-card-icon" style="background:var(--coral-soft)">💬</div><div><div class="quick-card-text">收集語料</div><div class="quick-card-sub">今日靈感</div></div></div>
+</div>
+
+<!-- 晚安語 entry -->
+<div class="card anim-in d4" style="margin-bottom:10px;cursor:pointer;padding:16px" onclick="showGoodnight()">
+<div style="display:flex;align-items:center;gap:12px">
+<div style="width:40px;height:40px;border-radius:12px;background:var(--lavender-soft);display:flex;align-items:center;justify-content:center;font-size:20px">🌙</div>
+<div style="flex:1">
+<div style="font-size:13px;font-weight:700">錄今天的晚安語</div>
+<div style="font-size:11px;color:var(--text-2);margin-top:2px">睡前一句，記錄今天的自己</div>
+</div>
+<div style="font-size:18px;color:var(--text-3)">→</div>
+</div>
+</div>
+
+<!-- Task Card (fixed: consistent day count + XP rewards) -->
+<div class="task-card anim-in d5">
+<div style="display:flex;align-items:center;gap:6px;font-size:12px;opacity:.9;margin-bottom:8px">🔥 連續 8 天 · Day 8</div>
+<div style="font-size:15px;font-weight:700;margin-bottom:10px">今日任務</div>
+<div style="display:flex;flex-direction:column;gap:7px">
+<div class="task-row"><div class="task-check done">✓</div>🌙 夜間預習 10 句<span class="task-row-xp">+20 XP</span></div>
+<div class="task-row"><div class="task-check done">✓</div>🎧 聆聽 + 跟讀<span class="task-row-xp">+25 XP</span></div>
+<div class="task-row"><div class="task-check" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"></div>✏️ 練習 3 句<span class="task-row-xp">+30 XP</span></div>
+<div class="task-row"><div class="task-check" onclick="this.classList.toggle('done');this.textContent=this.classList.contains('done')?'✓':''"></div>🌙 錄 晚安語<span class="task-row-xp">+12 XP</span></div>
+</div>
+</div>
+</div>
+
+<!-- NOTES (語料庫 / 筆記) -->
+<div class="screen" id="screen-corpus">
+<div class="section-title anim-in">📝 筆記</div>
+<div class="section-sub anim-in d1">收集你真正會說的話 · 已收集 18 句</div>
+
+<!-- Vocabulary Book (recent 3 only + modal trigger) -->
+<div style="margin:12px 0" class="anim-in d2">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+<div style="font-size:13px;font-weight:700;display:flex;align-items:center;gap:6px">📖 生詞本 <span style="font-weight:400;color:var(--text-3);font-size:11px">· 8 詞</span></div>
+<button onclick="showVocabModal()" style="padding:6px 12px;background:var(--amber-soft);border:none;border-radius:var(--r-pill);font-size:10px;font-weight:600;color:var(--amber);cursor:pointer;font-family:var(--font);transition:all .3s">查看全部 →</button>
+</div>
+<div style="font-size:9px;color:var(--text-3);margin-bottom:6px;padding:6px 10px;background:var(--card-alt);border-radius:var(--r-sm);display:flex;align-items:center;gap:4px">💡 在夜間預習中長按英文單詞，即可加入生詞本</div>
+<div class="vocab-recent">
+<div class="vocab-recent-item">
+<div class="vocab-recent-dot" style="background:var(--coral)"></div>
+<div class="vocab-recent-word">energized</div>
+<div class="vocab-recent-meaning">有精神的</div>
+<span style="font-size:9px;color:var(--coral);font-weight:600;padding:2px 6px;background:var(--coral-soft);border-radius:var(--r-pill)">L0</span>
+</div>
+<div class="vocab-recent-item">
+<div class="vocab-recent-dot" style="background:var(--coral)"></div>
+<div class="vocab-recent-word">deadline</div>
+<div class="vocab-recent-meaning">截止日</div>
+<span style="font-size:9px;color:var(--coral);font-weight:600;padding:2px 6px;background:var(--coral-soft);border-radius:var(--r-pill)">L0</span>
+</div>
+<div class="vocab-recent-item">
+<div class="vocab-recent-dot" style="background:var(--amber)"></div>
+<div class="vocab-recent-word">iced latte</div>
+<div class="vocab-recent-meaning">冰拿鐵</div>
+<span style="font-size:9px;color:var(--amber);font-weight:600;padding:2px 6px;background:var(--amber-soft);border-radius:var(--r-pill)">L2</span>
+</div>
+</div>
+</div>
+
+<div class="radar-wrap anim-in d3">
+<svg class="radar-svg" viewBox="0 0 200 200">
+<polygon points="100,20 169,60 169,140 100,180 31,140 31,60" fill="none" stroke="#EBE7E1" stroke-width="1"/>
+<polygon points="100,40 149,70 149,130 100,160 51,130 51,70" fill="none" stroke="#F3F0EC" stroke-width="1"/>
+<polygon points="100,60 129,80 129,120 100,140 71,120 71,80" fill="none" stroke="#F3F0EC" stroke-width=".5"/>
+<polygon points="100,28 155,65 158,134 100,172 35,137 42,64" fill="rgba(224,107,84,.12)" stroke="var(--coral)" stroke-width="1.5" stroke-linejoin="round"/>
+<circle cx="100" cy="28" r="3" fill="var(--amber)"/><circle cx="155" cy="65" r="3" fill="var(--sky)"/>
+<circle cx="158" cy="134" r="3" fill="var(--coral)"/><circle cx="100" cy="172" r="3" fill="var(--rose)"/>
+<circle cx="35" cy="137" r="3" fill="var(--sage)"/><circle cx="42" cy="64" r="3" fill="#7CB8A0"/>
+<text x="100" y="14" text-anchor="middle" font-size="8" fill="var(--text-3)" font-weight="600">💼 28%</text>
+<text x="178" y="60" text-anchor="start" font-size="8" fill="var(--text-3)" font-weight="600">💬 12%</text>
+<text x="178" y="145" text-anchor="start" font-size="8" fill="var(--text-3)" font-weight="600">💨 22%</text>
+<text x="100" y="194" text-anchor="middle" font-size="8" fill="var(--coral)" font-weight="700">🫂 8%</text>
+<text x="22" y="145" text-anchor="end" font-size="8" fill="var(--text-3)" font-weight="600">💡 5%</text>
+<text x="22" y="60" text-anchor="end" font-size="8" fill="var(--text-3)" font-weight="600">🌍 25%</text>
+</svg>
+</div>
+
+<!-- Categories (據理力爭 → 表達觀點) -->
+<div class="cat-grid anim-in d4">
+<div class="cat-chip active" onclick="selectCat(this)"><span class="cat-chip-icon">💼</span><span class="cat-chip-name">社畜日常</span><span class="cat-chip-pct">28%</span></div>
+<div class="cat-chip" onclick="selectCat(this)"><span class="cat-chip-icon">💬</span><span class="cat-chip-name">朋友幹話</span><span class="cat-chip-pct">12%</span></div>
+<div class="cat-chip" onclick="selectCat(this)"><span class="cat-chip-icon">💨</span><span class="cat-chip-name">先吐為快</span><span class="cat-chip-pct">22%</span></div>
+<div class="cat-chip" onclick="selectCat(this)"><span class="cat-chip-icon">🫂</span><span class="cat-chip-name">走心時刻</span><span class="cat-chip-pct" style="color:var(--coral)">8%</span></div>
+<div class="cat-chip" onclick="selectCat(this)"><span class="cat-chip-icon">💡</span><span class="cat-chip-name">表達觀點</span><span class="cat-chip-pct">5%</span></div>
+<div class="cat-chip" onclick="selectCat(this)"><span class="cat-chip-icon">🌍</span><span class="cat-chip-name">生活闖關</span><span class="cat-chip-pct">25%</span></div>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:8px" class="anim-in d5" id="corpus-sentences">
+<div class="card corpus-item" data-cat="走心時刻" style="cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><span style="font-size:24px">🫂</span><div style="display:flex;gap:4px"><span class="badge badge-rose">走心時刻</span><span class="badge badge-coral">偏低 8%</span></div></div><div style="font-size:14px;font-weight:700;margin-bottom:4px">說不出口的話</div><div style="font-size:12px;color:var(--text-2);line-height:1.5">「最近有哪句話在心裡排練了很久，卻始終沒說出口？」</div><div style="font-size:12px;font-weight:600;color:var(--coral);margin-top:8px;cursor:pointer" onclick="showRecordArea(this)">我來說說 →</div></div>
+
+<div class="card corpus-item" data-cat="表達觀點" style="cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><span style="font-size:24px">💡</span><div style="display:flex;gap:4px"><span class="badge badge-sky">表達觀點</span><span class="badge badge-coral">偏低 5%</span></div></div><div style="font-size:14px;font-weight:700;margin-bottom:4px">我個人的看法</div><div style="font-size:12px;color:var(--text-2);line-height:1.5">「如何用英文溫和地表達自己跟別人不同的意見？」</div><div style="font-size:12px;font-weight:600;color:var(--coral);margin-top:8px;cursor:pointer" onclick="showRecordArea(this)">我來說說 →</div></div>
+
+<div class="card corpus-item" data-cat="社畜日常" style="cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><span style="font-size:24px">💼</span><span class="badge badge-amber">社畜日常</span></div><div style="font-size:14px;font-weight:700;margin-bottom:4px">周會裝忙</div><div style="font-size:12px;color:var(--text-2);line-height:1.5">「如果可以對老闆說一句不用負責任的真心話，你會說什麼？」</div><div style="font-size:12px;font-weight:600;color:var(--coral);margin-top:8px;cursor:pointer" onclick="showRecordArea(this)">我來說說 →</div></div>
+
+<div class="card corpus-item" data-cat="生活闖關" style="cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><span style="font-size:24px">🌍</span><span class="badge badge-sage">生活闖關</span></div><div style="font-size:14px;font-weight:700;margin-bottom:4px">外帶點餐</div><div style="font-size:12px;color:var(--text-2);line-height:1.5">「走進咖啡店，你會怎麼用英文點一杯客製化的飲料？」</div><div style="font-size:12px;font-weight:600;color:var(--coral);margin-top:8px;cursor:pointer" onclick="showRecordArea(this)">我來說說 →</div></div>
+
+<div class="card corpus-item" data-cat="先吐為快" style="cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><span style="font-size:24px">💨</span><span class="badge badge-coral">先吐為快</span></div><div style="font-size:14px;font-weight:700;margin-bottom:4px">通勤地獄</div><div style="font-size:12px;color:var(--text-2);line-height:1.5">「今天最讓你想翻白眼的一瞬間是什麼？」</div><div style="font-size:12px;font-weight:600;color:var(--coral);margin-top:8px;cursor:pointer" onclick="showRecordArea(this)">我來說說 →</div></div>
+
+<div class="card corpus-item" data-cat="朋友幹話" style="cursor:pointer"><div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px"><span style="font-size:24px">💬</span><span class="badge badge-lavender">朋友幹話</span></div><div style="font-size:14px;font-weight:700;margin-bottom:4px">週末揪團</div><div style="font-size:12px;color:var(--text-2);line-height:1.5">「跟朋友約週末的時候，你最常說的一句話是？」</div><div style="font-size:12px;font-weight:600;color:var(--coral);margin-top:8px;cursor:pointer" onclick="showRecordArea(this)">我來說說 →</div></div>
+</div>
+
+<!-- Recording Interface -->
+<div class="input-area anim-in d6" id="input-area" style="display:none">
+<div class="input-area-title">✍️ 說出你的想法</div>
+<div style="font-size:10px;color:var(--text-3);margin-bottom:8px" id="input-cat-label">分類：社畜日常</div>
+<div class="free-record-toggle" id="free-toggle" onclick="toggleFreeMode()">🎤 自由記錄模式 — 想到什麼說什麼，系統自動分類</div>
+<textarea class="input-textarea" id="corpus-input" placeholder="在這裡打字或按麥克風說話..." rows="3"></textarea>
+<div id="ai-transcription" style="display:none;margin-top:8px;padding:8px 12px;background:var(--sage-soft);border-radius:var(--r-sm);font-size:11px;color:var(--sage)">🤖 AI 轉寫：<span id="ai-text"></span></div>
+<div class="input-tag-preview" id="tag-preview"></div>
+<div class="input-bottom">
+<div class="input-mic" id="mic-btn" onclick="toggleMic()">🎙️</div>
+<button class="input-send" onclick="submitCorpus()">送出 →</button>
+</div>
+</div>
+</div>
+
+<!-- NIGHT PREVIEW (10 sentences) -->
+<div class="screen" id="screen-preview">
+<div style="margin-bottom:4px">
+<div class="section-title anim-in">🌙 夜間預習</div>
+<div class="section-sub anim-in d1">睡前 5 分鐘，搞懂明天要聽的句子</div>
+</div>
+
+<!-- Vocab hint -->
+<div class="preview-vocab-hint anim-in d2">💡 長按英文單詞可以加入生詞本</div>
+
+<!-- Group 1: 舊句複習 -->
+<div class="preview-group-label anim-in d2">🔄 舊句複習 · 3 句</div>
+
+<div class="preview-card anim-in d2">
+<div class="preview-card-top"><span class="preview-idx">1 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">今天忙死了，老闆又改需求了</div>
+<div class="preview-en">I'm <span class="preview-vocab" onclick="addVocab(this,'swamped','忙翻了')">swamped</span> today — my boss changed the <span class="preview-vocab" onclick="addVocab(this,'requirements','需求')">requirements</span> again.</div>
+</div>
+
+<div class="preview-card anim-in d2">
+<div class="preview-card-top"><span class="preview-idx">2 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">我要一個大杯拿鐵，少冰，不加糖</div>
+<div class="preview-en">Can I get a large <span class="preview-vocab" onclick="addVocab(this,'iced latte','冰拿鐵')">iced latte</span>, <span class="preview-vocab" onclick="addVocab(this,'light ice','少冰')">light ice</span>, no sugar?</div>
+</div>
+
+<div class="preview-card anim-in d2">
+<div class="preview-card-top"><span class="preview-idx">3 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">你週末去哪裡玩了？</div>
+<div class="preview-en">Where did you go this weekend?</div>
+</div>
+
+<!-- Group 2: 新句學習 -->
+<div class="preview-group-label anim-in d3">✨ 新句學習 · 4 句</div>
+
+<div class="preview-card anim-in d3">
+<div class="preview-card-top"><span class="preview-idx">4 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">這個專案的 deadline 被提前了</div>
+<div class="preview-en">The <span class="preview-vocab" onclick="addVocab(this,'deadline','截止日')">deadline</span> for this project was <span class="preview-vocab" onclick="addVocab(this,'moved up','提前')">moved up</span>.</div>
+</div>
+
+<div class="preview-card anim-in d3">
+<div class="preview-card-top"><span class="preview-idx">5 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">我最近開始跑步了，感覺精神好很多</div>
+<div class="preview-en">I've started jogging recently and I feel much more <span class="preview-vocab" onclick="addVocab(this,'energized','有精神的')">energized</span>.</div>
+</div>
+
+<div class="preview-card anim-in d3">
+<div class="preview-card-top"><span class="preview-idx">6 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">可以幫我留一個位子嗎？</div>
+<div class="preview-en">Could you <span class="preview-vocab" onclick="addVocab(this,'save a seat','留位子')">save a seat</span> for me?</div>
+</div>
+
+<div class="preview-card anim-in d3">
+<div class="preview-card-top"><span class="preview-idx">7 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">這家餐廳的 CP 值超高</div>
+<div class="preview-en">This restaurant is really <span class="preview-vocab" onclick="addVocab(this,'worth it','值得')">worth it</span> for the price.</div>
+</div>
+
+<!-- Group 3: 晚安語候選 -->
+<div class="preview-group-label anim-in d4">🌙 晚安語候選 · 3 句</div>
+
+<div class="preview-card anim-in d4">
+<div class="preview-card-top"><span class="preview-idx">8 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">今天雖然很累，但我完成了一件重要的事</div>
+<div class="preview-en">Even though I was exhausted, I <span class="preview-vocab" onclick="addVocab(this,'accomplished','完成了')">accomplished</span> something important today.</div>
+</div>
+
+<div class="preview-card anim-in d4">
+<div class="preview-card-top"><span class="preview-idx">9 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">明天的事明天再煩惱吧</div>
+<div class="preview-en">I'll <span class="preview-vocab" onclick="addVocab(this,'worry about','煩惱')">worry about</span> tomorrow tomorrow.</div>
+</div>
+
+<div class="preview-card anim-in d4">
+<div class="preview-card-top"><span class="preview-idx">10 / 10</span><button class="preview-play-btn" onclick="togglePreviewPlay(this)">🔊</button></div>
+<div class="preview-zh">晚安，今天也辛苦了</div>
+<div class="preview-en">Good night. You worked hard today.</div>
+</div>
+
+<div style="text-align:center;margin-top:16px" class="anim-in d5">
+<button class="preview-done-check" id="preview-done-btn" onclick="markPreviewDone()">✅ 預習完成</button>
+<div style="font-size:10px;color:var(--text-3);margin-top:8px">預習完成後，回到小窩繼續今天的任務</div>
+</div>
+</div>
+
+<!-- LISTEN (聆聽) -->
+<div class="screen" id="screen-listen">
+<div style="text-align:center">
+<div class="section-title anim-in">🎧 聆聽模式</div>
+<div class="section-sub anim-in d1">先讓耳朵熟悉，再讓嘴巴跟上</div>
+</div>
+
+<!-- Stage indicator -->
+<div style="display:flex;gap:4px;margin:12px 0" class="anim-in d2">
+<div id="ls-stage1-tab" style="flex:1;height:4px;background:var(--lavender);border-radius:2px"></div>
+<div id="ls-stage2-tab" style="flex:1;height:4px;background:var(--border-light);border-radius:2px"></div>
+<div id="ls-stage3-tab" style="flex:1;height:4px;background:var(--border-light);border-radius:2px"></div>
+</div>
+<div style="display:flex;justify-content:space-between;font-size:9px;font-weight:600;color:var(--text-3);margin-bottom:14px;padding:0 2px" class="anim-in d2">
+<span style="color:var(--lavender)">① 聆聽</span><span>② 預測</span><span>③ 跟讀</span>
+</div>
+
+<!-- Current sentence card -->
+<div class="card anim-in d3" style="padding:16px;text-align:center;margin-bottom:12px">
+<div style="font-size:14px;font-weight:600">我要一個大杯拿鐵，少冰，不加糖</div>
+<div id="ls-en-text" style="font-size:12px;color:var(--text-2);margin-top:4px;opacity:0;transition:opacity .5s">Can I get a large iced latte, light ice, no sugar?</div>
+</div>
+
+<!-- Stage 1: 聆聽 3 遍 -->
+<div id="ls-stage1" class="card anim-in d3" style="padding:16px;margin-bottom:8px">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<div style="font-size:13px;font-weight:700">🎧 純聆聽</div>
+<div style="font-size:11px;color:var(--lavender);font-weight:600" id="ls-counter">第 0 / 3 遍</div>
+</div>
+<div style="text-align:center">
+<div class="listen-art" style="width:90px;height:90px;margin:0 auto 10px"><span style="font-size:28px">🎧</span></div>
+<div class="listen-controls" style="margin:0">
+<button class="listen-btn" style="width:40px;height:40px;font-size:14px">⏮</button>
+<button class="listen-btn listen-btn-play" id="l-play" onclick="playListenRound()" style="width:50px;height:50px;font-size:20px">▶</button>
+<button class="listen-btn" style="width:40px;height:40px;font-size:14px">⏭</button>
+</div>
+<div style="font-size:10px;color:var(--text-3);margin-top:8px">不看文字，純用耳朵聽</div>
+</div>
+</div>
+
+<!-- Stage 2: 預測 (locked) -->
+<div id="ls-stage2" class="card anim-in d4" style="padding:16px;margin-bottom:8px;opacity:.4;pointer-events:none">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+<div style="font-size:13px;font-weight:700">🧠 預測</div>
+<div id="ls-stage2-lock" style="font-size:11px;color:var(--text-3)">🔒 完成聆聽後解鎖</div>
+</div>
+<div style="font-size:11px;color:var(--text-2);margin-bottom:8px">在腦中猜猜這句話的英文是什麼？</div>
+<button id="ls-predict-btn" style="width:100%;padding:12px;background:var(--card-alt);border:2px dashed var(--border);border-radius:var(--r-md);font-size:13px;font-weight:600;color:var(--text-2);cursor:pointer;font-family:var(--font);transition:all .3s" onclick="revealAnswer()">我想到了，揭示答案</button>
+<div id="ls-predict-result" style="display:none;margin-top:10px;padding:12px;background:var(--sage-soft);border-radius:var(--r-md);text-align:center">
+<div style="font-size:12px;font-weight:600;color:var(--sage)">Can I get a large iced latte, light ice, no sugar?</div>
+<div style="font-size:10px;color:var(--text-2);margin-top:4px">跟你預測的一樣嗎？</div>
+</div>
+</div>
+
+<!-- Stage 3: 跟讀 (locked) - REDESIGNED -->
+<div id="ls-stage3" class="card anim-in d5" style="padding:0;margin-bottom:8px;opacity:.4;pointer-events:none;overflow:hidden">
+<div style="padding:16px 16px 0">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+<div style="font-size:13px;font-weight:700">🗣️ 跟讀</div>
+<div id="ls-stage3-lock" style="font-size:11px;color:var(--text-3)">🔒 完成預測後解鎖</div>
+</div>
+<div style="font-size:11px;color:var(--text-2);margin-bottom:4px">看著英文，開口跟著說！</div>
+</div>
+<div class="shadow-card" style="border:none;border-radius:0;margin:0;padding:14px 16px 16px">
+<div class="shadow-en-text" id="shadow-en">Can I get a large iced latte, light ice, no sugar?</div>
+<div class="shadow-mic-area">
+<div class="shadow-mic" onclick="this.classList.toggle('recording');this.textContent=this.classList.contains('recording')?'⏹':'🎙️'">🎙️</div>
+<div style="font-size:10px;color:var(--text-3)">按住說話，放開結束</div>
+<button class="shadow-complete" onclick="alert('✅ 本句完成！進入下一句。')">完成本句 →</button>
+</div>
+</div>
+</div>
+
+<!-- Iron rule reminder -->
+<div class="card anim-in d6" style="padding:12px;background:var(--card-alt)">
+<div style="font-size:11px;color:var(--text-2);text-align:center">⚡ 鐵律：聆聽 → 預測 → 跟讀，順序不可顛倒</div>
+</div>
+</div>
+
+<!-- QUIZ (練習) -->
+<div class="screen" id="screen-quiz">
+<div class="section-title anim-in">✏️ 今日練習</div>
+<div class="section-sub anim-in d1">看中文，開口說英文</div>
+<div style="display:flex;align-items:center;gap:8px;margin:12px 0" class="anim-in d2">
+<div style="flex:1;height:5px;background:var(--border-light);border-radius:3px;overflow:hidden"><div style="height:100%;background:var(--sage);width:33%;border-radius:3px" id="q-fill"></div></div>
+<div style="font-size:11px;font-weight:600;color:var(--text-2)" id="q-count">1 / 3</div>
+</div>
+<div class="quiz-card anim-in d2" id="q-card">
+<div class="badge badge-amber" style="margin-bottom:10px" id="q-cat">💼 社畜日常</div>
+<div class="quiz-zh" id="q-zh">今天忙死了，老闆又改需求了</div>
+<div class="quiz-reveal-area" id="q-reveal" onclick="qReveal()">
+<span class="quiz-reveal-hint">點擊揭示答案</span>
+<span class="quiz-reveal-text" id="q-en">I'm swamped today — my boss changed the requirements again</span>
+</div>
+</div>
+<div class="quiz-actions anim-in d3" id="q-actions" style="opacity:.4;pointer-events:none">
+<button class="quiz-btn quiz-btn-fail" onclick="qFail()">🔴 卡住了</button>
+<button class="quiz-btn quiz-btn-pass" onclick="qPass()">✅ 通過</button>
+</div>
+</div>
+
+<!-- GROWTH (成長) -->
+<div class="screen" id="screen-timeline">
+<div class="section-title anim-in">🌱 成長旅程</div>
+<div class="section-sub anim-in d1">你的進度，由你掌握的句子的數量定義</div>
+
+<div class="xp-card-dark anim-in d2">
+<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px">
+<div style="font-size:28px;font-weight:800;letter-spacing:-.03em">312 <span style="font-size:12px;opacity:.5">XP</span></div>
+<div style="font-size:10px;opacity:.5">今日 87/200</div>
+</div>
+<div style="height:5px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden;margin-bottom:6px"><div style="height:100%;background:var(--coral);border-radius:3px;width:31%"></div></div>
+<div style="font-size:10px;opacity:.6">距離成熟期還需 688 XP</div>
+</div>
+
+<div style="font-size:12px;font-weight:700;color:var(--text-2);margin:16px 0 8px" class="anim-in d3">選擇你目前的階段</div>
+
+<div class="stage-selector anim-in d3">
+<div class="stage-item done" onclick="selectStage(this,0)">
+<div class="stage-icon" style="background:var(--sage-soft)">🌱</div>
+<div class="stage-info">
+<div class="stage-name">起步期 <span style="font-size:9px;color:var(--text-3);font-weight:400;margin-left:4px">0-10 句</span></div>
+<div class="stage-desc">連續 7 天打開 App，全紅也沒關係</div>
+<div style="font-size:10px;color:var(--sage);margin-top:4px;line-height:1.5">✓ 我曾連續 7 天打開 App<br>✓ 就算全部卡住，我也沒放棄</div>
+</div>
+<div class="stage-check" style="color:var(--sage)">✓</div>
+</div>
+
+<div class="stage-item current" onclick="selectStage(this,1)">
+<div class="stage-icon" style="background:var(--coral-soft)">🔄</div>
+<div class="stage-info">
+<div class="stage-name">回憶期 <span style="font-size:9px;color:var(--text-3);font-weight:400;margin-left:4px">11-30 句</span></div>
+<div class="stage-desc">開始想起 20-30% 的句子，綠勾出現</div>
+<div style="font-size:10px;color:var(--coral);margin-top:4px;line-height:1.5">□ 練習時開始有「啊這句我看過」的感覺<br>□ 能想起 2-3 句完整的英文</div>
+</div>
+<div class="stage-check" style="color:var(--coral)">●</div>
+</div>
+
+<div class="stage-item" onclick="selectStage(this,2)">
+<div class="stage-icon" style="background:var(--amber-soft)">✨</div>
+<div class="stage-info">
+<div class="stage-name">靈光期 <span style="font-size:9px;color:var(--text-3);font-weight:400;margin-left:4px">31-60 句</span></div>
+<div class="stage-desc">刷牙或走路時，脫口說出學過的句子</div>
+<div style="font-size:10px;color:var(--text-3);margin-top:4px;line-height:1.5">□ 曾在不經意時脫口說出英文句子<br>□ 至少記錄過 1 次靈光乍現 ✨</div>
+</div>
+<div class="stage-check">—</div>
+</div>
+
+<div class="stage-item locked" onclick="selectStage(this,3)">
+<div class="stage-icon" style="background:var(--lavender-soft)">💬</div>
+<div class="stage-info">
+<div class="stage-name">對話期 <span style="font-size:9px;color:var(--text-3);font-weight:400;margin-left:4px">61-120 句</span></div>
+<div class="stage-desc">能用學過的句型進行簡單對話</div>
+<div style="font-size:10px;color:var(--text-3);margin-top:4px;line-height:1.5">□ 能用 3 句以上學過的句型回應別人<br>□ 晚安語不再需要想很久</div>
+</div>
+<div class="stage-check">🔒</div>
+</div>
+
+<div class="stage-item locked" onclick="selectStage(this,4)">
+<div class="stage-icon" style="background:var(--sky-soft)">🌊</div>
+<div class="stage-info">
+<div class="stage-name">流利期 <span style="font-size:9px;color:var(--text-3);font-weight:400;margin-left:4px">120+ 句</span></div>
+<div class="stage-desc">不再先想中文再翻譯，自然脫口</div>
+<div style="font-size:10px;color:var(--text-3);margin-top:4px;line-height:1.5">□ 聽到英文不再自動翻譯成中文<br>□ 能自然用英文表達情緒</div>
+</div>
+<div class="stage-check">🔒</div>
+</div>
+</div>
+
+<div class="stage-slider-wrap anim-in d4">
+<div class="stage-slider-label"><span>🔄 回憶期</span><span>你覺得自己在哪裡？</span></div>
+<input type="range" class="stage-slider" min="0" max="100" value="40" id="stage-slider" oninput="updateSliderLabel(this.value)">
+<div class="stage-slider-label"><span>剛開始</span><span id="slider-val">40%</span><span>快要進入下一階段</span></div>
+</div>
+
+<div class="milestone-card anim-in d5">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--coral);text-transform:uppercase;letter-spacing:.06em">🔄 回憶期 · 當前</span><span class="badge badge-sage">進行中</span></div>
+<div style="font-size:14px;font-weight:700;margin-bottom:3px">已掌握約 15 句</div>
+<div style="font-size:11px;color:var(--text-2);line-height:1.5">再掌握 15 句就能進入靈光期。練習時通過的句子會自動計入。</div>
+</div>
+<div class="milestone-card anim-in d6" style="opacity:.5">
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-size:10px;font-weight:700;color:var(--text-3)">✨ 下一站</span><span class="badge badge-lavender">31 句解鎖</span></div>
+<div style="font-size:14px;font-weight:700;margin-bottom:3px">靈光乍現</div>
+<div style="font-size:11px;color:var(--text-2);line-height:1.5">某天你會在不經意的時候，脫口說出之前一直卡住的句子。那就是靈光乍現的瞬間。</div>
+</div>
+</div>
+
+</div><!-- screen-container -->
+
+<!-- TAB BAR -->
+<div class="tab-bar" id="tab-bar" style="display:none">
+<div class="tab-item active" onclick="switchTab('island')"><div class="tab-icon">🏠</div><div class="tab-label">小窩</div></div>
+<div class="tab-item" onclick="switchTab('corpus')"><div class="tab-icon">📝</div><div class="tab-label">筆記</div></div>
+<div class="tab-item" onclick="switchTab('listen')"><div class="tab-icon">🎧</div><div class="tab-label">聆聽</div></div>
+<div class="tab-item" onclick="switchTab('quiz')"><div class="tab-icon">✏️</div><div class="tab-label">練習</div></div>
+<div class="tab-item" onclick="switchTab('timeline')"><div class="tab-icon">🌱</div><div class="tab-label">成長</div></div>
+</div>
+
+<!-- FLOATING CLINK BUTTON -->
+<button class="fab-clink" id="fab-clink" style="display:none" onclick="showClink()" title="靈光乍現">✨</button>
+
+<!-- HELP OVERLAY -->
+<div class="help-overlay" id="help-overlay" onclick="hideHelp()">
+<div class="help-sheet" onclick="event.stopPropagation()">
+<div class="help-handle"></div>
+<div style="font-size:16px;font-weight:700;margin-bottom:14px">精靈狀態指南</div>
+<div class="help-row"><div class="help-icon" style="background:var(--amber-soft)">🍎</div><div><div class="help-title">飽食度</div><div class="help-desc">精靈的養分。一起聆聽、預習、跟讀，都能餵飽牠。忘記餵的話，精靈會越來越沒精神喔。</div></div></div>
+<div class="help-row"><div class="help-icon" style="background:var(--coral-soft)">💗</div><div><div class="help-title">心情</div><div class="help-desc">精靈的情緒。練習順利、錄晚安語都會讓牠開心。就算卡住了也不用擔心——面對挑戰本身就值得鼓勵。</div></div></div>
+<div class="help-row"><div class="help-icon" style="background:var(--sage-soft)">🌿</div><div><div class="help-title">健康</div><div class="help-desc">精靈的最後防線。平時不用操心，只有其他兩項都低落太久才會受影響。看到精靈變得灰灰的，就是提醒你了。</div></div></div>
+<div class="help-row"><div class="help-icon" style="background:var(--lavender-soft)">🔮</div><div><div class="help-title">親密度</div><div class="help-desc">你和精靈之間的羈絆。一起經歷得越多，連結越深。具體怎麼培養？試試看就知道了 ✨</div></div></div>
+<div class="help-row"><div class="help-icon" style="background:var(--coral-soft)">⭐</div><div><div class="help-title">成長值 XP</div><div class="help-desc">推動精靈進化的力量。每一次練習、每一次嘗試，都在累積。具體獲得方式？在學習中慢慢發現吧。</div></div></div>
+</div>
+</div>
+
+<!-- GUIDE OVERLAY -->
+<div class="guide-overlay" id="guide-overlay" onclick="hideGuide()">
+<div class="guide-sheet" onclick="event.stopPropagation()">
+<div style="text-align:center;margin-bottom:16px">
+<div style="font-size:28px;margin-bottom:6px">🐦</div>
+<div style="font-size:18px;font-weight:800">Selah 學習指南</div>
+<div style="font-size:12px;color:var(--text-2);margin-top:4px">每天 4 步驟，自然長出語感</div>
+</div>
+<div class="guide-step">
+<div class="guide-num" style="background:var(--amber)">1</div>
+<div><div class="guide-step-title">🌙 睡前預習</div><div class="guide-step-desc">花 5 分鐘看看明天要聽的句子。不用背，看過就好。長按英文單詞可以加入生詞本。</div></div>
+</div>
+<div class="guide-step">
+<div class="guide-num" style="background:var(--lavender)">2</div>
+<div><div class="guide-step-title">🎧 碎片聆聽</div><div class="guide-step-desc">通勤、做家事時打開聆聽。先聽 3 遍不看文字，試著預測，再揭示答案跟讀。</div></div>
+</div>
+<div class="guide-step">
+<div class="guide-num" style="background:var(--sage)">3</div>
+<div><div class="guide-step-title">✏️ 開口練習</div><div class="guide-step-desc">看中文，試著說英文。卡住也沒關係，那正是大腦在長新神經的訊號。</div></div>
+</div>
+<div class="guide-step">
+<div class="guide-num" style="background:var(--coral)">4</div>
+<div><div class="guide-step-title">🌙 晚安語</div><div class="guide-step-desc">睡前用英文說一句今天的感受。不用完美，一句就好。這是給精靈最溫暖的晚安。</div></div>
+</div>
+<div style="text-align:center;margin-top:16px">
+<button class="btn-primary" onclick="hideGuide()" style="background:var(--sage)">我知道了 ✨</button>
+</div>
+</div>
+</div>
+
+<!-- CLINK OVERLAY (靈光乍現) - English sentences + voice -->
+<div class="clink-overlay" id="clink-overlay" onclick="hideClink()">
+<div class="clink-sheet" onclick="event.stopPropagation()">
+<div class="clink-handle"></div>
+<div style="text-align:center;margin-bottom:16px">
+<div style="font-size:32px;margin-bottom:6px">✨</div>
+<div style="font-size:18px;font-weight:800">靈光乍現！</div>
+<div style="font-size:12px;color:var(--text-2);margin-top:4px">You just blurted out a sentence!</div>
+</div>
+<select class="clink-select" id="clink-select">
+<option value="">Which sentence did you blurt out?</option>
+<option>I'm swamped today — my boss changed the requirements again.</option>
+<option>Can I get a large iced latte, light ice, no sugar?</option>
+<option>Where did you go this weekend?</option>
+<option>I've started jogging recently and I feel much more energized.</option>
+</select>
+<div style="text-align:center">
+<div class="clink-mic" id="clink-mic" onclick="toggleClinkMic()">🎙️</div>
+<div style="font-size:10px;color:var(--text-3);margin-bottom:12px">或按住麥克風說出來</div>
+</div>
+<textarea class="gn-textarea" placeholder="Or type it here..." rows="2"></textarea>
+<button class="btn-primary" style="width:100%;justify-content:center;background:var(--amber);box-shadow:0 4px 16px rgba(229,162,68,.3)" onclick="submitClink()">記錄這個瞬間 ✨</button>
+</div>
+</div>
+
+<!-- GOODNIGHT OVERLAY (晚安語) -->
+<div class="gn-overlay" id="gn-overlay" onclick="hideGoodnight()">
+<div class="gn-sheet" onclick="event.stopPropagation()">
+<div class="gn-handle"></div>
+<div style="text-align:center;margin-bottom:16px">
+<div style="font-size:14px;font-weight:700">🌙 今天的晚安語</div>
+<div style="font-size:11px;color:var(--text-2);margin-top:4px">用英文說一句今天的感受吧</div>
+</div>
+<div class="gn-mic" id="gn-mic" onclick="toggleGnMic()">🎙️</div>
+<div class="gn-wave" id="gn-wave" style="display:none"><span></span><span></span><span></span><span></span><span></span><span></span><span></span></div>
+<textarea class="gn-textarea" id="gn-text" placeholder="在這裡輸入或按麥克風說話..." rows="2"></textarea>
+<div style="font-size:10px;color:var(--text-3);text-align:center;margin-bottom:12px">💡 不知道說什麼？試試：「Today I felt...」</div>
+<button class="btn-primary" style="width:100%;justify-content:center;background:var(--lavender);box-shadow:0 4px 16px rgba(139,127,199,.3)" onclick="submitGoodnight()">送出，晚安 🌙</button>
+</div>
+</div>
+
+<!-- VOCAB MODAL (生詞本全覽) -->
+<div class="vocab-modal-overlay" id="vocab-modal" onclick="hideVocabModal()">
+<div class="vocab-modal-sheet" onclick="event.stopPropagation()">
+<div class="vocab-modal-header">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<div style="font-size:16px;font-weight:700">📖 生詞本 <span style="font-weight:400;color:var(--text-3);font-size:12px">· 8 詞</span></div>
+<button onclick="hideVocabModal()" style="width:28px;height:28px;border-radius:50%;border:1px solid var(--border-light);background:var(--card);display:flex;align-items:center;justify-content:center;font-size:14px;cursor:pointer">✕</button>
+</div>
+<input type="text" class="vocab-modal-search" id="vocab-search" placeholder="搜尋單詞..." oninput="filterVocab(this.value)">
+</div>
+<div class="vocab-modal-body" id="vocab-modal-body">
+<div style="font-size:10px;font-weight:600;color:var(--coral);margin-bottom:6px;display:flex;align-items:center;gap:4px">🔴 陌生</div>
+<div class="vocab-modal-item" data-word="swamped"><div class="vocab-recent-dot" style="background:var(--coral)"></div><div style="flex:1"><div class="vocab-modal-word">swamped</div><div class="vocab-modal-meaning">忙翻了 · 出自：今天忙死了，老闆又改需求了</div></div><span class="vocab-modal-level" style="background:var(--coral-soft);color:var(--coral)">L0</span><div class="vocab-modal-remove" onclick="removeVocab(this)" title="移除">✕</div></div>
+<div class="vocab-modal-item" data-word="requirements"><div class="vocab-recent-dot" style="background:var(--coral)"></div><div style="flex:1"><div class="vocab-modal-word">requirements</div><div class="vocab-modal-meaning">需求 · 出自：老闆又改需求了</div></div><span class="vocab-modal-level" style="background:var(--coral-soft);color:var(--coral)">L0</span><div class="vocab-modal-remove" onclick="removeVocab(this)" title="移除">✕</div></div>
+<div class="vocab-modal-item" data-word="deadline"><div class="vocab-recent-dot" style="background:var(--coral)"></div><div style="flex:1"><div class="vocab-modal-word">deadline</div><div class="vocab-modal-meaning">截止日 · 出自：這個專案的 deadline 被提前了</div></div><span class="vocab-modal-level" style="background:var(--coral-soft);color:var(--coral)">L0</span><div class="vocab-modal-remove" onclick="removeVocab(this)" title="移除">✕</div></div>
+<div class="vocab-modal-item" data-word="energized"><div class="vocab-recent-dot" style="background:var(--coral)"></div><div style="flex:1"><div class="vocab-modal-word">energized</div><div class="vocab-modal-meaning">有精神的 · 出自：感覺精神好很多</div></div><span class="vocab-modal-level" style="background:var(--coral-soft);color:var(--coral)">L0</span><div class="vocab-modal-remove" onclick="removeVocab(this)" title="移除">✕</div></div>
+<div style="font-size:10px;font-weight:600;color:var(--amber);margin:12px 0 6px;display:flex;align-items:center;gap:4px">🟡 熟悉</div>
+<div class="vocab-modal-item" data-word="iced latte"><div class="vocab-recent-dot" style="background:var(--amber)"></div><div style="flex:1"><div class="vocab-modal-word">iced latte</div><div class="vocab-modal-meaning">冰拿鐵 · 出自：我要一個大杯拿鐵，少冰，不加糖</div></div><span class="vocab-modal-level" style="background:var(--amber-soft);color:var(--amber)">L2</span><div class="vocab-modal-remove" onclick="removeVocab(this)" title="移除">✕</div></div>
+<div class="vocab-modal-item" data-word="light ice"><div class="vocab-recent-dot" style="background:var(--amber)"></div><div style="flex:1"><div class="vocab-modal-word">light ice</div><div class="vocab-modal-meaning">少冰 · 出自：少冰，不加糖</div></div><span class="vocab-modal-level" style="background:var(--amber-soft);color:var(--amber)">L2</span><div class="vocab-modal-remove" onclick="removeVocab(this)" title="移除">✕</div></div>
+<div style="font-size:10px;font-weight:600;color:var(--sage);margin:12px 0 6px;display:flex;align-items:center;gap:4px">🟢 已掌握</div>
+<div class="vocab-modal-item" data-word="commute" style="opacity:.6"><div class="vocab-recent-dot" style="background:var(--sage)"></div><div style="flex:1"><div class="vocab-modal-word">commute</div><div class="vocab-modal-meaning">通勤</div></div><span class="vocab-modal-level" style="background:var(--sage-soft);color:var(--sage)">L4</span><div class="vocab-modal-remove" onclick="removeVocab(this)" title="移除">✕</div></div>
+<div class="vocab-modal-item" data-word="weekend" style="opacity:.6"><div class="vocab-recent-dot" style="background:var(--sage)"></div><div style="flex:1"><div class="vocab-modal-word">weekend</div><div class="vocab-modal-meaning">週末</div></div><span class="vocab-modal-level" style="background:var(--sage-soft);color:var(--sage)">L4</span><div class="vocab-modal-remove" onclick="removeVocab(this)" title="移除">✕</div></div>
+</div>
+</div>
+</div>
+
+<!-- HATCH OVERLAY -->
+<div class="hatch-overlay" id="hatch-overlay">
+<div class="hatch-content">
+<div class="hatch-egg" id="hatch-egg"><div class="hatch-crack" id="hatch-crack"></div>
+<div class="hatch-sparkle" style="top:-10px;left:20%;--tx:-30px;--ty:-40px"></div>
+<div class="hatch-sparkle" style="top:-10px;right:20%;--tx:30px;--ty:-40px"></div>
+<div class="hatch-sparkle" style="top:30%;left:-15px;--tx:-40px;--ty:-10px"></div>
+<div class="hatch-sparkle" style="top:30%;right:-15px;--tx:40px;--ty:-10px"></div>
+<div class="hatch-sparkle" style="bottom:10px;left:30%;--tx:-20px;--ty:30px"></div>
+<div class="hatch-sparkle" style="bottom:10px;right:30%;--tx:20px;--ty:30px"></div>
+</div>
+<div class="hatch-text" id="hatch-text">小豆 出生了！🐣</div>
+</div>
+</div>
+</div>
+
+<script>
+let cur='onboard',seeds=new Set(),qi=0,playing=false;
+const seedData=[
+{text:'今天忙死了，老闆又改需求了',tag:'💼 社畜日常'},
+{text:'我要一個大杯拿鐵，少冰，不加糖',tag:'🌍 生活闖關'},
+{text:'你週末去哪裡玩了？',tag:'💬 朋友幹話'},
+{text:'這個有其他顏色嗎？算便宜一點嗎？',tag:'🌍 生活闖關'},
+{text:'最近真的好累，什麼都做不完',tag:'💨 先吐為快'},
+{text:'週末要不要一起吃飯？',tag:'💬 朋友幹話'},
+];
+const quizData=[
+{zh:'今天忙死了，老闆又改需求了',en:"I'm swamped today — my boss changed the requirements again",cat:'💼 社畜日常'},
+{zh:'我要一個大杯拿鐵，少冰，不加糖',en:'Can I get a large iced latte, light ice, no sugar?',cat:'🌍 生活闖關'},
+{zh:'你週末去哪裡玩了？',en:'Where did you go this weekend?',cat:'💬 朋友幹話'},
+];
+
+function obNext(s){
+document.getElementById('ob-step'+(s-1)).style.display='none';
+document.getElementById('ob-step'+s).style.display='block';
+const e=document.getElementById('onboard-egg');
+if(s===2){e.style.width='80px';e.style.height='104px';e.style.marginBottom='20px';setTimeout(()=>document.getElementById('pet-name').focus(),200)}
+if(s===3){e.style.width='60px';e.style.height='78px';e.style.marginBottom='14px';renderSeeds()}
+}
+function renderSeeds(){
+document.getElementById('seed-list').innerHTML=seedData.map((s,i)=>`<div class="seed-item" onclick="toggleSeed(${i})" id="s${i}"><div class="seed-check" id="sc${i}"></div><div><div class="seed-text">${s.text}</div><div class="seed-tag">${s.tag}</div></div></div>`).join('');
+}
+function toggleSeed(i){
+if(seeds.has(i))seeds.delete(i);else if(seeds.size<3)seeds.add(i);
+seedData.forEach((_,j)=>{const e=document.getElementById('s'+j),c=document.getElementById('sc'+j);if(seeds.has(j)){e.classList.add('selected');c.textContent='✓'}else{e.classList.remove('selected');c.textContent=''}});
+const b=document.getElementById('hatch-btn');b.style.opacity=seeds.size===3?'1':'.4';b.style.pointerEvents=seeds.size===3?'auto':'none';
+}
+function doHatch(){
+const n=document.getElementById('pet-name').value.trim()||'小豆';
+document.getElementById('hatch-text').textContent=n+' 出生了！🐣';
+document.getElementById('pet-name-display').textContent=n;
+const o=document.getElementById('hatch-overlay');o.classList.add('show');
+setTimeout(()=>{document.getElementById('hatch-crack').style.opacity='1'},800);
+setTimeout(()=>{o.classList.remove('show');document.getElementById('screen-onboard').classList.remove('active');document.getElementById('screen-onboard').classList.add('slide-left');document.getElementById('screen-island').classList.add('active');document.getElementById('tab-bar').style.display='flex';document.getElementById('fab-clink').style.display='flex';cur='island';
+setTimeout(()=>showGuide(),600)},2600);
+}
+
+function switchTab(name){
+if(name===cur)return;
+document.querySelectorAll('.screen').forEach(s=>{s.classList.remove('active','slide-left')});
+document.getElementById('screen-'+name).classList.add('active');
+document.querySelectorAll('.tab-item').forEach(t=>t.classList.remove('active'));
+const tabs=['island','corpus','listen','quiz','timeline'];
+const idx=tabs.indexOf(name);if(idx>=0)document.querySelectorAll('.tab-item')[idx].classList.add('active');
+cur=name;
+if(name==='quiz'){qi=0;loadQuiz()}
+}
+
+// Help
+function showHelp(){document.getElementById('help-overlay').classList.add('show')}
+function hideHelp(){document.getElementById('help-overlay').classList.remove('show')}
+
+// Guide
+function showGuide(){document.getElementById('guide-overlay').classList.add('show')}
+function hideGuide(){document.getElementById('guide-overlay').classList.remove('show')}
+
+// Clink (靈光乍現)
+function showClink(){document.getElementById('clink-overlay').classList.add('show')}
+function hideClink(){document.getElementById('clink-overlay').classList.remove('show')}
+function submitClink(){alert('✨ 靈光乍現已記錄！+25 XP\n精靈好開心！');hideClink()}
+let clinkMicActive=false;
+function toggleClinkMic(){
+clinkMicActive=!clinkMicActive;
+const m=document.getElementById('clink-mic');
+if(clinkMicActive){m.classList.add('recording');m.textContent='⏹'}else{m.classList.remove('recording');m.textContent='🎙️'}
+}
+
+// Goodnight (晚安語)
+function showGoodnight(){document.getElementById('gn-overlay').classList.add('show')}
+function hideGoodnight(){document.getElementById('gn-overlay').classList.remove('show')}
+let gnRecording=false;
+function toggleGnMic(){
+gnRecording=!gnRecording;
+const m=document.getElementById('gn-mic'),w=document.getElementById('gn-wave');
+if(gnRecording){m.classList.add('recording');m.textContent='⏹';w.style.display='flex';
+document.getElementById('gn-text').value='Today I felt tired but proud.';
+}else{m.classList.remove('recording');m.textContent='🎙️';w.style.display='none'}
+}
+function submitGoodnight(){alert('🌙 晚安語已記錄！+12 XP\n晚安，好夢。');hideGoodnight()}
+
+// Vocab Modal
+function showVocabModal(){document.getElementById('vocab-modal').classList.add('show')}
+function hideVocabModal(){document.getElementById('vocab-modal').classList.remove('show')}
+function filterVocab(query){
+const q=query.toLowerCase();
+document.querySelectorAll('.vocab-modal-item').forEach(item=>{
+const w=item.dataset.word||'';
+item.style.display=w.toLowerCase().includes(q)?'flex':'none';
+});
+}
+function removeVocab(btn){
+if(confirm('確定要移除這個單詞嗎？')){
+const item=btn.closest('.vocab-modal-item');
+item.style.opacity='0';item.style.transform='translateX(20px)';
+setTimeout(()=>item.remove(),300);
+}
+}
+
+// Category select + filtering
+let prevActiveCat=null;
+function selectCat(el){
+// Toggle: clicking already-active chip shows all
+if(prevActiveCat===el){
+document.querySelectorAll('.cat-chip').forEach(c=>c.classList.remove('active'));
+document.querySelectorAll('.corpus-item').forEach(item=>item.style.display='block');
+prevActiveCat=null;
+return;
+}
+document.querySelectorAll('.cat-chip').forEach(c=>c.classList.remove('active'));
+el.classList.add('active');
+prevActiveCat=el;
+const catName=el.querySelector('.cat-chip-name').textContent;
+document.querySelectorAll('.corpus-item').forEach(item=>{
+item.style.display=(item.dataset.cat===catName)?'block':'none';
+});
+}
+
+// Input area (called from corpus card "我來說說")
+function showRecordArea(el){
+const card=el.closest('.corpus-item');
+const catName=card?card.dataset.cat:'';
+const ia=document.getElementById('input-area');
+document.getElementById('input-cat-label').textContent='分類：'+catName;
+ia.style.display='block';
+setTimeout(()=>ia.scrollIntoView({behavior:'smooth'}),100);
+}
+function showInputArea(el){showRecordArea(el)}
+function toggleFreeMode(){
+const t=document.getElementById('free-toggle');t.classList.toggle('active');
+const input=document.getElementById('corpus-input');
+if(t.classList.contains('active')){input.placeholder='自由模式：想到什麼說什麼，AI 會自動幫你分類...';input.focus()}
+else{input.placeholder='在這裡打字或按麥克風說話...'}
+}
+let micActive=false;
+function toggleMic(){
+micActive=!micActive;
+const m=document.getElementById('mic-btn');
+if(micActive){m.classList.add('recording');m.textContent='⏹';
+document.getElementById('corpus-input').value='今天跟客戶開會，簡報做到一半當機了超糗';
+setTimeout(()=>{
+document.getElementById('tag-preview').innerHTML='<span class="badge badge-amber">💼 社畜日常</span><span class="badge badge-coral">💨 先吐為快</span>';
+document.getElementById('ai-transcription').style.display='block';
+document.getElementById('ai-text').textContent='Today the client meeting... the presentation crashed halfway through, so embarrassing.';
+},1200);
+}else{m.classList.remove('recording');m.textContent='🎙️'}
+}
+function submitCorpus(){alert('語料已送出！AI 翻譯 + 分類中...')}
+
+// Vocab add
+function addVocab(el,word,meaning){
+el.classList.add('preview-vocab-new');
+setTimeout(()=>{alert('📖 已加入生詞本！\n\n'+word+' = '+meaning+'\n\n在筆記頁的生詞本可以查看和管理。');el.classList.remove('preview-vocab-new')},400);
+}
+
+// Night preview play
+function togglePreviewPlay(btn){
+btn.classList.toggle('playing');
+btn.textContent=btn.classList.contains('playing')?'⏸':'🔊';
+if(btn.classList.contains('playing')){setTimeout(()=>{btn.classList.remove('playing');btn.textContent='🔊'},3000)}
+}
+function markPreviewDone(){
+const btn=document.getElementById('preview-done-btn');
+btn.classList.add('checked');
+btn.textContent='✅ 預習完成！';
+btn.onclick=null;
+// Auto-return to island after 1.5s
+setTimeout(()=>{switchTab('island')},1500);
+}
+
+// Quiz
+function loadQuiz(){
+if(qi>=quizData.length)return;
+const d=quizData[qi];
+document.getElementById('q-zh').textContent=d.zh;
+document.getElementById('q-en').textContent=d.en;
+document.getElementById('q-cat').textContent=d.cat;
+document.getElementById('q-reveal').classList.remove('revealed');
+document.getElementById('q-actions').style.opacity='.4';
+document.getElementById('q-actions').style.pointerEvents='none';
+document.getElementById('q-fill').style.width=(qi/quizData.length*100)+'%';
+document.getElementById('q-count').textContent=(qi+1)+' / '+quizData.length;
+}
+function qReveal(){document.getElementById('q-reveal').classList.add('revealed');document.getElementById('q-actions').style.opacity='1';document.getElementById('q-actions').style.pointerEvents='auto'}
+function qResult(type){
+qi++;
+if(qi<quizData.length){loadQuiz()}
+else{
+document.getElementById('q-card').innerHTML='<div style="text-align:center;padding:16px"><div style="font-size:40px;margin-bottom:8px">🎉</div><div style="font-size:16px;font-weight:700">今日練習完成！</div><div style="font-size:12px;color:var(--text-2);margin-top:6px">睡前記得錄晚安語 🌙</div></div><div class="quiz-end-cta"><button onclick="showGoodnight()">去錄晚安語 →</button></div>';
+document.getElementById('q-actions').style.display='none';
+document.getElementById('q-fill').style.width='100%';
+}
+}
+function qPass(){qResult('pass')}
+function qFail(){qResult('fail')}
+
+// Listen flow control
+let listenCount=0;
+function playListenRound(){
+listenCount++;
+if(listenCount>3)listenCount=3;
+document.getElementById('ls-counter').textContent='第 '+listenCount+' / 3 遍';
+const btn=document.getElementById('l-play');
+btn.textContent='⏸';
+setTimeout(()=>{btn.textContent='▶'},2000);
+if(listenCount>=3){
+document.getElementById('ls-stage2').style.opacity='1';
+document.getElementById('ls-stage2').style.pointerEvents='auto';
+document.getElementById('ls-stage2-tab').style.background='var(--lavender)';
+document.getElementById('ls-stage2-lock').textContent='✅ 已解鎖';
+document.getElementById('ls-stage2-lock').style.color='var(--sage)';
+}
+}
+function revealAnswer(){
+document.getElementById('ls-en-text').style.opacity='1';
+document.getElementById('ls-predict-result').style.display='block';
+document.getElementById('ls-predict-btn').style.display='none';
+setTimeout(()=>{
+document.getElementById('ls-stage3').style.opacity='1';
+document.getElementById('ls-stage3').style.pointerEvents='auto';
+document.getElementById('ls-stage3-tab').style.background='var(--lavender)';
+document.getElementById('ls-stage3-lock').textContent='✅ 已解鎖';
+document.getElementById('ls-stage3-lock').style.color='var(--sage)';
+},500);
+}
+
+// Stage selector
+function selectStage(el,idx){
+if(el.classList.contains('locked'))return;
+document.querySelectorAll('.stage-item').forEach(s=>s.classList.remove('current'));
+el.classList.add('current');
+}
+function updateSliderLabel(val){document.getElementById('slider-val').textContent=val+'%'}
+
+loadQuiz();
+</script>
+</body>
+</html>

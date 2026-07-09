@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selah v6 審查報告 · 上中下三策</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#FBF8F4;--card:#fff;--text:#1A1614;--text2:#706B65;--text3:#A9A49E;
+--coral:#E06B54;--coral-s:#FEF0ED;--sage:#5A9E82;--sage-s:#ECF7F1;
+--amber:#E5A244;--amber-s:#FDF5E6;--lav:#8B7FC7;--lav-s:#F0EEF8;
+--sky:#5B9FD4;--sky-s:#EAF3FB;--rose:#D4829C;--rose-s:#F9EEF2;
+--border:#EBE7E1;--border-l:#F3F0EC;
+--font:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;padding:32px 20px;max-width:1100px;margin:0 auto}
+h1{font-size:28px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.sub{font-size:14px;color:var(--text2);margin-bottom:40px;line-height:1.6}
+h2{font-size:20px;font-weight:700;letter-spacing:-.02em;margin:40px 0 16px;display:flex;align-items:center;gap:8px}
+h3{font-size:16px;font-weight:700;margin:24px 0 10px}
+p{font-size:14px;line-height:1.7;color:var(--text2);margin-bottom:12px}
+strong{color:var(--text);font-weight:700}
+
+/* Problem cards */
+.problems{display:grid;gap:12px;margin:16px 0}
+.problem{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px 20px}
+.problem-tag{display:inline-flex;padding:3px 10px;border-radius:999px;font-size:10px;font-weight:700;margin-bottom:8px}
+.tag-critical{background:#FDE8E4;color:#C8392A}
+.tag-major{background:var(--amber-s);color:#B37A1E}
+.tag-minor{background:var(--sky-s);color:#3D7BB3}
+.problem h4{font-size:14px;font-weight:700;margin-bottom:4px}
+.problem p{font-size:13px;margin:0}
+
+/* Architecture diagrams */
+.arch-section{margin:40px 0}
+.arch-label{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.arch-tier{padding:4px 14px;border-radius:999px;font-size:12px;font-weight:700;color:#fff}
+.tier-best{background:var(--sage)}
+.tier-mid{background:var(--amber)}
+.tier-low{background:var(--text3)}
+.arch-title{font-size:18px;font-weight:800}
+.arch-desc{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6}
+
+/* Phone wireframe */
+.phones-row{display:flex;gap:24px;flex-wrap:wrap;justify-content:center}
+.phone-wire{width:200px;background:var(--text);border-radius:28px;padding:8px;box-shadow:0 16px 40px rgba(0,0,0,.12)}
+.phone-inner{background:var(--bg);border-radius:22px;overflow:hidden;min-height:380px}
+.phone-notch{height:24px;background:var(--text);border-radius:0 0 12px 12px;width:60px;margin:0 auto}
+.phone-screen{padding:8px 12px}
+.phone-label{text-align:center;font-size:11px;font-weight:700;color:var(--text2);margin-top:8px;padding:6px 0}
+.w-screen{background:var(--card);border:1px solid var(--border-l);border-radius:10px;padding:8px 10px;margin-bottom:6px;font-size:9px}
+.w-screen-title{font-weight:700;font-size:10px;margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.w-bar{height:3px;border-radius:2px;margin:2px 0}
+.w-row{display:flex;gap:4px;margin:3px 0}
+.w-chip{padding:2px 6px;border-radius:6px;font-size:7px;background:var(--border-l);border:1px solid var(--border)}
+.w-dot{width:4px;height:4px;border-radius:50%;display:inline-block}
+.w-btn{padding:3px 8px;border-radius:6px;font-size:7px;color:#fff;text-align:center;display:block;margin:4px auto 0}
+.w-modal{border:1.5px dashed;border-radius:8px;padding:6px 8px;margin:4px 0;font-size:8px}
+.w-tab{display:flex;gap:2px;margin-top:6px}
+.w-tab-item{flex:1;text-align:center;padding:4px 0;border-radius:6px;font-size:7px;background:var(--border-l)}
+.w-tab-item.active{background:var(--coral-s);color:var(--coral);font-weight:700}
+.w-step{display:flex;align-items:center;gap:4px;margin:3px 0;font-size:8px}
+.w-step-num{width:14px;height:14px;border-radius:50%;color:#fff;display:flex;align-items:center;justify-content:center;font-size:7px;font-weight:700;flex-shrink:0}
+.w-arrow{text-align:center;color:var(--text3);font-size:8px;margin:1px 0}
+
+/* Comparison table */
+.compare{width:100%;border-collapse:collapse;margin:20px 0}
+.compare th,.compare td{padding:12px 16px;text-align:left;font-size:13px;border-bottom:1px solid var(--border-l)}
+.compare th{font-weight:700;background:var(--card);font-size:12px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em}
+.compare td{background:var(--card)}
+.compare tr:hover td{background:var(--border-l)}
+.check{color:var(--sage);font-weight:700}
+.cross{color:var(--coral);font-weight:700}
+.half{color:var(--amber);font-weight:700}
+
+/* Flow diagram */
+.flow-container{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;margin:20px 0}
+.flow-row{display:flex;align-items:center;gap:12px;margin:8px 0;flex-wrap:wrap;justify-content:center}
+.flow-node{padding:10px 16px;border-radius:12px;font-size:12px;font-weight:600;border:2px solid;text-align:center;min-width:100px}
+.flow-arrow{font-size:18px;color:var(--text3)}
+.flow-label{font-size:10px;color:var(--text3);text-align:center;margin:4px 0}
+
+/* Concept count */
+.concept-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px;margin:12px 0}
+.concept-item{padding:8px 12px;background:var(--card);border:1px solid var(--border-l);border-radius:10px;font-size:11px;display:flex;align-items:center;gap:6px}
+.concept-item.keep{border-color:var(--sage);background:var(--sage-s)}
+.concept-item.merge{border-color:var(--amber);background:var(--amber-s)}
+.concept-item.drop{border-color:var(--coral);background:var(--coral-s);text-decoration:line-through;opacity:.6}
+
+/* Verdict */
+.verdict{background:linear-gradient(135deg,var(--sage),#6BAF93);color:#fff;border-radius:20px;padding:28px;margin:30px 0}
+.verdict h3{color:#fff;margin:0 0 8px}
+.verdict p{color:rgba(255,255,255,.85)}
+
+/* Responsive */
+@media(max-width:700px){.phones-row{gap:12px}.phone-wire{width:160px}.compare th,.compare td{padding:8px 10px;font-size:11px}}
+</style>
+</head>
+<body>
+
+<h1>Selah v6 極簡性審查報告</h1>
+<p class="sub">從「用戶第一次打開、沒人教就能用」的角度，嚴格審視當前原型的整體性、一致性和操作複雜度。提出上策、中策、下策三套方案。</p>
+
+<!-- ═══════ PROBLEM DIAGNOSIS ═══════ -->
+<h2>🔍 問題診斷</h2>
+
+<div class="problems">
+<div class="problem">
+<div class="problem-tag tag-critical">致命</div>
+<h4>1. 練習頁結構性失敗</h4>
+<p>聆聽（3 階段鎖步流程）+ Quiz（翻卡練習）堆疊在同一個滾動頁面中。用戶無法判斷「該從哪裡開始」「上面沒做完能不能看下面」。一個頁面承載了兩種完全不同的認知任務——聽覺處理 vs 回憶提取——卻沒有任何視覺分隔或完成邏輯。</p>
+</div>
+<div class="problem">
+<div class="problem-tag tag-critical">致命</div>
+<h4>2. 沒有「一天的流程」感</h4>
+<p>語言學習產品的靈魂是「每天做同樣的事，越做越深」。但目前的結構讓用戶在 3 個 Tab + 4-5 個 Modal 之間跳來跳去。沒有一條清晰的線告訴用戶：「現在做這步 → 然後做那步 → 今天完成了」。用戶需要自己拼湊使用順序。</p>
+</div>
+<div class="problem">
+<div class="problem-tag tag-major">嚴重</div>
+<h4>3. 概念過多（15+ 個）</h4>
+<p>語料庫、生詞本、靈光乍現、晚安語、夜間預習、成長旅程、XP、連續天數、回憶期/靈光期/對話期/流利期、起步/學習中/已掌握、飽食度/心情/健康/親密。一個極簡 App 的核心概念不應超過 5 個。</p>
+</div>
+<div class="problem">
+<div class="problem-tag tag-major">嚴重</div>
+<h4>4. 功能重疊</h4>
+<p>「晚安語」和「靈光乍現」本質相同（隨時記錄一句話）；「夜間預習」的語句和練習頁高度重疊；筆記頁的輸入區和夜間預習都有添加語句功能；生詞在筆記頁有收合區段又有全屏 Modal，入口重複。</p>
+</div>
+<div class="problem">
+<div class="problem-tag tag-minor">次要</div>
+<h4>5. 小窩頁面信息密度過高</h4>
+<p>10+ 個可交互元素（寵物點擊、寵物詳情、成長入口、幫助按鈕、指南按鈕、任務卡 3 行、2 個二級卡片、浮動按鈕）。對於「極簡」定位，首頁應該只有 1 個主要行動號召。</p>
+</div>
+</div>
+
+<!-- ═══════ CONCEPT AUDIT ═══════ -->
+<h2>🧠 概念審計：用戶需要理解的東西</h2>
+<p>紅色 = 建議刪除，黃色 = 建議合併/隱藏，綠色 = 保留</p>
+
+<h3>上策的概念取捨（保留 5 個核心）</h3>
+<div class="concept-grid">
+<div class="concept-item keep">🎧 聆聽</div>
+<div class="concept-item keep">✏️ 練習</div>
+<div class="concept-item keep">📝 我的句子</div>
+<div class="concept-item keep">📖 生詞</div>
+<div class="concept-item keep">🐦 精靈（純裝飾）</div>
+<div class="concept-item merge">🌙 夜間預習 → 融入聆聽前</div>
+<div class="concept-item merge">🌙 晚安語 → 今日反思</div>
+<div class="concept-item drop">✨ 靈光乍現</div>
+<div class="concept-item drop">🌱 成長旅程</div>
+<div class="concept-item drop">XP 系統</div>
+<div class="concept-item drop">📊 分類雷達圖</div>
+<div class="concept-item drop">🔥 連續天數</div>
+<div class="concept-item drop">飽食/心情/健康/親密</div>
+<div class="concept-item drop">回憶期/靈光期等</div>
+<div class="concept-item drop">起步/學習中/已掌握</div>
+</div>
+
+<!-- ═══════ CURRENT ARCHITECTURE ═══════ -->
+<h2>📐 當前架構（v6）</h2>
+<div class="flow-container">
+<div class="flow-row">
+<div class="flow-node" style="border-color:var(--coral);background:var(--coral-s)">🏠 小窩<br><span style="font-size:9px;opacity:.7">寵物 · 任務卡 · 成長入口 · 幫助</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--amber);background:var(--amber-s)">📝 筆記<br><span style="font-size:9px;opacity:.7">雷達圖 · 分類篩選 · 語句 · 生詞 · 輸入</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--lav);background:var(--lav-s)">✏️ 練習<br><span style="font-size:9px;opacity:.7">聆聽 3 階段 + Quiz 翻卡</span></div>
+</div>
+<div style="text-align:center;margin:12px 0;font-size:11px;color:var(--text3)">+ 5 個獨立 Modal ↓</div>
+<div class="flow-row" style="flex-wrap:wrap">
+<div class="flow-node" style="border-color:var(--sage);background:var(--sage-s);min-width:80px">🌱 成長旅程</div>
+<div class="flow-node" style="border-color:var(--lav);background:var(--lav-s);min-width:80px">🌙 夜間預習</div>
+<div class="flow-node" style="border-color:var(--amber);background:var(--amber-s);min-width:80px">✨ 靈光乍現</div>
+<div class="flow-node" style="border-color:var(--rose);background:var(--rose-s);min-width:80px">🌙 晚安語</div>
+<div class="flow-node" style="border-color:var(--sky);background:var(--sky-s);min-width:80px">📖 生詞本</div>
+</div>
+<div style="text-align:center;font-size:11px;color:var(--coral);margin-top:16px;font-weight:600">⚠️ 3 個 Tab + 5 個 Modal = 8 個入口，用戶需要自己決定順序</div>
+</div>
+
+
+<!-- ═══════ TIER 1: BEST ═══════ -->
+<div class="arch-section">
+<div class="arch-label">
+<div class="arch-tier tier-best">上策</div>
+<div class="arch-title">「一天的流程」—— 線性儀式感</div>
+</div>
+<p class="arch-desc">核心思路：Selah 不是一個工具箱，而是一個<strong>每日儀式</strong>。用戶打開 App，看到的不是選項，而是「現在該做什麼」。所有功能融入一條時間線，不需要任何導航決策。</p>
+
+<div class="flow-container" style="border-color:var(--sage)">
+<div style="text-align:center;font-size:12px;font-weight:700;color:var(--sage);margin-bottom:16px">用戶的一天 ↓ 跟著走就好</div>
+<div class="flow-row">
+<div class="flow-node" style="border-color:var(--lav);background:var(--lav-s)">🌙 睡前預覽<br><span style="font-size:9px;opacity:.7">5 分鐘看明天的句子</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--sky);background:var(--sky-s)">🎧 聆聽<br><span style="font-size:9px;opacity:.7">碎片時間聽句子</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--sage);background:var(--sage-s)">✏️ 練習<br><span style="font-size:9px;opacity:.7">翻卡回憶英文</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--amber);background:var(--amber-s)">🌙 今日一句<br><span style="font-size:9px;opacity:.7">睡前說英文給精靈聽</span></div>
+</div>
+</div>
+
+<div class="phones-row" style="margin-top:20px">
+<!-- Phone 1: Today -->
+<div>
+<div class="phone-wire">
+<div class="phone-inner">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="w-screen" style="background:linear-gradient(135deg,var(--coral),#E8856F);color:#fff;border:none">
+<div class="w-screen-title" style="color:#fff">☀️ 今天 · Day 8</div>
+<div style="font-size:7px;opacity:.8">連續 8 天 · 已完成 1/4 步</div>
+<div class="w-bar" style="background:rgba(255,255,255,.2)"><div style="height:100%;width:25%;background:#fff;border-radius:2px"></div></div>
+</div>
+<div class="w-screen" style="border-left:3px solid var(--sage)">
+<div class="w-step"><div class="w-step-num" style="background:var(--sage)">✓</div><span>🌙 睡前預覽 · 完成</span></div>
+</div>
+<div class="w-screen" style="border-left:3px solid var(--sky)">
+<div class="w-step"><div class="w-step-num" style="background:var(--sky)">2</div><span>🎧 聆聽 · 5 句</span></div>
+<div style="font-size:7px;color:var(--text3);margin-left:18px">← 現在這步，點擊開始</div>
+</div>
+<div class="w-screen" style="border-left:3px solid var(--border);opacity:.5">
+<div class="w-step"><div class="w-step-num" style="background:var(--border)">3</div><span>✏️ 練習 · 3 句</span></div>
+</div>
+<div class="w-screen" style="border-left:3px solid var(--border);opacity:.5">
+<div class="w-step"><div class="w-step-num" style="background:var(--border)">4</div><span>🌙 今日一句</span></div>
+</div>
+<div style="text-align:center;margin-top:4px"><span style="font-size:7px;color:var(--text3)">🐦 小豆</span></div>
+</div>
+<div class="w-tab">
+<div class="w-tab-item active">今日</div>
+<div class="w-tab-item">筆記</div>
+</div>
+</div>
+</div>
+<div class="phone-label">首頁：今日<br><span style="font-weight:400;color:var(--text3)">一眼看到現在該做什麼</span></div>
+</div>
+
+<!-- Phone 2: Listen -->
+<div>
+<div class="phone-wire">
+<div class="phone-inner">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="w-screen" style="background:var(--sky-s);border-color:var(--sky)">
+<div class="w-screen-title" style="color:var(--sky)">🎧 聆聽 1/5</div>
+<div style="text-align:center;padding:12px 0">
+<div style="width:40px;height:40px;border-radius:50%;background:var(--lav-s);margin:0 auto;display:flex;align-items:center;justify-content:center;font-size:16px">🎧</div>
+<div class="w-btn" style="background:var(--lav);width:fit-content;margin-top:8px">▶ 播放</div>
+<div style="font-size:7px;color:var(--text3);margin-top:4px">第 1/3 遍 · 閉眼聽</div>
+</div>
+</div>
+<div class="w-modal" style="border-color:var(--border);opacity:.4">
+<div style="font-size:7px;font-weight:600">🧠 猜英文 → 揭示</div>
+</div>
+<div class="w-modal" style="border-color:var(--border);opacity:.3">
+<div style="font-size:7px;font-weight:600">🗣️ 跟讀</div>
+</div>
+</div>
+<div class="w-tab">
+<div class="w-tab-item">← 返回今日</div>
+</div>
+</div>
+</div>
+<div class="phone-label">聆聽屏<br><span style="font-weight:400;color:var(--text3)">做完自動進入下一步</span></div>
+</div>
+
+<!-- Phone 3: Notes -->
+<div>
+<div class="phone-wire">
+<div class="phone-inner">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="w-screen">
+<div class="w-screen-title">📝 我的句子 · 70 句</div>
+<div class="w-row">
+<div class="w-chip">💼 社畜</div>
+<div class="w-chip" style="border-color:var(--coral);background:var(--coral-s)">💬 朋友</div>
+<div class="w-chip">💨 吐槽</div>
+<div class="w-chip">🫂 走心</div>
+</div>
+</div>
+<div class="w-screen" style="padding:6px 10px">
+<div style="font-size:8px;font-weight:600">每天早上的咖啡是我活下來的理由</div>
+<div style="font-size:7px;color:var(--text3)">Can I get a coffee...</div>
+</div>
+<div class="w-screen" style="padding:6px 10px">
+<div style="font-size:8px;font-weight:600">和朋友吃火鍋是最幸福的事</div>
+<div style="font-size:7px;color:var(--text3)">Eating hotpot with friends...</div>
+</div>
+<div class="w-screen" style="padding:6px 10px;opacity:.5">
+<div style="font-size:8px;font-weight:600">...</div>
+</div>
+</div>
+<div class="w-tab">
+<div class="w-tab-item">今日</div>
+<div class="w-tab-item active">筆記</div>
+</div>
+</div>
+</div>
+<div class="phone-label">筆記頁<br><span style="font-weight:400;color:var(--text3)">所有句子的歸宿</span></div>
+</div>
+</div>
+
+<table class="compare" style="margin-top:24px">
+<tr><th>維度</th><th>上策方案</th></tr>
+<tr><td>Tab 數量</td><td><strong>2 個</strong>（今日 / 筆記）</td></tr>
+<tr><td>核心概念</td><td><strong>5 個</strong>（聆聽、練習、句子、生詞、精靈）</td></tr>
+<tr><td>用戶決策</td><td><strong>零</strong>——打開就看到下一步</td></tr>
+<tr><td>每日流程</td><td>4 步線性：預覽 → 聆聽 → 練習 → 今日一句</td></tr>
+<tr><td>靈光乍現</td><td><strong>刪除</strong>——併入「今日一句」</td></tr>
+<tr><td>成長旅程</td><td><strong>刪除</strong>——精靈自然變化即可</td></tr>
+<tr><td>XP / 連續天數</td><td><strong>刪除</strong>——精靈狀態就是唯一反饋</td></tr>
+<tr><td>寵物互動</td><td>純裝飾，不點擊不展開</td></tr>
+<tr><td>Modal 數量</td><td><strong>0</strong>（全部融入頁面流）</td></tr>
+<tr><td>改動幅度</td><td style="color:var(--coral);font-weight:700">大幅重構</td></tr>
+</table>
+</div>
+
+<!-- ═══════ TIER 2: MIDDLE ═══════ -->
+<div class="arch-section">
+<div class="arch-label">
+<div class="arch-tier tier-mid">中策</div>
+<div class="arch-title">「有序的 3 Tab」—— 保留結構，修復流程</div>
+</div>
+<p class="arch-desc">核心思路：保留 3 Tab 結構不變，但解決練習頁的結構性問題，合併重疊功能，讓每個 Tab 的職責更清晰。</p>
+
+<div class="flow-container" style="border-color:var(--amber)">
+<div style="text-align:center;font-size:12px;font-weight:700;color:var(--amber);margin-bottom:16px">3 Tab 保留，內部大幅簡化</div>
+<div class="flow-row">
+<div class="flow-node" style="border-color:var(--coral);background:var(--coral-s)">🏠 小窩<br><span style="font-size:9px;opacity:.7">任務卡（含時間感知）<br>+ 精靈（純裝飾）<br>+ 晚安語按鈕</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--amber);background:var(--amber-s)">📝 筆記<br><span style="font-size:9px;opacity:.7">分類篩選<br>+ 我的句子<br>+ 生詞</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--lav);background:var(--lav-s)">✏️ 練習<br><span style="font-size:9px;opacity:.7">聆聽 or Quiz<br>分頁切換，不堆疊</span></div>
+</div>
+<div style="text-align:center;margin:12px 0;font-size:11px;color:var(--text3)">只保留 2 個 Modal ↓</div>
+<div class="flow-row">
+<div class="flow-node" style="border-color:var(--lav);background:var(--lav-s);min-width:80px">🌙 夜間預覽</div>
+<div class="flow-node" style="border-color:var(--sky);background:var(--sky-s);min-width:80px">📖 生詞詳情</div>
+</div>
+<div style="text-align:center;font-size:11px;color:var(--sage);margin-top:12px;font-weight:600">✓ 成長旅程刪除 · 靈光乍現合併入晚安語 · 幫助/指南合併</div>
+</div>
+
+<div class="phones-row" style="margin-top:20px">
+<!-- Phone 1: Island -->
+<div>
+<div class="phone-wire">
+<div class="phone-inner">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div style="text-align:center;padding:4px 0"><span style="font-size:12px">🐦</span><div style="font-size:7px;font-weight:600">小豆 · 開心</div></div>
+<div class="w-screen" style="background:linear-gradient(135deg,var(--coral),#E8856F);color:#fff;border:none">
+<div class="w-screen-title" style="color:#fff">🔥 Day 8 · 今天的約定</div>
+<div style="padding:4px 0;font-size:8px;border-bottom:1px solid rgba(255,255,255,.15)">🎧 聆聽 · 5 句 →</div>
+<div style="padding:4px 0;font-size:8px;border-bottom:1px solid rgba(255,255,255,.15)">✏️ 練習 · 3 句 →</div>
+<div style="padding:4px 0;font-size:8px">🌙 夜間預覽 · 21:00 後</div>
+</div>
+<div class="w-row" style="gap:4px">
+<div class="w-screen" style="flex:1;padding:6px;margin:0"><div style="font-size:7px;font-weight:600">📖 生詞 +3</div></div>
+<div class="w-screen" style="flex:1;padding:6px;margin:0"><div style="font-size:7px;font-weight:600">🌙 晚安語</div></div>
+</div>
+</div>
+<div class="w-tab">
+<div class="w-tab-item active">小窩</div>
+<div class="w-tab-item">筆記</div>
+<div class="w-tab-item">練習</div>
+</div>
+</div>
+</div>
+<div class="phone-label">小窩（簡化）<br><span style="font-weight:400;color:var(--text3)">移除浮動按鈕和成長入口</span></div>
+</div>
+
+<!-- Phone 2: Practice with tabs -->
+<div>
+<div class="phone-wire">
+<div class="phone-inner">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="w-row" style="margin-bottom:6px">
+<div class="w-chip" style="flex:1;text-align:center;background:var(--lav-s);border-color:var(--lav);color:var(--lav);font-weight:700">🎧 聆聽</div>
+<div class="w-chip" style="flex:1;text-align:center">✏️ Quiz</div>
+</div>
+<div class="w-screen" style="background:var(--lav-s);border-color:var(--lav)">
+<div class="w-screen-title" style="color:var(--lav)">🎧 第 1/5 句</div>
+<div style="text-align:center;padding:8px 0">
+<div style="width:32px;height:32px;border-radius:50%;background:var(--lav);margin:0 auto;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px">▶</div>
+<div style="font-size:7px;color:var(--text3);margin-top:4px">第 1/3 遍</div>
+</div>
+<div class="w-bar" style="background:var(--border)"><div style="height:100%;width:33%;background:var(--lav);border-radius:2px"></div></div>
+<div style="font-size:7px;color:var(--text3);text-align:center;margin-top:4px">聽 3 遍 → 猜英文 → 跟讀</div>
+</div>
+</div>
+<div class="w-tab">
+<div class="w-tab-item">小窩</div>
+<div class="w-tab-item">筆記</div>
+<div class="w-tab-item active">練習</div>
+</div>
+</div>
+</div>
+<div class="phone-label">練習頁<br><span style="font-weight:400;color:var(--text3)">聆聽/Quiz 分頁切換</span></div>
+</div>
+
+<!-- Phone 3: Notes -->
+<div>
+<div class="phone-wire">
+<div class="phone-inner">
+<div class="phone-notch"></div>
+<div class="phone-screen">
+<div class="w-screen">
+<div class="w-screen-title">📝 筆記 · 70 句</div>
+<div class="w-row">
+<div class="w-chip">💼 社畜</div>
+<div class="w-chip">💬 朋友</div>
+<div class="w-chip">💨 吐槽</div>
+</div>
+</div>
+<div class="w-screen" style="padding:6px 10px">
+<div style="font-size:8px;font-weight:600">每天早上的咖啡是我活下來的理由</div>
+</div>
+<div class="w-screen" style="padding:6px 10px">
+<div style="font-size:8px;font-weight:600">今天忙死了，老闆又改需求了</div>
+</div>
+<div class="w-screen" style="border-top:1px dashed var(--border);margin-top:4px;padding:6px 10px">
+<div style="font-size:7px;font-weight:700;color:var(--text3)">📖 生詞 · 8 個 →</div>
+</div>
+</div>
+<div class="w-tab">
+<div class="w-tab-item">小窩</div>
+<div class="w-tab-item active">筆記</div>
+<div class="w-tab-item">練習</div>
+</div>
+</div>
+</div>
+<div class="phone-label">筆記頁（簡化）<br><span style="font-weight:400;color:var(--text3)">移除雷達圖和輸入區</span></div>
+</div>
+</div>
+
+<table class="compare" style="margin-top:24px">
+<tr><th>維度</th><th>中策方案</th></tr>
+<tr><td>Tab 數量</td><td><strong>3 個</strong>（小窩 / 筆記 / 練習）</td></tr>
+<tr><td>核心概念</td><td><strong>8 個</strong>（保留成長/連續天數）</td></tr>
+<tr><td>用戶決策</td><td>低——任務卡引導順序，練習內用分頁</td></tr>
+<tr><td>每日流程</td><td>任務卡引導，但用戶可自由選擇</td></tr>
+<tr><td>靈光乍現</td><td><strong>合併入晚安語</strong></td></tr>
+<tr><td>成長旅程</td><td><strong>保留但隱藏</strong>——只在精靈下方小字顯示</td></tr>
+<tr><td>XP / 連續天數</td><td>保留在任務卡內</td></tr>
+<tr><td>寵物互動</td><td>純裝飾，不展開詳情</td></tr>
+<tr><td>Modal 數量</td><td><strong>2 個</strong>（夜間預覽、生詞詳情）</td></tr>
+<tr><td>改動幅度</td><td style="color:var(--amber);font-weight:700">中等重構</td></tr>
+</table>
+</div>
+
+<!-- ═══════ TIER 3: MINIMAL ═══════ -->
+<div class="arch-section">
+<div class="arch-label">
+<div class="arch-tier tier-low">下策</div>
+<div class="arch-title">「打補丁」—— 在現有結構上修補</div>
+</div>
+<p class="arch-desc">核心思路：不改結構，只修補最嚴重的問題。把練習頁的聆聽和 Quiz 用分隔線分開，合併靈光乍現和晚安語，減少一些按鈕。成本低但治標不治本。</p>
+
+<div class="flow-container" style="border-color:var(--text3)">
+<div style="text-align:center;font-size:12px;font-weight:700;color:var(--text3);margin-bottom:16px">v6 原結構 + 局部修補</div>
+<div class="flow-row">
+<div class="flow-node" style="border-color:var(--coral);background:var(--coral-s)">🏠 小窩<br><span style="font-size:9px;opacity:.7">基本不變<br>移除成長入口</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--amber);background:var(--amber-s)">📝 筆記<br><span style="font-size:9px;opacity:.7">基本不變</span></div>
+<div class="flow-arrow">→</div>
+<div class="flow-node" style="border-color:var(--lav);background:var(--lav-s)">✏️ 練習<br><span style="font-size:9px;opacity:.7">加分隔線<br>聆聽/Quiz 視覺分區</span></div>
+</div>
+<div style="text-align:center;margin:12px 0;font-size:11px;color:var(--text3)">4 個 Modal（合併了靈光乍現和晚安語）</div>
+<div style="text-align:center;font-size:11px;color:var(--coral);margin-top:12px;font-weight:600">⚠️ 核心問題「沒有流程感」未解決</div>
+</div>
+
+<table class="compare" style="margin-top:24px">
+<tr><th>維度</th><th>下策方案</th></tr>
+<tr><td>Tab 數量</td><td>3 個（不變）</td></tr>
+<tr><td>核心概念</td><td><strong>12 個</strong>（仍偏多）</td></tr>
+<tr><td>用戶決策</td><td>中——仍需用戶自行決定順序</td></tr>
+<tr><td>每日流程</td><td>不存在——任務卡提供建議但非強制</td></tr>
+<tr><td>靈光乍現</td><td>合併入晚安語</td></tr>
+<tr><td>成長旅程</td><td>移到小窩底部或刪除</td></tr>
+<tr><td>XP / 連續天數</td><td>保留</td></tr>
+<tr><td>寵物互動</td><td>保留 4 維度展開</td></tr>
+<tr><td>Modal 數量</td><td><strong>4 個</strong></td></tr>
+<tr><td>改動幅度</td><td style="color:var(--sage);font-weight:700">最小</td></tr>
+</table>
+</div>
+
+
+<!-- ═══════ COMPARISON ═══════ -->
+<h2>📊 三策對比</h2>
+<table class="compare">
+<tr>
+<th>維度</th>
+<th style="color:var(--sage)">上策</th>
+<th style="color:var(--amber)">中策</th>
+<th style="color:var(--text3)">下策</th>
+</tr>
+<tr>
+<td><strong>用戶第一次打開</strong></td>
+<td class="check">立刻知道該做什麼</td>
+<td class="half">看到任務卡，大致知道</td>
+<td class="cross">看到一堆元素，困惑</td>
+</tr>
+<tr>
+<td><strong>每日使用的決策成本</strong></td>
+<td class="check">零——跟著流程走</td>
+<td class="half">低——看任務卡選一個</td>
+<td class="cross">中——在 Tab 和 Modal 間選擇</td>
+</tr>
+<tr>
+<td><strong>學習流程一致性</strong></td>
+<td class="check">4 步線性，每天一樣</td>
+<td class="half">任務卡引導，但可跳過</td>
+<td class="cross">沒有統一流程</td>
+</tr>
+<tr>
+<td><strong>概念複雜度</strong></td>
+<td class="check">5 個核心</td>
+<td class="half">8 個</td>
+<td class="cross">12 個</td>
+</tr>
+<tr>
+<td><strong>功能重疊</strong></td>
+<td class="check">無</td>
+<td class="half">少量</td>
+<td class="cross">仍存在</td>
+</tr>
+<tr>
+<td><strong>極簡程度</strong></td>
+<td class="check">★★★★★</td>
+<td class="half">★★★☆☆</td>
+<td class="cross">★★☆☆☆</td>
+</tr>
+<tr>
+<td><strong>改動成本</strong></td>
+<td class="cross">大幅重構（1-2 天）</td>
+<td class="half">中等（半天）</td>
+<td class="check">最小（1-2 小時）</td>
+</tr>
+</table>
+
+
+<!-- ═══════ VERDICT ═══════ -->
+<div class="verdict">
+<h3>我的建議</h3>
+<p>如果你的目標真的是「極簡、不需要人指導就能用」，那<strong>上策是唯一正確答案</strong>。中策是一個不錯的妥協，但下策只是自我安慰——它解決了表面問題，但用戶仍然會在第一次打開時感到困惑。</p>
+<p style="margin-top:12px">上策的核心改動是：把 App 從「工具箱」變成「每日儀式」。2 個 Tab、4 步線性流程、5 個核心概念。用戶打開 App 不需要做任何決策——跟著走就好。這才是真正的極簡。</p>
+</div>
+
+</body>
+</html>

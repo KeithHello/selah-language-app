@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selah 深度審查 · 英語學習者 × iOS × 日語擴展</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+--bg:#FBF8F4;--card:#fff;--text:#1A1614;--text2:#706B65;--text3:#A9A49E;
+--coral:#E06B54;--coral-s:#FEF0ED;--sage:#5A9E82;--sage-s:#ECF7F1;
+--amber:#E5A244;--amber-s:#FDF5E6;--lav:#8B7FC7;--lav-s:#F0EEF8;
+--sky:#5B9FD4;--sky-s:#EAF3FB;--rose:#D4829C;--rose-s:#F9EEF2;
+--border:#EBE7E1;--border-l:#F3F0EC;
+--font:'Plus Jakarta Sans',system-ui,sans-serif;
+}
+body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;padding:32px 20px;max-width:960px;margin:0 auto;line-height:1.7}
+h1{font-size:26px;font-weight:800;letter-spacing:-.03em;margin-bottom:4px}
+.sub{font-size:14px;color:var(--text2);margin-bottom:40px}
+h2{font-size:18px;font-weight:800;margin:48px 0 16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+h3{font-size:15px;font-weight:700;margin:28px 0 10px}
+h4{font-size:14px;font-weight:700;margin:20px 0 8px;color:var(--coral)}
+p{font-size:14px;color:var(--text2);margin-bottom:12px}
+strong{color:var(--text);font-weight:700}
+.callout{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin:16px 0}
+.callout-warn{border-left:4px solid var(--coral)}
+.callout-ok{border-left:4px solid var(--sage)}
+.callout-info{border-left:4px solid var(--sky)}
+.callout-amber{border-left:4px solid var(--amber)}
+.callout h4{margin-top:0}
+.callout p:last-child{margin-bottom:0}
+.scenario{background:var(--card);border:1px solid var(--border-l);border-radius:14px;padding:16px;margin:10px 0;display:flex;gap:14px;align-items:flex-start}
+.scenario-icon{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.scenario-body{flex:1}
+.scenario-title{font-size:13px;font-weight:700;margin-bottom:2px}
+.scenario-desc{font-size:12px;color:var(--text2);line-height:1.6}
+.scenario-app{font-size:11px;color:var(--sage);margin-top:4px;font-weight:600}
+
+.compare-table{width:100%;border-collapse:collapse;margin:16px 0;font-size:13px}
+.compare-table th{background:var(--card);padding:12px 14px;text-align:left;font-weight:700;font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:.04em;border-bottom:2px solid var(--border)}
+.compare-table td{padding:12px 14px;border-bottom:1px solid var(--border-l);vertical-align:top;background:var(--card)}
+.compare-table tr:hover td{background:var(--border-l)}
+
+.ios-card{background:var(--text);border-radius:36px;padding:10px;width:220px;box-shadow:0 16px 40px rgba(0,0,0,.12);display:inline-block;vertical-align:top}
+.ios-inner{background:var(--bg);border-radius:28px;overflow:hidden;min-height:400px}
+.ios-status{height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600}
+.ios-content{padding:0 14px 14px}
+.ios-nav{font-size:17px;font-weight:700;padding:8px 0 12px;display:flex;align-items:center;gap:6px}
+.ios-tab-bar{display:flex;border-top:1px solid var(--border);background:rgba(251,248,244,.95);padding:6px 0 20px}
+.ios-tab{flex:1;text-align:center;font-size:9px;color:var(--text3)}
+.ios-tab.active{color:var(--coral)}
+.ios-tab-icon{font-size:18px;display:block;margin-bottom:2px}
+.ios-row{background:var(--card);border-radius:12px;padding:12px;margin-bottom:6px;border:1px solid var(--border-l)}
+.ios-row-title{font-size:13px;font-weight:600}
+.ios-row-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.ios-row-arrow{float:right;color:var(--text3);font-size:14px}
+.ios-hero{background:linear-gradient(135deg,var(--coral),#E8856F);color:#fff;border-radius:14px;padding:14px;margin-bottom:8px}
+.ios-hero-title{font-size:15px;font-weight:700}
+.ios-hero-sub{font-size:11px;opacity:.8;margin-top:2px}
+.ios-task{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.1);font-size:12px}
+.ios-task:last-child{border:none}
+.ios-task-icon{width:24px;height:24px;border-radius:6px;background:rgba(255,255,255,.15);display:flex;align-items:center;justify-content:center;font-size:12px}
+.ios-task-text{flex:1}
+.ios-task-xp{font-size:9px;opacity:.5}
+.ios-time-badge{display:inline-flex;padding:3px 8px;border-radius:6px;font-size:9px;font-weight:600;background:rgba(255,255,255,.15);margin-top:6px}
+.ios-pet{text-align:center;padding:6px 0;font-size:11px;color:var(--text2)}
+.ios-widget{background:var(--card);border-radius:14px;padding:12px;border:1px solid var(--border-l);margin-bottom:6px}
+.ios-widget-title{font-size:10px;font-weight:600;color:var(--text3);margin-bottom:4px}
+
+.lang-card{background:var(--card);border-radius:14px;border:1px solid var(--border);padding:16px;margin:10px 0}
+.lang-header{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.lang-flag{font-size:24px}
+.lang-name{font-size:15px;font-weight:700}
+.lang-points{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px}
+.lang-point{padding:8px 10px;border-radius:8px}
+.lang-point-easy{background:var(--sage-s);color:var(--sage)}
+.lang-point-hard{background:var(--coral-s);color:var(--coral)}
+
+.verdict-box{background:linear-gradient(135deg,#1A1614,#2A2624);color:#fff;border-radius:20px;padding:28px;margin:40px 0}
+.verdict-box h3{color:#fff;margin:0 0 12px}
+.verdict-box p{color:rgba(255,255,255,.75);font-size:14px}
+.verdict-box strong{color:#fff}
+</style>
+</head>
+<body>
+
+<h1>Selah 深度審查（第二輪）</h1>
+<p class="sub">從英語學習者的真實場景、iOS 用戶習慣、日語擴展三個維度，重新審視上一輪方案。</p>
+
+<!-- ═══════════════════════════════════ -->
+<h2>🔍 上一輪方案的盲點</h2>
+
+<div class="callout callout-warn">
+<h4>盲點一：「4 步線性流程」太僵硬</h4>
+<p>上策提出的「預覽 → 聆聽 → 練習 → 今日一句」看似完美，但它假設用戶每天都有完整的 15-20 分鐘。現實中，英語學習者的時間是<strong>碎片化</strong>的——通勤聽 3 分鐘、午休練 5 分鐘、睡前看 5 分鐘。</p>
+<p>強制線性流程會讓用戶覺得「沒做完全部 = 今天沒完成 = 失敗」，這跟我們「極簡、無壓力」的理念矛盾。</p>
+<p><strong>修正方向：</strong>不強制順序，而是根據用戶當前的時間和精力，智能推薦「現在最適合做什麼」。App 應該是彈性嚮導，不是火車軌道。</p>
+</div>
+
+<div class="callout callout-warn">
+<h4>盲點二：沒有考慮「聽到說」之間的巨大鴻溝</h4>
+<p>目前的聆聽流程是：聽 3 遍 → 猜英文 → 跟讀。但從「聽懂」到「開口說」之間，其實有一個巨大的認知跳躍。很多學習者<strong>聽得懂但說不出來</strong>——這是中文母語者學英語最普遍的痛點。</p>
+<p>目前的「預測」步驟（在腦中猜英文）方向對了，但揭示答案後直接跳到跟讀，中間缺少一個<strong>「句子拆解」</strong>環節——讓用戶理解這個句子的結構、為什麼這樣說、重點詞彙是什麼。</p>
+<p><strong>修正方向：</strong>在「預測」和「跟讀」之間，加入一個輕量的句子拆解步驟。不需要很重，2-3 行就夠：標出核心詞組、展示句型結構。</p>
+</div>
+
+<div class="callout callout-amber">
+<h4>盲點三：寵物系統的定位需要更精準</h4>
+<p>上一輪建議「寵物純裝飾、不互動」——這矯枉過正了。用戶明確說寵物是「輔助提升動機」的工具，完全去掉互動會讓寵物變成背景貼紙，失去存在意義。</p>
+<p>正確的定位是：<strong>寵物 = 情緒鏡子</strong>。它不該有 4 個獨立維度（飽食/心情/健康/親密），那太複雜了。它只需要一面鏡子——反映用戶的「堅持程度」。每天來，精靈就活潑。幾天不來，精靈不是生氣或生病，而是安靜地等你回來。</p>
+</div>
+
+<div class="callout callout-info">
+<h4>盲點四：iOS 專屬特性被忽略了</h4>
+<p>Selah 是 iOS 獨佔的 App，但目前的設計完全沒有利用 iOS 的獨特優勢。Home Screen Widget、Lock Screen 通知、Haptic Feedback、滑動手勢——這些是 iOS 用戶每天都在用的交互模式，卻在原型中完全缺席。</p>
+<p>特別是 <strong>Home Screen Widget</strong>，對於一個「每天打開一次」的習慣型 App 來說，Widget 是用戶在不打開 App 的情況下保持連結的關鍵方式。</p>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<h2>👤 英語學習者的真實一天</h2>
+<p>要設計一個符合用戶習慣的產品，先要理解他們的生活。</p>
+
+<div class="scenario">
+<div class="scenario-icon" style="background:var(--amber-s)">🌅</div>
+<div class="scenario-body">
+<div class="scenario-title">早上 7:30 · 通勤電車上</div>
+<div class="scenario-desc">小美戴上 AirPods，打開 Selah。她有 3 分鐘——剛好夠聽 2 句今天的新句子。她閉眼聽，試著猜英文，猜不出來，看了答案，跟著唸了一遍。</div>
+<div class="scenario-app">→ App 需要：快速進入聆聽，不需要經過任何「選擇」步驟</div>
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-icon" style="background:var(--sky-s)">☀️</div>
+<div class="scenario-body">
+<div class="scenario-title">中午 12:30 · 公司餐廳</div>
+<div class="scenario-desc">吃完飯還有 10 分鐘。她打開 Selah，把今天早上聽過的 5 句全部過了一遍。有些記住了，有些還是卡住。卡住的那句，她多看了兩遍句子拆解。</div>
+<div class="scenario-app">→ App 需要：練習區要能直接看到「今天該練的句子」，句子拆解要快速可看</div>
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-icon" style="background:var(--lav-s)">🌆</div>
+<div class="scenario-body">
+<div class="scenario-title">傍晚 18:00 · 下班路上</div>
+<div class="scenario-desc">今天很累，不想練習。但 Lock Screen 上看到 Selah 的小組件顯示「小豆在等你 🐦」，她笑了一下，打開 App 只做了 1 句跟讀就關了。</div>
+<div class="scenario-app">→ App 需要：尊重「今天只想做一點點」的心情，不要讓用戶有罪惡感</div>
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-icon" style="background:var(--rose-s)">🌙</div>
+<div class="scenario-body">
+<div class="scenario-title">晚上 22:30 · 躺在床上</div>
+<div class="scenario-desc">睡前她打開 Selah，花 5 分鐘看了明天要聽的句子（不用背，看過就好）。然後按住麥克風，用英文說了一句「Today was okay, I'm glad I finished the project.」精靈開心地跳了一下。</div>
+<div class="scenario-app">→ App 需要：夜間模式，低亮度，大字體，適合躺著操作</div>
+</div>
+</div>
+
+<div class="scenario">
+<div class="scenario-icon" style="background:var(--border-l)">😴</div>
+<div class="scenario-body">
+<div class="scenario-title">週末 · 兩天沒打開 App</div>
+<div class="scenario-desc">週一早上打開 Selah，精靈有點安靜，但沒有生氣。畫面溫柔地顯示「歡迎回來，小豆等了你 2 天」。沒有紅色警告、沒有連續天數中斷的懲罰。只是溫暖地等你繼續。</div>
+<div class="scenario-app">→ App 需要：缺席不懲罰，精靈反映等待但不施壓</div>
+</div>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<h2>📱 iOS 用戶習慣對設計的影響</h2>
+
+<div style="text-align:center;margin:20px 0">
+<div class="ios-card">
+<div class="ios-inner">
+<div class="ios-status">9:41</div>
+<div class="ios-content">
+<div class="ios-nav"><span style="font-size:14px">🐦</span> Selah</div>
+
+<div class="ios-hero">
+<div class="ios-hero-title">午安，小美</div>
+<div class="ios-hero-sub">Day 8 · 已完成 2/5 句聆聽</div>
+<div class="ios-time-badge">🎧 現在適合：聆聽（碎片時間）</div>
+</div>
+
+<div class="ios-row" style="display:flex;align-items:center;gap:10px">
+<div style="font-size:22px">🎧</div>
+<div style="flex:1"><div class="ios-row-title">聆聽</div><div class="ios-row-sub">5 句 · 約 3 分鐘</div></div>
+<span class="ios-row-arrow">›</span>
+</div>
+
+<div class="ios-row" style="display:flex;align-items:center;gap:10px">
+<div style="font-size:22px">✏️</div>
+<div style="flex:1"><div class="ios-row-title">練習</div><div class="ios-row-sub">3 句 · 約 5 分鐘</div></div>
+<span class="ios-row-arrow">›</span>
+</div>
+
+<div class="ios-row" style="display:flex;align-items:center;gap:10px;opacity:.5">
+<div style="font-size:22px">🌙</div>
+<div style="flex:1"><div class="ios-row-title">夜間預覽</div><div class="ios-row-sub">21:00 後開放</div></div>
+<span class="ios-row-arrow">›</span>
+</div>
+
+<div class="ios-pet">🐦 小豆 · 心情不錯 ♪</div>
+</div>
+
+<div class="ios-tab-bar">
+<div class="ios-tab active"><span class="ios-tab-icon">🏠</span>今日</div>
+<div class="ios-tab"><span class="ios-tab-icon">📝</span>筆記</div>
+</div>
+</div>
+</div>
+<p style="font-size:12px;color:var(--text3);margin-top:8px">遵循 iOS HIG 的修正版首頁</p>
+</div>
+
+<div class="callout callout-info">
+<h4>iOS 關鍵設計原則</h4>
+<p><strong>1. Tab Bar ≤ 2 個：</strong>iOS HIG 允許 2-5 個 Tab，但 Selah 的核心頁面只有 2 個（今日/筆記），不需要更多。練習和夜間預覽都是從「今日」頁面的行項目進入的 pushed view（標準 iOS 導航），不需要獨立 Tab。</p>
+<p><strong>2. Push 而非 Modal：</strong>iOS 用戶習慣「點進去 → 做完 → 左上角返回」。聆聽、練習、夜間預覽都應該用 push navigation，而不是從底部彈出的 modal。Modal 在 iOS 中是用來打斷流程的（如確認刪除），不是用來承載主要功能的。</p>
+<p><strong>3. Home Screen Widget：</strong>顯示「今天進度 + 精靈狀態」。用戶不打開 App 也能看到進度，這是 iOS 習慣型 App 的標配（類似 Duolingo 的 streak widget）。</p>
+<p><strong>4. Haptic Feedback：</strong>完成一句聆聽時輕微振動、Quiz 通過時成功振動。iOS 用戶對觸覺反饋非常敏感，這是低成本高回報的體驗提升。</p>
+<p><strong>5. 時間感知：</strong>iOS 的 NSDate 可以判斷現在幾點。首頁應該根據時間動態調整顯示——早上顯示「聆聽」在前面，晚上顯示「夜間預覽」在前面。</p>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<h2>🎧 英語學習的關鍵設計洞察</h2>
+
+<h3>中文母語者學英語的核心痛點</h3>
+<div class="callout callout-ok">
+<p><strong>痛點 1：「聽得懂但說不出來」</strong>——這是 Selah 的核心價值主張。從聆聽到跟讀之間，需要一個「句子拆解」橋樑。</p>
+<p><strong>痛點 2：「不知道每天學什麼」</strong>——所以 Selah 用「今天的生活句子」取代教科書章節，用戶不需要選擇學什麼。</p>
+<p><strong>痛點 3：「學了很快忘」</strong>——所以 Selah 的聆聽-預測-跟讀流程讓同一個句子經過聽覺、思考、口語三個通道。</p>
+<p><strong>痛點 4：「沒有動力堅持」</strong>——所以 Selah 用精靈提供溫和的陪伴感，不是打卡壓力。</p>
+</div>
+
+<h3>修正後的聆聽流程（加入句子拆解）</h3>
+<div class="callout callout-info">
+<p><strong>Step 1：🎧 純聆聽</strong>（不變）——閉眼聽 3 遍，訓練耳朵</p>
+<p><strong>Step 2：🧠 預測</strong>（不變）——在腦中猜英文是什麼</p>
+<p><strong>Step 3：🔍 句子拆解</strong>（新增）——揭示英文後，標出核心詞組和句型結構。例如：</p>
+<div style="background:var(--sage-s);border-radius:10px;padding:12px;margin:8px 0;font-size:13px">
+<div style="font-weight:700;color:var(--sage)">I'm swamped today — my boss changed the requirements again.</div>
+<div style="margin-top:8px;font-size:11px;color:var(--text2);line-height:1.6">
+<span style="background:var(--amber-s);padding:1px 6px;border-radius:4px;color:var(--amber);font-weight:600">be swamped</span> = 忙翻了（比 busy 更口語）<br>
+<span style="background:var(--amber-s);padding:1px 6px;border-radius:4px;color:var(--amber);font-weight:600">changed the requirements</span> = 改需求（工作場景常用）<br>
+句型：<strong>抱怨 + 原因</strong>（日常吐槽的萬用結構）
+</div>
+</div>
+<p><strong>Step 4：🗣️ 跟讀</strong>（不變）——看著英文，開口說</p>
+</div>
+
+<h3>「彈性優先」取代「線性強制」</h3>
+<div class="callout callout-amber">
+<p>不要強制用戶走完所有步驟。而是根據用戶今天已完成的動作，動態調整顯示：</p>
+<p><strong>如果今天什麼都沒做：</strong>顯示「現在有 3 分鐘嗎？來聽 2 句新的句子 🎧」</p>
+<p><strong>如果已經聽過了：</strong>顯示「聽過的句子，試著回憶一下？ ✏️」</p>
+<p><strong>如果已經練習過了：</strong>顯示「今天差不多了，睡前看看明天的句子？ 🌙」</p>
+<p><strong>如果全部完成了：</strong>顯示「今天完成！精靈很開心 🐦 晚安～」</p>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<h2>🇯🇵 日語擴展的架構思考</h2>
+
+<div style="display:flex;gap:16px;flex-wrap:wrap">
+<div class="lang-card" style="flex:1;min-width:280px">
+<div class="lang-header"><div class="lang-flag">🇬🇧</div><div class="lang-name">英語學習</div></div>
+<div class="lang-points">
+<div class="lang-point lang-point-easy">✓ 句子直覺翻譯</div>
+<div class="lang-point lang-point-easy">✓ 碎片時間聆聽</div>
+<div class="lang-point lang-point-hard">✗ 冠詞 a/the</div>
+<div class="lang-point lang-point-hard">✗ 時態一致性</div>
+<div class="lang-point lang-point-hard">✗ 片語動詞</div>
+<div class="lang-point lang-point-hard">✗ 介系詞搭配</div>
+</div>
+</div>
+<div class="lang-card" style="flex:1;min-width:280px">
+<div class="lang-header"><div class="lang-flag">🇯🇵</div><div class="lang-name">日語學習</div></div>
+<div class="lang-points">
+<div class="lang-point lang-point-easy">✓ 漢字識別（中文母語優勢）</div>
+<div class="lang-point lang-point-easy">✓ 句子直覺翻譯</div>
+<div class="lang-point lang-point-hard">✗ 助詞 は/が/を/に</div>
+<div class="lang-point lang-point-hard">✗ 動詞變形（ます/た/て形）</div>
+<div class="lang-point lang-point-hard">✗ 敬語體系</div>
+<div class="lang-point lang-point-hard">✗ 語調（pitch accent）</div>
+</div>
+</div>
+</div>
+
+<div class="callout callout-ok">
+<h4>好消息：核心架構可以共用</h4>
+<p>英語和日語的學習在<strong>方法論層面</strong>高度一致：</p>
+<p><strong>句子為本</strong>——都是從生活句子出發，不是從文法規則出發。</p>
+<p><strong>聽 → 猜 → 拆 → 說</strong>——四步流程對兩種語言都適用。日語的「拆解」會側重助詞和動詞變形，但步驟不變。</p>
+<p><strong>精靈陪伴</strong>——動機機制跟語言無關。</p>
+<p><strong>筆記歸檔</strong>——都是「我學過的句子」的歸宿。</p>
+</div>
+
+<div class="callout callout-amber">
+<h4>需要差異化的部分</h4>
+<p><strong>句子拆解的邏輯不同：</strong>英語拆「詞組 + 句型」，日語拆「助詞 + 動詞變形 + 敬語層級」。</p>
+<p><strong>生詞提取的邏輯不同：</strong>英語提取不認識的單詞，日語還要考慮「這個漢字在日語中怎麼讀」（訓讀 vs 音讀）。</p>
+<p><strong>語句分類的邏輯不同：</strong>英語按場景分類（工作/朋友/餐廳），日語還需要按「禮貌程度」分類（タメ口 vs 敬語 vs 謙讓語）。</p>
+</div>
+
+<h3>建議的語言切換方式</h3>
+<div class="callout callout-info">
+<p>不要在同一個 App 內做語言切換。而是把「語言」作為 <strong>Onboarding 的第一步選擇</strong>，之後整個 App 的數據結構（句子、生詞、拆解邏輯）都按該語言運行。未來如果要支援多語言同時學習，可以在「筆記」頁面加一個語言篩選 Tab，但初期不需要。</p>
+<p>架構上：句子數據帶一個 <code>lang</code> 字段，拆解引擎根據 <code>lang</code> 選擇不同的解析策略。前端 UI 完全相同。</p>
+</div>
+
+<!-- ═══════════════════════════════════ -->
+<h2>📐 修正後的架構方案</h2>
+
+<h3>核心原則</h3>
+<div class="callout callout-ok">
+<p><strong>1. 極簡 = 少於 5 個核心概念</strong>：今日句子、聆聽、練習、我的筆記、精靈。</p>
+<p><strong>2. 彈性優先</strong>：不強制順序，根據時間和進度推薦下一步。</p>
+<p><strong>3. 寵物 = 情緒鏡子</strong>：一個維度（堅持程度），不是寵物模擬器。</p>
+<p><strong>4. iOS 原生</strong>：Push navigation，Tab ≤ 2，利用 Widget 和 Haptic。</p>
+<p><strong>5. 語言無關的引擎</strong>：四步流程不變，拆解邏輯按語言差異化。</p>
+</div>
+
+<h3>修正版架構</h3>
+<div style="background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin:16px 0">
+<div style="text-align:center;font-size:14px;font-weight:700;margin-bottom:16px">2 個 Tab + Push Navigation + iOS Widget</div>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+<div style="background:var(--coral-s);border:2px solid var(--coral);border-radius:12px;padding:14px;min-width:200px">
+<div style="font-weight:700;font-size:14px;margin-bottom:8px">🏠 Tab 1：今日</div>
+<div style="font-size:12px;color:var(--text2);line-height:1.8">
+• 精靈（1 維度：心情反映堅持度）<br>
+• 時間感知問候（早/午/晚）<br>
+• 智能推薦（現在適合做什麼）<br>
+• 聆聽入口 → Push<br>
+• 練習入口 → Push<br>
+• 夜間預覽入口（21:00+）→ Push<br>
+• 今日一句（睡前錄音）→ Push
+</div>
+</div>
+<div style="background:var(--amber-s);border:2px solid var(--amber);border-radius:12px;padding:14px;min-width:200px">
+<div style="font-weight:700;font-size:14px;margin-bottom:8px">📝 Tab 2：筆記</div>
+<div style="font-size:12px;color:var(--text2);line-height:1.8">
+• 我的句子（分類篩選）<br>
+• 生詞列表（從句子中提取）<br>
+• 搜尋功能<br>
+• 無輸入區（句子從聆聽流程自然產生）
+</div>
+</div>
+</div>
+
+<div style="text-align:center;margin:16px 0;font-size:12px;color:var(--text3)">Push 出去的頁面 ↓</div>
+
+<div style="display:flex;gap:12px;flex-wrap:wrap;justify-content:center">
+<div style="background:var(--sky-s);border:1px solid var(--sky);border-radius:10px;padding:10px;min-width:140px;font-size:11px">
+<div style="font-weight:700;color:var(--sky);margin-bottom:4px">🎧 聆聽</div>
+聽 → 猜 → 拆解 → 跟讀<br>
+（4 步，做完自動返回）
+</div>
+<div style="background:var(--sage-s);border:1px solid var(--sage);border-radius:10px;padding:10px;min-width:140px;font-size:11px">
+<div style="font-weight:700;color:var(--sage);margin-bottom:4px">✏️ 練習</div>
+翻卡 Quiz<br>
+看中 → 猜英 → 評分
+</div>
+<div style="background:var(--lav-s);border:1px solid var(--lav);border-radius:10px;padding:10px;min-width:140px;font-size:11px">
+<div style="font-weight:700;color:var(--lav);margin-bottom:4px">🌙 夜間預覽</div>
+看明天的句子<br>
+長按單詞加入生詞
+</div>
+<div style="background:var(--rose-s);border:1px solid var(--rose);border-radius:10px;padding:10px;min-width:140px;font-size:11px">
+<div style="font-weight:700;color:var(--rose);margin-bottom:4px">🌙 今日一句</div>
+麥克風錄音<br>
+一句就夠，送出晚安
+</div>
+</div>
+
+<div style="text-align:center;margin:16px 0">
+<div style="background:var(--card);border:2px dashed var(--border);border-radius:10px;padding:10px;display:inline-block;font-size:11px;color:var(--text2)">
+📱 iOS Home Screen Widget：進度條 + 精靈表情 + 「打開 Selah」按鈕
+</div>
+</div>
+</div>
+
+<h3>與上一輪方案的關鍵差異</h3>
+<table class="compare-table">
+<tr>
+<th>維度</th>
+<th>上一輪上策</th>
+<th>修正版</th>
+<th>差異原因</th>
+</tr>
+<tr>
+<td><strong>流程強制性</strong></td>
+<td>4 步線性，必須按順序</td>
+<td>彈性推薦，按時間和進度</td>
+<td>用戶時間碎片化，不能強制</td>
+</tr>
+<tr>
+<td><strong>聆聽流程</strong></td>
+<td>3 步（聽→猜→跟讀）</td>
+<td>4 步（聽→猜→拆解→跟讀）</td>
+<td>「聽懂」到「說出來」之間有鴻溝</td>
+</tr>
+<tr>
+<td><strong>寵物系統</strong></td>
+<td>純裝飾不互動</td>
+<td>1 維度情緒鏡子</td>
+<td>太簡單失去存在意義</td>
+</tr>
+<tr>
+<td><strong>iOS 特性</strong></td>
+<td>未考慮</td>
+<td>Widget + Push + Haptic</td>
+<td>iOS 獨佔 App 必須利用平台優勢</td>
+</tr>
+<tr>
+<td><strong>日語擴展</strong></td>
+<td>未考慮</td>
+<td>語言無關引擎 + 差異化拆解</td>
+<td>架構設計時就要預留</td>
+</tr>
+<tr>
+<td><strong>缺席處理</strong></td>
+<td>未明確</td>
+<td>溫柔迎接，無罪惡感</td>
+<td>懲罰機制違背極簡無壓力的理念</td>
+</tr>
+<tr>
+<td><strong>筆記輸入</strong></td>
+<td>保留輸入區</td>
+<td>移除輸入區</td>
+<td>句子從聆聽流程自然產生，不需手動輸入</td>
+</tr>
+</table>
+
+<!-- ═══════════════════════════════════ -->
+<h2>🐦 精靈系統的正確定位</h2>
+
+<div class="callout callout-ok">
+<h4>精靈 = 你的學習夥伴，不是你的寵物</h4>
+<p>精靈存在的唯一目的是：<strong>讓用戶覺得「有人在陪我學」</strong>。它不該成為另一個需要照顧的負擔。</p>
+</div>
+
+<table class="compare-table">
+<tr><th>行為</th><th>精靈表現</th><th>設計意圖</th></tr>
+<tr><td>每天打開 App</td><td>精靈活潑跳動，色彩飽和</td><td>正面反饋：你來了，我很開心</td></tr>
+<tr><td>完成聆聽</td><td>精靈旁邊出現小音符 ♪</td><td>微小成就感</td></tr>
+<tr><td>完成練習</td><td>精靈開心旋轉</td><td>微小成就感</td></tr>
+<tr><td>幾天沒來</td><td>精靈安靜坐著，色彩稍淡</td><td>溫柔的「我在等你」，不是懲罰</td></tr>
+<tr><td>回來時</td><td>精靈輕輕跳一下，出現「歡迎回來」</td><td>無條件接納，沒有罪惡感</td></tr>
+<tr><td>連續 7 天</td><td>精靈外觀微變化（羽毛更亮）</td><td>自然成長感，不是數字計數</td></tr>
+</table>
+
+<p style="margin-top:16px"><strong>不該有的東西：</strong>XP 數字、連續天數顯示（會造成壓力）、4 維度狀態條、成長階段系統（起步期/回憶期等）。這些都是遊戲化機制，跟「極簡、無壓力」矛盾。精靈本身就是最好的反饋——你不需要數字告訴你做得好不好，看精靈的表情就知道了。</p>
+
+<!-- ═══════════════════════════════════ -->
+<div class="verdict-box">
+<h3>總結：修正後的設計原則</h3>
+<p>Selah 是一個「每日語言儀式」，但不是火車軌道。它尊重用戶的時間碎片，在用戶有 3 分鐘時提供 3 分鐘的體驗，有 15 分鐘時提供 15 分鐘的體驗。</p>
+<p style="margin-top:8px">核心是<strong>句子</strong>——用戶自己的生活句子。核心流程是<strong>聽 → 猜 → 拆 → 說</strong>——經過四個認知通道。精靈是<strong>情緒鏡子</strong>——不計數、不懲罰、只陪伴。架構是<strong>語言無關的引擎</strong>——英語和日語用同一套流程，只在拆解邏輯上差異化。</p>
+<p style="margin-top:8px">這就是 Selah 該有的樣子。</p>
+</div>
+
+</body>
+</html>

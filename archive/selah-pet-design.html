@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selah 寵物重新設計方案</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FBF8F4; --card: #FFFFFF; --card-alt: #F8F5F0;
+  --text: #1A1614; --text-2: #706B65; --text-3: #A9A49E;
+  --coral: #E06B54; --coral-soft: #FEF0ED;
+  --sage: #5A9E82; --sage-soft: #ECF7F1;
+  --amber: #E5A244; --amber-soft: #FDF5E6;
+  --lavender: #8B7FC7; --lavender-soft: #F0EEF8;
+  --sky: #5B9FD4; --sky-soft: #EAF3FB;
+  --border: #EBE7E1; --border-light: #F3F0EC;
+  --r: 16px; --font: 'Plus Jakarta Sans', system-ui, sans-serif;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; line-height: 1.6; }
+.container { max-width: 960px; margin: 0 auto; padding: 40px 24px 80px; }
+
+.header { text-align: center; margin-bottom: 48px; }
+.header-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: var(--coral-soft); color: var(--coral); border-radius: 999px; font-size: 12px; font-weight: 700; margin-bottom: 16px; }
+.header h1 { font-size: 32px; font-weight: 800; letter-spacing: -.04em; margin-bottom: 8px; }
+.header p { font-size: 15px; color: var(--text-2); max-width: 600px; margin: 0 auto; }
+
+/* Concept Card */
+.concept { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 32px; margin-bottom: 32px; overflow: hidden; }
+.concept-header { display: flex; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+.concept-badge { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; font-size: 24px; flex-shrink: 0; }
+.concept-title { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
+.concept-subtitle { font-size: 13px; color: var(--text-2); margin-top: 2px; }
+.concept-image { width: 100%; border-radius: var(--r); margin-bottom: 20px; }
+
+.concept-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+@media(max-width:640px) { .concept-grid { grid-template-columns: 1fr; } }
+
+.info-card { background: var(--card-alt); border-radius: var(--r); padding: 16px; }
+.info-card-title { font-size: 12px; font-weight: 700; color: var(--text-2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 8px; }
+.info-card-content { font-size: 13px; line-height: 1.7; }
+.info-card-content li { margin-bottom: 4px; padding-left: 4px; }
+
+/* Evolution Table */
+.evo-table { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+.evo-table th { font-size: 10px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .06em; padding: 8px 12px; text-align: left; border-bottom: 2px solid var(--border); }
+.evo-table td { padding: 10px 12px; border-bottom: 1px solid var(--border-light); font-size: 12px; vertical-align: top; }
+.evo-table tr:last-child td { border-bottom: none; }
+
+/* Knowledge Display */
+.knowledge-section { margin-top: 48px; }
+.knowledge-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.knowledge-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
+.knowledge-card-icon { font-size: 28px; margin-bottom: 8px; }
+.knowledge-card-title { font-size: 14px; font-weight: 700; margin-bottom: 4px; }
+.knowledge-card-desc { font-size: 12px; color: var(--text-2); line-height: 1.6; }
+
+/* Mockup */
+.mockup-container { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; margin-top: 20px; }
+.phone-mock { width: 200px; height: 420px; background: var(--bg); border-radius: 28px; border: 3px solid var(--text); overflow: hidden; position: relative; box-shadow: 0 20px 40px rgba(0,0,0,.1); }
+.phone-screen { padding: 40px 12px 60px; height: 100%; overflow-y: auto; }
+.phone-screen::-webkit-scrollbar { display: none; }
+.phone-notch { position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 60px; height: 18px; background: var(--text); border-radius: 0 0 12px 12px; z-index: 10; }
+.phone-tab-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 44px; background: rgba(251,248,244,.95); border-top: 1px solid var(--border-light); display: flex; align-items: center; justify-content: space-around; font-size: 9px; color: var(--text-3); }
+.phone-tab-bar span.active { color: var(--coral); font-weight: 700; }
+
+/* Comparison */
+.compare-section { margin-top: 48px; }
+.compare-table { width: 100%; border-collapse: collapse; background: var(--card); border-radius: var(--r); overflow: hidden; border: 1px solid var(--border); }
+.compare-table thead { background: var(--card-alt); }
+.compare-table th { padding: 14px 16px; text-align: left; font-size: 12px; font-weight: 700; color: var(--text-2); }
+.compare-table td { padding: 12px 16px; border-top: 1px solid var(--border-light); font-size: 12px; line-height: 1.6; vertical-align: top; }
+.compare-table tr:hover { background: var(--card-alt); }
+.check { color: var(--sage); font-weight: 700; } .cross { color: var(--text-3); } .star { color: var(--amber); font-weight: 700; }
+
+/* Section headers */
+.section-header { margin-bottom: 24px; }
+.section-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 6px; }
+.section-title { font-size: 22px; font-weight: 800; letter-spacing: -.03em; }
+.section-desc { font-size: 14px; color: var(--text-2); margin-top: 4px; max-width: 600px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <div class="header-badge">🐾 Pet Redesign</div>
+  <h1>Selah 寵物重新設計方案</h1>
+  <p>基於品牌調性（極簡、溫暖、學習陪伴），提出 3 個寵物設計方向 + 知識展現機制設計</p>
+</div>
+
+<!-- ===== CONCEPT A ===== -->
+<div class="concept">
+  <div class="concept-header">
+    <div class="concept-badge" style="background:var(--coral-soft)">🎵</div>
+    <div>
+      <div class="concept-title">方案 A：Selah（音符精靈）</div>
+      <div class="concept-subtitle">溫暖、音樂性、柔軟的陪伴者</div>
+    </div>
+  </div>
+  
+  <img class="concept-image" src="pet-concept-A.png" alt="Concept A: Selah Spirit">
+
+  <div class="concept-grid">
+    <div class="info-card">
+      <div class="info-card-title">設計理念</div>
+      <div class="info-card-content">
+        <p>Selah 的名字來自聖經中的「細拉」——一個音樂休止符。寵物設計延續這個意象：柔軟的圓形身體像一個溫暖的音符，珊瑚色的小圍巾象徵「學習的旅程」。沒有翅膀和爪子，只是一個單純的存在，漂浮在用戶身邊。</p>
+        <p style="margin-top:8px"><strong>核心特質：</strong>溫暖、好奇、安靜陪伴。不活潑好動，而是像一個靜靜的傾聽者。</p>
+      </div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-title">視覺語言</div>
+      <div class="info-card-content">
+        <ul>
+          <li><strong>身體：</strong>圓潤的 blob 形狀，蜜桃色/暖粉色</li>
+          <li><strong>表情：</strong>兩個小點眼睛 + 小微笑 + 腮紅</li>
+          <li><strong>配件：</strong>珊瑚色小圍巾（品牌色呼應）</li>
+          <li><strong>裝飾：</strong>周圍漂浮小音符（隨學習進度變多）</li>
+          <li><strong>動作：</strong>漂浮、歪頭、揮手、抱著小書</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <table class="evo-table">
+    <thead><tr><th>Day 範圍</th><th>外觀變化</th><th>新增動畫</th><th>知識展示</th></tr></thead>
+    <tbody>
+      <tr><td>Day 1-3</td><td>基礎圓形 + 圍巾</td><td>溫柔漂浮</td><td>無音符裝飾</td></tr>
+      <tr><td>Day 4-6</td><td>身體微微變大</td><td>+ 歪頭好奇</td><td>1-2 個小音符出現</td></tr>
+      <tr><td>Day 7-9</td><td>圍巾變長一點</td><td>+ 開心旋轉</td><td>3-4 個音符 + 偶爾抱著小書</td></tr>
+      <tr><td>Day 10-13</td><td>出現小腮紅高光</td><td>+ 拍圍巾</td><td>5-6 個音符 + 書變多</td></tr>
+      <tr><td>Day 14+</td><td>圍巾末端有小花紋</td><td>+ 聆聽姿勢（頭偏一側）</td><td>音符形成小旋律圖案</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-card" style="background:var(--coral-soft)">
+    <div class="info-card-title" style="color:var(--coral)">優勢</div>
+    <div class="info-card-content">
+      <p>與品牌名 Selah 完美呼應；視覺上最溫暖親切；圍巾作為唯一配件極簡優雅；音符裝飾自然地展現學習進度而不突兀。適合目標用戶（喜歡安靜、內向、不想被數據壓力的學習者）。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONCEPT B ===== -->
+<div class="concept">
+  <div class="concept-header">
+    <div class="concept-badge" style="background:var(--sage-soft)">🦊</div>
+    <div>
+      <div class="concept-title">方案 B：Echo（聆聽精靈）</div>
+      <div class="concept-subtitle">好奇、聆聽、大耳朵的學習夥伴</div>
+    </div>
+  </div>
+  
+  <img class="concept-image" src="pet-concept-B.png" alt="Concept B: Echo Fox">
+
+  <div class="concept-grid">
+    <div class="info-card">
+      <div class="info-card-title">設計理念</div>
+      <div class="info-card-content">
+        <p>Echo 是一隻大耳朵的小狐狸精靈。大耳朵象徵「聆聽」——Selah 四步流程的第一步，也是語言學習的起點。耳朵是它最有表現力的部位：開心時豎起、思考時一隻歪一隻直、難過時垂下、聽到好句子時興奮抖動。</p>
+        <p style="margin-top:8px"><strong>核心特質：</strong>好奇、專注、會聆聽。代表「用耳朵學習」的哲學。</p>
+      </div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-title">視覺語言</div>
+      <div class="info-card-content">
+        <ul>
+          <li><strong>身體：</strong>鼠尾草綠 + 暖白雙色，圓潤小身體</li>
+          <li><strong>耳朵：</strong>超比例大耳朵（佔身體 40%），是主要表情載體</li>
+          <li><strong>表情：</strong>圓圓大眼 + 小鼻子 + 葉形尾巴</li>
+          <li><strong>動作：</strong>耳朵豎起（聆聽）、耳朵垂下（想家了）、耳朵抖動（興奮）、蜷縮看書</li>
+          <li><strong>色彩：</strong>完全匹配 Selah 品牌 sage green 色系</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <table class="evo-table">
+    <thead><tr><th>Day 範圍</th><th>外觀變化</th><th>新增動畫</th><th>知識展示</th></tr></thead>
+    <tbody>
+      <tr><td>Day 1-3</td><td>小狐狸 + 基礎耳朵</td><td>耳朵微微擺動</td><td>耳朵上無裝飾</td></tr>
+      <tr><td>Day 4-6</td><td>耳朵稍微變大</td><td>+ 興奮抖動</td><td>耳尖出現一個小圓點</td></tr>
+      <tr><td>Day 7-9</td><td>尾巴稍微變長</td><td>+ 蜷縮看書</td><td>耳尖出現 2-3 個小星星</td></tr>
+      <tr><td>Day 10-13</td><td>耳朵內部花紋浮現</td><td>+ 聆聽姿勢（頭偏一側+耳朵一前一後）</td><td>尾巴末端出現小葉片</td></tr>
+      <tr><td>Day 14+</td><td>耳朵有微妙漸層</td><td>+ 全部動畫豐富化</td><td>耳朵花紋形成小圖案</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-card" style="background:var(--sage-soft)">
+    <div class="info-card-title" style="color:var(--sage)">優勢</div>
+    <div class="info-card-content">
+      <p>大耳朵是極強的視覺記憶點（iconic）；完美呼應「聆聽為本」的學習哲學；sage green 與品牌主色完全一致；耳朵作為表情載體比全身動畫更有辨識度。適合喜歡有「角色感」的用戶。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== CONCEPT C ===== -->
+<div class="concept">
+  <div class="concept-header">
+    <div class="concept-badge" style="background:var(--amber-soft)">🌱</div>
+    <div>
+      <div class="concept-title">方案 C：Seed（種子精靈）</div>
+      <div class="concept-subtitle">成長、有機、可見的進步軌跡</div>
+    </div>
+  </div>
+  
+  <img class="concept-image" src="pet-concept-C.png" alt="Concept C: Seed Sprout">
+
+  <div class="concept-grid">
+    <div class="info-card">
+      <div class="info-card-title">設計理念</div>
+      <div class="info-card-content">
+        <p>Seed 是一個種子精靈，從一顆小種子逐漸長成一株植物。這是三個方案中唯一有「明確外觀變化」的設計——用戶能直觀看到寵物在「長大」。Day 1 是一顆圓圓的小種子只有眼睛，隨著天數增加，長出葉片、變大、最終開花。</p>
+        <p style="margin-top:8px"><strong>核心特質：</strong>成長、耐心、自然節奏。代表「語言學習像種樹，需要時間」。</p>
+      </div>
+    </div>
+    <div class="info-card">
+      <div class="info-card-title">視覺語言</div>
+      <div class="info-card-content">
+        <ul>
+          <li><strong>種子身體：</strong>暖琥珀色圓形種子，有光澤感</li>
+          <li><strong>眼睛：</strong>兩個溫柔的點眼睛，隨成長略微變大</li>
+          <li><strong>成長：</strong>從種子 → 發芽 → 小葉 → 多葉 → 開花</li>
+          <li><strong>葉片：</strong>每片葉子代表一個學習里程碑</li>
+          <li><strong>色彩：</strong>琥珀色種子 + 綠色葉片，溫暖的泥土感</li>
+          <li><strong>動作：</strong>微微搖晃、伸展、葉片抖動、開花</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <table class="evo-table">
+    <thead><tr><th>Day 範圍</th><th>外觀變化</th><th>新增動畫</th><th>知識展示</th></tr></thead>
+    <tbody>
+      <tr><td>Day 1-3</td><td>小種子（只有眼睛，無芽）</td><td>微微搖晃</td><td>光禿禿的種子</td></tr>
+      <tr><td>Day 4-6</td><td>長出第一片小葉芽</td><td>+ 伸展動作</td><td>1 片小葉 = 第一個里程碑</td></tr>
+      <tr><td>Day 7-9</td><td>兩片葉子，身體略大</td><td>+ 葉片抖動</td><td>2 片葉子，顏色更深</td></tr>
+      <tr><td>Day 10-13</td><td>3-4 片葉子，有小花苞</td><td>+ 花苞微微搖晃</td><td>葉子上有細微紋路</td></tr>
+      <tr><td>Day 14+</td><td>開花！花瓣是珊瑚色</td><td>+ 花瓣綻放動畫</td><td>花朵 = 最大里程碑標誌</td></tr>
+    </tbody>
+  </table>
+
+  <div class="info-card" style="background:var(--amber-soft)">
+    <div class="info-card-title" style="color:var(--amber)">優勢</div>
+    <div class="info-card-content">
+      <p>成長感最強——用戶能直觀看到「我的寵物在長大」；每片葉子/花朵都是學習成就的可視化；「種樹」的比喻與語言學習的長期性完美匹配；琥珀色與品牌 amber 色一致。適合需要「看得見的進步」來保持動力的用戶。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== COMPARISON TABLE ===== -->
+<div class="compare-section">
+  <div class="section-header">
+    <div class="section-label">Comparison</div>
+    <div class="section-title">三方案對比</div>
+  </div>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>維度</th><th>🎵 A: Selah 音符精靈</th><th>🦊 B: Echo 聆聽精靈</th><th>🌱 C: Seed 種子精靈</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>品牌一致性</strong></td>
+        <td><span class="star">★★★★★</span><br>直接呼應品牌名</td>
+        <td><span class="star">★★★★</span><br>sage green 品牌色</td>
+        <td><span class="star">★★★</span><br>amber 色但偏離核心</td>
+      </tr>
+      <tr>
+        <td><strong>辨識度</strong></td>
+        <td><span class="star">★★★</span><br>blob 形狀較通用</td>
+        <td><span class="star">★★★★★</span><br>大耳朵極具辨識度</td>
+        <td><span class="star">★★★★</span><br>種子→植物有記憶點</td>
+      </tr>
+      <tr>
+        <td><strong>成長感</strong></td>
+        <td><span class="star">★★</span><br>變化很微妙</td>
+        <td><span class="star">★★★</span><br>耳朵漸變</td>
+        <td><span class="star">★★★★★</span><br>外觀階段性變化最強</td>
+      </tr>
+      <tr>
+        <td><strong>情感連結</strong></td>
+        <td><span class="star">★★★★★</span><br>最溫暖親切</td>
+        <td><span class="star">★★★★</span><br>角色感強</td>
+        <td><span class="star">★★★</span><br>更像植物而非寵物</td>
+      </tr>
+      <tr>
+        <td><strong>極簡程度</strong></td>
+        <td><span class="star">★★★★★</span><br>最簡潔</td>
+        <td><span class="star">★★★★</span><br>簡單但有大耳朵</td>
+        <td><span class="star">★★★</span><br>成長階段需多套造型</td>
+      </tr>
+      <tr>
+        <td><strong>日語擴展</strong></td>
+        <td><span class="star">★★★★</span><br>音符通用</td>
+        <td><span class="star">★★★★</span><br>狐狸在日本文化中有含義</td>
+        <td><span class="star">★★★</span><br>植物意象偏通用</td>
+      </tr>
+      <tr>
+        <td><strong>實現複雜度</strong></td>
+        <td><span class="check">低</span> · 1 套造型</td>
+        <td><span class="check">低</span> · 1 套造型+耳朵動畫</td>
+        <td><span class="cross">中</span> · 5 套造型階段</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="info-card" style="margin-top:16px;background:var(--lavender-soft)">
+    <div class="info-card-title" style="color:var(--lavender)">我的推薦</div>
+    <div class="info-card-content">
+      <p><strong>首選：方案 B（Echo 聆聽精靈）</strong>——辨識度最高、品牌色匹配、大耳朵是天然的「iconic feature」。狐狸在亞洲文化中有正面的聰明形象。耳朵的表情系統讓寵物有「活著」的感覺。</p>
+      <p style="margin-top:8px"><strong>次選：方案 A（Selah 音符精靈）</strong>——最極簡、最溫暖，與品牌名完美呼應。如果團隊偏好「更抽象、更柔軟」的方向，這個方案更適合。</p>
+      <p style="margin-top:8px"><strong>備選：方案 C（Seed 種子精靈）</strong>——成長感最強，但需要多套造型，偏離了極簡原則。且「植物」不太像「寵物」，可能削弱陪伴感。</p>
+    </div>
+  </div>
+</div>
+
+<!-- ===== KNOWLEDGE DISPLAY DESIGN ===== -->
+<div class="knowledge-section">
+  <div class="section-header">
+    <div class="section-label">Knowledge Display</div>
+    <div class="section-title">寵物如何展現知識積累</div>
+    <div class="section-desc">不依賴數字和 XP，而是通過視覺元素的自然豐富來讓用戶感受到「我的寵物在成長，我也在成長」。</div>
+  </div>
+
+  <div class="knowledge-grid">
+    <div class="knowledge-card">
+      <div class="knowledge-card-icon">🎵</div>
+      <div class="knowledge-card-title">音符/葉片裝飾</div>
+      <div class="knowledge-card-desc">寵物身上或周圍出現的裝飾元素隨學習天數增加。不是每學一個詞就多一個，而是每達到一個階段（3天、7天、14天）才增加一組。用戶不會數「我有 23 個音符」，而是感受到「寵物變得更豐富了」。</div>
+    </div>
+    <div class="knowledge-card">
+      <div class="knowledge-card-icon">📖</div>
+      <div class="knowledge-card-title">小道具出現</div>
+      <div class="knowledge-card-desc">Day 7+ 寵物偶爾會抱著一本小書。Day 14+ 可能有 2-3 本書堆在旁邊。這些書不是可點擊的，只是裝飾——代表「知識的累積」。</div>
+    </div>
+    <div class="knowledge-card">
+      <div class="knowledge-card-icon">💬</div>
+      <div class="knowledge-card-title">今日小故事</div>
+      <div class="knowledge-card-desc">寵物下方的一行動態文字，從 100 種模板中隨機選取。內容結合用戶的實際學習行為（學了什麼詞、說了什麼句子、連續幾天），讓寵物有「記憶」和「個性」。</div>
+    </div>
+    <div class="knowledge-card">
+      <div class="knowledge-card-icon">🎬</div>
+      <div class="knowledge-card-title">動畫解鎖</div>
+      <div class="knowledge-card-desc">不顯示進度條或 XP 數字。新動畫以 20% 概率隨機觸發，用戶偶然發現時會感到驚喜：「咦，小豆今天在做一個沒見過的動作！」</div>
+    </div>
+    <div class="knowledge-card">
+      <div class="knowledge-card-icon">📜</div>
+      <div class="knowledge-card-title">小豆的回憶</div>
+      <div class="knowledge-card-desc">筆記頁面底部的時間軸，以寵物視角記錄學習里程碑。不顯示「已學 50 句」，而是「Day 5 — 你第一次主動用了 swamped 這個詞，小豆好感動」。</div>
+    </div>
+    <div class="knowledge-card">
+      <div class="knowledge-card-icon">🌡️</div>
+      <div class="knowledge-card-title">情緒反映</div>
+      <div class="knowledge-card-desc">寵物的情緒只反映一個維度：堅持程度。連續來 → 活潑、幾天沒來 → 安靜但不責備、回來時 → 輕輕跳一下表示歡迎。沒有懲罰機制。</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PHONE MOCKUPS ===== -->
+<div class="compare-section" style="margin-top:48px">
+  <div class="section-header">
+    <div class="section-label">Mockup</div>
+    <div class="section-title">App 內呈現效果</div>
+    <div class="section-desc">三個方案在 App 今日頁面中的效果對比</div>
+  </div>
+
+  <div class="mockup-container">
+    <!-- Mockup A -->
+    <div class="phone-mock">
+      <div class="phone-notch"></div>
+      <div class="phone-screen" style="text-align:center">
+        <div style="margin:20px auto;width:60px;height:60px;border-radius:50%;background:linear-gradient(145deg,#FEF0ED,#FDDCD5);display:flex;align-items:center;justify-content:center;font-size:28px;animation:floatA 3s ease-in-out infinite;position:relative">
+          <div style="position:relative">
+            <div style="width:36px;height:36px;background:#FDDCD5;border-radius:50%;position:relative">
+              <div style="position:absolute;width:4px;height:4px;background:#1A1614;border-radius:50%;top:40%;left:25%"></div>
+              <div style="position:absolute;width:4px;height:4px;background:#1A1614;border-radius:50%;top:40%;right:25%"></div>
+              <div style="position:absolute;width:6px;height:2px;background:#E06B54;border-radius:2px;bottom:28%;left:50%;transform:translateX(-50%)"></div>
+              <div style="position:absolute;width:6px;height:4px;background:rgba(224,107,84,.15);border-radius:50%;top:50%;left:12%"></div>
+              <div style="position:absolute;width:6px;height:4px;background:rgba(224,107,84,.15);border-radius:50%;top:50%;right:12%"></div>
+            </div>
+            <div style="position:absolute;top:60%;left:-4px;right:-4px;height:6px;background:var(--coral);border-radius:3px;opacity:.6"></div>
+          </div>
+          <div style="position:absolute;top:-6px;right:-10px;font-size:10px;opacity:.4">♪</div>
+        </div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px">小豆</div>
+        <div style="font-size:9px;color:var(--text-2);margin-bottom:8px">心情不錯 ♪</div>
+        <div style="background:var(--card);border-radius:10px;padding:8px;margin:0 4px;border:1px solid var(--border-light);font-size:8px;color:var(--text-2);line-height:1.5">🐦 連續 8 天了！小豆每天最期待的就是看到你</div>
+        <div style="margin-top:10px;text-align:left;padding:0 4px">
+          <div style="font-size:11px;font-weight:700;margin-bottom:4px">午安，準備好了嗎？</div>
+          <div style="background:var(--card);border-radius:8px;padding:8px;border:1px solid var(--border-light);display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--lavender-soft);display:flex;align-items:center;justify-content:center;font-size:10px">🎧</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700">聆聽</div><div style="font-size:7px;color:var(--text-3)">5 句 · 聽→猜→拆→說</div></div>
+            <div style="font-size:10px;color:var(--text-3)">›</div>
+          </div>
+          <div style="background:var(--card);border-radius:8px;padding:8px;border:1px solid var(--border-light);display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--sage-soft);display:flex;align-items:center;justify-content:center;font-size:10px">✏️</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700">練習</div><div style="font-size:7px;color:var(--text-3)">3 句 · 翻卡回憶</div></div>
+            <div style="font-size:10px;color:var(--text-3)">›</div>
+          </div>
+          <div style="background:var(--coral-soft);border-radius:8px;padding:8px;border:1.5px dashed var(--coral);display:flex;align-items:center;gap:6px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--coral);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">🎙</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700;color:var(--coral)">今日一句</div><div style="font-size:7px;color:var(--coral);opacity:.7">說中文，精靈幫你翻譯</div></div>
+            <div style="font-size:10px;color:var(--coral);opacity:.5">›</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-tab-bar"><span class="active">🏠 今日</span><span>📝 筆記</span></div>
+    </div>
+
+    <!-- Mockup B -->
+    <div class="phone-mock">
+      <div class="phone-notch"></div>
+      <div class="phone-screen" style="text-align:center">
+        <div style="margin:20px auto;width:60px;height:60px;display:flex;align-items:center;justify-content:center;position:relative;animation:floatB 3s ease-in-out infinite">
+          <div style="position:relative">
+            <!-- Fox body -->
+            <div style="width:32px;height:28px;background:var(--sage);border-radius:50% 50% 45% 45%;position:relative">
+              <!-- Eyes -->
+              <div style="position:absolute;width:5px;height:5px;background:#1A1614;border-radius:50%;top:35%;left:22%"></div>
+              <div style="position:absolute;width:5px;height:5px;background:#1A1614;border-radius:50%;top:35%;right:22%"></div>
+              <!-- Nose -->
+              <div style="position:absolute;width:4px;height:3px;background:#2D6B50;border-radius:50%;bottom:30%;left:50%;transform:translateX(-50%)"></div>
+            </div>
+            <!-- Big ears -->
+            <div style="position:absolute;top:-16px;left:0;width:12px;height:20px;background:var(--sage);border-radius:50% 50% 30% 30%;transform:rotate(-10deg)"></div>
+            <div style="position:absolute;top:-16px;right:0;width:12px;height:20px;background:var(--sage);border-radius:50% 50% 30% 30%;transform:rotate(10deg)"></div>
+            <div style="position:absolute;top:-12px;left:2px;width:6px;height:12px;background:#7BC4A0;border-radius:50%;transform:rotate(-10deg)"></div>
+            <div style="position:absolute;top:-12px;right:2px;width:6px;height:12px;background:#7BC4A0;border-radius:50%;transform:rotate(10deg)"></div>
+            <!-- Tail -->
+            <div style="position:absolute;bottom:2px;right:-10px;width:14px;height:8px;background:var(--sage);border-radius:0 50% 50% 0;transform:rotate(-10deg)"></div>
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px">Echo</div>
+        <div style="font-size:9px;color:var(--text-2);margin-bottom:8px">耳朵豎起來了 ♪</div>
+        <div style="background:var(--card);border-radius:10px;padding:8px;margin:0 4px;border:1px solid var(--border-light);font-size:8px;color:var(--text-2);line-height:1.5">🦊 今天學到了 iced latte，Echo 的耳朵抖了一下！</div>
+        <div style="margin-top:10px;text-align:left;padding:0 4px">
+          <div style="font-size:11px;font-weight:700;margin-bottom:4px">午安，準備好了嗎？</div>
+          <div style="background:var(--card);border-radius:8px;padding:8px;border:1px solid var(--border-light);display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--lavender-soft);display:flex;align-items:center;justify-content:center;font-size:10px">🎧</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700">聆聽</div><div style="font-size:7px;color:var(--text-3)">5 句 · 聽→猜→拆→說</div></div>
+            <div style="font-size:10px;color:var(--text-3)">›</div>
+          </div>
+          <div style="background:var(--card);border-radius:8px;padding:8px;border:1px solid var(--border-light);display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--sage-soft);display:flex;align-items:center;justify-content:center;font-size:10px">✏️</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700">練習</div><div style="font-size:7px;color:var(--text-3)">3 句 · 翻卡回憶</div></div>
+            <div style="font-size:10px;color:var(--text-3)">›</div>
+          </div>
+          <div style="background:var(--coral-soft);border-radius:8px;padding:8px;border:1.5px dashed var(--coral);display:flex;align-items:center;gap:6px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--coral);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">🎙</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700;color:var(--coral)">今日一句</div><div style="font-size:7px;color:var(--coral);opacity:.7">說中文，精靈幫你翻譯</div></div>
+            <div style="font-size:10px;color:var(--coral);opacity:.5">›</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-tab-bar"><span class="active">🏠 今日</span><span>📝 筆記</span></div>
+    </div>
+
+    <!-- Mockup C -->
+    <div class="phone-mock">
+      <div class="phone-notch"></div>
+      <div class="phone-screen" style="text-align:center">
+        <div style="margin:20px auto;width:60px;height:60px;display:flex;align-items:center;justify-content:center;position:relative;animation:floatC 4s ease-in-out infinite">
+          <div style="position:relative">
+            <!-- Seed body -->
+            <div style="width:30px;height:30px;background:linear-gradient(145deg,#F0C878,#E5A244);border-radius:50%;position:relative;box-shadow:inset 0 -4px 8px rgba(0,0,0,.08)">
+              <!-- Eyes -->
+              <div style="position:absolute;width:4px;height:4px;background:#1A1614;border-radius:50%;top:38%;left:28%"></div>
+              <div style="position:absolute;width:4px;height:4px;background:#1A1614;border-radius:50%;top:38%;right:28%"></div>
+              <!-- Smile -->
+              <div style="position:absolute;width:6px;height:3px;border-bottom:2px solid #8B6914;border-radius:0 0 50% 50%;bottom:28%;left:50%;transform:translateX(-50%)"></div>
+            </div>
+            <!-- Sprout -->
+            <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%)">
+              <div style="width:3px;height:10px;background:#5A9E82;border-radius:2px;margin:0 auto"></div>
+              <div style="width:10px;height:6px;background:#5A9E82;border-radius:50% 0 50% 50%;transform:rotate(-20deg);margin-top:-4px;margin-left:-2px"></div>
+              <div style="width:10px;height:6px;background:#7BC4A0;border-radius:0 50% 50% 50%;transform:rotate(20deg);margin-top:-8px;margin-left:3px"></div>
+            </div>
+          </div>
+        </div>
+        <div style="font-size:12px;font-weight:700;margin-bottom:2px">Seed</div>
+        <div style="font-size:9px;color:var(--text-2);margin-bottom:8px">發芽了 🌱</div>
+        <div style="background:var(--card);border-radius:10px;padding:8px;margin:0 4px;border:1px solid var(--border-light);font-size:8px;color:var(--text-2);line-height:1.5">🌱 Seed 長出了第二片葉子！你已經連續學習 8 天了</div>
+        <div style="margin-top:10px;text-align:left;padding:0 4px">
+          <div style="font-size:11px;font-weight:700;margin-bottom:4px">午安，準備好了嗎？</div>
+          <div style="background:var(--card);border-radius:8px;padding:8px;border:1px solid var(--border-light);display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--lavender-soft);display:flex;align-items:center;justify-content:center;font-size:10px">🎧</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700">聆聽</div><div style="font-size:7px;color:var(--text-3)">5 句 · 聽→猜→拆→說</div></div>
+            <div style="font-size:10px;color:var(--text-3)">›</div>
+          </div>
+          <div style="background:var(--card);border-radius:8px;padding:8px;border:1px solid var(--border-light);display:flex;align-items:center;gap:6px;margin-bottom:4px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--sage-soft);display:flex;align-items:center;justify-content:center;font-size:10px">✏️</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700">練習</div><div style="font-size:7px;color:var(--text-3)">3 句 · 翻卡回憶</div></div>
+            <div style="font-size:10px;color:var(--text-3)">›</div>
+          </div>
+          <div style="background:var(--coral-soft);border-radius:8px;padding:8px;border:1.5px dashed var(--coral);display:flex;align-items:center;gap:6px">
+            <div style="width:22px;height:22px;border-radius:6px;background:var(--coral);display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff">🎙</div>
+            <div style="flex:1"><div style="font-size:9px;font-weight:700;color:var(--coral)">今日一句</div><div style="font-size:7px;color:var(--coral);opacity:.7">說中文，精靈幫你翻譯</div></div>
+            <div style="font-size:10px;color:var(--coral);opacity:.5">›</div>
+          </div>
+        </div>
+      </div>
+      <div class="phone-tab-bar"><span class="active">🏠 今日</span><span>📝 筆記</span></div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes floatA { 0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)} }
+@keyframes floatB { 0%,100%{transform:translateY(0) rotate(-1deg)}50%{transform:translateY(-5px) rotate(1deg)} }
+@keyframes floatC { 0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)} }
+</style>
+
+</div>
+</body>
+</html>

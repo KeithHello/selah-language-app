@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Seed 種子精靈 — 互動式動畫展示</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FBF8F4;--card:#FFFFFF;--text:#1A1614;--text-2:#706B65;--text-3:#A9A49E;--coral:#E06B54;--coral-soft:#FEF0ED;--sage:#5A9E82;--sage-soft:#ECF7F1;--amber:#E5A244;--amber-soft:#FDF5E6;--lavender:#8B7FC7;--lavender-soft:#F0EEF8;--border:#EBE7E1;--border-light:#F3F0EC;--r:16px;--font:'Plus Jakarta Sans',system-ui,sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--font);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* Layout */
+.container{max-width:1200px;margin:0 auto;padding:24px}
+.header{text-align:center;margin-bottom:32px}
+.header h1{font-size:28px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.header p{font-size:14px;color:var(--text-2)}
+
+/* Stage Tabs */
+.stage-tabs{display:flex;gap:8px;justify-content:center;margin-bottom:24px;flex-wrap:wrap}
+.stage-tab{padding:12px 24px;border-radius:999px;font-size:14px;font-weight:700;cursor:pointer;transition:all .3s;border:2px solid var(--border);background:var(--card);color:var(--text-2)}
+.stage-tab:hover{border-color:var(--coral);color:var(--coral)}
+.stage-tab.active{background:var(--coral);border-color:var(--coral);color:#fff}
+
+/* Animation Grid */
+.anim-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:32px}
+
+/* Animation Card */
+.anim-card{background:var(--card);border:1px solid var(--border);border-radius:var(--r);padding:20px;cursor:pointer;transition:all .3s;position:relative;overflow:hidden}
+.anim-card:hover{box-shadow:0 8px 24px rgba(0,0,0,.08);transform:translateY(-2px)}
+.anim-card.playing{border-color:var(--coral);box-shadow:0 8px 24px rgba(224,107,84,.2)}
+
+.anim-card-header{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.anim-card-icon{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.anim-card-title{font-size:14px;font-weight:700}
+.anim-card-subtitle{font-size:11px;color:var(--text-3);margin-top:2px}
+.anim-card-desc{font-size:12px;color:var(--text-2);line-height:1.6;margin-bottom:12px}
+.anim-card-meta{display:flex;gap:8px;flex-wrap:wrap}
+.anim-tag{padding:3px 8px;border-radius:999px;font-size:9px;font-weight:700}
+.tag-idle{background:var(--sage-soft);color:var(--sage)}
+.tag-action{background:var(--lavender-soft);color:var(--lavender)}
+.tag-time{background:var(--amber-soft);color:var(--amber)}
+.tag-emotion{background:var(--coral-soft);color:var(--coral)}
+.tag-p0{background:var(--coral);color:#fff}
+.tag-p1{background:var(--amber);color:#fff}
+.tag-p2{background:var(--sage);color:#fff}
+
+/* Seed Container */
+.seed-stage{width:100%;height:140px;display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:12px}
+
+/* Seed SVG Base */
+.seed-svg{width:80px;height:80px;position:relative}
+
+/* Stage 1: Seed */
+.seed-body{width:60px;height:60px;background:linear-gradient(145deg,#F0C878,#E5A244);border-radius:50%;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:inset 0 -4px 8px rgba(0,0,0,.08),0 4px 12px rgba(229,162,68,.2)}
+.seed-eye{width:6px;height:6px;background:#1A1614;border-radius:50%;position:absolute;top:38%}
+.seed-eye-l{left:28%}.seed-eye-r{right:28%}
+.seed-smile{width:10px;height:5px;border-bottom:2px solid #8B6914;border-radius:0 0 50% 50%;position:absolute;bottom:28%;left:50%;transform:translateX(-50%)}
+
+/* Stage 2: Sprout */
+.seed-sprout{position:absolute;top:5px;left:50%;transform:translateX(-50%);transform-origin:bottom center}
+.sprout-stem{width:4px;height:16px;background:var(--sage);border-radius:2px;margin:0 auto}
+.sprout-leaf{width:16px;height:10px;background:var(--sage);border-radius:50% 0 50% 50%;position:absolute;top:0;transform:rotate(-25deg)}
+.sprout-leaf-l{left:-8px}
+.sprout-leaf-r{right:-8px;transform:rotate(25deg);border-radius:0 50% 50% 50%}
+
+/* Stage 3: Two Leaves */
+.seed-leaves{position:absolute;top:0;left:50%;transform:translateX(-50%);width:80px;height:40px}
+.leaf{position:absolute;width:24px;height:16px;background:var(--sage);border-radius:50%}
+.leaf-l{left:8px;top:8px;transform:rotate(-30deg);transform-origin:right center}
+.leaf-r{right:8px;top:8px;transform:rotate(30deg);transform-origin:left center}
+
+/* Stage 4: Bloom */
+.seed-flower{position:absolute;top:-10px;left:50%;transform:translateX(-50%)}
+.flower-center{width:20px;height:20px;background:var(--coral);border-radius:50%;position:relative;box-shadow:0 0 12px rgba(224,107,84,.3)}
+.petal{position:absolute;width:14px;height:14px;background:var(--coral);border-radius:50%;opacity:.8}
+.petal-1{top:-10px;left:50%;transform:translateX(-50%)}
+.petal-2{top:50%;right:-10px;transform:translateY(-50%)}
+.petal-3{bottom:-10px;left:50%;transform:translateX(-50%)}
+.petal-4{top:50%;left:-10px;transform:translateY(-50%)}
+
+/* Animations */
+@keyframes float{0%,100%{transform:translate(-50%,-50%) translateY(0)}50%{transform:translate(-50%,-50%) translateY(-6px)}}
+@keyframes sway{0%,100%{transform:translate(-50%,-50%) rotate(0deg)}25%{transform:translate(-50%,-50%) rotate(5deg)}75%{transform:translate(-50%,-50%) rotate(-5deg)}}
+@keyframes blink{0%,90%,100%{opacity:1}95%{opacity:0}}
+@keyframes listen-tilt{0%,100%{transform:translate(-50%,-50%) rotate(0deg)}50%{transform:translate(-50%,-50%) rotate(12deg)}}
+@keyframes vibrate{0%,100%{transform:translate(-50%,-50%) scale(1)}50%{transform:translate(-50%,-50%) scale(1.03)}}
+@keyframes bounce{0%,100%{transform:translate(-50%,-50%) translateY(0)}50%{transform:translate(-50%,-50%) translateY(-10px)}}
+@keyframes spin{0%{transform:translate(-50%,-50%) rotate(0deg)}100%{transform:translate(-50%,-50%) rotate(360deg)}}
+@keyframes leaf-breeze{0%,100%{transform:rotate(-30deg)}50%{transform:rotate(-20deg)}}
+@keyframes leaf-up{0%,100%{transform:rotate(-30deg)}50%{transform:rotate(-10deg)}}
+@keyframes petal-pulse{0%,100%{transform:scale(1);opacity:.8}50%{transform:scale(1.15);opacity:1}}
+@keyframes glow{0%,100%{box-shadow:inset 0 -4px 8px rgba(0,0,0,.08),0 4px 12px rgba(229,162,68,.2)}50%{box-shadow:inset 0 -4px 8px rgba(0,0,0,.08),0 4px 20px rgba(229,162,68,.5)}}
+
+/* Animation States */
+.anim-idle .seed-body{animation:float 3s ease-in-out infinite}
+.anim-listen .seed-body{animation:listen-tilt 2s ease-in-out infinite}
+.anim-vibrate .seed-body{animation:vibrate 0.3s ease-in-out infinite}
+.anim-bounce .seed-body{animation:bounce 0.6s ease-in-out infinite}
+.anim-spin .seed-body{animation:spin 2s linear infinite}
+.anim-glow .seed-body{animation:glow 2s ease-in-out infinite}
+.anim-blink .seed-eye{animation:blink 3s ease-in-out infinite}
+
+.anim-leaf-breeze .leaf-l{animation:leaf-breeze 3s ease-in-out infinite}
+.anim-leaf-breeze .leaf-r{animation:leaf-breeze 3s ease-in-out infinite reverse}
+.anim-leaf-up .leaf-l{animation:leaf-up 1.5s ease-in-out infinite}
+.anim-leaf-up .leaf-r{animation:leaf-up 1.5s ease-in-out infinite reverse}
+
+.anim-petal-pulse .petal{animation:petal-pulse 1.5s ease-in-out infinite}
+
+/* Controls */
+.controls{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.control-btn{padding:10px 20px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;transition:all .3s;border:2px solid var(--border);background:var(--card);color:var(--text-2);font-family:var(--font)}
+.control-btn:hover{border-color:var(--sage);color:var(--sage)}
+.control-btn.active{background:var(--sage);border-color:var(--sage);color:#fff}
+
+/* Info Box */
+.info-box{background:linear-gradient(135deg,var(--lavender-soft),#F0EEF8);border:1px solid rgba(139,127,199,.2);border-radius:var(--r);padding:20px;margin-top:24px}
+.info-title{font-size:16px;font-weight:800;color:var(--lavender);margin-bottom:8px}
+.info-desc{font-size:13px;color:var(--text-2);line-height:1.7}
+.info-code{background:var(--text);color:#E8E4DE;border-radius:10px;padding:16px;margin-top:12px;font-family:monospace;font-size:11px;line-height:1.6;overflow-x:auto}
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <h1>🌱 Seed 種子精靈 · 動畫展示</h1>
+  <p>點擊卡片觸發動畫 · 選擇不同階段查看變化</p>
+</div>
+
+<!-- Stage Tabs -->
+<div class="stage-tabs">
+  <div class="stage-tab active" onclick="switchStage(1)">🟡 Stage 1 · 種子</div>
+  <div class="stage-tab" onclick="switchStage(2)">🌿 Stage 2 · 發芽</div>
+  <div class="stage-tab" onclick="switchStage(3)">🍃 Stage 3 · 雙葉</div>
+  <div class="stage-tab" onclick="switchStage(4)">🌸 Stage 4 · 開花</div>
+</div>
+
+<!-- Animation Grid -->
+<div class="anim-grid" id="animGrid">
+  <!-- Dynamically populated -->
+</div>
+
+<!-- Controls -->
+<div class="controls">
+  <button class="control-btn" onclick="playAll()">▶️ 播放全部</button>
+  <button class="control-btn" onclick="stopAll()">⏸️ 停止全部</button>
+  <button class="control-btn" onclick="randomAnim()">🎲 隨機動畫</button>
+</div>
+
+<!-- Info -->
+<div class="info-box">
+  <div class="info-title">💡 開發建議</div>
+  <div class="info-desc">
+    <strong>Prototype 階段（現在）：</strong>使用 CSS + SVG 動畫，直接在 HTML 中實現。瀏覽器原生支持，互動性強，即時預覽。<br><br>
+    <strong>iOS App 階段（未來）：</strong>使用 <strong>Lottie (JSON)</strong> 格式。優勢：<br>
+    • 向量動畫，無限縮放不失真<br>
+    • 文件極小（每個動畫 5-50KB）<br>
+    • SwiftUI 原生支持（lottie-ios 庫）<br>
+    • 可程式化控制（播放、暫停、跳轉、速度、循環）<br>
+    • 設計師用 After Effects 製作，開發者直接導入<br><br>
+    <strong>替代方案：</strong>Rive（互動狀態機，適合複雜角色）、SpriteKit（Apple 遊戲框架，適合複雜動畫）
+  </div>
+  <div class="info-code">// SwiftUI + Lottie 偽代碼
+import Lottie
+
+struct SeedPetView: View {
+    @State private var currentAnimation: String = "seed-idle-float"
+    
+    var body: some View {
+        LottieView(animation: .named(currentAnimation))
+            .playing(loopMode: .loop)
+            .frame(width: 80, height: 80)
+    }
+    
+    // 觸發動畫
+    func triggerAnimation(_ event: PetEvent) {
+        switch event {
+        case .listenStart:
+            currentAnimation = "seed-listen-tilt"
+        case .quizCorrect:
+            currentAnimation = "seed-bounce-happy"
+        case .idle:
+            currentAnimation = "seed-idle-float"
+        }
+    }
+}</div>
+</div>
+
+</div>
+
+<script>
+// Animation data for each stage
+const stageAnimations = {
+  1: [
+    {id:'s1-idle-float',name:'gentle-float',icon:'💤',type:'idle',priority:'P0',desc:'種子緩慢上下漂浮，幅度 6px。預設待機動畫。'},
+    {id:'s1-idle-sway',name:'soft-sway',icon:'💤',type:'idle',priority:'P1',desc:'種子左右輕輕搖晃 ±5°，像在微風中擺動。'},
+    {id:'s1-idle-blink',name:'blink',icon:'💤',type:'idle',priority:'P0',desc:'眼睛快速閉合再張開（一次眨眼）。每 3 秒觸發。'},
+    {id:'s1-action-listen',name:'listen-tilt',icon:'🎯',type:'action',priority:'P0',desc:'進入聆聽頁面：種子向一側歪斜 12°，像在側耳傾聽。'},
+    {id:'s1-action-vibrate',name:'listen-vibrate',icon:'🎯',type:'action',priority:'P0',desc:'音頻播放中：種子身體微微震動，像在感受聲波。'},
+    {id:'s1-action-bounce',name:'quiz-happy',icon:'🎯',type:'action',priority:'P0',desc:'Quiz 選「記得很清楚」：種子開心小跳 + 旋轉。'},
+    {id:'s1-action-spin',name:'streak-happy',icon:'💭',type:'emotion',priority:'P1',desc:'連續 3 天打開：種子旋轉 360° + 小跳。'},
+    {id:'s1-idle-glow',name:'glow-pulse',icon:'💤',type:'idle',priority:'P2',desc:'種子身體微微發光脈動，像呼吸一樣。'},
+  ],
+  2: [
+    {id:'s2-idle-leaf-breeze',name:'leaf-breeze',icon:'💤',type:'idle',priority:'P0',desc:'葉芽隨風輕輕搖擺 ±10°，身體保持不動。'},
+    {id:'s2-action-listen-leaf',name:'listen-leaf-up',icon:'🎯',type:'action',priority:'P0',desc:'聆聽播放中：葉芽豎起，像在張開耳朵聽。'},
+    {id:'s2-action-quiz-cheer',name:'quiz-leaf-cheer',icon:'🎯',type:'action',priority:'P0',desc:'Quiz「記得很清楚」：葉芽快速上下抖動 3 次。'},
+    {id:'s2-action-shadow',name:'shadow-speak',icon:'🎯',type:'action',priority:'P0',desc:'跟讀錄音中：葉芽跟著說話節奏微微抖動。'},
+    {id:'s2-emotion-wave',name:'welcome-leaf-wave',icon:'💭',type:'emotion',priority:'P0',desc:'回歸時：葉芽快速左右搖擺，像在揮手打招呼。'},
+    {id:'s2-time-morning',name:'morning-leaf-stretch',icon:'🕐',type:'time',priority:'P1',desc:'早晨：葉芽向上伸展到最大，像在迎接陽光。'},
+    {id:'s2-idle-curl',name:'leaf-curl',icon:'💤',type:'idle',priority:'P1',desc:'葉芽慢慢捲曲，像害羞地縮起來，再展開。'},
+    {id:'s2-action-bounce',name:'quiz-bounce',icon:'🎯',type:'action',priority:'P0',desc:'Quiz 正確：種子小跳 + 葉芽抖動。'},
+  ],
+  3: [
+    {id:'s3-idle-dual-breeze',name:'dual-breeze',icon:'💤',type:'idle',priority:'P0',desc:'兩片葉子交替搖擺，像呼吸一樣有節奏。'},
+    {id:'s3-idle-wing-flap',name:'wing-flap',icon:'💤',type:'idle',priority:'P1',desc:'兩片葉子像翅膀一樣上下扇動 3 次。'},
+    {id:'s3-action-listen-ears',name:'listen-dual-ears',icon:'🎯',type:'action',priority:'P0',desc:'聆聽中：兩片葉子像耳朵一樣同時豎起。'},
+    {id:'s3-action-applause',name:'reveal-applause',icon:'🎯',type:'action',priority:'P0',desc:'揭示答案：兩片葉子快速交替拍動 4 次（鼓掌）。'},
+    {id:'s3-action-comfort',name:'quiz-leaf-comfort',icon:'🎯',type:'action',priority:'P0',desc:'Quiz「完全不會」：兩片葉子合攏抱著種子。'},
+    {id:'s3-emotion-week',name:'week-pride',icon:'💭',type:'emotion',priority:'P0',desc:'連續 7 天：種子抬高 + 葉子完全展開 + 發光。'},
+    {id:'s3-idle-high-five',name:'leaf-high-five',icon:'💤',type:'idle',priority:'P2',desc:'兩片葉子的葉尖碰觸一下（擊掌）。'},
+    {id:'s3-action-cheer',name:'rec-cheer',icon:'🎯',type:'action',priority:'P0',desc:'錄音完成：兩片葉子舉到最高，種子開心眯眼。'},
+  ],
+  4: [
+    {id:'s4-idle-bloom-sway',name:'bloom-sway',icon:'💤',type:'idle',priority:'P0',desc:'整體優雅地左右搖擺，花朵在最頂端像王冠。'},
+    {id:'s4-idle-petal-glow',name:'petal-glow',icon:'💤',type:'idle',priority:'P0',desc:'花瓣微微發光脈動（coral glow），像心跳。'},
+    {id:'s4-action-flower-turn',name:'listen-flower-turn',icon:'🎯',type:'action',priority:'P0',desc:'聆聽中：花朵像向日葵一樣轉向音頻方向。'},
+    {id:'s4-action-bloom-burst',name:'reveal-bloom-burst',icon:'🎯',type:'action',priority:'P0',desc:'揭示答案：花朵瞬間放大 + 散落花瓣。'},
+    {id:'s4-action-flower-bloom',name:'quiz-flower-bloom',icon:'🎯',type:'action',priority:'P0',desc:'Quiz「記得很清楚」：花朵綻放到最大 + 花粉飛散。'},
+    {id:'s4-emotion-petal-rain',name:'welcome-petal-rain',icon:'💭',type:'emotion',priority:'P0',desc:'回歸時：花朵綻放 + 大量花瓣飄落。'},
+    {id:'s4-idle-pollen',name:'pollen-sparkle',icon:'💤',type:'idle',priority:'P2',desc:'花朵周圍冒出 3-4 個小金色光點（花粉）。'},
+    {id:'s4-action-celebration',name:'complete-celebration',icon:'🎯',type:'action',priority:'P0',desc:'完成全部聆聽：花朵旋轉 + 大量花瓣散落 + 跳躍。'},
+  ]
+};
+
+let currentStage = 1;
+let playingCards = new Set();
+
+function switchStage(stage) {
+  currentStage = stage;
+  document.querySelectorAll('.stage-tab').forEach((tab, i) => {
+    tab.classList.toggle('active', i === stage - 1);
+  });
+  renderGrid();
+}
+
+function renderGrid() {
+  const grid = document.getElementById('animGrid');
+  const anims = stageAnimations[currentStage];
+  
+  grid.innerHTML = anims.map((anim, idx) => `
+    <div class="anim-card" id="card-${anim.id}" onclick="toggleAnimation('${anim.id}', ${idx})">
+      <div class="anim-card-header">
+        <div class="anim-card-icon" style="background:${getTypeBg(anim.type)}">${anim.icon}</div>
+        <div>
+          <div class="anim-card-title">${anim.name}</div>
+          <div class="anim-card-subtitle">${anim.id}</div>
+        </div>
+      </div>
+      <div class="seed-stage">
+        ${createSeedSVG(currentStage, anim.id)}
+      </div>
+      <div class="anim-card-desc">${anim.desc}</div>
+      <div class="anim-card-meta">
+        <span class="anim-tag tag-${anim.type}">${anim.type}</span>
+        <span class="anim-tag tag-${anim.priority.toLowerCase()}">${anim.priority}</span>
+      </div>
+    </div>
+  `).join('');
+}
+
+function getTypeBg(type) {
+  const bgs = {
+    idle: 'var(--sage-soft)',
+    action: 'var(--lavender-soft)',
+    time: 'var(--amber-soft)',
+    emotion: 'var(--coral-soft)'
+  };
+  return bgs[type] || 'var(--border-light)';
+}
+
+function createSeedSVG(stage, animId) {
+  let svg = '<div class="seed-svg">';
+  
+  // Seed body (always present)
+  svg += '<div class="seed-body">';
+  svg += '<div class="seed-eye seed-eye-l"></div>';
+  svg += '<div class="seed-eye seed-eye-r"></div>';
+  svg += '<div class="seed-smile"></div>';
+  svg += '</div>';
+  
+  // Stage 2+: Sprout
+  if (stage >= 2) {
+    svg += '<div class="seed-sprout">';
+    svg += '<div class="sprout-stem"></div>';
+    svg += '<div class="sprout-leaf sprout-leaf-l"></div>';
+    svg += '<div class="sprout-leaf sprout-leaf-r"></div>';
+    svg += '</div>';
+  }
+  
+  // Stage 3+: Two leaves
+  if (stage >= 3) {
+    svg += '<div class="seed-leaves">';
+    svg += '<div class="leaf leaf-l"></div>';
+    svg += '<div class="leaf leaf-r"></div>';
+    svg += '</div>';
+  }
+  
+  // Stage 4: Flower
+  if (stage >= 4) {
+    svg += '<div class="seed-flower">';
+    svg += '<div class="petal petal-1"></div>';
+    svg += '<div class="petal petal-2"></div>';
+    svg += '<div class="petal petal-3"></div>';
+    svg += '<div class="petal petal-4"></div>';
+    svg += '<div class="flower-center"></div>';
+    svg += '</div>';
+  }
+  
+  svg += '</div>';
+  return svg;
+}
+
+function toggleAnimation(animId, idx) {
+  const card = document.getElementById(`card-${animId}`);
+  const isPlaying = card.classList.contains('playing');
+  
+  if (isPlaying) {
+    stopAnimation(card, animId);
+  } else {
+    playAnimation(card, animId);
+  }
+}
+
+function playAnimation(card, animId) {
+  card.classList.add('playing');
+  playingCards.add(animId);
+  
+  // Apply animation class based on animId
+  const seedStage = card.querySelector('.seed-stage');
+  
+  // Remove all animation classes
+  seedStage.classList.remove('anim-idle','anim-listen','anim-vibrate','anim-bounce','anim-spin','anim-glow','anim-blink','anim-leaf-breeze','anim-leaf-up','anim-petal-pulse');
+  
+  // Add appropriate animation class
+  if (animId.includes('float') || animId.includes('sway') || animId.includes('breeze')) {
+    seedStage.classList.add('anim-idle');
+  } else if (animId.includes('listen') || animId.includes('tilt')) {
+    seedStage.classList.add('anim-listen');
+  } else if (animId.includes('vibrate') || animId.includes('speak')) {
+    seedStage.classList.add('anim-vibrate');
+  } else if (animId.includes('bounce') || animId.includes('happy') || animId.includes('cheer')) {
+    seedStage.classList.add('anim-bounce');
+  } else if (animId.includes('spin') || animId.includes('streak')) {
+    seedStage.classList.add('anim-spin');
+  } else if (animId.includes('glow')) {
+    seedStage.classList.add('anim-glow');
+  } else if (animId.includes('blink')) {
+    seedStage.classList.add('anim-blink');
+  } else if (animId.includes('leaf-breeze')) {
+    seedStage.classList.add('anim-leaf-breeze');
+  } else if (animId.includes('leaf-up') || animId.includes('ears')) {
+    seedStage.classList.add('anim-leaf-up');
+  } else if (animId.includes('petal') || animId.includes('bloom') || animId.includes('celebration')) {
+    seedStage.classList.add('anim-petal-pulse');
+  } else {
+    seedStage.classList.add('anim-idle');
+  }
+}
+
+function stopAnimation(card, animId) {
+  card.classList.remove('playing');
+  playingCards.delete(animId);
+  
+  const seedStage = card.querySelector('.seed-stage');
+  seedStage.classList.remove('anim-idle','anim-listen','anim-vibrate','anim-bounce','anim-spin','anim-glow','anim-blink','anim-leaf-breeze','anim-leaf-up','anim-petal-pulse');
+}
+
+function playAll() {
+  document.querySelectorAll('.anim-card').forEach((card, idx) => {
+    const animId = stageAnimations[currentStage][idx].id;
+    playAnimation(card, animId);
+  });
+}
+
+function stopAll() {
+  document.querySelectorAll('.anim-card').forEach((card, idx) => {
+    const animId = stageAnimations[currentStage][idx].id;
+    stopAnimation(card, animId);
+  });
+}
+
+function randomAnim() {
+  stopAll();
+  const anims = stageAnimations[currentStage];
+  const randomIdx = Math.floor(Math.random() * anims.length);
+  const card = document.querySelectorAll('.anim-card')[randomIdx];
+  playAnimation(card, anims[randomIdx].id);
+}
+
+// Initial render
+renderGrid();
+</script>
+</body>
+</html>

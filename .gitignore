@@ -1,0 +1,60 @@
+# Secrets
+.env
+.env.*
+!.env.example
+
+# Xcode
+*.xcuserdata
+*.xcworkspace/xcuserdata
+*.xcworkspace/xcshareddata/IDEWorkspaceChecks.plist
+DerivedData/
+build/
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+xcuserdata/
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# CocoaPods
+Pods/
+
+# Carthage
+Carthage/Build/
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build
+dist/
+*.log
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# AI local config
+.workbuddy/

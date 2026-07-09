@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Selah Architecture — System Design & Cost Analysis</title>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #FAFAF8; --card: #FFFFFF; --card-alt: #F5F3EF;
+  --text: #1A1614; --text-2: #6B6560; --text-3: #A9A49E;
+  --coral: #E06B54; --coral-soft: #FEF0ED;
+  --sage: #5A9E82; --sage-soft: #ECF7F1;
+  --amber: #D49A4A; --amber-soft: #FDF5E6;
+  --lavender: #8B7FC7; --lavender-soft: #F0EEF8;
+  --sky: #5B9FD4; --sky-soft: #EAF3FB;
+  --rose: #D4829C; --rose-soft: #F9EEF2;
+  --border: #EBE7E1; --border-light: #F3F0EC;
+  --r: 16px; --font: 'Plus Jakarta Sans', system-ui, sans-serif; --mono: 'JetBrains Mono', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: var(--font); background: var(--bg); color: var(--text); -webkit-font-smoothing: antialiased; line-height: 1.6; }
+.container { max-width: 920px; margin: 0 auto; padding: 40px 24px 80px; }
+.header { text-align: center; margin-bottom: 48px; }
+.header-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; background: var(--coral-soft); color: var(--coral); border-radius: 999px; font-size: 12px; font-weight: 700; margin-bottom: 16px; }
+.header h1 { font-size: 32px; font-weight: 800; letter-spacing: -.04em; margin-bottom: 8px; }
+.header p { font-size: 15px; color: var(--text-2); max-width: 600px; margin: 0 auto; }
+.section { margin-bottom: 56px; }
+.section-label { font-size: 11px; font-weight: 700; color: var(--text-3); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+.section-title { font-size: 22px; font-weight: 800; letter-spacing: -.03em; margin-bottom: 6px; }
+.section-desc { font-size: 14px; color: var(--text-2); line-height: 1.6; margin-bottom: 20px; max-width: 700px; }
+
+/* Architecture Diagram */
+.arch-diagram { background: var(--card); border: 1px solid var(--border); border-radius: 20px; padding: 32px; }
+.arch-layers { display: flex; flex-direction: column; gap: 2px; }
+.arch-layer { border-radius: 14px; padding: 20px; }
+.arch-layer-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; display: flex; align-items: center; gap: 6px; }
+.arch-layer-items { display: flex; flex-wrap: wrap; gap: 8px; }
+.arch-item { padding: 8px 14px; border-radius: 10px; font-size: 11px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
+.layer-user { background: #F0F7FF; }
+.layer-user .arch-layer-label { color: #3B82F6; }
+.layer-user .arch-item { background: #DBEAFE; color: #1E40AF; }
+.layer-frontend { background: var(--sage-soft); }
+.layer-frontend .arch-layer-label { color: var(--sage); }
+.layer-frontend .arch-item { background: #D1FAE5; color: #065F46; }
+.layer-api { background: var(--amber-soft); }
+.layer-api .arch-layer-label { color: var(--amber); }
+.layer-api .arch-item { background: #FEF3C7; color: #92400E; }
+.layer-ai { background: var(--lavender-soft); }
+.layer-ai .arch-layer-label { color: var(--lavender); }
+.layer-ai .arch-item { background: #EDE9FE; color: #5B21B6; }
+.layer-data { background: var(--rose-soft); }
+.layer-data .arch-layer-label { color: var(--rose); }
+.layer-data .arch-item { background: #FCE7F3; color: #9D174D; }
+.arch-arrow { text-align: center; padding: 8px 0; color: var(--text-3); font-size: 18px; }
+
+/* Flow Cards */
+.flow-container { display: flex; flex-direction: column; gap: 16px; }
+.flow-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 20px; }
+.flow-card-header { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+.flow-card-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.flow-card-title { font-size: 15px; font-weight: 700; }
+.flow-card-sub { font-size: 11px; color: var(--text-3); }
+.flow-steps { display: flex; flex-direction: column; gap: 1px; }
+.flow-step { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; }
+.flow-step-num { width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; flex-shrink: 0; color: #fff; }
+.flow-step-content { flex: 1; }
+.flow-step-label { font-size: 12px; font-weight: 700; margin-bottom: 2px; }
+.flow-step-desc { font-size: 11px; color: var(--text-2); line-height: 1.5; }
+.flow-step-tag { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 999px; font-size: 9px; font-weight: 700; margin-left: 6px; }
+.flow-step-cost { font-size: 10px; font-family: var(--mono); font-weight: 600; margin-top: 3px; color: var(--coral); }
+.step-frontend .flow-step-num { background: var(--sage); }
+.step-frontend .flow-step-tag { background: var(--sage-soft); color: var(--sage); }
+.step-backend .flow-step-num { background: var(--amber); }
+.step-backend .flow-step-tag { background: var(--amber-soft); color: var(--amber); }
+.step-ai .flow-step-num { background: var(--lavender); }
+.step-ai .flow-step-tag { background: var(--lavender-soft); color: var(--lavender); }
+
+/* Cost */
+.cost-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.cost-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 18px; }
+.cost-card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cost-card-title { font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+.cost-card-badge { padding: 3px 10px; border-radius: 999px; font-size: 10px; font-weight: 700; }
+.cost-row { display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border-light); }
+.cost-row:last-child { border-bottom: none; }
+.cost-row-label { font-size: 11px; color: var(--text-2); }
+.cost-row-value { font-size: 12px; font-weight: 700; font-family: var(--mono); }
+.cost-ok { color: var(--sage); } .cost-mid { color: var(--amber); } .cost-high { color: var(--coral); }
+.cost-summary { background: var(--card); border: 2px solid var(--coral); border-radius: 20px; padding: 24px; margin-top: 16px; }
+.cost-summary-title { font-size: 16px; font-weight: 800; margin-bottom: 4px; }
+.cost-summary-sub { font-size: 12px; color: var(--text-2); margin-bottom: 16px; }
+.cost-summary-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.cost-summary-item { text-align: center; }
+.cost-summary-value { font-size: 28px; font-weight: 800; font-family: var(--mono); }
+.cost-summary-label { font-size: 11px; color: var(--text-2); margin-top: 2px; }
+
+/* Comparison Table */
+.compare-table-wrap { overflow-x: auto; border-radius: var(--r); border: 1px solid var(--border); }
+.compare-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.compare-table thead { background: var(--card-alt); }
+.compare-table th { padding: 12px 14px; text-align: left; font-weight: 700; font-size: 11px; color: var(--text-2); border-bottom: 1px solid var(--border); white-space: nowrap; }
+.compare-table td { padding: 10px 14px; border-bottom: 1px solid var(--border-light); vertical-align: top; }
+.compare-table tr:last-child td { border-bottom: none; }
+.compare-table tr:hover { background: var(--card-alt); }
+.svc-name { font-weight: 700; white-space: nowrap; }
+.price { font-family: var(--mono); font-weight: 600; }
+.pros { color: var(--sage); font-size: 11px; } .cons { color: var(--coral); font-size: 11px; }
+.recommend-badge { display: inline-flex; align-items: center; gap: 3px; padding: 2px 8px; background: var(--sage-soft); color: var(--sage); border-radius: 999px; font-size: 9px; font-weight: 700; margin-left: 6px; }
+
+/* Recommendation */
+.rec-card { border-radius: 20px; padding: 24px; }
+.rec-title { font-size: 18px; font-weight: 800; margin-bottom: 6px; }
+.rec-sub { font-size: 13px; color: var(--text-2); margin-bottom: 16px; line-height: 1.6; }
+.rec-stack { display: flex; flex-wrap: wrap; gap: 8px; }
+.rec-stack-item { padding: 10px 16px; background: var(--card); border: 1px solid var(--border); border-radius: 12px; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+
+/* Tabs */
+.tab-nav { display: flex; gap: 6px; margin-bottom: 16px; }
+.tab-btn { padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; font-family: var(--font); cursor: pointer; border: 1px solid var(--border); background: var(--card); color: var(--text-2); transition: all .25s; }
+.tab-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+.tab-panel { display: none; } .tab-panel.active { display: block; }
+
+/* Strategies */
+.strat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.strat-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--r); padding: 16px; }
+.strat-icon { font-size: 20px; margin-bottom: 8px; }
+.strat-title { font-size: 13px; font-weight: 700; margin-bottom: 4px; }
+.strat-desc { font-size: 11px; color: var(--text-2); line-height: 1.6; }
+.strat-save { display: inline-flex; align-items: center; padding: 3px 8px; background: var(--sage-soft); color: var(--sage); border-radius: 999px; font-size: 10px; font-weight: 700; margin-top: 6px; }
+
+@media(max-width:640px) { .container { padding: 24px 16px 60px; } .header h1 { font-size: 24px; } .cost-summary-grid { grid-template-columns: 1fr; } .arch-layer-items { flex-direction: column; } }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="header">
+  <div class="header-badge">🏗️ System Architecture v7</div>
+  <h1>Selah 系統架構全覽</h1>
+  <p>前後端分工、數據流、成本結構、服務商比較——從 Prototype 到產品的完整路線圖</p>
+</div>
+
+<!-- PART 1: Architecture Layers -->
+<div class="section">
+  <div class="section-label">Part 1</div>
+  <div class="section-title">系統分層架構</div>
+  <div class="section-desc">Selah 分為 5 層。前端負責所有用戶可見的體驗（零成本），後端負責所有「需要思考」的事情（產生費用）。</div>
+  <div class="arch-diagram">
+    <div class="arch-layers">
+      <div class="arch-layer layer-user">
+        <div class="arch-layer-label">👤 用戶設備層（iPhone）</div>
+        <div class="arch-layer-items">
+          <div class="arch-item">📱 iOS App (SwiftUI)</div>
+          <div class="arch-item">🎙️ 麥克風錄音</div>
+          <div class="arch-item">🔊 音頻播放</div>
+          <div class="arch-item">📳 Haptic 反饋</div>
+          <div class="arch-item">🏠 Home Screen Widget</div>
+        </div>
+      </div>
+      <div class="arch-arrow">↕</div>
+      <div class="arch-layer layer-frontend">
+        <div class="arch-layer-label">🟢 前端邏輯層（App 內，零成本）</div>
+        <div class="arch-layer-items">
+          <div class="arch-item">📑 UI 渲染 + 動畫</div>
+          <div class="arch-item">🕐 時間感知 + 智能推薦</div>
+          <div class="arch-item">📊 進度追蹤（本地優先）</div>
+          <div class="arch-item">🐦 寵物狀態 + 動畫 + 故事</div>
+          <div class="arch-item">💾 離線緩存（句子+音頻）</div>
+          <div class="arch-item">🔔 本地通知排程</div>
+          <div class="arch-item">🎛️ 音頻播放控制（速度/暫停）</div>
+        </div>
+      </div>
+      <div class="arch-arrow">↕ HTTPS</div>
+      <div class="arch-layer layer-api">
+        <div class="arch-layer-label">🟡 API Gateway（後端入口）</div>
+        <div class="arch-layer-items">
+          <div class="arch-item">🔐 身份驗證</div>
+          <div class="arch-item">🚦 限流 + 配額</div>
+          <div class="arch-item">📋 請求路由</div>
+          <div class="arch-item">💰 用量追蹤</div>
+        </div>
+      </div>
+      <div class="arch-arrow">↕</div>
+      <div class="arch-layer layer-ai">
+        <div class="arch-layer-label">🟣 AI 服務層（💰 產生費用的地方）</div>
+        <div class="arch-layer-items">
+          <div class="arch-item">🎤 STT 語音轉文字</div>
+          <div class="arch-item">🤖 AI 翻譯引擎</div>
+          <div class="arch-item">🔊 TTS 文字轉語音 ⚠️ 最貴</div>
+          <div class="arch-item">📖 詞彙分析引擎</div>
+          <div class="arch-item">📅 句子排程器</div>
+          <div class="arch-item">🐦 寵物日記生成</div>
+        </div>
+      </div>
+      <div class="arch-arrow">↕</div>
+      <div class="arch-layer layer-data">
+        <div class="arch-layer-label">🔴 數據存儲層</div>
+        <div class="arch-layer-items">
+          <div class="arch-item">🗄️ PostgreSQL（用戶數據）</div>
+          <div class="arch-item">📦 R2/S3（音頻文件）</div>
+          <div class="arch-item">⚡ Redis（緩存+隊列）</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PART 2: Data Flows -->
+<div class="section">
+  <div class="section-label">Part 2</div>
+  <div class="section-title">用戶操作的數據流</div>
+  <div class="section-desc">每個用戶動作在前端和後端之間如何流動。綠色 = 前端（免費），黃色 = API 層，紫色 = AI 處理（產生費用）。</div>
+  <div class="flow-container">
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="flow-card-icon" style="background:var(--coral-soft)">🎙️</div>
+        <div><div class="flow-card-title">用戶錄音一句中文</div><div class="flow-card-sub">最複雜的流程 · 涉及全部 5 層 · 成本最高</div></div>
+      </div>
+      <div class="flow-steps">
+        <div class="flow-step step-frontend"><div class="flow-step-num">1</div><div class="flow-step-content"><div class="flow-step-label">前端錄音 <span class="flow-step-tag">免費</span></div><div class="flow-step-desc">麥克風錄音 → 編碼為 Opus（~50-200KB）→ 顯示波形動畫</div></div></div>
+        <div class="flow-step step-backend"><div class="flow-step-num">2</div><div class="flow-step-content"><div class="flow-step-label">上傳 + 驗證 <span class="flow-step-tag">≈ $0</span></div><div class="flow-step-desc">音頻上傳到 API → 身份驗證 + 配額檢查</div></div></div>
+        <div class="flow-step step-ai"><div class="flow-step-num">3</div><div class="flow-step-content"><div class="flow-step-label">STT 語音轉文字 <span class="flow-step-tag">💰</span></div><div class="flow-step-desc">音頻 → Whisper → 中文文字（保留口語化特徵）</div><div class="flow-step-cost">$0.001 / 次</div></div></div>
+        <div class="flow-step step-frontend"><div class="flow-step-num">4</div><div class="flow-step-content"><div class="flow-step-label">前端確認 <span class="flow-step-tag">免費</span></div><div class="flow-step-desc">顯示辨識結果 → 用戶確認或修正 → 點擊「產生英文」</div></div></div>
+        <div class="flow-step step-ai"><div class="flow-step-num">5</div><div class="flow-step-content"><div class="flow-step-label">AI 翻譯 + 詞彙分析 <span class="flow-step-tag">💰</span></div><div class="flow-step-desc">中文 → GPT-4o-mini → 道地英文 + 可教學詞組 metadata（釋義、難度、用法）</div><div class="flow-step-cost">$0.0001 / 次</div></div></div>
+        <div class="flow-step step-frontend"><div class="flow-step-num">6</div><div class="flow-step-content"><div class="flow-step-label">前端展示 + 選詞 <span class="flow-step-tag">免費</span></div><div class="flow-step-desc">顯示翻譯結果 → 用戶勾選想加入生詞本的詞組</div></div></div>
+        <div class="flow-step step-ai"><div class="flow-step-num">7</div><div class="flow-step-content"><div class="flow-step-label">TTS 生成 <span class="flow-step-tag">💰💰 最貴</span></div><div class="flow-step-desc">英文句子 → TTS 服務（美/英式聲線）→ 生成音頻 → 存入雲端</div><div class="flow-step-cost">$0.001-0.015 / 次</div></div></div>
+        <div class="flow-step step-backend"><div class="flow-step-num">8</div><div class="flow-step-content"><div class="flow-step-label">排程 + 存儲 <span class="flow-step-tag">≈ $0</span></div><div class="flow-step-desc">安排學習時間線（Day 0 夜預覽 → Day 1 聆聽 → Day 2-4 Quiz → Day 7+ 掌握）</div></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="flow-card-icon" style="background:var(--lavender-soft)">🎧</div>
+        <div><div class="flow-card-title">用戶進行聆聽練習</div><div class="flow-card-sub">主要在前端完成 · 近乎零成本</div></div>
+      </div>
+      <div class="flow-steps">
+        <div class="flow-step step-backend"><div class="flow-step-num">1</div><div class="flow-step-content"><div class="flow-step-label">後端推送今日句子 <span class="flow-step-tag">≈ $0</span></div><div class="flow-step-desc">排程器選取 5 句 → 返回文字 + 已生成的音頻 URL + 拆解數據</div></div></div>
+        <div class="flow-step step-frontend"><div class="flow-step-num">2</div><div class="flow-step-content"><div class="flow-step-label">前端下載 + 緩存 <span class="flow-step-tag">免費</span></div><div class="flow-step-desc">下載音頻到本地 → 後續播放全部從本地讀取 → 離線也能播放</div></div></div>
+        <div class="flow-step step-frontend"><div class="flow-step-num">3</div><div class="flow-step-content"><div class="flow-step-label">4 步流程全部在前端 <span class="flow-step-tag">免費</span></div><div class="flow-step-desc">盲聽 → 預測倒數 → 拆解顯示 → 跟讀錄音+比對 —— 全部本地處理</div></div></div>
+      </div>
+    </div>
+
+    <div class="flow-card">
+      <div class="flow-card-header">
+        <div class="flow-card-icon" style="background:var(--sage-soft)">✏️</div>
+        <div><div class="flow-card-title">Quiz 練習 + 每日首頁</div><div class="flow-card-sub">幾乎全在前端 · 零成本</div></div>
+      </div>
+      <div class="flow-steps">
+        <div class="flow-step step-frontend"><div class="flow-step-num">1</div><div class="flow-step-content"><div class="flow-step-label">Quiz 翻卡 <span class="flow-step-tag">免費</span></div><div class="flow-step-desc">從本地緩存讀取已學句子 → 翻卡顯示 → 三點自評 → 結果寫入本地</div></div></div>
+        <div class="flow-step step-frontend"><div class="flow-step-num">2</div><div class="flow-step-content"><div class="flow-step-label">首頁渲染 <span class="flow-step-tag">免費</span></div><div class="flow-step-desc">讀取本地時間 → 問候語 + 智能推薦 → 寵物動畫 + 今日小故事 → 全部本地計算</div></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- PART 3: Cost Breakdown -->
+<div class="section">
+  <div class="section-label">Part 3</div>
+  <div class="section-title">成本結構分析</div>
+  <div class="section-desc">Selah 的成本幾乎全部來自 AI 服務層。以下是每用戶每天使用一次的成本估算。</div>
+  <div class="cost-grid">
+    <div class="cost-card">
+      <div class="cost-card-header"><div class="cost-card-title">🎤 STT 語音轉文字</div><div class="cost-card-badge" style="background:var(--sage-soft);color:var(--sage)">低成本</div></div>
+      <div class="cost-row"><div class="cost-row-label">每次（~10秒）</div><div class="cost-row-value cost-ok">$0.001</div></div>
+      <div class="cost-row"><div class="cost-row-label">每月</div><div class="cost-row-value cost-ok">$0.03</div></div>
+      <div class="cost-row"><div class="cost-row-label">佔比</div><div class="cost-row-value">~5%</div></div>
+    </div>
+    <div class="cost-card">
+      <div class="cost-card-header"><div class="cost-card-title">🤖 AI 翻譯</div><div class="cost-card-badge" style="background:var(--sage-soft);color:var(--sage)">最低</div></div>
+      <div class="cost-row"><div class="cost-row-label">每次（~200 tokens）</div><div class="cost-row-value cost-ok">$0.0001</div></div>
+      <div class="cost-row"><div class="cost-row-label">每月</div><div class="cost-row-value cost-ok">$0.003</div></div>
+      <div class="cost-row"><div class="cost-row-label">佔比</div><div class="cost-row-value">~1%</div></div>
+    </div>
+    <div class="cost-card" style="border:2px solid var(--coral)">
+      <div class="cost-card-header"><div class="cost-card-title">🔊 TTS 語音合成</div><div class="cost-card-badge" style="background:var(--coral-soft);color:var(--coral)">⚠️ 最大成本</div></div>
+      <div class="cost-row"><div class="cost-row-label">每次（~15 字）</div><div class="cost-row-value cost-high">$0.001-0.015</div></div>
+      <div class="cost-row"><div class="cost-row-label">每月</div><div class="cost-row-value cost-high">$0.03-0.45</div></div>
+      <div class="cost-row"><div class="cost-row-label">佔比</div><div class="cost-row-value cost-high">60-85%</div></div>
+      <div style="font-size:10px;color:var(--coral);margin-top:8px;font-weight:600;line-height:1.5">TTS 是 Selah 最貴的環節。選錯服務商成本差 20 倍。</div>
+    </div>
+    <div class="cost-card">
+      <div class="cost-card-header"><div class="cost-card-title">🗄️ 基礎設施</div><div class="cost-card-badge" style="background:var(--sage-soft);color:var(--sage)">固定</div></div>
+      <div class="cost-row"><div class="cost-row-label">數據庫 + 存儲 + API</div><div class="cost-row-value cost-ok">$0-25/月</div></div>
+      <div class="cost-row"><div class="cost-row-label">佔比</div><div class="cost-row-value">~10%</div></div>
+      <div style="font-size:10px;color:var(--text-3);margin-top:8px;line-height:1.5">早期免費額度通常就夠了。</div>
+    </div>
+  </div>
+  <div class="cost-summary">
+    <div class="cost-summary-title">💰 每用戶每月成本</div>
+    <div class="cost-summary-sub">假設每天錄音 1 次 + 聆聽 5 句 + Quiz 3 句</div>
+    <div class="cost-summary-grid">
+      <div class="cost-summary-item"><div class="cost-summary-value" style="color:var(--sage)">$0.05</div><div class="cost-summary-label">低成本方案<br><span style="font-size:9px">Whisper + GPT-4o-mini + OpenAI TTS</span></div></div>
+      <div class="cost-summary-item"><div class="cost-summary-value" style="color:var(--amber)">$0.30</div><div class="cost-summary-label">中等方案<br><span style="font-size:9px">Deepgram + Claude Haiku + ElevenLabs</span></div></div>
+      <div class="cost-summary-item"><div class="cost-summary-value" style="color:var(--coral)">$0.50</div><div class="cost-summary-label">高品質方案<br><span style="font-size:9px">Google STT + Sonnet + ElevenLabs Pro</span></div></div>
+    </div>
+  </div>
+</div>
+
+<!-- PART 4: Service Comparison -->
+<div class="section">
+  <div class="section-label">Part 4</div>
+  <div class="section-title">服務商比較</div>
+  <div class="section-desc">針對 STT、AI 翻譯、TTS 三個環節，比較主流服務商的價格、品質和適用場景。</div>
+  <div class="tab-nav">
+    <button class="tab-btn active" onclick="switchTab(this,'tab-stt')">🎤 STT</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-llm')">🤖 AI 翻譯</button>
+    <button class="tab-btn" onclick="switchTab(this,'tab-tts')">🔊 TTS</button>
+  </div>
+
+  <div class="tab-panel active" id="tab-stt">
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead><tr><th>服務商</th><th>價格</th><th>延遲</th><th>中文品質</th><th>優點</th><th>缺點</th></tr></thead>
+        <tbody>
+          <tr><td class="svc-name">OpenAI Whisper<span class="recommend-badge">推薦</span></td><td class="price">$0.006/min</td><td>2-5s</td><td>⭐⭐⭐⭐</td><td class="pros">最便宜、中文好</td><td class="cons">延遲較高</td></tr>
+          <tr><td class="svc-name">Deepgram</td><td class="price">$0.0043/min</td><td>0.5-1s</td><td>⭐⭐⭐</td><td class="pros">最快（即時）、便宜</td><td class="cons">中文不如 Whisper</td></tr>
+          <tr><td class="svc-name">Google Cloud STT</td><td class="price">$0.016/min</td><td>1-3s</td><td>⭐⭐⭐⭐⭐</td><td class="pros">中文品質最好</td><td class="cons">最貴</td></tr>
+          <tr><td class="svc-name">Azure Speech</td><td class="price">$0.017/min</td><td>1-3s</td><td>⭐⭐⭐⭐</td><td class="pros">免費 5hr/月</td><td class="cons">API 較複雜</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;padding:12px 16px;background:var(--sage-soft);border-radius:12px;font-size:12px;color:var(--sage);line-height:1.6"><strong>建議：</strong>初期用 <strong>Whisper</strong>（最便宜）。需要即時轉寫時換 <strong>Deepgram</strong>。</div>
+  </div>
+
+  <div class="tab-panel" id="tab-llm">
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead><tr><th>服務商</th><th>價格（/M tokens）</th><th>翻譯品質</th><th>優點</th><th>缺點</th></tr></thead>
+        <tbody>
+          <tr><td class="svc-name">GPT-4o-mini<span class="recommend-badge">推薦</span></td><td class="price">入 $0.15 / 出 $0.60</td><td>⭐⭐⭐⭐</td><td class="pros">極便宜、速度快</td><td class="cons">偶爾不夠道地</td></tr>
+          <tr><td class="svc-name">Claude Haiku</td><td class="price">入 $0.25 / 出 $1.25</td><td>⭐⭐⭐⭐⭐</td><td class="pros">翻譯最自然</td><td class="cons">貴 2-3 倍</td></tr>
+          <tr><td class="svc-name">Gemini Flash</td><td class="price">入 $0.10 / 出 $0.40</td><td>⭐⭐⭐</td><td class="pros">最便宜、最快</td><td class="cons">翻譯不穩定</td></tr>
+          <tr><td class="svc-name">GPT-4o</td><td class="price">入 $2.50 / 出 $10.00</td><td>⭐⭐⭐⭐⭐</td><td class="pros">品質最高</td><td class="cons">貴 20 倍</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;padding:12px 16px;background:var(--sage-soft);border-radius:12px;font-size:12px;color:var(--sage);line-height:1.6"><strong>建議：</strong>用 <strong>GPT-4o-mini</strong>（每次 &lt; $0.0001）。品質接近 GPT-4o 但成本低 20 倍。</div>
+  </div>
+
+  <div class="tab-panel" id="tab-tts">
+    <div class="compare-table-wrap">
+      <table class="compare-table">
+        <thead><tr><th>服務商</th><th>價格（/句 ~80字符）</th><th>音質</th><th>美/英式</th><th>優點</th><th>缺點</th></tr></thead>
+        <tbody>
+          <tr><td class="svc-name">OpenAI TTS<span class="recommend-badge">推薦 MVP</span></td><td class="price">$0.0012</td><td>⭐⭐⭐⭐</td><td>美式為主</td><td class="pros">性價比極高</td><td class="cons">英式聲線有限</td></tr>
+          <tr><td class="svc-name">OpenAI TTS-HD</td><td class="price">$0.0024</td><td>⭐⭐⭐⭐⭐</td><td>美式為主</td><td class="pros">幾乎聽不出 AI</td><td class="cons">貴 2 倍</td></tr>
+          <tr><td class="svc-name">ElevenLabs<span class="recommend-badge">推薦 Premium</span></td><td class="price">$0.024</td><td>⭐⭐⭐⭐⭐</td><td>美/英/澳</td><td class="pros">音質最好、聲線最豐富</td><td class="cons">貴 20 倍</td></tr>
+          <tr><td class="svc-name">Google TTS</td><td class="price">$0.0003-0.001</td><td>⭐⭐⭐</td><td>美/英/澳</td><td class="pros">最便宜</td><td class="cons">機械感重</td></tr>
+          <tr><td class="svc-name">Azure Neural</td><td class="price">$0.0012</td><td>⭐⭐⭐⭐</td><td>美/英/澳</td><td class="pros">穩定、聲線多</td><td class="cons">設定複雜</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px;padding:12px 16px;background:var(--coral-soft);border-radius:12px;font-size:12px;color:var(--coral);line-height:1.6"><strong>⚠️ TTS 是最大成本。</strong>建議 MVP 用 <strong>OpenAI TTS</strong>（$0.037/月），付費用戶解鎖 <strong>ElevenLabs</strong>。</div>
+  </div>
+</div>
+
+<!-- PART 5: Cost Optimization -->
+<div class="section">
+  <div class="section-label">Part 5</div>
+  <div class="section-title">降本策略</div>
+  <div class="section-desc">四個經過設計的優化手段，可以把每用戶成本再降 50-70%。</div>
+  <div class="strat-grid">
+    <div class="strat-card"><div class="strat-icon">🔁</div><div class="strat-title">音頻緩存 + 複用</div><div class="strat-desc">同一句英文的 TTS 只需生成一次。相似中文可能產出相同翻譯，複用已有音頻。</div><div class="strat-save">節省 30-50% TTS</div></div>
+    <div class="strat-card"><div class="strat-icon">📦</div><div class="strat-title">批量預生成</div><div class="strat-desc">冷啟動的預設句子庫提前批量生成翻譯+TTS，用戶加入時直接下載。</div><div class="strat-save">前 5 天零 API 成本</div></div>
+    <div class="strat-card"><div class="strat-icon">⏰</div><div class="strat-title">非高峰生成</div><div class="strat-desc">用戶晚上錄音，TTS 可以深夜批量處理。第二天打開時音頻已準備好。</div><div class="strat-save">可用更便宜的批量方案</div></div>
+    <div class="strat-card"><div class="strat-icon">📊</div><div class="strat-title">用量分級</div><div class="strat-desc">免費用戶每天 1 次錄音 + OpenAI TTS。付費用戶無限錄音 + ElevenLabs。</div><div class="strat-save">免費用戶 &lt; $0.05/月</div></div>
+  </div>
+</div>
+
+<!-- PART 6: Recommended Stack -->
+<div class="section">
+  <div class="section-label">Part 6</div>
+  <div class="section-title">推薦技術棧</div>
+
+  <div class="rec-card" style="background:linear-gradient(135deg,var(--sage-soft),#E0F5EC);border:1px solid rgba(90,158,130,.2);margin-bottom:16px">
+    <div class="rec-title" style="color:var(--sage)">🚀 MVP 階段（0-1000 用戶）· 月成本 &lt; $50</div>
+    <div class="rec-sub">最快上線、最低成本驗證產品。每用戶月成本 ≈ $0.05。</div>
+    <div class="rec-stack">
+      <div class="rec-stack-item">📱 SwiftUI</div>
+      <div class="rec-stack-item">⚡ Cloudflare Workers</div>
+      <div class="rec-stack-item">🎤 OpenAI Whisper</div>
+      <div class="rec-stack-item">🤖 GPT-4o-mini</div>
+      <div class="rec-stack-item">🔊 OpenAI TTS</div>
+      <div class="rec-stack-item">🗄️ Supabase</div>
+      <div class="rec-stack-item">📦 Cloudflare R2</div>
+    </div>
+  </div>
+
+  <div class="rec-card" style="background:linear-gradient(135deg,var(--lavender-soft),#E8E4F8);border:1px solid rgba(139,127,199,.2)">
+    <div class="rec-title" style="color:var(--lavender)">🌟 成長階段（1000+ 用戶）</div>
+    <div class="rec-sub">提升品質、支援付費功能。每用戶月成本 ≈ $0.15-0.30，付費 ARPU > $5。</div>
+    <div class="rec-stack">
+      <div class="rec-stack-item">🔊 ElevenLabs（付費）</div>
+      <div class="rec-stack-item">🎤 Deepgram（即時）</div>
+      <div class="rec-stack-item">🤖 Claude Haiku</div>
+      <div class="rec-stack-item">🗄️ PlanetScale</div>
+      <div class="rec-stack-item">📊 Upstash Redis</div>
+      <div class="rec-stack-item">📱 RevenueCat</div>
+    </div>
+  </div>
+</div>
+
+<!-- PART 7: Summary Table -->
+<div class="section">
+  <div class="section-label">Summary</div>
+  <div class="section-title">前後端職責一覽</div>
+  <div class="compare-table-wrap">
+    <table class="compare-table">
+      <thead><tr><th>功能</th><th>在哪裡做</th><th>原因</th><th>成本</th></tr></thead>
+      <tbody>
+        <tr><td class="svc-name">UI + 動畫 + 寵物</td><td style="color:var(--sage);font-weight:700">前端</td><td>必須在設備上渲染</td><td class="price" style="color:var(--sage)">$0</td></tr>
+        <tr><td class="svc-name">智能推薦（時段感知）</td><td style="color:var(--sage);font-weight:700">前端</td><td>只需 NSDate</td><td class="price" style="color:var(--sage)">$0</td></tr>
+        <tr><td class="svc-name">音頻播放 + 速度控制</td><td style="color:var(--sage);font-weight:700">前端</td><td>音頻已下載到本地</td><td class="price" style="color:var(--sage)">$0</td></tr>
+        <tr><td class="svc-name">進度追蹤 + 間隔重複</td><td style="color:var(--sage);font-weight:700">前端</td><td>本地優先，離線可用</td><td class="price" style="color:var(--sage)">$0</td></tr>
+        <tr><td class="svc-name">Quiz 翻卡 + 自評</td><td style="color:var(--sage);font-weight:700">前端</td><td>數據已在本地</td><td class="price" style="color:var(--sage)">$0</td></tr>
+        <tr><td class="svc-name">錄音 + 編碼</td><td style="color:var(--sage);font-weight:700">前端</td><td>iOS AVAudioRecorder</td><td class="price" style="color:var(--sage)">$0</td></tr>
+        <tr style="background:var(--amber-soft)"><td class="svc-name">STT 語音轉文字</td><td style="color:var(--amber);font-weight:700">後端 AI</td><td>需要 Whisper 模型</td><td class="price" style="color:var(--amber)">$0.001/次</td></tr>
+        <tr style="background:var(--amber-soft)"><td class="svc-name">AI 翻譯 + 詞彙分析</td><td style="color:var(--amber);font-weight:700">後端 AI</td><td>需要 LLM 生成結構化輸出</td><td class="price" style="color:var(--amber)">$0.0001/次</td></tr>
+        <tr style="background:var(--coral-soft)"><td class="svc-name">TTS 語音合成 ⚠️</td><td style="color:var(--coral);font-weight:700">後端 AI</td><td>需要高品質 AI 語音</td><td class="price" style="color:var(--coral)">$0.001-0.015/次</td></tr>
+        <tr style="background:var(--amber-soft)"><td class="svc-name">句子排程</td><td style="color:var(--amber);font-weight:700">後端</td><td>需要全局安排學習時間線</td><td class="price" style="color:var(--sage)">≈ $0</td></tr>
+        <tr><td class="svc-name">通知 + Widget</td><td style="color:var(--sage);font-weight:700">前端</td><td>iOS 本地排程</td><td class="price" style="color:var(--sage)">$0</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div style="margin-top:16px;padding:16px;background:var(--card);border:1px solid var(--border);border-radius:var(--r);font-size:13px;color:var(--text-2);line-height:1.7">
+    <strong style="color:var(--text)">核心原則：</strong>能前端做的，絕不送後端。只有三件事必須後端做——<strong style="color:var(--coral)">聽（STT）</strong>、<strong style="color:var(--lavender)">想（AI 翻譯）</strong>、<strong style="color:var(--amber)">說（TTS）</strong>。其他全部前端完成，確保離線可用、零延遲、零成本。
+  </div>
+</div>
+
+</div>
+<script>
+function switchTab(btn,id){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p=>p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById(id).classList.add('active');
+}
+</script>
+</body>
+</html>
