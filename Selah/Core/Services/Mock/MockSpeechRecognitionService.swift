@@ -2,7 +2,8 @@ import Foundation
 
 /// Mock speech recognition service for prototyping.
 /// Returns a simulated Chinese transcript after a delay.
-actor MockSpeechRecognitionService: SpeechRecognitionService {
+/// Uses @unchecked Sendable since the mock data is safe for concurrent access.
+final class MockSpeechRecognitionService: SpeechRecognitionService, @unchecked Sendable {
 
     private let mockDelay: UInt64 = 1_000_000_000  // 1 second
     private var mockTranscripts: [String] = [

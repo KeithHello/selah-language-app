@@ -1,4 +1,4 @@
-// swift-tools-version:5.9
+// swift-tools-version:6.0
 import PackageDescription
 
 let package = Package(
@@ -13,14 +13,17 @@ let package = Package(
         .target(
             name: "Selah",
             path: "Selah",
-            exclude: [
-                // Exclude subdirectory files that are accessed via the flat include
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
             ]
         ),
         .testTarget(
             name: "SelahTests",
             dependencies: ["Selah"],
-            path: "SelahTests"
+            path: "SelahTests",
+            swiftSettings: [
+                .swiftLanguageMode(.v5)
+            ]
         ),
     ]
 )
