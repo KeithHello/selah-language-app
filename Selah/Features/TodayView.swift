@@ -58,7 +58,9 @@ struct TodayView: View {
         }
         .background(Color.selahBgPrimary)
         .navigationTitle("今日")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 
     // MARK: - Greeting
@@ -292,7 +294,9 @@ struct ListenView: View {
         }
         .background(Color.selahBgPrimary)
         .navigationTitle("🎧 聆聽")
+        #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 
     @ViewBuilder

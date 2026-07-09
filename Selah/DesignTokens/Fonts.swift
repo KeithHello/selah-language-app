@@ -47,6 +47,11 @@ extension View {
             .foregroundColor(.selahTextPrimary)
     }
 
+    func selahHeadlineSmall() -> some View {
+        self.font(.selahHeadlineSmall)
+            .foregroundColor(.selahTextSecondary)
+    }
+
     func selahBodyLarge() -> some View {
         self.font(.selahBodyLarge)
             .foregroundColor(.selahTextPrimary)
