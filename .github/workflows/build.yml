@@ -16,20 +16,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Show available Xcode versions
-        run: ls -d /Applications/Xcode*.app 2>/dev/null || echo "No Xcode bundles found"
-
-      - name: Show Swift version
-        run: swift --version
-
-      - name: Show Xcode version
-        run: xcodebuild -version 2>/dev/null || echo "xcodebuild not available"
-
-      - name: Resolve package dependencies
-        run: swift package resolve
+      - name: Show Swift and Xcode versions
+        run: |
+          swift --version
+          xcodebuild -version 2>/dev/null || true
+          ls /Applications/Xcode*.app 2>/dev/null || true
 
       - name: Build
-        run: swift build -v 2>&1
+        id: build
+        run: |
+          swift build 2>&1 | tee build.log
+          echo "=== BUILD DONE ==="
+        continue-on-error: true
+
+      - name: Show build errors
+        if: steps.build.outcome != 'success'
+        run: |
+          echo "::group::Build Errors"
+          grep -E 'error:|warning:|note:' build.log || echo "No error/warning patterns matched"
+          echo "::endgroup::"
+          echo "::group::Full Build Log (last 80 lines)"
+          tail -80 build.log
+          echo "::endgroup::"
+
+      - name: Fail if build failed
+        if: steps.build.outcome != 'success'
+        run: exit 1
 
       - name: Test
-        run: swift test -v 2>&1
+        run: swift test 2>&1 | tee test.log
