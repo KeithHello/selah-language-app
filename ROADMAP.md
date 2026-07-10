@@ -1,6 +1,6 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-10
+> 最后更新：2026-07-10 23:30
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
@@ -31,7 +31,7 @@
 |------|------|------|
 | Apple Developer 帐号 | ❌ | $99/年，TestFlight 必须 |
 | OpenAI API Key | ✅ | 已提供，gpt-4o-mini + tts-1 已測試連通 |
-| Supabase 部署權限 | ❌ | CLI 登入帳號無法存取 project ijonabyyppmgvoufgamt，需要 Access Token 或專案所有者授權 |
+| Supabase 部署權限 | ✅ | Access Token 已提供，Migration + Edge Functions + 種子句均已部署 |
 | 种子句音频预生成 | ❌ M2 前 | 30 句 × 3 声线 = 90 mp3 |
 
 ---
@@ -67,18 +67,18 @@
 
 **目标**：用户可以输入中文、获得 AI 翻译英文、保存句子。
 
-**前置**：M0 ✅ + 后端 API ✅ + OpenAI API Key ✅ + Supabase 部署權限 ❌
+**前置**：M0 ✅ + 后端 API ✅ + OpenAI API Key ✅ + Supabase 部署權限 ✅
 
 | 任务 | 状态 | 关键产出 |
 |------|------|---------|
-| 后端 /v1/sentences/generate | ✅ | Edge Function 已写好（GPT-4o-mini + v8 Prompt） |
-| 后端 /v1/audio/generate | ✅ | Edge Function 已写好（OpenAI TTS + 3 声线映射） |
-| 后端 /v1/config/bootstrap | ✅ | Edge Function 已写好 |
-| 后端 /v1/events | ✅ | Edge Function 已写好 |
-| Migration SQL + RLS | ✅ | 11 表 + 完整 RLS Policy |
-| Edge Functions 部署到 Supabase | ❌ | Supabase CLI 登入帳號無 project 權限，需 Access Token 或所有者授權 |
-| Migration 執行到 Supabase DB | ❌ | 同上，需要 CLI/Management API 權限 |
-| 種子句匯入 seed_sentences | ❌ | 需先執行 Migration 建立表 |
+| 后端 /v1/sentences/generate | ✅ | 已部署，GPT-4o-mini + v8 Prompt，測試 200 OK |
+| 后端 /v1/audio/generate | ✅ | 已部署，OpenAI TTS + 3 声线映射，測試 200 OK |
+| 后端 /v1/config/bootstrap | ✅ | 已部署，返回 30 句種子句 + 聲線配置，測試 200 OK |
+| 后端 /v1/events | ✅ | 已部署，事件白名單驗證，測試 201 OK |
+| Migration SQL + RLS | ✅ | 已執行至 DB，11 表 + 完整 RLS Policy |
+| Edge Functions 部署到 Supabase | ✅ | 4 個端點全部部署完成 |
+| Migration 執行到 Supabase DB | ✅ | 001 + 002 已執行 |
+| 種子句匯入 seed_sentences | ✅ | 30 句已匯入，DB 驗證 count=30 |
 | iOS 语音识别集成 | ❌ | SFSpeechRecognizer + 中文识别 |
 | SelahAPIClient 实现 | ❌ | iOS 端 HTTP 客户端 |
 | SentenceGenerationService 真实实现 | ❌ | 调用后端 API |
