@@ -20,7 +20,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Read seed data
-const seedPath = new URL("../../SeedContent/seed-sentences.json", import.meta.url).pathname;
+const seedPath = new URL("../../SeedContent/seed-sentences.json", import.meta.url);
 const seedRaw = await Deno.readTextFile(seedPath);
 const seedData = JSON.parse(seedRaw);
 

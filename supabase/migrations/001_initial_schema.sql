@@ -45,8 +45,8 @@ CREATE TABLE IF NOT EXISTS public.companions (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_companions_user_id ON public.companions(user_id);
-CREATE INDEX idx_companions_active ON public.companions(user_id, active);
+CREATE INDEX IF NOT EXISTS idx_companions_user_id ON public.companions(user_id);
+CREATE INDEX IF NOT EXISTS idx_companions_active ON public.companions(user_id, active);
 
 -- ============================================================
 -- 3. sprite_memories (learning milestones)
@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS public.sprite_memories (
     UNIQUE(companion_id, memory_key)
 );
 
-CREATE INDEX idx_sprite_memories_companion_id ON public.sprite_memories(companion_id);
+CREATE INDEX IF NOT EXISTS idx_sprite_memories_companion_id ON public.sprite_memories(companion_id);
 
 -- ============================================================
 -- 4. sentences (user's learning sentences - metadata only)
@@ -97,9 +97,9 @@ CREATE TABLE IF NOT EXISTS public.sentences (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_sentences_user_id ON public.sentences(user_id);
-CREATE INDEX idx_sentences_user_review ON public.sentences(user_id, next_review_at);
-CREATE INDEX idx_sentences_user_category ON public.sentences(user_id, category);
+CREATE INDEX IF NOT EXISTS idx_sentences_user_id ON public.sentences(user_id);
+CREATE INDEX IF NOT EXISTS idx_sentences_user_review ON public.sentences(user_id, next_review_at);
+CREATE INDEX IF NOT EXISTS idx_sentences_user_category ON public.sentences(user_id, category);
 
 -- ============================================================
 -- 5. vocab_items (vocabulary tied to sentences)
@@ -122,9 +122,9 @@ CREATE TABLE IF NOT EXISTS public.vocab_items (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_vocab_items_user_id ON public.vocab_items(user_id);
-CREATE INDEX idx_vocab_items_sentence_id ON public.vocab_items(sentence_id);
-CREATE INDEX idx_vocab_items_help_state ON public.vocab_items(user_id, help_state);
+CREATE INDEX IF NOT EXISTS idx_vocab_items_user_id ON public.vocab_items(user_id);
+CREATE INDEX IF NOT EXISTS idx_vocab_items_sentence_id ON public.vocab_items(sentence_id);
+CREATE INDEX IF NOT EXISTS idx_vocab_items_help_state ON public.vocab_items(user_id, help_state);
 
 -- ============================================================
 -- 6. audio_assets (metadata for cached TTS audio)
@@ -148,8 +148,8 @@ CREATE TABLE IF NOT EXISTS public.audio_assets (
     downloaded_at TIMESTAMPTZ
 );
 
-CREATE INDEX idx_audio_assets_sentence_id ON public.audio_assets(sentence_id);
-CREATE INDEX idx_audio_assets_status ON public.audio_assets(user_id, generation_status);
+CREATE INDEX IF NOT EXISTS idx_audio_assets_sentence_id ON public.audio_assets(sentence_id);
+CREATE INDEX IF NOT EXISTS idx_audio_assets_status ON public.audio_assets(user_id, generation_status);
 
 -- ============================================================
 -- 7. generation_jobs (retry queue for AI/TTS)
@@ -170,8 +170,8 @@ CREATE TABLE IF NOT EXISTS public.generation_jobs (
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_generation_jobs_status ON public.generation_jobs(status, next_retry_at);
-CREATE INDEX idx_generation_jobs_sentence_id ON public.generation_jobs(sentence_id);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_status ON public.generation_jobs(status, next_retry_at);
+CREATE INDEX IF NOT EXISTS idx_generation_jobs_sentence_id ON public.generation_jobs(sentence_id);
 
 -- ============================================================
 -- 8. learning_events (append-only analytics, privacy-minimal)
@@ -187,8 +187,8 @@ CREATE TABLE IF NOT EXISTS public.learning_events (
     happened_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_learning_events_user_id ON public.learning_events(user_id, happened_at DESC);
-CREATE INDEX idx_learning_events_type ON public.learning_events(user_id, event_type);
+CREATE INDEX IF NOT EXISTS idx_learning_events_user_id ON public.learning_events(user_id, happened_at DESC);
+CREATE INDEX IF NOT EXISTS idx_learning_events_type ON public.learning_events(user_id, event_type);
 
 -- ============================================================
 -- 9. sync_queue (offline change queue)
@@ -206,7 +206,7 @@ CREATE TABLE IF NOT EXISTS public.sync_queue (
     last_error TEXT
 );
 
-CREATE INDEX idx_sync_queue_user_id ON public.sync_queue(user_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_user_id ON public.sync_queue(user_id, created_at);
 
 -- ============================================================
 -- 10. seed_sentences (system-provided cold-start content)
@@ -228,8 +228,8 @@ CREATE TABLE IF NOT EXISTS public.seed_sentences (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_seed_sentences_category ON public.seed_sentences(category);
-CREATE INDEX idx_seed_sentences_difficulty ON public.seed_sentences(difficulty);
+CREATE INDEX IF NOT EXISTS idx_seed_sentences_category ON public.seed_sentences(category);
+CREATE INDEX IF NOT EXISTS idx_seed_sentences_difficulty ON public.seed_sentences(difficulty);
 
 -- ============================================================
 -- 11. usage_records (credit-ready metering, dormant in MVP)
@@ -246,7 +246,7 @@ CREATE TABLE IF NOT EXISTS public.usage_records (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE INDEX idx_usage_records_user_id ON public.usage_records(user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_usage_records_user_id ON public.usage_records(user_id, created_at DESC);
 
 -- ============================================================
 -- Updated_at trigger (applies to all tables with updated_at)
@@ -273,9 +273,10 @@ BEGIN
     ])
     LOOP
         EXECUTE format('
+            DROP TRIGGER IF EXISTS set_updated_at ON public.%I;
             CREATE TRIGGER set_updated_at BEFORE UPDATE ON public.%I
             FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
-        ', t);
+        ', t, t);
     END LOOP;
 END $$;
 
@@ -306,6 +307,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
     AFTER INSERT ON auth.users
     FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

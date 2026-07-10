@@ -58,3 +58,8 @@ dist/
 
 # AI local config
 .workbuddy/
+
+# Supabase CLI
+supabase/.temp/
+supabase/config.toml.bak
+
