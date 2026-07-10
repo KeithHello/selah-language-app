@@ -1,5 +1,5 @@
 {
-  "version": "v8.0",
+  "version": "v8.1",
   "language": "en",
   "sentences": [
     {
@@ -274,6 +274,143 @@
       ],
       "vocab_candidates": [
         { "surfaceText": "compared to", "meaningInContext": "跟……比起來", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-021",
+      "zh_text": "會議又超時了，真的好煩",
+      "en_translation": "The meeting ran over again, it's so annoying.",
+      "category": "work",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "ran over", "meaning": "超時了", "type": "phrase" },
+        { "surfaceText": "so annoying", "meaning": "好煩", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "ran over", "meaningInContext": "超時了", "suggestedHelpState": "learning" },
+        { "surfaceText": "so annoying", "meaningInContext": "好煩", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-022",
+      "zh_text": "你最近還好嗎？好久不見",
+      "en_translation": "How have you been? It's been a while.",
+      "category": "friends",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "How have you been", "meaning": "你最近好嗎", "type": "phrase" },
+        { "surfaceText": "It's been a while", "meaning": "好久不見", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "How have you been", "meaningInContext": "你最近好嗎", "suggestedHelpState": "learning" },
+        { "surfaceText": "It's been a while", "meaningInContext": "好久不見", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-023",
+      "zh_text": "這個系統一直在當機，快瘋了",
+      "en_translation": "This system keeps crashing, I'm losing my mind.",
+      "category": "vent",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "keeps crashing", "meaning": "一直在當機", "type": "phrase" },
+        { "surfaceText": "losing my mind", "meaning": "快瘋了", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "keeps crashing", "meaningInContext": "一直當機", "suggestedHelpState": "learning" },
+        { "surfaceText": "losing my mind", "meaningInContext": "快瘋了", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-024",
+      "zh_text": "謝謝你一直以來的支持",
+      "en_translation": "Thank you for always having my back.",
+      "category": "heartfelt",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "have my back", "meaning": "支持我、挺我", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "have my back", "meaningInContext": "一直支持我", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-025",
+      "zh_text": "我覺得我們應該換個方向試試",
+      "en_translation": "I think we should try a different approach.",
+      "category": "debate",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "try a different approach", "meaning": "換個方向試試", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "different approach", "meaningInContext": "不同方向", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-026",
+      "zh_text": "今天捷運又誤點了",
+      "en_translation": "The train was delayed again today.",
+      "category": "daily_life",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "was delayed", "meaning": "誤點了", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "was delayed", "meaningInContext": "誤點了", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-027",
+      "zh_text": "我來想辦法解決",
+      "en_translation": "I'll figure it out.",
+      "category": "work",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "figure it out", "meaning": "想辦法解決、搞清楚", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "figure it out", "meaningInContext": "想辦法解決", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-028",
+      "zh_text": "昨晚沒睡好，今天整個沒精神",
+      "en_translation": "I didn't sleep well last night, I'm completely drained today.",
+      "category": "vent",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "didn't sleep well", "meaning": "沒睡好", "type": "phrase" },
+        { "surfaceText": "completely drained", "meaning": "完全沒精神", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "drained", "meaningInContext": "沒精神", "suggestedHelpState": "new" }
+      ]
+    },
+    {
+      "id": "seed-029",
+      "zh_text": "有時候覺得自己不夠好",
+      "en_translation": "Sometimes I feel like I'm not good enough.",
+      "category": "heartfelt",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        { "surfaceText": "not good enough", "meaning": "不夠好", "type": "phrase" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "not good enough", "meaningInContext": "不夠好", "suggestedHelpState": "learning" }
+      ]
+    },
+    {
+      "id": "seed-030",
+      "zh_text": "這個週末打算做什麼？",
+      "en_translation": "What are you up to this weekend?",
+      "category": "friends",
+      "difficulty": "basic",
+      "deconstruction": [
+        { "surfaceText": "What are you up to", "meaning": "打算做什麼", "type": "pattern" }
+      ],
+      "vocab_candidates": [
+        { "surfaceText": "up to", "meaningInContext": "打算做什麼", "suggestedHelpState": "learning" }
       ]
     }
   ]
