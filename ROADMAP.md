@@ -16,13 +16,14 @@
 | M0 iOS 原型壳 | ✅ | 22 Swift 源文件，39 编译单元，GitHub Actions CI 通过 |
 | 单元测试（iOS） | ✅ | 9 测试文件，150+ 用例 |
 | Supabase 后端 | ✅ | 11 表 Migration + RLS + 4 Edge Functions + 6 测试文件 |
-| 种子句内容 | ✅ | 30 句（6 类 × 5 句），含翻译+拆解+词汇 |
+| 种子句内容 | ✅ v2 | 30 句（繁体中文、网络流行语、年轻人真实口语），含完整翻译+拆解+词汇 |
 | LLM System Prompt | ✅ | v8 翻译引擎定义 + JSON Schema |
-| TTS 音色选定 | ✅ | nova/sage/ash 映射到 3 种用户感知声线 |
+| TTS 音色选定 | ✅ | nova/sage/ash/shimmer 映射到 3+1 种用户感知声线 |
 | 后端技术栈 | ✅ | Supabase（已确认连通） |
 | 翻译 LLM | ✅ | GPT-4o-mini（Edge Function 已集成） |
-| TTS Provider | ✅ | OpenAI TTS tts-1（3+1 音色已映射） |
+| TTS Provider | ✅ | OpenAI TTS tts-1（4 音色已映射） |
 | Supabase 项目 | ✅ | 已创建，URL + Keys 已配置 |
+| 部署脚本 | ✅ | 合并 Migration SQL + seed import Deno 脚本 + deploy 指南 |
 
 ### 待完成
 
