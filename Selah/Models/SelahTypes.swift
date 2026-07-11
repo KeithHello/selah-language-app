@@ -143,25 +143,36 @@ enum CompanionKey: String, Codable, CaseIterable {
 }
 
 /// Voice profile identifiers, mapped to backend TTS voices.
-/// User-facing labels: 溫柔自然 / 清晰慢速 / 日常輕快
+/// User-facing labels: 溫柔自然 / 清晰慢速 / 日常輕快 / 優雅英式
 enum VoiceProfile: String, Codable, CaseIterable {
     case gentleNatural = "gentle-natural"
     case clearSlow = "clear-slow"
     case dailyBright = "daily-bright"
+    case elegantBritish = "elegant-british"
 
     var displayName: String {
         switch self {
-        case .gentleNatural: return "溫柔自然"
-        case .clearSlow:     return "清晰慢速"
-        case .dailyBright:   return "日常輕快"
+        case .gentleNatural:   return "溫柔自然"
+        case .clearSlow:       return "清晰慢速"
+        case .dailyBright:     return "日常輕快"
+        case .elegantBritish:  return "優雅英式"
         }
     }
 
     var description: String {
         switch self {
-        case .gentleNatural: return "速度適中，適合每天跟讀"
-        case .clearSlow:     return "更慢一點，適合剛開始聽"
-        case .dailyBright:   return "比較像朋友說話的速度"
+        case .gentleNatural:   return "速度適中，適合每天跟讀"
+        case .clearSlow:       return "更慢一點，適合剛開始聽"
+        case .dailyBright:     return "比較像朋友說話的速度"
+        case .elegantBritish:  return "柔和英式腔調，喜歡英國口音的人會愛"
+        }
+    }
+
+    /// Whether this voice profile is shown by default or is an advanced option.
+    var isDefault: Bool {
+        switch self {
+        case .gentleNatural, .clearSlow, .dailyBright: return true
+        case .elegantBritish: return false
         }
     }
 }

@@ -59,6 +59,12 @@ Deno.serve(async (req: Request) => {
         description: "比較像朋友說話的速度",
         openaiVoice: "ash",
       },
+      {
+        id: "elegant-british",
+        label: "優雅英式",
+        description: "柔和英式腔調，喜歡英國口音的人會愛",
+        openaiVoice: "shimmer",
+      },
     ],
     seedSentences,
     seedSentencePackVersion: "v1.0",

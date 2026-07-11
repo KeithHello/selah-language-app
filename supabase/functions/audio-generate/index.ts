@@ -9,13 +9,14 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 
 /**
  * Maps v8 user-facing voice profiles to OpenAI TTS voice IDs.
- * User sees: 溫柔自然 / 清晰慢速 / 日常輕快
- * Backend maps to: nova / sage / ash
+ * User sees: 溫柔自然 / 清晰慢速 / 日常輕快 / 優雅英式
+ * Backend maps to: nova / sage / ash / shimmer
  */
 const VOICE_MAP: Record<string, string> = {
   "gentle-natural": "nova",
   "clear-slow": "sage",
   "daily-bright": "ash",
+  "elegant-british": "shimmer",
 };
 
 interface RequestBody {

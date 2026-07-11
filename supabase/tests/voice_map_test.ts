@@ -13,6 +13,7 @@ const VOICE_MAP: Record<string, string> = {
   "gentle-natural": "nova",
   "clear-slow": "sage",
   "daily-bright": "ash",
+  "elegant-british": "shimmer",
 };
 
 Deno.test("gentle-natural maps to nova", () => {
@@ -25,6 +26,10 @@ Deno.test("clear-slow maps to sage", () => {
 
 Deno.test("daily-bright maps to ash", () => {
   assertEquals(VOICE_MAP["daily-bright"], "ash");
+});
+
+Deno.test("elegant-british maps to shimmer", () => {
+  assertEquals(VOICE_MAP["elegant-british"], "shimmer");
 });
 
 Deno.test("unknown voice defaults to nova", () => {
