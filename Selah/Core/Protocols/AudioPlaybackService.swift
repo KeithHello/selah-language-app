@@ -26,8 +26,18 @@ protocol AudioPlaybackService {
 
 // MARK: - Errors
 
-enum AudioPlaybackError: Error {
+enum AudioPlaybackError: Error, LocalizedError {
     case fileNotFound
     case fileCorrupted
+    case invalidLoopRange
     case playbackFailed(Error)
+
+    var errorDescription: String? {
+        switch self {
+        case .fileNotFound: return "找不到可播放的音檔。"
+        case .fileCorrupted: return "音檔已損壞或無法播放。"
+        case .invalidLoopRange: return "A-B 循環區間無效。"
+        case .playbackFailed: return "音檔播放失敗。"
+        }
+    }
 }

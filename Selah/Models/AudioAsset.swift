@@ -17,6 +17,7 @@ final class AudioAsset {
     var durationMs: Int
     var createdAt: Date
     var downloadedAt: Date?
+    var lastPlayedAt: Date?
 
     // MARK: - Convenience
 
