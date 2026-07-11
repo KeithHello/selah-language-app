@@ -7,7 +7,7 @@ import SwiftData
 /// Flow: idle -> recording -> recognizingText -> confirmingChinese
 ///       -> translating -> reviewingResult -> saving -> done
 ///       (any state can fall back to error with a retry path)
-enum TodaySentenceFlowState: Equatable {
+enum TodaySentenceFlowState {
     case idle
     case recording
     case recognizingText
@@ -17,6 +17,21 @@ enum TodaySentenceFlowState: Equatable {
     case saving
     case done
     case error(message: String)
+
+    /// A simple string label for comparison and debugging.
+    var label: String {
+        switch self {
+        case .idle: return "idle"
+        case .recording: return "recording"
+        case .recognizingText: return "recognizingText"
+        case .confirmingChinese: return "confirmingChinese"
+        case .translating: return "translating"
+        case .reviewingResult: return "reviewingResult"
+        case .saving: return "saving"
+        case .done: return "done"
+        case .error: return "error"
+        }
+    }
 }
 
 /// ViewModel for TodaySentenceView.

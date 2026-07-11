@@ -52,13 +52,13 @@ final class VoiceProfilePickerTests: XCTestCase {
 
 final class TodaySentenceFlowStateTests: XCTestCase {
 
-    func testFlowState_equality() {
-        XCTAssertEqual(TodaySentenceFlowState.idle, .idle)
-        XCTAssertEqual(TodaySentenceFlowState.recording, .recording)
-        XCTAssertEqual(TodaySentenceFlowState.translating, .translating)
-        XCTAssertEqual(TodaySentenceFlowState.saving, .saving)
-        XCTAssertEqual(TodaySentenceFlowState.done, .done)
-        XCTAssertNotEqual(TodaySentenceFlowState.idle, .recording)
+    func testFlowState_labels() {
+        XCTAssertEqual(TodaySentenceFlowState.idle.label, "idle")
+        XCTAssertEqual(TodaySentenceFlowState.recording.label, "recording")
+        XCTAssertEqual(TodaySentenceFlowState.translating.label, "translating")
+        XCTAssertEqual(TodaySentenceFlowState.saving.label, "saving")
+        XCTAssertEqual(TodaySentenceFlowState.done.label, "done")
+        XCTAssertNotEqual(TodaySentenceFlowState.idle.label, TodaySentenceFlowState.recording.label)
     }
 
     func testFlowState_confirmingChinese_carriesTranscript() {
