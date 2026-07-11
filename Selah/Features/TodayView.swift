@@ -449,10 +449,12 @@ struct NightPreviewView: View {
 }
 
 struct TodaySentenceView: View {
+    @EnvironmentObject var appState: AppState
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+
+    @StateObject private var viewModelHolder = TodaySentenceViewModelHolder()
     @State private var chineseText = ""
-    @State private var englishText: String?
-    @State private var isGenerating = false
-    @State private var generationStep = 0
 
     var body: some View {
         ScrollView {
@@ -461,100 +463,207 @@ struct TodaySentenceView: View {
                     .font(.selahDisplayMedium)
                     .multilineTextAlignment(.center)
 
-                // Chinese input
-                VStack(spacing: SelahSpacing.sm) {
-                    Text("先說中文")
-                        .selahLabelLarge()
-                        .frame(maxWidth: .infinity, alignment: .leading)
-
-                    TextEditor(text: $chineseText)
-                        .font(.selahBodyLarge)
-                        .frame(minHeight: 100)
-                        .padding(SelahSpacing.md)
-                        .background(Color.selahCardPrimary)
-                        .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
-                        .overlay(
-                            RoundedRectangle(cornerRadius: SelahCornerRadius.md)
-                                .strokeBorder(Color.selahBorderLight, lineWidth: 1)
-                        )
-
-                    // Topic chips
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: SelahSpacing.sm) {
-                            ForEach(SentenceCategory.allCases, id: \.self) { cat in
-                                CatChip(category: cat, isSelected: false)
-                            }
-                        }
-                    }
-                }
-
-                // Generate button
-                Button(action: simulateGeneration) {
-                    HStack {
-                        if isGenerating {
-                            ProgressView()
-                                .tint(.white)
-                            Text(generationStepText)
-                        } else {
-                            Text("產生英文 →")
-                        }
-                    }
-                    .font(.selahHeadlineMedium)
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, SelahSpacing.md)
-                    .background(Color.selahCoral)
-                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
-                }
-                .disabled(chineseText.isEmpty || isGenerating)
-
-                // Generated English
-                if let en = englishText {
-                    VStack(spacing: SelahSpacing.md) {
-                        Text(en)
-                            .font(.selahHeadlineLarge)
-                            .foregroundColor(.selahSage)
-                            .multilineTextAlignment(.center)
-                            .padding()
-                            .frame(maxWidth: .infinity)
-                            .background(Color.selahSageSoft)
-                            .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
-
-                        Button("存入筆記") {}
-                            .buttonStyle(.borderedProminent)
-                            .tint(.selahSage)
-                    }
+                if let vm = viewModelHolder.viewModel {
+                    VoiceProfilePicker(selected: $vm.selectedVoiceProfile)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                    flowContent(vm: vm)
                 }
             }
             .padding(SelahSpacing.page)
         }
         .background(Color.selahBgPrimary)
         .navigationTitle("🎙️ 今日一句")
-    }
-
-    private var generationStepText: String {
-        switch generationStep {
-        case 0: return "整理你的中文⋯⋯"
-        case 1: return "轉成可以說出口的自然英文⋯⋯"
-        case 2: return "產生可以跟讀的英文聲音⋯⋯"
-        default: return "處理中⋯⋯"
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
+        .onAppear {
+            viewModelHolder.setup(
+                speechService: appState.speechService ?? MockSpeechRecognitionService(),
+                sentenceService: appState.sentenceGenService ?? MockSentenceGenerationService(),
+                audioService: appState.audioGenService ?? MockAudioGenerationService(),
+                modelContext: modelContext,
+                defaultVoiceProfile: appState.preferences.voiceProfile
+            )
         }
     }
 
-    private func simulateGeneration() {
-        guard !chineseText.isEmpty else { return }
-        isGenerating = true
-        generationStep = 0
+    @ViewBuilder
+    private func flowContent(vm: TodaySentenceViewModel) -> some View {
+        switch vm.flowState {
+        case .idle: idleState(vm: vm)
+        case .recording, .recognizingText: recordingState(vm: vm)
+        case .confirmingChinese(let transcript): confirmingChineseState(vm: vm, transcript: transcript)
+        case .translating: translatingState
+        case .reviewingResult(let result): reviewingResultState(vm: vm, result: result)
+        case .saving: savingState
+        case .done: doneState(vm: vm)
+        case .error(let message): errorState(vm: vm, message: message)
+        }
+    }
 
-        Task {
-            // Simulate 3-step generation
-            for step in 0...2 {
-                try? await Task.sleep(nanoseconds: 1_000_000_000)
-                generationStep = step + 1
+    // MARK: - Idle
+    private func idleState(vm: TodaySentenceViewModel) -> some View {
+        VStack(spacing: SelahSpacing.lg) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: SelahSpacing.sm) {
+                    ForEach(SentenceCategory.allCases, id: \.self) { cat in
+                        CatChip(category: cat, isSelected: vm.selectedCategory == cat, action: {
+                            vm.selectedCategory = vm.selectedCategory == cat ? nil : cat
+                        })
+                    }
+                }
             }
-            englishText = "Here's your natural English: \(chineseText.prefix(20))..."
-            isGenerating = false
+
+            Button(action: { vm.startRecording() }) {
+                VStack(spacing: SelahSpacing.sm) {
+                    ZStack {
+                        Circle().fill(Color.selahCoral.opacity(0.12)).frame(width: 72, height: 72)
+                        Image(systemName: "mic.fill").font(.system(size: 28)).foregroundColor(.selahCoral)
+                    }
+                    Text("按住說中文").selahBodyMedium()
+                }
+            }.buttonStyle(.plain)
+
+            VStack(spacing: SelahSpacing.sm) {
+                Text("或者直接打字").selahLabelSmall()
+                TextEditor(text: $chineseText)
+                    .font(.selahBodyLarge).frame(minHeight: 80).padding(SelahSpacing.md)
+                    .background(Color.selahCardPrimary).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                    .overlay(RoundedRectangle(cornerRadius: SelahCornerRadius.md).strokeBorder(Color.selahBorderLight, lineWidth: 1))
+                Button(action: { vm.translate(chineseText: chineseText) }) {
+                    Text("產生英文 ->").font(.selahHeadlineMedium).foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.md)
+                        .background(chineseText.isEmpty ? Color.selahTextTertiary : Color.selahCoral)
+                        .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
+                }.disabled(chineseText.isEmpty)
+            }
         }
+    }
+
+    // MARK: - Recording
+    private func recordingState(vm: TodaySentenceViewModel) -> some View {
+        VStack(spacing: SelahSpacing.lg) {
+            ZStack {
+                Circle().fill(Color.selahCoral.opacity(0.2)).frame(width: 80, height: 80).scaleEffect(1.1)
+                Image(systemName: "mic.fill").font(.system(size: 32)).foregroundColor(.selahCoral)
+            }
+            Text("正在聽你說話⋯⋯").selahHeadlineMedium()
+            Text("放開結束錄音").selahBodySmall()
+            Button("取消") { vm.cancel() }.foregroundColor(.selahTextTertiary)
+        }.frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.xxl)
+    }
+
+    // MARK: - Confirming Chinese
+    private func confirmingChineseState(vm: TodaySentenceViewModel, transcript: String) -> some View {
+        VStack(spacing: SelahSpacing.lg) {
+            Text("確認你的中文").selahLabelLarge().frame(maxWidth: .infinity, alignment: .leading)
+            TextEditor(text: Binding(get: { transcript }, set: { vm.flowState = .confirmingChinese(transcript: $0) }))
+                .font(.selahBodyLarge).frame(minHeight: 80).padding(SelahSpacing.md)
+                .background(Color.selahCardPrimary).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                .overlay(RoundedRectangle(cornerRadius: SelahCornerRadius.md).strokeBorder(Color.selahCoral.opacity(0.3), lineWidth: 1))
+            HStack(spacing: SelahSpacing.md) {
+                Button("重錄") { vm.cancel() }.buttonStyle(.bordered)
+                Button(action: { vm.translate(chineseText: transcript) }) {
+                    Text("確認 -> 翻譯").font(.selahHeadlineMedium).foregroundColor(.white)
+                        .frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.md)
+                        .background(Color.selahCoral).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
+                }
+            }
+        }
+    }
+
+    // MARK: - Translating
+    private var translatingState: some View {
+        VStack(spacing: SelahSpacing.md) {
+            ProgressView().scaleEffect(1.5).tint(.selahCoral)
+            Text("正在轉成自然英文⋯⋯").selahHeadlineMedium()
+            Text("根據網路狀況可能需要幾秒鐘").selahBodySmall()
+        }.frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.xxl)
+    }
+
+    // MARK: - Reviewing Result
+    private func reviewingResultState(vm: TodaySentenceViewModel, result: GeneratedSentenceResult) -> some View {
+        VStack(spacing: SelahSpacing.lg) {
+            VStack(spacing: SelahSpacing.sm) {
+                Text("英文").selahLabelLarge().frame(maxWidth: .infinity, alignment: .leading)
+                Text(result.targetText).font(.selahHeadlineLarge).foregroundColor(.selahSage)
+                    .multilineTextAlignment(.center).padding().frame(maxWidth: .infinity)
+                    .background(Color.selahSageSoft).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+            }
+            if !result.deconstruction.isEmpty {
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    Text("拆解").selahLabelLarge()
+                    ForEach(result.deconstruction, id: \.surfaceText) { item in
+                        HStack(spacing: SelahSpacing.sm) {
+                            Text(item.surfaceText).font(.selahBodyMedium()).foregroundColor(.selahCoral)
+                            Text("=").foregroundColor(.selahTextTertiary)
+                            Text(item.meaning).selahBodySmall()
+                        }.padding(SelahSpacing.sm).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.selahCardPrimary).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.xs))
+                    }
+                }
+            }
+            if !result.vocabulary.isEmpty {
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    Text("生詞候選").selahLabelLarge()
+                    ForEach(result.vocabulary, id: \.surfaceText) { vocab in
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("\(vocab.surfaceText) - \(vocab.meaningInContext)").font(.selahBodyMedium())
+                            Text("建議狀態：\(vocab.suggestedHelpState.userFacingGroup)").selahBodySmall()
+                        }.padding(SelahSpacing.sm).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.selahCardPrimary).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.xs))
+                    }
+                }
+            }
+            Button(action: {
+                if case .confirmingChinese(let transcript) = vm.flowState {
+                    vm.save(result: result, sourceText: transcript)
+                } else if !chineseText.isEmpty {
+                    vm.save(result: result, sourceText: chineseText)
+                }
+            }) {
+                HStack {
+                    Image(systemName: "checkmark")
+                    Text("存入筆記")
+                }.font(.selahHeadlineMedium).foregroundColor(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.md)
+                    .background(Color.selahSage).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
+            }
+            Button("不要了，重來") { vm.cancel() }.foregroundColor(.selahTextTertiary)
+        }
+    }
+
+    // MARK: - Saving
+    private var savingState: some View {
+        VStack(spacing: SelahSpacing.md) {
+            ProgressView().scaleEffect(1.5).tint(.selahSage)
+            Text("正在保存⋯⋯").selahHeadlineMedium()
+            Text("英文語音正在背景生成").selahBodySmall()
+        }.frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.xxl)
+    }
+
+    // MARK: - Done
+    private func doneState(vm: TodaySentenceViewModel) -> some View {
+        VStack(spacing: SelahSpacing.lg) {
+            Text("🌱").font(.system(size: 48))
+            Text("存好了！").font(.selahDisplayMedium)
+            Text("語音正在背景準備，好了會通知你。").selahBodyMedium()
+            Button(action: { vm.cancel(); dismiss() }) {
+                Text("回到今日").font(.selahHeadlineMedium).foregroundColor(.white)
+                    .frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.md)
+                    .background(Color.selahCoral).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
+            }
+        }.frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.xxl)
+    }
+
+    // MARK: - Error
+    private func errorState(vm: TodaySentenceViewModel, message: String) -> some View {
+        VStack(spacing: SelahSpacing.lg) {
+            Text("😅").font(.system(size: 48))
+            Text("出了點問題").selahHeadlineMedium()
+            Text(message).selahBodySmall().multilineTextAlignment(.center)
+            Button("再試一次") { vm.dismissError() }.buttonStyle(.borderedProminent).tint(.selahCoral)
+        }.frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.xxl)
     }
 }
 
@@ -812,5 +921,84 @@ struct OnboardingView: View {
                     .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
             }
         }
+    }
+}
+
+// MARK: - Settings View
+
+struct SettingsView: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: SelahSpacing.xl) {
+                // Learning preferences
+                VStack(alignment: .leading, spacing: SelahSpacing.md) {
+                    Text("學習偏好")
+                        .font(.selahHeadlineLarge)
+
+                    // Default voice profile
+                    VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                        Text("默認聲線")
+                            .selahLabelLarge()
+                        Text(appState.preferences.voiceProfile.displayName)
+                            .selahBodyMedium()
+                        Text(appState.preferences.voiceProfile.description)
+                            .selahBodySmall()
+                    }
+                    .padding(SelahSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                            .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                    )
+
+                    // Playback speed
+                    VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                        Text("播放速度")
+                            .selahLabelLarge()
+                        Text(appState.preferences.playbackSpeed.displayName)
+                            .selahBodyMedium()
+                    }
+                    .padding(SelahSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                            .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                    )
+                }
+
+                // About
+                VStack(alignment: .leading, spacing: SelahSpacing.md) {
+                    Text("關於")
+                        .font(.selahHeadlineLarge)
+
+                    VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                        Text("Selah v0.1.0 (M1)")
+                            .selahBodyMedium()
+                        Text("用你說的話，學你需要的英文")
+                            .selahBodySmall()
+                    }
+                    .padding(SelahSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                            .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                    )
+                }
+            }
+            .padding(SelahSpacing.page)
+        }
+        .background(Color.selahBgPrimary)
+        .navigationTitle("設定")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
     }
 }

@@ -103,7 +103,13 @@ final class AppState: ObservableObject {
                 activeCompanion = companion
             }
 
-            // Wire up services with mock implementations
+            // Wire up services.
+            // M0: Mock services for prototype flow.
+            // M1: Real services use SelahAPIClient (needs Supabase auth token).
+            //     When not authenticated, we fall back to Mock for offline UX.
+            //     The app should call apiClient.signIn() before using real services.
+            // For now, keep Mock for speech and use Mock for sentence/audio.
+            // When the user logs in, SelahApp can swap to real implementations.
             let mockSentence = MockSentenceGenerationService()
             let mockAudio = MockAudioGenerationService()
             let mockSpeech = MockSpeechRecognitionService()
@@ -111,6 +117,12 @@ final class AppState: ObservableObject {
             sentenceGenService = mockSentence
             audioGenService = mockAudio
             speechService = mockSpeech
+
+            // M1: Real speech recognition is always available (iOS native).
+            // Swap in the real speech recognizer so recording works on device.
+            #if canImport(Speech)
+            speechService = SpeechRecognitionServiceImpl()
+            #endif
 
             // Note: recommendationEngine and reviewScheduler require
             // repository implementations. These will be wired up when
