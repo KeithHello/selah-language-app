@@ -1,12 +1,12 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-11 10:50
+> 最后更新：2026-07-11 16:30
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
 ---
 
-## 当前阶段：M0 完成 + Supabase 後端完成 + M1 網路層完成，進入 M1 前端接通
+## 当前阶段：M1 完整接通完成（語音識別 + 全流程 + 聲線選擇），進入 M2
 
 ### 已完成
 
@@ -83,9 +83,10 @@
 | SentenceGenerationService 真实实现 | ✅ | actor 實作，轉調 API Client |
 | AudioGenerationService 真实实现 | ✅ | actor 實作，轉調 API Client |
 | M1 測試 | ✅ | 2 測試文件：APIClient + Service Implementations |
-| iOS 语音识别集成 | ❌ | SFSpeechRecognizer + 中文识别 |
-| Today Sentence 全流程接通 | ❌ | 中文 -> API -> 英文 -> 保存 -> TTS |
-| 声线选择 UI | ❌ | 在 Today Sentence 或 Settings 中 |
+| iOS 语音识别集成 | ✅ | SpeechRecognitionServiceImpl（SFSpeechRecognizer zh-Hant-TW + #if os(iOS) 守衛） |
+| Today Sentence 全流程接通 | ✅ | 完整狀態機：idle->recording->confirming->translating->reviewing->saving->done + 錯誤重試 |
+| 声线选择 UI | ✅ | VoiceProfilePicker（4 種聲線含 shimmer 進階選項）+ SettingsView 默認聲線 |
+| M1 前端測試 | ✅ | VoiceProfile + FlowState 測試 |
 | 音频本地缓存 | ❌ | FileManager + LRU |
 | 生成重试队列 | ❌ | 持久化 Job Queue |
 
