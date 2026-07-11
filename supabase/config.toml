@@ -21,6 +21,9 @@ verify_jwt = true
 [functions.audio-generate]
 verify_jwt = true
 
+[functions.audio-download-url]
+verify_jwt = true
+
 [functions.config-bootstrap]
 verify_jwt = true
 
