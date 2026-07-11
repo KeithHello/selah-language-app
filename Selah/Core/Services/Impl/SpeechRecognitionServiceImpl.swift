@@ -109,7 +109,8 @@ final class SpeechRecognitionServiceImpl: SpeechRecognitionService, @unchecked S
         recognitionTask?.cancel()
         recognitionTask = nil
 
-        // Configure audio session
+        // Configure audio session (iOS only - macOS doesn't have AVAudioSession)
+        #if os(iOS)
         let audioSession = AVAudioSession.sharedInstance()
         do {
             try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
@@ -118,6 +119,7 @@ final class SpeechRecognitionServiceImpl: SpeechRecognitionService, @unchecked S
             continuation.finish(throwing: SpeechRecognitionError.recognitionFailed(error))
             return
         }
+        #endif
 
         // Create recognition request
         let request = SFSpeechAudioBufferRecognitionRequest()
