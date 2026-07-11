@@ -15,9 +15,9 @@ final class ListenViewModel: ObservableObject {
     private let builder: ListenCollectionBuilder
     private let playback: AudioPlaybackServiceImpl
 
-    init(modelContext: ModelContext, playback: AudioPlaybackServiceImpl = AudioPlaybackServiceImpl()) {
+    init(modelContext: ModelContext, playback: AudioPlaybackServiceImpl? = nil) {
         self.builder = ListenCollectionBuilder(modelContext: modelContext)
-        self.playback = playback
+        self.playback = playback ?? AudioPlaybackServiceImpl()
     }
 
     var currentItem: ListenCollectionItem? {

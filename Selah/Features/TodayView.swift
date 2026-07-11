@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 // MARK: - Main Tab View
 
@@ -264,8 +265,12 @@ struct ListenView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
-        .onAppear { holder.setup(modelContext: modelContext) }
-        .onDisappear { holder.viewModel?.stop() }
+        .onAppear {
+            holder.setup(modelContext: modelContext)
+        }
+        .onDisappear {
+            holder.viewModel?.stop()
+        }
     }
 
     @ViewBuilder
