@@ -2,7 +2,7 @@ import Foundation
 
 // MARK: - Audio Generation Result
 
-struct GeneratedAudioResult {
+struct GeneratedAudioResult: Decodable {
     let status: AudioGenerationStatus
     let voiceProfile: VoiceProfile
     let downloadURL: URL?
@@ -10,6 +10,14 @@ struct GeneratedAudioResult {
     let durationMs: Int
 
     var isReady: Bool { status == .ready }
+
+    enum CodingKeys: String, CodingKey {
+        case status
+        case voiceProfile = "voice_profile"
+        case downloadURL = "download_url"
+        case localFilePath = "local_file_path"
+        case durationMs = "duration_ms"
+    }
 }
 
 // MARK: - Audio Generation Service
