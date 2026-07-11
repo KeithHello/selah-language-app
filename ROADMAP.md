@@ -1,6 +1,6 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-11 16:30
+> 最后更新：2026-07-12 00:30
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
@@ -87,8 +87,8 @@
 | Today Sentence 全流程接通 | ✅ | 完整狀態機：idle->recording->confirming->translating->reviewing->saving->done + 錯誤重試 |
 | 声线选择 UI | ✅ | VoiceProfilePicker（4 種聲線含 shimmer 進階選項）+ SettingsView 默認聲線 |
 | M1 前端測試 | ✅ | VoiceProfile + FlowState 測試 |
-| 音频本地缓存 | ❌ | FileManager + LRU |
-| 生成重试队列 | ❌ | 持久化 Job Queue |
+| 音频本地缓存 | ✅ | AudioCacheService：Application Support、SHA-256、原子寫入、100 MB LRU |
+| 生成重试队列 | 🟡 部分完成 | GenerationJob 指數退避既有；真實 sentence payload repository 接線留在 M3/M4 |
 
 ---
 
@@ -100,17 +100,17 @@
 
 | 任务 | 状态 | 关键产出 |
 |------|------|---------|
-| AudioPlaybackService 完整实现 | ❌ | 播放/暂停/速度/A-B 循环 |
-| 音频状态机 | ❌ | queued -> generating -> ready / failed |
-| 音频生成分步处理 | ❌ | 翻译成功但 TTS 失败时句子仍可用 |
-| 音频去重 | ❌ | 相同句子+声线 -> 复用 |
-| 文件完整性校验 | ❌ | 下载后校验 |
-| 音频后台生成弹性 | ❌ | BGTaskScheduler + 前台续传 |
-| 聆听全集构建 | ❌ | 按状态构建 3 句聆听集 |
-| 上下文桥接 | ❌ | 完成后 -> 可选「顺手续 3 句」 |
-| Practice 仅允许已聆听句子 | ❌ | 选题逻辑 |
-| 手动音频重生成 | ❌ | 「重新生成语音」按钮 |
-| Seed 音频离线捆绑 | ❌ | 30 句种子句音频预置 |
+| AudioPlaybackService 完整实现 | ✅ | AVFoundation 實作、播放/暫停/seek/四速/A-B loop；真機中斷驗收待 Xcode |
+| 音频状态机 | ✅ | manifest + AudioAsset 支援 queued -> generating -> ready / failed |
+| 音频生成分步处理 | ✅ | AudioDeliveryCoordinator：句子保存不等待 TTS，失敗不回滾句子 |
+| 音频去重 | ✅ | SHA-256 content hash + scope 唯一 manifest，cache hit 直接 signed URL |
+| 文件完整性校验 | ✅ | HTTP、最小大小、預期大小、SHA-256、原子 move |
+| 音频后台生成弹性 | 🟡 部分完成 | 持久化 job schema/指數退避已有；BGTaskScheduler 需 Xcode target/background mode |
+| 聆听全集构建 | ✅ | ListenCollectionBuilder：今日新句 -> preview 未聽 -> due，最多 3 句 |
+| 上下文桥接 | ❌ | 完成後「順手再練 3 句」留 M3 推薦整合 |
+| Practice 仅允许已聆听句子 | 🟡 部分完成 | Listen 完成會寫 listenCompletedAt；Practice 真實題庫接線留 M3 |
+| 手动音频重生成 | ✅ 基礎層 | AudioDeliveryCoordinator.regenerate 保留舊檔直到新檔驗證；UI 入口留下一輪 |
+| Seed 音频离线捆绑 | 🟡 已就緒 | 120 檔 prebuild dry-run 通過；實際 OpenAI 生成須主人另行確認成本 |
 
 ---
 
