@@ -1,12 +1,12 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-10 23:30
+> 最后更新：2026-07-11 10:50
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
 ---
 
-## 当前阶段：M0 完成 + Supabase 后端完成，进入 M1
+## 当前阶段：M0 完成 + Supabase 後端完成 + M1 網路層完成，進入 M1 前端接通
 
 ### 已完成
 
@@ -79,16 +79,15 @@
 | Edge Functions 部署到 Supabase | ✅ | 4 個端點全部部署完成 |
 | Migration 執行到 Supabase DB | ✅ | 001 + 002 已執行 |
 | 種子句匯入 seed_sentences | ✅ | 30 句已匯入，DB 驗證 count=30 |
+| SelahAPIClient 实现 | ✅ | iOS HTTP 客户端 + Supabase Auth + 401 自動刷新 |
+| SentenceGenerationService 真实实现 | ✅ | actor 實作，轉調 API Client |
+| AudioGenerationService 真实实现 | ✅ | actor 實作，轉調 API Client |
+| M1 測試 | ✅ | 2 測試文件：APIClient + Service Implementations |
 | iOS 语音识别集成 | ❌ | SFSpeechRecognizer + 中文识别 |
-| SelahAPIClient 实现 | ❌ | iOS 端 HTTP 客户端 |
-| SentenceGenerationService 真实实现 | ❌ | 调用后端 API |
-| AudioGenerationService 真实实现 | ❌ | 调用后端 API |
 | Today Sentence 全流程接通 | ❌ | 中文 -> API -> 英文 -> 保存 -> TTS |
 | 声线选择 UI | ❌ | 在 Today Sentence 或 Settings 中 |
 | 音频本地缓存 | ❌ | FileManager + LRU |
 | 生成重试队列 | ❌ | 持久化 Job Queue |
-| 速率限制 + 用量记录 | ❌ | 后端每日上限 |
-| 中文确认步骤 | ❌ | STT -> 编辑 -> 确认 -> 翻译 |
 
 ---
 
