@@ -243,52 +243,19 @@ struct TodayView: View {
 // MARK: - Placeholder Views (to be fully implemented in M0)
 
 struct ListenView: View {
-    @EnvironmentObject var appState: AppState
-    @State private var currentStage = 1
-    @State private var currentSentenceIndex = 0
+    @Environment(\.modelContext) private var modelContext
+    @StateObject private var holder = ListenViewModelHolder()
     @State private var coachVisible = true
-
-    let mockSentences = [
-        "I was swamped at work today, but I still got off on time.",
-        "My coworker's joke wasn't funny at all.",
-        "I seriously can't take this weather anymore.",
-    ]
 
     var body: some View {
         ScrollView {
             VStack(spacing: SelahSpacing.xl) {
-                // Coach hint
-                CoachHint(
-                    text: "閉上眼睛，只用耳朵聽。聽到幾個詞就算進步！",
-                    isVisible: $coachVisible
-                )
-
-                // Counter
-                HStack {
-                    Text("◀ 第 \(currentSentenceIndex + 1)/\(mockSentences.count) 句 ▶")
-                        .selahBodyMedium()
+                if let viewModel = holder.viewModel {
+                    content(viewModel)
+                } else {
+                    ProgressView()
+                        .padding(.vertical, SelahSpacing.xxl)
                 }
-
-                // Stage bar
-                StageBar(currentStage: currentStage, maxStage: 4)
-
-                // Sentence area
-                VStack(spacing: SelahSpacing.lg) {
-                    if currentStage >= 3 {
-                        Text(mockSentences[currentSentenceIndex])
-                            .font(.selahHeadlineLarge)
-                            .foregroundColor(.selahSage)
-                            .multilineTextAlignment(.center)
-                            .padding()
-                    }
-
-                    // Stage content
-                    stageContent
-                }
-                .frame(maxWidth: .infinity)
-                .padding(SelahSpacing.xl)
-                .background(Color.selahCardPrimary)
-                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.xl))
             }
             .padding(SelahSpacing.page)
         }
@@ -297,65 +264,144 @@ struct ListenView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .onAppear { holder.setup(modelContext: modelContext) }
+        .onDisappear { holder.viewModel?.stop() }
     }
 
     @ViewBuilder
-    private var stageContent: some View {
-        switch currentStage {
+    private func content(_ viewModel: ListenViewModel) -> some View {
+        if viewModel.isLoading {
+            ProgressView("正在準備今天的聆聽⋯⋯")
+        } else if let error = viewModel.errorMessage {
+            unavailableState(message: error, retry: { viewModel.retryCurrentAudio() })
+        } else if viewModel.collection.isEmpty {
+            unavailableState(
+                message: "還沒有可播放的句子。先建立一句，等語音準備好再回來。",
+                retry: { viewModel.load() }
+            )
+        } else if viewModel.isComplete {
+            VStack(spacing: SelahSpacing.lg) {
+                Text("🌱").font(.system(size: 48))
+                Text("今天的聆聽完成了！").font(.selahDisplayMedium)
+                Text("讓這幾句在腦中慢慢沉澱，之後再回來練。")
+                    .selahBodyMedium()
+            }
+        } else if let item = viewModel.currentItem {
+            CoachHint(
+                text: "閉上眼睛，只用耳朵聽。聽到幾個詞就算進步！",
+                isVisible: $coachVisible
+            )
+
+            Text("第 \(viewModel.currentIndex + 1) / \(viewModel.collection.count) 句")
+                .selahBodyMedium()
+            StageBar(currentStage: viewModel.stage, maxStage: 4)
+
+            VStack(spacing: SelahSpacing.lg) {
+                if viewModel.stage >= 3 {
+                    Text(item.sentence.targetText)
+                        .font(.selahHeadlineLarge)
+                        .foregroundColor(.selahSage)
+                        .multilineTextAlignment(.center)
+                        .padding()
+                }
+                stageContent(viewModel, item: item)
+            }
+            .frame(maxWidth: .infinity)
+            .padding(SelahSpacing.xl)
+            .background(Color.selahCardPrimary)
+            .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.xl))
+        }
+    }
+
+    @ViewBuilder
+    private func stageContent(_ viewModel: ListenViewModel, item: ListenCollectionItem) -> some View {
+        switch viewModel.stage {
         case 1:
             VStack(spacing: SelahSpacing.md) {
                 Text("🎧").font(.system(size: 48))
-                Text("閉上眼睛，聽 3 遍")
-                    .selahHeadlineMedium()
-                Button("播放 ▶") {
-                    currentStage = 2
+                Text("閉上眼睛，聽 3 遍").selahHeadlineMedium()
+                Button(viewModel.blindListenCount == 0 ? "播放 ▶" : "再聽一次 ▶") {
+                    viewModel.playCurrent()
+                    viewModel.confirmBlindListen()
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.selahLavender)
+                Text("已聽 \(viewModel.blindListenCount) / 3 遍")
+                    .selahBodySmall()
+                speedPicker(viewModel)
             }
         case 2:
             VStack(spacing: SelahSpacing.md) {
                 Text("🧠").font(.system(size: 48))
-                Text("猜猜這句話的英文是什麼？")
-                    .selahHeadlineMedium()
-                Button("我試著猜了") {
-                    currentStage = 3
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.selahLavender)
+                Text("猜猜這句話的英文是什麼？").selahHeadlineMedium()
+                Button("我試著猜了") { viewModel.advanceStage() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.selahLavender)
             }
         case 3:
             VStack(spacing: SelahSpacing.md) {
                 Text("🔍").font(.system(size: 48))
-                Text("看詞組怎麼用")
-                    .selahHeadlineMedium()
-                Badge(text: "swamped = 忙翻了", style: .amber)
-                Badge(text: "got off on time = 準時下班", style: .amber)
-                Button("理解了，繼續跟讀") {
-                    currentStage = 4
+                Text("看詞組怎麼用").selahHeadlineMedium()
+                ForEach(deconstruction(for: item.sentence), id: \.surfaceText) { part in
+                    Badge(text: "\(part.surfaceText) = \(part.meaning)", style: .amber)
                 }
-                .buttonStyle(.borderedProminent)
-                .tint(.selahLavender)
-            }
-        case 4:
-            VStack(spacing: SelahSpacing.md) {
-                Text("🗣️").font(.system(size: 48))
-                Text("看著英文，開口說")
-                    .selahHeadlineMedium()
-                Button("🎤 跟讀錄音") {}
-                    .buttonStyle(.bordered)
-                Button("完成本句") {
-                    if currentSentenceIndex < mockSentences.count - 1 {
-                        currentSentenceIndex += 1
-                        currentStage = 1
-                    }
-                }
-                .buttonStyle(.borderedProminent)
-                .tint(.selahSage)
+                Button("理解了，繼續跟讀") { viewModel.advanceStage() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.selahLavender)
             }
         default:
-            EmptyView()
+            VStack(spacing: SelahSpacing.md) {
+                Text("🗣️").font(.system(size: 48))
+                Text("看著英文，開口說").selahHeadlineMedium()
+                Button("播放慢速示範") {
+                    viewModel.setSpeed(.slow)
+                    viewModel.playCurrent()
+                }
+                .buttonStyle(.bordered)
+                Button("完成本句") { viewModel.completeCurrentSentence() }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.selahSage)
+            }
         }
+    }
+
+    private func speedPicker(_ viewModel: ListenViewModel) -> some View {
+        Menu(viewModel.selectedSpeed.displayName) {
+            ForEach(PlaybackSpeed.allCases, id: \.self) { speed in
+                Button(speed.displayName) { viewModel.setSpeed(speed) }
+            }
+        }
+        .buttonStyle(.bordered)
+    }
+
+    private func unavailableState(message: String, retry: @escaping () -> Void) -> some View {
+        VStack(spacing: SelahSpacing.lg) {
+            Text("🎧").font(.system(size: 48))
+            Text("音頻還沒準備好").selahHeadlineMedium()
+            Text(message).selahBodyMedium().multilineTextAlignment(.center)
+            Button("重新整理") { retry() }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahCoral)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, SelahSpacing.xxl)
+    }
+
+    private func deconstruction(for sentence: Sentence) -> [DeconstructionItem] {
+        guard let data = sentence.deconstructionJSON.data(using: .utf8) else { return [] }
+        return (try? JSONDecoder().decode([DeconstructionItem].self, from: data)) ?? []
+    }
+}
+
+@MainActor
+final class ListenViewModelHolder: ObservableObject {
+    @Published var viewModel: ListenViewModel?
+
+    func setup(modelContext: ModelContext) {
+        guard viewModel == nil else { return }
+        let model = ListenViewModel(modelContext: modelContext)
+        viewModel = model
+        model.load()
     }
 }
 
