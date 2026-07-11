@@ -464,7 +464,10 @@ struct TodaySentenceView: View {
                     .multilineTextAlignment(.center)
 
                 if let vm = viewModelHolder.viewModel {
-                    VoiceProfilePicker(selected: $vm.selectedVoiceProfile)
+                    VoiceProfilePicker(selected: Binding(
+                        get: { vm.selectedVoiceProfile },
+                        set: { vm.selectedVoiceProfile = $0 }
+                    ))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     flowContent(vm: vm)
                 }
@@ -595,7 +598,7 @@ struct TodaySentenceView: View {
                     Text("拆解").selahLabelLarge()
                     ForEach(result.deconstruction, id: \.surfaceText) { item in
                         HStack(spacing: SelahSpacing.sm) {
-                            Text(item.surfaceText).font(.selahBodyMedium()).foregroundColor(.selahCoral)
+                            Text(item.surfaceText).selahBodyMedium().foregroundColor(.selahCoral)
                             Text("=").foregroundColor(.selahTextTertiary)
                             Text(item.meaning).selahBodySmall()
                         }.padding(SelahSpacing.sm).frame(maxWidth: .infinity, alignment: .leading)
@@ -608,7 +611,7 @@ struct TodaySentenceView: View {
                     Text("生詞候選").selahLabelLarge()
                     ForEach(result.vocabulary, id: \.surfaceText) { vocab in
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("\(vocab.surfaceText) - \(vocab.meaningInContext)").font(.selahBodyMedium())
+                            Text("\(vocab.surfaceText) - \(vocab.meaningInContext)").selahBodyMedium()
                             Text("建議狀態：\(vocab.suggestedHelpState.userFacingGroup)").selahBodySmall()
                         }.padding(SelahSpacing.sm).frame(maxWidth: .infinity, alignment: .leading)
                         .background(Color.selahCardPrimary).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.xs))
