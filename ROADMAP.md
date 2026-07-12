@@ -1,6 +1,6 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-12 01:20
+> 最后更新：2026-07-11 23:25
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
@@ -82,7 +82,7 @@
 | SelahAPIClient 实现 | ✅ | iOS HTTP 客户端 + Supabase Auth + 401 自動刷新 |
 | SentenceGenerationService 真实实现 | ✅ | actor 實作，轉調 API Client |
 | AudioGenerationService 真实实现 | ✅ | actor 實作，轉調 API Client |
-| M1 測試 | ✅ | 2 測試文件：APIClient + Service Implementations |
+| M1 測試 | ✅ | 2 測試文件：APIClient + Service Implementations；M3 回歸契約已補齊 |
 | iOS 语音识别集成 | ✅ | SpeechRecognitionServiceImpl（SFSpeechRecognizer zh-Hant-TW + #if os(iOS) 守衛） |
 | Today Sentence 全流程接通 | ✅ | 完整狀態機：idle->recording->confirming->translating->reviewing->saving->done + 錯誤重試 |
 | 声线选择 UI | ✅ | VoiceProfilePicker（4 種聲線含 shimmer 進階選項）+ SettingsView 默認聲線 |

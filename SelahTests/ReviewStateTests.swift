@@ -210,9 +210,9 @@ final class ReviewStateTests: XCTestCase {
         XCTAssertEqual(state.state, .learning)
         XCTAssertEqual(state.intervalDays, 1)
 
-        // 5. Practice: clear -> familiar again
+        // 5. Practice: clear -> familiar again, review in 3 days
         state.applyRecall(.clear)
         XCTAssertEqual(state.state, .familiar)
-        XCTAssertEqual(state.intervalDays, 7)
+        XCTAssertEqual(state.intervalDays, 3)
     }
 }
