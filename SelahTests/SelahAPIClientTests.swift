@@ -1,6 +1,7 @@
 import XCTest
 @testable import Selah
 
+@MainActor
 final class SelahAPIClientTests: XCTestCase {
 
     var apiClient: SelahAPIClient!
