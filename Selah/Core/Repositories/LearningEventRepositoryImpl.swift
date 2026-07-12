@@ -28,7 +28,7 @@ final class LearningEventRepositoryImpl: LearningEventRepository {
     }
 
     func fetchRecent(limit: Int) async throws -> [LearningEvent] {
-        let descriptor = FetchDescriptor<LearningEvent>(
+        var descriptor = FetchDescriptor<LearningEvent>(
             sortBy: [SortDescriptor(\LearningEvent.happenedAt, order: .reverse)]
         )
         descriptor.fetchLimit = limit
@@ -37,7 +37,7 @@ final class LearningEventRepositoryImpl: LearningEventRepository {
 
     func fetchRecentByType(_ type: LearningEventType, limit: Int) async throws -> [LearningEvent] {
         let typeRaw = type.rawValue
-        let descriptor = FetchDescriptor<LearningEvent>(
+        var descriptor = FetchDescriptor<LearningEvent>(
             predicate: #Predicate<LearningEvent> { $0.eventTypeRaw == typeRaw },
             sortBy: [SortDescriptor(\LearningEvent.happenedAt, order: .reverse)]
         )
