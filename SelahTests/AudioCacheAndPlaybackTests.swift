@@ -39,7 +39,7 @@ final class AudioCacheAndPlaybackTests: XCTestCase {
 
     func testCacheSizeStartsAtZero() async throws {
         let cache = try AudioCacheService(baseDirectory: temporaryDirectory)
-        let size = await cache.cacheSizeBytes()
+        let size = try await cache.cacheSizeBytes()
         XCTAssertEqual(size, 0)
     }
 
