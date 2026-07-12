@@ -1,12 +1,12 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-12 00:30
+> 最后更新：2026-07-12 01:20
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
 ---
 
-## 当前阶段：M1 完整接通完成（語音識別 + 全流程 + 聲線選擇），進入 M2
+## 当前阶段：M3 学习引擎接线完成，进入 M4 产品打磨
 
 ### 已完成
 
@@ -88,7 +88,7 @@
 | 声线选择 UI | ✅ | VoiceProfilePicker（4 種聲線含 shimmer 進階選項）+ SettingsView 默認聲線 |
 | M1 前端測試 | ✅ | VoiceProfile + FlowState 測試 |
 | 音频本地缓存 | ✅ | AudioCacheService：Application Support、SHA-256、原子寫入、100 MB LRU |
-| 生成重试队列 | 🟡 部分完成 | GenerationJob 指數退避既有；真實 sentence payload repository 接線留在 M3/M4 |
+| 生成重试队列 | 🟡 部分完成 | GenerationJob 指數退避與 SwiftData repository 已接線；BGTaskScheduler 留 M4 |
 
 ---
 
@@ -107,8 +107,8 @@
 | 文件完整性校验 | ✅ | HTTP、最小大小、預期大小、SHA-256、原子 move |
 | 音频后台生成弹性 | 🟡 部分完成 | 持久化 job schema/指數退避已有；BGTaskScheduler 需 Xcode target/background mode |
 | 聆听全集构建 | ✅ | ListenCollectionBuilder：今日新句 -> preview 未聽 -> due，最多 3 句 |
-| 上下文桥接 | ❌ | 完成後「順手再練 3 句」留 M3 推薦整合 |
-| Practice 仅允许已聆听句子 | 🟡 部分完成 | Listen 完成會寫 listenCompletedAt；Practice 真實題庫接線留 M3 |
+| 上下文桥接 | ✅ M3 | RecommendationEngine 已提供 listen/practice/preview 後的下一步建議 |
+| Practice 仅允许已聆听句子 | ✅ M3 | SwiftData 題庫只接收 isPracticeReady 的句子；評分寫回 ReviewScheduler |
 | 手动音频重生成 | ✅ 基礎層 | AudioDeliveryCoordinator.regenerate 保留舊檔直到新檔驗證；UI 入口留下一輪 |
 | Seed 音频离线捆绑 | 🟡 已就緒 | 120 檔 prebuild dry-run 通過；實際 OpenAI 生成須主人另行確認成本 |
 
@@ -126,10 +126,10 @@
 | RecommendationEngine 实现 | ✅ 已有 Swift 实现 | 5 条规则链，状态优先 |
 | VocabularyHelpUseCase 实现 | ✅ 已有 Swift 实现 | 系统建议+行为驱动隐藏/再显示 |
 | SpriteMemoryPresets | ✅ 已有 Swift 实现 | 30 个回憶預設 |
-| 推荐理由预览 | ❌ | 「為什麼是這一步？」 |
-| 上下文学习集 | ❌ | 不强制日程 |
+| 推荐理由预览 | ✅ M3 | Today 動態顯示推薦理由與最多 2 條明細 |
+| 上下文学习集 | ✅ M3 | TodayRecommendation + BridgeSuggestion 依學習狀態銜接，不強制日程 |
 | 生词状态转换规则 | ✅ 已有 Swift 实现 | new->learning->familiar->owned |
-| Night Preview 列队 | ❌ | 基于内容池状态 |
+| Night Preview 列队 | ✅ M3 | SwiftData 依未預覽、個人句子與建立時間建立佇列 |
 
 ---
 

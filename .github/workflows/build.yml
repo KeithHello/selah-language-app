@@ -20,7 +20,8 @@ jobs:
           echo "--- Source files ---"
           find Selah -name "*.swift" | sort
 
-      - name: Resolve and build
+      - name: Resolve, build, and test
         run: |
           swift package resolve 2>&1
           swift build 2>&1
+          swift test 2>&1

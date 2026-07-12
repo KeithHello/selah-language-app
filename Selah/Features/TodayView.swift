@@ -33,11 +33,12 @@ struct MainTabView: View {
 
 struct TodayView: View {
     @EnvironmentObject var appState: AppState
+    @Environment(\.modelContext) private var modelContext
+    @StateObject private var viewModelHolder = TodayViewModelHolder()
 
     var body: some View {
         ScrollView {
             VStack(spacing: SelahSpacing.xl) {
-                // Sprite
                 if let companion = appState.activeCompanion {
                     PetView(
                         companion: companion,
@@ -45,13 +46,12 @@ struct TodayView: View {
                     )
                 }
 
-                // Time-aware greeting
                 greetingSection
 
-                // Smart recommendation card
-                recommendationCard
+                smartRecommendationCard
 
-                // Activity rows
+                statsRow
+
                 activityRows
             }
             .padding(.horizontal, SelahSpacing.page)
@@ -62,6 +62,13 @@ struct TodayView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .task {
+            viewModelHolder.setup(
+                engine: appState.recommendationEngine,
+                modelContext: modelContext
+            )
+            await viewModelHolder.viewModel?.load()
+        }
     }
 
     // MARK: - Greeting
@@ -70,8 +77,13 @@ struct TodayView: View {
         VStack(alignment: .leading, spacing: 4) {
             Text(greetingText)
                 .font(.selahDisplayMedium)
-            Text("慢慢來，今天有一句就很好")
-                .selahBodyMedium()
+            if viewModelHolder.viewModel?.totalSentences == 0 {
+                Text("慢慢來，今天有一句就很好")
+                    .selahBodyMedium()
+            } else {
+                Text("你已經有 \(viewModelHolder.viewModel?.totalSentences ?? 0) 句，聽過 \(viewModelHolder.viewModel?.practicedSentences ?? 0) 句")
+                    .selahBodyMedium()
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -86,9 +98,9 @@ struct TodayView: View {
         }
     }
 
-    // MARK: - Recommendation Card
+    // MARK: - Smart Recommendation Card
 
-    private var recommendationCard: some View {
+    private var smartRecommendationCard: some View {
         VStack(alignment: .leading, spacing: SelahSpacing.sm) {
             HStack {
                 Text("下一步")
@@ -97,48 +109,137 @@ struct TodayView: View {
                 Spacer()
             }
 
-            NavigationLink(destination: ListenView()) {
-                HStack(spacing: SelahSpacing.md) {
-                    ZStack {
-                        RoundedRectangle(cornerRadius: 14)
-                            .fill(Color.selahLavenderSoft)
-                            .frame(width: 44, height: 44)
-                        Text("🎧")
-                            .font(.system(size: 22))
-                    }
+            if let rec = viewModelHolder.viewModel?.recommendation {
+                NavigationLink(destination: destinationView(for: rec.type)) {
+                    HStack(spacing: SelahSpacing.md) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(recommendationColor(for: rec.type).opacity(0.12))
+                                .frame(width: 44, height: 44)
+                            Text(recommendationEmoji(for: rec.type))
+                                .font(.system(size: 22))
+                        }
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("聆聽")
-                            .selahHeadlineMedium()
-                        Text("有 3 句昨晚看過，等你聽一次")
-                            .selahBodySmall()
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(rec.type.displayName)
+                                .selahHeadlineMedium()
+                            Text(rec.reason)
+                                .selahBodySmall()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Text("→")
-                        .font(.system(size: 20))
-                        .foregroundColor(.selahLavender)
+                        Text("->")
+                            .font(.system(size: 20))
+                            .foregroundColor(recommendationColor(for: rec.type))
+                    }
+                    .padding(SelahSpacing.lg)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                            .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                    )
                 }
-                .padding(SelahSpacing.lg)
-                .background(Color.selahCardPrimary)
-                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
-                .overlay(
-                    RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
-                        .strokeBorder(Color.selahBorderLight, lineWidth: 1)
-                )
-            }
-            .buttonStyle(.plain)
+                .buttonStyle(.plain)
 
-            // Reason preview
-            VStack(alignment: .leading, spacing: 4) {
-                Text("為什麼是這一步？")
-                    .font(.selahLabelSmall)
-                    .foregroundColor(.selahTextTertiary)
-
-                Text("這幾句已經有點熟了，現在讓耳朵接上。")
-                    .selahBodySmall()
+                if !rec.reasonItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("為什麼是這一步？")
+                            .font(.selahLabelSmall)
+                            .foregroundColor(.selahTextTertiary)
+                        ForEach(rec.reasonItems.prefix(2)) { item in
+                            Text("・\(item.plainReason)")
+                                .selahBodySmall()
+                        }
+                    }
+                    .padding(.top, 4)
+                }
+            } else if viewModelHolder.viewModel?.isLoading == true {
+                ProgressView()
+                    .padding(.vertical, SelahSpacing.md)
+            } else {
+                NavigationLink(destination: TodaySentenceView()) {
+                    HStack(spacing: SelahSpacing.md) {
+                        ZStack {
+                            RoundedRectangle(cornerRadius: 14)
+                                .fill(Color.selahCoral.opacity(0.12))
+                                .frame(width: 44, height: 44)
+                            Text("🎙️")
+                                .font(.system(size: 22))
+                        }
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("今日一句")
+                                .selahHeadlineMedium()
+                            Text("說一句中文，變成你的英文")
+                                .selahBodySmall()
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        Text("->")
+                            .font(.system(size: 20))
+                            .foregroundColor(.selahCoral)
+                    }
+                    .padding(SelahSpacing.lg)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                            .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
             }
-            .padding(.top, 4)
+        }
+    }
+
+    // MARK: - Stats Row
+
+    private var statsRow: some View {
+        HStack(spacing: SelahSpacing.lg) {
+            statItem(count: viewModelHolder.viewModel?.totalSentences ?? 0, label: "總句數")
+            statItem(count: viewModelHolder.viewModel?.practicedSentences ?? 0, label: "已聆聽")
+        }
+        .padding(.top, SelahSpacing.sm)
+    }
+
+    private func statItem(count: Int, label: String) -> some View {
+        VStack(spacing: 2) {
+            Text("\(count)")
+                .font(.selahHeadlineLarge)
+                .foregroundColor(.selahTextPrimary)
+            Text(label)
+                .font(.selahLabelSmall)
+                .foregroundColor(.selahTextTertiary)
+        }
+    }
+
+    @ViewBuilder
+    private func destinationView(for type: TodayRecommendationType) -> some View {
+        switch type {
+        case .practice: PracticeView()
+        case .listen: ListenView()
+        case .nightPreview: NightPreviewView()
+        case .todaySentence: TodaySentenceView()
+        case .seedListen: ListenView()
+        }
+    }
+
+    private func recommendationColor(for type: TodayRecommendationType) -> Color {
+        switch type {
+        case .practice: .selahSage
+        case .listen: .selahLavender
+        case .nightPreview: .selahSky
+        case .todaySentence: .selahCoral
+        case .seedListen: .selahAmber
+        }
+    }
+
+    private func recommendationEmoji(for type: TodayRecommendationType) -> String {
+        switch type {
+        case .practice: "✏️"
+        case .listen: "🎧"
+        case .nightPreview: "🌙"
+        case .todaySentence: "🎙️"
+        case .seedListen: "🌱"
         }
     }
 
@@ -411,91 +512,140 @@ final class ListenViewModelHolder: ObservableObject {
 }
 
 struct PracticeView: View {
-    @State private var currentCardIndex = 0
-    @State private var isComplete = false
-
-    let mockCards = [
-        (zh: "今天工作忙翻了，但還是準時下班了", en: "I was swamped at work today, but I still got off on time."),
-        (zh: "同事說的笑話一點都不好笑", en: "My coworker's joke wasn't funny at all."),
-        (zh: "我真的受不了這個天氣了", en: "I seriously can't take this weather anymore."),
-    ]
+    @EnvironmentObject var appState: AppState
+    @Environment(\.modelContext) private var modelContext
+    @StateObject private var holder = PracticeViewModelHolder()
 
     var body: some View {
         VStack(spacing: SelahSpacing.xl) {
-            if isComplete {
-                completeView
+            if let viewModel = holder.viewModel {
+                practiceContent(viewModel)
             } else {
-                ProgressBar(progress: Double(currentCardIndex) / Double(mockCards.count))
-                    .padding(.horizontal, SelahSpacing.page)
-
-                Text("\(currentCardIndex + 1) / \(mockCards.count)")
-                    .font(.selahLabelLarge)
-                    .foregroundColor(.selahTextTertiary)
-
-                QuizCard(
-                    zhText: mockCards[currentCardIndex].zh,
-                    enText: mockCards[currentCardIndex].en
-                )
-
-                AssessmentButtons(
-                    onGood: { advance() },
-                    onMid: { advance() },
-                    onFail: { advance() }
-                )
+                ProgressView("正在準備練習⋯⋯")
             }
         }
         .padding(SelahSpacing.page)
         .background(Color.selahBgPrimary)
         .navigationTitle("✏️ 練習")
+        .task {
+            holder.setup(
+                modelContext: modelContext,
+                reviewScheduler: appState.reviewScheduler
+            )
+            await holder.viewModel?.load()
+        }
+    }
+
+    @ViewBuilder
+    private func practiceContent(_ viewModel: PracticeViewModel) -> some View {
+        if viewModel.isLoading {
+            ProgressView("正在準備練習⋯⋯")
+        } else if let errorMessage = viewModel.errorMessage {
+            unavailableState(message: errorMessage) {
+                Task { await viewModel.load() }
+            }
+        } else if viewModel.isComplete || viewModel.currentCard == nil {
+            completeView
+        } else if let card = viewModel.currentCard {
+            ProgressBar(
+                progress: Double(viewModel.currentIndex) / Double(max(viewModel.cards.count, 1))
+            )
+            Text("\(viewModel.currentIndex + 1) / \(viewModel.cards.count)")
+                .font(.selahLabelLarge)
+                .foregroundColor(.selahTextTertiary)
+            QuizCard(zhText: card.zhText, enText: card.enText)
+            AssessmentButtons(
+                onGood: { viewModel.rate(signal: .clear) },
+                onMid: { viewModel.rate(signal: .almost) },
+                onFail: { viewModel.rate(signal: .failed) }
+            )
+        }
     }
 
     private var completeView: some View {
         VStack(spacing: SelahSpacing.lg) {
             Text("🎉").font(.system(size: 64))
-            Text("今天的練習完成了！")
-                .font(.selahDisplayMedium)
-            Text("休息一下，或者再留下今天的一句。")
+            Text("今天的練習完成了！").font(.selahDisplayMedium)
+            Text("目前沒有需要回想的句子，先讓大腦休息一下。")
                 .selahBodyMedium()
         }
     }
 
-    private func advance() {
-        if currentCardIndex < mockCards.count - 1 {
-            currentCardIndex += 1
-        } else {
-            isComplete = true
+    private func unavailableState(message: String, retry: @escaping () -> Void) -> some View {
+        VStack(spacing: SelahSpacing.lg) {
+            Text("🌱").font(.system(size: 48))
+            Text("練習暫時不可用").selahHeadlineMedium()
+            Text(message).selahBodyMedium().multilineTextAlignment(.center)
+            Button("重新整理", action: retry)
+                .buttonStyle(.borderedProminent)
+                .tint(.selahCoral)
         }
     }
 }
 
 struct NightPreviewView: View {
+    @EnvironmentObject var appState: AppState
+    @StateObject private var holder = NightPreviewViewModelHolder()
+
     var body: some View {
         ScrollView {
             VStack(spacing: SelahSpacing.lg) {
                 Text("先看一眼就好，明天聽起來會更輕鬆。")
                     .selahBodyMedium()
 
-                ForEach(1...3, id: \.self) { i in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("\(i) · 句子 \(i)")
-                            .selahHeadlineSmall()
-                        Text("This is a preview sentence #\(i).")
-                            .selahBodyLarge()
-                    }
-                    .padding()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color.selahCardPrimary)
-                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                if let viewModel = holder.viewModel {
+                    previewContent(viewModel)
+                } else {
+                    ProgressView("正在準備預覽⋯⋯")
                 }
-
-                Button("預習好了") {}
-                    .buttonStyle(.borderedProminent)
-                    .tint(.selahSage)
             }
             .padding(SelahSpacing.page)
         }
         .background(Color.selahBgPrimary)
         .navigationTitle("🌙 夜間預覽")
+        .task {
+            holder.setup(reviewScheduler: appState.reviewScheduler)
+            await holder.viewModel?.load()
+        }
+    }
+
+    @ViewBuilder
+    private func previewContent(_ viewModel: NightPreviewViewModel) -> some View {
+        if viewModel.isLoading {
+            ProgressView("正在準備預覽⋯⋯")
+        } else if let errorMessage = viewModel.errorMessage {
+            Text(errorMessage).selahBodyMedium().multilineTextAlignment(.center)
+            Button("重新整理") { Task { await viewModel.load() } }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahCoral)
+        } else if viewModel.items.isEmpty {
+            Text("今晚沒有新的句子需要預覽。")
+                .selahBodyMedium()
+                .padding(.vertical, SelahSpacing.xxl)
+        } else if viewModel.isComplete {
+            VStack(spacing: SelahSpacing.md) {
+                Text("🌙").font(.system(size: 48))
+                Text("今晚的預覽完成了。現階段先到這裡。")
+                    .selahBodyMedium()
+                    .multilineTextAlignment(.center)
+            }
+            .padding(.vertical, SelahSpacing.xxl)
+        } else {
+            ForEach(Array(viewModel.items.enumerated()), id: \.element.id) { index, item in
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    Text("\(index + 1) · \(item.zhText)").selahHeadlineSmall()
+                    Text(item.enText).selahBodyLarge()
+                }
+                .padding(SelahSpacing.lg)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.selahCardPrimary)
+                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+            }
+
+            Button("預習好了") { viewModel.markPreviewed() }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahSage)
+        }
     }
 }
 

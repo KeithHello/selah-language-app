@@ -42,6 +42,7 @@ final class AppState: ObservableObject {
     var speechService: (any SpeechRecognitionService)?
     var recommendationEngine: (any RecommendationEngine)?
     var reviewScheduler: (any ReviewScheduler)?
+    var vocabularyHelp: VocabularyHelpUseCaseImpl?
 
     struct ToastInfo: Identifiable {
         let id = UUID()
@@ -124,10 +125,27 @@ final class AppState: ObservableObject {
             speechService = SpeechRecognitionServiceImpl()
             #endif
 
-            // Note: recommendationEngine and reviewScheduler require
-            // repository implementations. These will be wired up when
-            // SwiftData-backed repositories are implemented in M1.
-            // For M0 prototype, the UI uses mock data directly.
+            // M3: Wire up SwiftData-backed repositories + engines.
+            let sentenceRepo = SentenceRepositoryImpl(modelContext: context)
+            let eventRepo = LearningEventRepositoryImpl(modelContext: context)
+            let vocabRepo = VocabRepositoryImpl(modelContext: context)
+
+            let scheduler = ReviewSchedulerImpl(
+                sentenceRepo: sentenceRepo,
+                learningEventRepo: eventRepo
+            )
+            let engine = RecommendationEngineImpl(
+                sentenceRepo: sentenceRepo,
+                reviewScheduler: scheduler
+            )
+            reviewScheduler = scheduler
+            recommendationEngine = engine
+
+            // Vocabulary help use case also wired with real repos.
+            vocabularyHelp = VocabularyHelpUseCaseImpl(
+                vocabRepo: vocabRepo,
+                learningEventRepo: eventRepo
+            )
         } catch {
             print("Initialization error: \(error)")
         }
