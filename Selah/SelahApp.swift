@@ -1,7 +1,9 @@
 import SwiftUI
 import SwiftData
 
+#if !SWIFT_PACKAGE
 @main
+#endif
 struct SelahApp: App {
 
     @StateObject private var appState = AppState()
