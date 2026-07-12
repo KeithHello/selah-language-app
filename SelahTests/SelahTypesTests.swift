@@ -153,25 +153,28 @@ final class SelahTypesTests: XCTestCase {
     // MARK: - VoiceProfile
 
     func testVoiceProfileAllCases() {
-        XCTAssertEqual(VoiceProfile.allCases.count, 3)
+        XCTAssertEqual(VoiceProfile.allCases.count, 4)
     }
 
     func testVoiceProfileDisplayNames() {
         XCTAssertEqual(VoiceProfile.gentleNatural.displayName, "溫柔自然")
         XCTAssertEqual(VoiceProfile.clearSlow.displayName, "清晰慢速")
         XCTAssertEqual(VoiceProfile.dailyBright.displayName, "日常輕快")
+        XCTAssertEqual(VoiceProfile.elegantBritish.displayName, "優雅英式")
     }
 
     func testVoiceProfileDescriptions() {
         XCTAssertEqual(VoiceProfile.gentleNatural.description, "速度適中，適合每天跟讀")
         XCTAssertEqual(VoiceProfile.clearSlow.description, "更慢一點，適合剛開始聽")
         XCTAssertEqual(VoiceProfile.dailyBright.description, "比較像朋友說話的速度")
+        XCTAssertEqual(VoiceProfile.elegantBritish.description, "柔和英式腔調，喜歡英國口音的人會愛")
     }
 
     func testVoiceProfileFromRawValue() {
         XCTAssertEqual(VoiceProfile(rawValue: "gentle-natural"), .gentleNatural)
         XCTAssertEqual(VoiceProfile(rawValue: "clear-slow"), .clearSlow)
         XCTAssertEqual(VoiceProfile(rawValue: "daily-bright"), .dailyBright)
+        XCTAssertEqual(VoiceProfile(rawValue: "elegant-british"), .elegantBritish)
         XCTAssertNil(VoiceProfile(rawValue: "invalid"))
     }
 

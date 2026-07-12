@@ -52,7 +52,7 @@ final class ReviewStateTests: XCTestCase {
         state.applyRecall(.clear)
 
         XCTAssertEqual(state.state, .familiar)
-        XCTAssertEqual(state.intervalDays, 7)
+        XCTAssertEqual(state.intervalDays, 3)
         XCTAssertEqual(state.lastRecallSignal, .clear)
     }
 
@@ -80,7 +80,7 @@ final class ReviewStateTests: XCTestCase {
         state.applyRecall(.clear)
 
         XCTAssertEqual(state.state, .quiet)
-        XCTAssertEqual(state.intervalDays, 30)
+        XCTAssertEqual(state.intervalDays, 7)
     }
 
     func testApplyRecallFamiliarAlmostToLearning() {
@@ -195,15 +195,15 @@ final class ReviewStateTests: XCTestCase {
         state.markListened()
         XCTAssertEqual(state.state, .learning)
 
-        // 2. Practice: clear -> familiar, review in 7 days
+        // 2. Practice: clear -> familiar, review in 3 days
         state.applyRecall(.clear)
         XCTAssertEqual(state.state, .familiar)
-        XCTAssertEqual(state.intervalDays, 7)
+        XCTAssertEqual(state.intervalDays, 3)
 
-        // 3. Practice again: clear -> quiet, review in 30 days
+        // 3. Practice again: clear -> quiet, review in 7 days
         state.applyRecall(.clear)
         XCTAssertEqual(state.state, .quiet)
-        XCTAssertEqual(state.intervalDays, 30)
+        XCTAssertEqual(state.intervalDays, 7)
 
         // 4. Practice: almost -> back to learning
         state.applyRecall(.almost)

@@ -136,9 +136,10 @@ actor AudioCacheService {
         let currentBytes = files.reduce(Int64(0)) { $0 + $1.size }
         guard currentBytes + incomingBytes > maximumBytes else { return }
 
+        let normalizedProtectedURLs = Set(protectedURLs.map(\.standardizedFileURL))
         var releasedBytes: Int64 = 0
         for file in files.sorted(by: { $0.lastAccessed < $1.lastAccessed }) {
-            guard !protectedURLs.contains(file.url) else { continue }
+            guard !normalizedProtectedURLs.contains(file.url.standardizedFileURL) else { continue }
             try fileManager.removeItem(at: file.url)
             releasedBytes += file.size
             if currentBytes - releasedBytes + incomingBytes <= maximumBytes {
@@ -150,7 +151,8 @@ actor AudioCacheService {
     }
 
     func clearAll(excluding protectedURLs: Set<URL> = []) throws {
-        for file in try cachedFiles() where !protectedURLs.contains(file.url) {
+        let normalizedProtectedURLs = Set(protectedURLs.map(\.standardizedFileURL))
+        for file in try cachedFiles() where !normalizedProtectedURLs.contains(file.url.standardizedFileURL) {
             try fileManager.removeItem(at: file.url)
         }
     }

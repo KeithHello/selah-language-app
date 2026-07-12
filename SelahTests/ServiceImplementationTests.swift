@@ -172,7 +172,7 @@ final class ServiceImplementationTests: XCTestCase {
         let ready = GeneratedAudioResult(
             status: .ready,
             voiceProfile: .gentleNatural,
-            downloadURL: nil,
+            downloadURL: URL(string: "https://example.com/audio.mp3"),
             localFilePath: nil,
             durationMs: 1000
         )
