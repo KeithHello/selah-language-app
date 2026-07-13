@@ -1,6 +1,6 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-13 22:55
+> 最后更新：2026-07-13 23:40
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
@@ -142,7 +142,7 @@
 | 任务 | 状态 |
 |------|------|
 | 错误恢复 + 熔断器 | ✅ M4-A | Typed error classification、3 次有界重試、句子／音頻獨立 circuit breaker、GenerationJob 中斷恢復；CI run 29255430137 通過 |
-| 离线处理 | 🟡 M4-B | M4-A 已保留本地資料與待處理任務，完整 offline UX 下一步實作 |
+| 离线处理 | ✅ M4-B | ConnectivityMonitor、離線翻譯阻斷、待處理音訊 GenerationJob、AppState online-only retry；CI run 29258705736 通過 |
 | 本地通知 | ❌ |
 | Widget 就绪 | ❌ |
 | 无障碍 | ❌ |
