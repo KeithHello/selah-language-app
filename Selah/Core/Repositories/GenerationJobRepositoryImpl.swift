@@ -44,6 +44,19 @@ final class GenerationJobRepositoryImpl: GenerationJobRepository {
         }
     }
 
+    func recoverInterruptedJobs() async throws {
+        let descriptor = FetchDescriptor<GenerationJob>(
+            predicate: #Predicate<GenerationJob> { $0.statusRaw == "in_progress" }
+        )
+        for job in try modelContext.fetch(descriptor) {
+            job.status = .failed
+            job.lastErrorCode = "interrupted"
+            job.nextRetryAt = Date()
+            job.updatedAt = Date()
+        }
+        try modelContext.save()
+    }
+
     func fetchAll(for sentenceID: UUID) async throws -> [GenerationJob] {
         let descriptor = FetchDescriptor<GenerationJob>(
             predicate: #Predicate<GenerationJob> { $0.sentenceID == sentenceID },

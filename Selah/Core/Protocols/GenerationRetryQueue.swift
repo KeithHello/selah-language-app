@@ -6,6 +6,9 @@ protocol GenerationRetryQueue {
     /// Enqueue a generation job.
     func enqueue(_ job: GenerationJob) async throws
 
+    /// Recover jobs left in progress when the app was terminated.
+    func recoverInterruptedJobs() async throws
+
     /// Retry all due jobs with exponential backoff.
     func retryDueJobs(now: Date) async throws
 

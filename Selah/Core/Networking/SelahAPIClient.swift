@@ -9,6 +9,54 @@ enum SelahAPIError: Error, LocalizedError {
     case networkError(Error)
     case serverError(Int, String)
     case tokenRefreshFailed(String)
+    case rateLimited(retryAfter: TimeInterval?)
+    case circuitOpen(ReliabilityCapability)
+
+    var failureKind: NetworkFailureKind {
+        switch self {
+        case .notAuthenticated, .tokenRefreshFailed: return .authentication
+        case .invalidResponse, .decodingFailed: return .decoding
+        case .networkError(let error):
+            guard let urlError = error as? URLError else { return .permanent }
+            switch urlError.code {
+            case .notConnectedToInternet, .networkConnectionLost, .cannotFindHost, .cannotConnectToHost: return .offline
+            case .timedOut: return .timeout
+            default: return .permanent
+            }
+        case .serverError(let code, _):
+            switch code {
+            case 401, 403: return .authentication
+            case 400, 404, 409, 422: return .clientInput
+            case 429: return .rateLimited
+            case 500...599: return .serverTransient
+            default: return .permanent
+            }
+        case .rateLimited: return .rateLimited
+        case .circuitOpen: return .serverTransient
+        }
+    }
+
+    var isRetryable: Bool {
+        switch failureKind {
+        case .offline, .timeout, .rateLimited, .serverTransient: return true
+        case .authentication, .clientInput, .decoding, .permanent: return false
+        }
+    }
+
+    var safeUserMessage: String {
+        switch failureKind {
+        case .offline, .timeout:
+            return "目前連不上服務，這句話先留在本機，稍後會自動再試。"
+        case .rateLimited, .serverTransient:
+            return "服務現在有點忙，這句話先留在本機，稍後會自動再試。"
+        case .authentication:
+            return "登入狀態需要更新，但本機學習資料不會消失。"
+        case .clientInput:
+            return "這段內容目前無法處理，請稍微修改後再試。"
+        case .decoding, .permanent, .circuitOpen:
+            return "這次沒有完成，請稍後再試。"
+        }
+    }
 
     var errorDescription: String? {
         switch self {
@@ -24,6 +72,10 @@ enum SelahAPIError: Error, LocalizedError {
             return "伺服器錯誤 (\(code))：\(message)"
         case .tokenRefreshFailed(let reason):
             return "登入已過期：\(reason)"
+        case .rateLimited:
+            return "服務現在有點忙，這句話先留在本機，稍後會自動再試。"
+        case .circuitOpen:
+            return "服務暫時忙碌，這句話先留在本機，稍後會自動再試。"
         }
     }
 }
@@ -79,6 +131,9 @@ final class SelahAPIClient: SelahAPIClientProtocol {
 
     private let supabaseURL: String
     private let publishableKey: String
+    private let retryPolicy: RetryPolicy
+    private let sentenceBreaker = CapabilityCircuitBreaker()
+    private let audioBreaker = CapabilityCircuitBreaker()
     private var authToken: String?
     private var refreshTokenValue: String?
 
@@ -101,9 +156,10 @@ final class SelahAPIClient: SelahAPIClientProtocol {
 
     // MARK: - Init
 
-    init(supabaseURL: String, publishableKey: String) {
+    init(supabaseURL: String, publishableKey: String, retryPolicy: RetryPolicy = RetryPolicy()) {
         self.supabaseURL = supabaseURL.hasSuffix("/") ? String(supabaseURL.dropLast()) : supabaseURL
         self.publishableKey = publishableKey
+        self.retryPolicy = retryPolicy
     }
 
     // MARK: - Session Management
@@ -164,7 +220,8 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         return try await performRequest(
             path: "/functions/v1/sentences-generate",
             method: "POST",
-            body: body
+            body: body,
+            capability: .sentenceGeneration
         )
     }
 
@@ -183,7 +240,8 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         return try await performRequest(
             path: "/functions/v1/audio-generate",
             method: "POST",
-            body: body
+            body: body,
+            capability: .audioGeneration
         )
     }
 
@@ -191,7 +249,8 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         return try await performRequest(
             path: "/functions/v1/config-bootstrap",
             method: "GET",
-            body: Optional<Never>.none
+            body: Optional<Never>.none,
+            capability: nil
         )
     }
 
@@ -240,42 +299,66 @@ final class SelahAPIClient: SelahAPIClientProtocol {
     private func performRequest<T: Decodable>(
         path: String,
         method: String,
-        body: (any Encodable)?
+        body: (any Encodable)?,
+        capability: ReliabilityCapability? = nil
     ) async throws -> T {
         let url = URL(string: "\(supabaseURL)\(path)")!
-        let request = try buildRequest(url: url, method: method, body: body)
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else {
-                throw SelahAPIError.invalidResponse
+        let breaker = capability.map { $0 == .sentenceGeneration ? sentenceBreaker : audioBreaker }
+        var attempt = 1
+        var didRefreshToken = false
+        while true {
+            if let breaker, !(await breaker.canProceed(now: Date())) {
+                throw SelahAPIError.circuitOpen(capability!)
             }
-
-            // On 401, attempt token refresh and retry once.
-            if httpResponse.statusCode == 401 {
-                try await refreshAuth()
-                let retryRequest = try buildRequest(url: url, method: method, body: body)
-                let (retryData, retryResponse) = try await URLSession.shared.data(for: retryRequest)
-                guard let retryHttpResponse = retryResponse as? HTTPURLResponse else {
+            do {
+                let request = try buildRequest(url: url, method: method, body: body)
+                let (data, response) = try await URLSession.shared.data(for: request)
+                guard let httpResponse = response as? HTTPURLResponse else {
                     throw SelahAPIError.invalidResponse
                 }
-                guard (200...299).contains(retryHttpResponse.statusCode) else {
-                    let message = String(data: retryData, encoding: .utf8) ?? "Unknown error"
-                    throw SelahAPIError.serverError(retryHttpResponse.statusCode, message)
+
+                if httpResponse.statusCode == 401 && !didRefreshToken {
+                    didRefreshToken = true
+                    try await refreshAuth()
+                    continue
                 }
-                return try decodeResponse(retryData)
-            }
 
-            guard (200...299).contains(httpResponse.statusCode) else {
-                let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-                throw SelahAPIError.serverError(httpResponse.statusCode, message)
-            }
+                guard (200...299).contains(httpResponse.statusCode) else {
+                    let retryAfter = httpResponse.value(forHTTPHeaderField: "Retry-After").flatMap { TimeInterval($0) }
+                    throw SelahAPIError.classified(statusCode: httpResponse.statusCode, retryAfter: retryAfter)
+                }
 
-            return try decodeResponse(data)
-        } catch let error as SelahAPIError {
-            throw error
-        } catch {
-            throw SelahAPIError.networkError(error)
+                let result: T = try decodeResponse(data)
+                await breaker?.recordSuccess()
+                return result
+            } catch let error as SelahAPIError {
+                if error.isRetryable, attempt < retryPolicy.maxAttempts {
+                    await breaker?.recordFailure(kind: error.failureKind)
+                    let retryAfter: TimeInterval?
+                    if case .rateLimited(let value) = error {
+                        retryAfter = value
+                    } else {
+                        retryAfter = nil
+                    }
+                    let delay = retryPolicy.delay(afterAttempt: attempt, retryAfter: retryAfter)
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    attempt += 1
+                    continue
+                }
+                await breaker?.recordFailure(kind: error.failureKind)
+                throw error
+            } catch {
+                let classified = SelahAPIError.networkError(error)
+                if classified.isRetryable, attempt < retryPolicy.maxAttempts {
+                    await breaker?.recordFailure(kind: classified.failureKind)
+                    let delay = retryPolicy.delay(afterAttempt: attempt)
+                    try await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                    attempt += 1
+                    continue
+                }
+                await breaker?.recordFailure(kind: classified.failureKind)
+                throw classified
+            }
         }
     }
 

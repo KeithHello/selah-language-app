@@ -7,6 +7,7 @@ import SwiftData
 struct SelahApp: App {
 
     @StateObject private var appState = AppState()
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
@@ -24,6 +25,10 @@ struct SelahApp: App {
             }
         }
         .modelContainer(appState.modelContainer)
+        .onChange(of: scenePhase) { _, phase in
+            guard phase == .active else { return }
+            Task { await appState.retryPendingGenerationJobs() }
+        }
     }
 }
 
@@ -45,6 +50,7 @@ final class AppState: ObservableObject {
     var recommendationEngine: (any RecommendationEngine)?
     var reviewScheduler: (any ReviewScheduler)?
     var vocabularyHelp: VocabularyHelpUseCaseImpl?
+    var generationRetryQueue: GenerationRetryQueueImpl?
 
     struct ToastInfo: Identifiable {
         let id = UUID()
@@ -148,11 +154,32 @@ final class AppState: ObservableObject {
                 vocabRepo: vocabRepo,
                 learningEventRepo: eventRepo
             )
+
+            let jobRepo = GenerationJobRepositoryImpl(modelContext: context)
+            generationRetryQueue = GenerationRetryQueueImpl(
+                jobRepo: jobRepo,
+                audioService: audioGenService ?? mockAudio
+            )
+            try await generationRetryQueue?.recoverInterruptedJobs()
+            try await generationRetryQueue?.retryDueJobs(now: Date())
         } catch {
             print("Initialization error: \(error)")
         }
 
         isLoading = false
+    }
+
+    func retryPendingGenerationJobs() async {
+        guard let generationRetryQueue else { return }
+        do {
+            try await generationRetryQueue.recoverInterruptedJobs()
+            try await generationRetryQueue.retryDueJobs(now: Date())
+        } catch {
+            showToast = ToastInfo(
+                message: "背景處理暫時沒有完成，稍後會自動再試。",
+                style: .info
+            )
+        }
     }
 }
 

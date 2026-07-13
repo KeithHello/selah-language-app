@@ -40,6 +40,7 @@ protocol GenerationJobRepository {
     func save(_ job: GenerationJob) async throws
     func fetch(id: UUID) async throws -> GenerationJob?
     func fetchPending(retryable: Bool, now: Date) async throws -> [GenerationJob]
+    func recoverInterruptedJobs() async throws
     func fetchAll(for sentenceID: UUID) async throws -> [GenerationJob]
     func delete(_ job: GenerationJob) async throws
     func cancelAll(for sentenceID: UUID) async throws
