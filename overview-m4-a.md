@@ -20,7 +20,7 @@
 
 已通過 `git diff --check`，本機沒有 Swift toolchain，因此無法執行 Swift tests。變更已提交並推送：`91c2a89 feat: 实现 M4-A 可靠性核心`。
 
-GitHub Actions `Build & Test` run `29255207172` 已啟動，待確認完成後才可將 M4-A 標記為 CI 完成。
+GitHub Actions `Build & Test` run `29255430137` 已成功，Build 與 Test 均通過。前一次 run `29255207172` 發現原始提交遺漏分類 helper，已由 `709e821` 修正後重新驗證。
 
 ## 後續
 
