@@ -15,17 +15,21 @@ final class M4OfflineFirstTests: XCTestCase {
     func testConnectivityMonitorPublishesInjectedOfflineAndOnlineStates() async {
         let monitor = ConnectivityMonitor(initialStatus: .unknown) { .offline }
 
-        XCTAssertEqual(await monitor.currentStatus(), .unknown)
-        XCTAssertEqual(await monitor.refresh(), .offline)
+        let initialStatus = await monitor.currentStatus()
+        XCTAssertEqual(initialStatus, .unknown)
+
+        let refreshedStatus = await monitor.refresh()
+        XCTAssertEqual(refreshedStatus, .offline)
 
         await monitor.setStatus(.online)
-        XCTAssertTrue(await monitor.currentStatus().isOnline)
+        let finalStatus = await monitor.currentStatus()
+        XCTAssertTrue(finalStatus.isOnline)
     }
 
     func testOfflineTranslationDoesNotCallRemoteService() async {
         let service = CountingSentenceService()
         let monitor = ConnectivityMonitor(initialStatus: .offline)
-        let container = try! ModelContainer(for: Sentence.self, ReviewState.self, AudioAsset.self, configurations: [ModelConfiguration(isStoredInMemoryOnly: true)])
+        let container = try! ModelContainer(for: Sentence.self, ReviewState.self, AudioAsset.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
         let vm = await MainActor.run {
             TodaySentenceViewModel(
                 speechService: MockSpeechRecognitionService(),
