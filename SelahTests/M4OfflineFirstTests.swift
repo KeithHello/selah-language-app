@@ -40,7 +40,9 @@ final class M4OfflineFirstTests: XCTestCase {
             )
         }
 
-        vm.translate(chineseText: "今天好累")
+        await MainActor.run {
+            vm.translate(chineseText: "今天好累")
+        }
         try? await Task.sleep(nanoseconds: 50_000_000)
 
         let calls = await service.calls
