@@ -53,7 +53,7 @@ enum SelahAPIError: Error, LocalizedError {
             return "登入狀態需要更新，但本機學習資料不會消失。"
         case .clientInput:
             return "這段內容目前無法處理，請稍微修改後再試。"
-        case .decoding, .permanent, .circuitOpen:
+        case .decoding, .permanent:
             return "這次沒有完成，請稍後再試。"
         }
     }

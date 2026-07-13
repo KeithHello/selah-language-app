@@ -98,3 +98,21 @@ actor CapabilityCircuitBreaker {
         (state, consecutiveFailures)
     }
 }
+
+extension SelahAPIError {
+    /// Creates a redacted domain error from an HTTP status code.
+    static func classified(statusCode: Int, retryAfter: TimeInterval? = nil) -> SelahAPIError {
+        switch statusCode {
+        case 401, 403:
+            return .serverError(statusCode, "登入狀態需要更新")
+        case 429:
+            return .rateLimited(retryAfter: retryAfter)
+        case 400, 404, 409, 422:
+            return .serverError(statusCode, "請求內容無法處理")
+        case 500...599:
+            return .serverError(statusCode, "服務暫時無法回應")
+        default:
+            return .serverError(statusCode, "請求未完成")
+        }
+    }
+}
