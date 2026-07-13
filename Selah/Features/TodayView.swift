@@ -686,6 +686,8 @@ struct TodaySentenceView: View {
                 sentenceService: appState.sentenceGenService ?? MockSentenceGenerationService(),
                 audioService: appState.audioGenService ?? MockAudioGenerationService(),
                 modelContext: modelContext,
+                connectivity: appState.connectivity,
+                generationRetryQueue: appState.generationRetryQueue,
                 defaultVoiceProfile: appState.preferences.voiceProfile
             )
         }

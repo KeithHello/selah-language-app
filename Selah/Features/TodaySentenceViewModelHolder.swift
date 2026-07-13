@@ -12,6 +12,8 @@ final class TodaySentenceViewModelHolder: ObservableObject {
         sentenceService: SentenceGenerationService,
         audioService: AudioGenerationService,
         modelContext: ModelContext,
+        connectivity: any ConnectivityProviding = ConnectivityMonitor(initialStatus: .online),
+        generationRetryQueue: (any GenerationRetryQueue)? = nil,
         defaultVoiceProfile: VoiceProfile = .gentleNatural
     ) {
         guard viewModel == nil else { return }
@@ -20,6 +22,8 @@ final class TodaySentenceViewModelHolder: ObservableObject {
             sentenceService: sentenceService,
             audioService: audioService,
             modelContext: modelContext,
+            connectivity: connectivity,
+            generationRetryQueue: generationRetryQueue,
             defaultVoiceProfile: defaultVoiceProfile
         )
     }

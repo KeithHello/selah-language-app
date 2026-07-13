@@ -47,6 +47,10 @@ final class TodaySentenceViewModel: ObservableObject {
     private let sentenceService: SentenceGenerationService
     private let audioService: AudioGenerationService
     private let modelContext: ModelContext
+    private let connectivity: any ConnectivityProviding
+    private let generationRetryQueue: (any GenerationRetryQueue)?
+
+    @Published private(set) var pendingOperation: PendingOperation?
 
     // Track recognition stream for cancellation
     private var recognitionTask: Task<Void, Never>?
@@ -56,12 +60,16 @@ final class TodaySentenceViewModel: ObservableObject {
         sentenceService: SentenceGenerationService,
         audioService: AudioGenerationService,
         modelContext: ModelContext,
+        connectivity: any ConnectivityProviding = ConnectivityMonitor(initialStatus: .online),
+        generationRetryQueue: (any GenerationRetryQueue)? = nil,
         defaultVoiceProfile: VoiceProfile = .gentleNatural
     ) {
         self.speechService = speechService
         self.sentenceService = sentenceService
         self.audioService = audioService
         self.modelContext = modelContext
+        self.connectivity = connectivity
+        self.generationRetryQueue = generationRetryQueue
         self.selectedVoiceProfile = defaultVoiceProfile
     }
 
@@ -119,10 +127,15 @@ final class TodaySentenceViewModel: ObservableObject {
             return
         }
 
-        flowState = .translating
-
         Task { [weak self] in
             guard let self else { return }
+            if await self.connectivity.currentStatus() != .online {
+                self.pendingOperation = .sentenceTranslation(sourceText: chineseText)
+                self.flowState = .error(message: self.pendingOperation?.message ?? "目前離線，這句話先留在本機。")
+                return
+            }
+
+            self.flowState = .translating
 
             do {
                 let result = try await self.sentenceService.generateSentence(
@@ -194,7 +207,9 @@ final class TodaySentenceViewModel: ObservableObject {
                 return
             }
 
-            // Trigger async audio generation (non-blocking)
+            // Trigger async audio generation (non-blocking). Offline devices
+            // keep the sentence and queued asset; the foreground retry queue
+            // will process it after connectivity returns.
             self.triggerAudioGeneration(
                 sentenceID: sentence.id,
                 targetText: result.targetText,
@@ -212,10 +227,22 @@ final class TodaySentenceViewModel: ObservableObject {
         targetText: String,
         audioAsset: AudioAsset
     ) {
-        audioAsset.generationStatus = .generating
-
         Task { [weak self] in
             guard let self else { return }
+            if await self.connectivity.currentStatus() != .online {
+                audioAsset.generationStatus = .queued
+                self.pendingOperation = .audioGeneration(sentenceID: sentenceID)
+                let job = GenerationJob(
+                    sentenceID: sentenceID,
+                    jobType: .audioGeneration,
+                    payloadJSON: "{\"targetText\":\"\(targetText.replacingOccurrences(of: "\\\"", with: "\\\\\""))\",\"voiceProfile\":\"\(self.selectedVoiceProfile.rawValue)\"}"
+                )
+                try? await self.generationRetryQueue?.enqueue(job)
+                try? self.modelContext.save()
+                return
+            }
+
+            audioAsset.generationStatus = .generating
 
             do {
                 let result = try await self.audioService.generateAudio(
@@ -241,6 +268,12 @@ final class TodaySentenceViewModel: ObservableObject {
                 }
             } catch {
                 audioAsset.generationStatus = .failed
+                let job = GenerationJob(
+                    sentenceID: sentenceID,
+                    jobType: .audioGeneration,
+                    payloadJSON: "{\"targetText\":\"\(targetText.replacingOccurrences(of: "\\\"", with: "\\\\\""))\",\"voiceProfile\":\"\(self.selectedVoiceProfile.rawValue)\"}"
+                )
+                try? await self.generationRetryQueue?.enqueue(job)
                 try? self.modelContext.save()
             }
         }

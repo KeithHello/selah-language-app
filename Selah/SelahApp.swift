@@ -40,8 +40,10 @@ final class AppState: ObservableObject {
     @Published var preferences = UserPreference.default()
     @Published var activeCompanion: Companion?
     @Published var showToast: ToastInfo?
+    @Published private(set) var connectivityStatus: ConnectivityStatus = .unknown
 
     let modelContainer: ModelContainer
+    let connectivity: ConnectivityMonitor
 
     // Services (injected, initialized during `initialize()`)
     var sentenceGenService: (any SentenceGenerationService)?
@@ -59,6 +61,7 @@ final class AppState: ObservableObject {
     }
 
     init() {
+        connectivity = ConnectivityMonitor()
         do {
             let schema = Schema([
                 Sentence.self,
@@ -160,8 +163,11 @@ final class AppState: ObservableObject {
                 jobRepo: jobRepo,
                 audioService: audioGenService ?? mockAudio
             )
+            connectivityStatus = await connectivity.refresh()
             try await generationRetryQueue?.recoverInterruptedJobs()
-            try await generationRetryQueue?.retryDueJobs(now: Date())
+            if connectivityStatus.isOnline {
+                try await generationRetryQueue?.retryDueJobs(now: Date())
+            }
         } catch {
             print("Initialization error: \(error)")
         }
@@ -172,7 +178,9 @@ final class AppState: ObservableObject {
     func retryPendingGenerationJobs() async {
         guard let generationRetryQueue else { return }
         do {
+            connectivityStatus = await connectivity.refresh()
             try await generationRetryQueue.recoverInterruptedJobs()
+            guard connectivityStatus.isOnline else { return }
             try await generationRetryQueue.retryDueJobs(now: Date())
         } catch {
             showToast = ToastInfo(
