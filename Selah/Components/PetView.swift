@@ -24,12 +24,14 @@ struct PetView: View {
                             .repeatForever(autoreverses: true),
                         value: floatOffset
                     )
+                    .selahDecorativeAccessibility()
 
                 // Decoration (sprout / leaf / bud / bloom)
                 decorationView
                     .offset(y: -38)
             }
             .frame(width: 100, height: 120)
+            .selahAccessibility(label: "陪伴精靈 \(companion.displayName)", value: moodAccessibilityValue)
             .onAppear {
                 floatOffset = -6
             }
@@ -128,6 +130,14 @@ struct PetView: View {
     }
 
     // MARK: - Mood Text
+
+    private var moodAccessibilityValue: String {
+        switch companion.mood {
+        case .happy: return "今天很有精神"
+        case .neutral: return "靜靜陪伴"
+        case .quiet: return "安靜等待"
+        }
+    }
 
     private var moodText: some View {
         switch companion.mood {

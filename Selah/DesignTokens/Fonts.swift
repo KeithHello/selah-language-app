@@ -7,26 +7,28 @@ import SwiftUI
 extension Font {
 
     // Display
-    static let selahDisplayLarge  = Font.custom("PlusJakartaSans-ExtraBold", size: 30)
-    static let selahDisplayMedium = Font.custom("PlusJakartaSans-Bold", size: 22)
+    // Custom fonts use fixed design sizes today; callers should apply Dynamic Type
+    // through `.dynamicTypeSize(...)` or replace with a scaled system font in iOS UI targets.
+    static let selahDisplayLarge  = Font.custom("PlusJakartaSans-ExtraBold", size: 30, relativeTo: .largeTitle)
+    static let selahDisplayMedium = Font.custom("PlusJakartaSans-Bold", size: 22, relativeTo: .title)
 
     // Headline
-    static let selahHeadlineLarge  = Font.custom("PlusJakartaSans-Bold", size: 18)
-    static let selahHeadlineMedium = Font.custom("PlusJakartaSans-SemiBold", size: 15)
-    static let selahHeadlineSmall  = Font.custom("PlusJakartaSans-SemiBold", size: 13)
+    static let selahHeadlineLarge  = Font.custom("PlusJakartaSans-Bold", size: 18, relativeTo: .headline)
+    static let selahHeadlineMedium = Font.custom("PlusJakartaSans-SemiBold", size: 15, relativeTo: .subheadline)
+    static let selahHeadlineSmall  = Font.custom("PlusJakartaSans-SemiBold", size: 13, relativeTo: .subheadline)
 
     // Body
-    static let selahBodyLarge  = Font.custom("PlusJakartaSans-Regular", size: 14)
-    static let selahBodyMedium = Font.custom("PlusJakartaSans-Regular", size: 12)
-    static let selahBodySmall  = Font.custom("PlusJakartaSans-Regular", size: 11)
+    static let selahBodyLarge  = Font.custom("PlusJakartaSans-Regular", size: 14, relativeTo: .body)
+    static let selahBodyMedium = Font.custom("PlusJakartaSans-Regular", size: 12, relativeTo: .caption)
+    static let selahBodySmall  = Font.custom("PlusJakartaSans-Regular", size: 11, relativeTo: .caption2)
 
     // Label
-    static let selahLabelLarge  = Font.custom("PlusJakartaSans-SemiBold", size: 12)
-    static let selahLabelMedium = Font.custom("PlusJakartaSans-SemiBold", size: 10)
-    static let selahLabelSmall  = Font.custom("PlusJakartaSans-SemiBold", size: 9)
+    static let selahLabelLarge  = Font.custom("PlusJakartaSans-SemiBold", size: 12, relativeTo: .caption)
+    static let selahLabelMedium = Font.custom("PlusJakartaSans-SemiBold", size: 10, relativeTo: .caption2)
+    static let selahLabelSmall  = Font.custom("PlusJakartaSans-SemiBold", size: 9, relativeTo: .caption2)
 
     // Mono
-    static let selahMonoMedium = Font.custom("JetBrainsMono-Medium", size: 11)
+    static let selahMonoMedium = Font.custom("JetBrainsMono-Medium", size: 11, relativeTo: .body)
 }
 
 // MARK: - Text Style Modifiers

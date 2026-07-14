@@ -47,6 +47,7 @@ struct QuizCard: View {
                         )
                     }
                     .buttonStyle(.plain)
+                    .selahAccessibility(label: "揭示英文答案", hint: "點一下查看答案")
                 }
             }
         }

@@ -65,6 +65,11 @@ struct iOSRow: View {
             )
         }
         .buttonStyle(.plain)
+        .selahAccessibility(
+            label: title,
+            hint: isDisabled ? "目前無法使用" : "點一下開啟",
+            value: badge
+        )
         .opacity(isDisabled ? 0.5 : 1.0)
         .disabled(isDisabled)
     }

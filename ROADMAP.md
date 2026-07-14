@@ -1,6 +1,6 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-13 23:40
+> 最后更新：2026-07-14 10:15
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
@@ -143,9 +143,9 @@
 |------|------|
 | 错误恢复 + 熔断器 | ✅ M4-A | Typed error classification、3 次有界重試、句子／音頻獨立 circuit breaker、GenerationJob 中斷恢復；CI run 29255430137 通過 |
 | 离线处理 | ✅ M4-B | ConnectivityMonitor、離線翻譯阻斷、待處理音訊 GenerationJob、AppState online-only retry；CI run 29258705736 通過 |
-| 本地通知 | ❌ |
-| Widget 就绪 | ❌ |
-| 无障碍 | ❌ |
+| 本地通知 | 🟡 M4-C 实现完成，CI 待验证 | 可注入排程／撤销、HH:mm 解析与隐私安全文案；iOS UserNotifications adapter 已条件编译，待 CI 与 Xcode 真机权限验收 |
+| Widget 就绪 | 🟡 M4-C 实现完成，CI 待验证 | Codable 摘要契约、计数构建器、文本边界与隐私约束；未创建 WidgetKit target |
+| 无障碍 | 🟡 M4-C 实现完成，CI 待验证 | VoiceOver 语义辅助、Reduce Motion 策略、Dynamic Type 缩放与 WCAG 对比度 helpers；完整 iOS UI 审计待 Xcode 验收 |
 | 隐私政策 | ❌ |
 
 ---
