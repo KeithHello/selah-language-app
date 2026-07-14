@@ -43,11 +43,8 @@ struct WidgetReadyCounts: Sendable {
 
 /// Builds a widget contract without exposing personal sentence text.
 struct WidgetReadySnapshotBuilder: Sendable {
-    let calendar: Calendar
 
-    init(calendar: Calendar = .current) {
-        self.calendar = calendar
-    }
+    init() {}
 
     func build(
         counts: WidgetReadyCounts,

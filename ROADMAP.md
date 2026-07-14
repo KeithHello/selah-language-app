@@ -1,6 +1,6 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-14 10:15
+> 最后更新：2026-07-14 10:42
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 

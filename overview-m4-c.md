@@ -1,8 +1,8 @@
 # Selah M4-C 使用者体验与无障碍概览
 
-## 已实现，等待验证
+## 已实现并通过 CI
 
-M4-C 在现有 Swift Package 中完成了核心层，不伪造当前仓库不存在的 Xcode Widget Extension target。GitHub Actions CI 尚未运行，因此 ROADMAP 暂保持待验证状态。
+M4-C 在现有 Swift Package 中完成了可验证的核心层，不伪造当前仓库不存在的 Xcode Widget Extension target。功能提交 `d1d3738` 与文档提交 `5b105d4` 均已通过 GitHub Actions Build & Test；本次清理移除了未使用的日历参数与死代码，并补充了权限拒绝回归测试。
 
 本地通知新增 `LocalNotificationService`、可注入的 `LocalNotificationClient` 和 `LocalNotificationPreferences`。服务支持 `HH:mm` 解析、无效时间安全回退、每日通知排程，以及关闭通知时撤销排程。iOS `UserNotificationsClient` 只在可用平台条件编译；通知文案不携带用户句子。`UserPreference` 会在 App 层转换为 sendable 偏好值后再交给 actor，避免跨并发域传递 SwiftData model。
 
@@ -14,7 +14,7 @@ Widget-ready 新增 Codable 的 `WidgetReadySnapshot` 与 `WidgetReadySnapshotBu
 
 新增 `SelahTests/M4AccessibilityAndExperienceTests.swift`，覆盖通知时间解析与回退、注入式排程／撤销、Widget 摘要边界与隐私、Reduce Motion 行为和 WCAG 对比度阈值。
 
-本机环境没有 Swift／Xcode 工具链，因此无法执行本地 `swift build` 或 `swift test`。GitHub Actions CI 验证仍待推送后完成，当前不能宣称 M4-C 已通过编译或测试。
+本机环境没有 Swift／Xcode 工具链，因此无法执行本地 `swift build` 或 `swift test`。权威验证由 GitHub Actions 在 `macos-15` 完成：`swift package resolve`、`swift build` 与 `swift test` 均通过，相关 run 为 `29298637595` 和 `29298780396`。
 
 ## 后续
 

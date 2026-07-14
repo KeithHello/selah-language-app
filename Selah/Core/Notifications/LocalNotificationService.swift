@@ -21,7 +21,6 @@ struct LocalNotificationRequest: Equatable, Sendable {
 
 enum LocalNotificationError: Error, Equatable, Sendable {
     case permissionDenied
-    case invalidTime
 }
 
 /// Sendable value extracted from SwiftData preferences before crossing into the actor.
@@ -47,11 +46,8 @@ actor LocalNotificationService {
     static let defaultReminderTime = "20:00"
 
     private let client: any LocalNotificationClient
-    private let calendar: Calendar
-
-    init(client: any LocalNotificationClient, calendar: Calendar = .current) {
+    init(client: any LocalNotificationClient) {
         self.client = client
-        self.calendar = calendar
     }
 
     func synchronize(preference: LocalNotificationPreferences) async throws {
@@ -60,7 +56,7 @@ actor LocalNotificationService {
             return
         }
 
-        let (hour, minute) = Self.parseTime(preference.time, fallback: Self.defaultReminderTime, calendar: calendar)
+        let (hour, minute) = Self.parseTime(preference.time, fallback: Self.defaultReminderTime)
         let authorized = try await client.requestAuthorization()
         guard authorized else { throw LocalNotificationError.permissionDenied }
 
@@ -78,8 +74,7 @@ actor LocalNotificationService {
         await client.remove(identifier: LocalNotificationRequest.dailyReminderIdentifier)
     }
 
-    static func parseTime(_ value: String?, fallback: String, calendar: Calendar = .current) -> (hour: Int, minute: Int) {
-        _ = calendar
+    static func parseTime(_ value: String?, fallback: String) -> (hour: Int, minute: Int) {
         guard let parsed = parseValidTime(value ?? fallback) else {
             return parseValidTime(fallback) ?? (20, 0)
         }

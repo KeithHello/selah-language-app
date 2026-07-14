@@ -31,6 +31,8 @@ final class M4AccessibilityAndExperienceTests: XCTestCase {
         XCTAssertEqual(LocalNotificationService.parseTime("25:61", fallback: "20:00").minute, 0)
         XCTAssertEqual(LocalNotificationService.parseTime(nil, fallback: "09:30").hour, 9)
         XCTAssertEqual(LocalNotificationService.parseTime(nil, fallback: "09:30").minute, 30)
+        XCTAssertEqual(LocalNotificationService.parseTime("garbage", fallback: "20:00").hour, 20)
+        XCTAssertEqual(LocalNotificationService.parseTime("", fallback: "09:30").hour, 9)
     }
 
     func testNotificationServiceSchedulesSafeReminderAndCancelsWhenDisabled() async throws {
@@ -73,6 +75,22 @@ final class M4AccessibilityAndExperienceTests: XCTestCase {
         XCTAssertTrue(SelahMotionPolicy.policy(reduceMotion: false).allowsAnimation)
         XCTAssertFalse(SelahMotionPolicy.policy(reduceMotion: true).allowsAnimation)
         XCTAssertEqual(SelahMotionPolicy.policy(reduceMotion: true), .reduced)
+    }
+
+    func testNotificationServiceThrowsWhenPermissionDenied() async throws {
+        let client = FakeNotificationClient(authorizationResult: false)
+        let service = LocalNotificationService(client: client)
+        let preference = LocalNotificationPreferences(enabled: true, time: "08:45")
+
+        do {
+            try await service.synchronize(preference: preference)
+            XCTFail("Expected permissionDenied error")
+        } catch LocalNotificationError.permissionDenied {
+            // expected
+        }
+
+        let requests = await client.addedRequests
+        XCTAssertEqual(requests.count, 0)
     }
 
     func testContrastHelpersApplyWCAGThresholds() {
