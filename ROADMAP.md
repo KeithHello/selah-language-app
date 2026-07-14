@@ -143,9 +143,9 @@
 |------|------|
 | 错误恢复 + 熔断器 | ✅ M4-A | Typed error classification、3 次有界重試、句子／音頻獨立 circuit breaker、GenerationJob 中斷恢復；CI run 29255430137 通過 |
 | 离线处理 | ✅ M4-B | ConnectivityMonitor、離線翻譯阻斷、待處理音訊 GenerationJob、AppState online-only retry；CI run 29258705736 通過 |
-| 本地通知 | 🟡 M4-C 实现完成，CI 待验证 | 可注入排程／撤销、HH:mm 解析与隐私安全文案；iOS UserNotifications adapter 已条件编译，待 CI 与 Xcode 真机权限验收 |
-| Widget 就绪 | 🟡 M4-C 实现完成，CI 待验证 | Codable 摘要契约、计数构建器、文本边界与隐私约束；未创建 WidgetKit target |
-| 无障碍 | 🟡 M4-C 实现完成，CI 待验证 | VoiceOver 语义辅助、Reduce Motion 策略、Dynamic Type 缩放与 WCAG 对比度 helpers；完整 iOS UI 审计待 Xcode 验收 |
+| 本地通知 | ✅ M4-C 核心层 | 可注入排程／撤销、HH:mm 解析与隐私安全文案；iOS UserNotifications adapter 已条件编译，CI run 29298637595 通過，真机权限验收待 Xcode |
+| Widget 就绪 | ✅ M4-C Widget-ready | Codable 摘要契约、计数构建器、文本边界与隐私约束；未创建 WidgetKit target，CI run 29298637595 通過 |
+| 无障碍 | ✅ M4-C 核心层 | VoiceOver 语义辅助、Reduce Motion 策略、Dynamic Type 缩放与 WCAG 对比度 helpers；CI run 29298637595 通過，完整 iOS UI 审计待 Xcode |
 | 隐私政策 | ❌ |
 
 ---
