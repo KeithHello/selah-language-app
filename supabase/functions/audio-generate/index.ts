@@ -112,7 +112,7 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
 
   if (existingError) {
-    console.error("Audio manifest lookup failed", existingError.message);
+    console.error("Audio manifest lookup failed");
     return errorResponse("Audio manifest lookup failed", 500, "manifest_lookup_failed");
   }
 
@@ -122,7 +122,7 @@ Deno.serve(async (req: Request) => {
       .from(AUDIO_BUCKET)
       .createSignedUrl(existing.storage_path, SIGNED_URL_TTL_SECONDS);
     if (signedError || !signed?.signedUrl) {
-      console.error("Signed URL creation failed", signedError?.message);
+      console.error("Signed URL creation failed");
       return errorResponse("Audio delivery unavailable", 503, "signed_url_failed");
     }
 
@@ -171,7 +171,7 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (error || !data) {
-      console.error("Audio manifest insert failed", error?.message);
+      console.error("Audio manifest insert failed");
       return errorResponse("Audio generation state creation failed", 500, "manifest_insert_failed");
     }
     manifest = data as AudioManifest;
@@ -218,7 +218,7 @@ Deno.serve(async (req: Request) => {
       });
 
     if (uploadError) {
-      console.error("Storage upload failed", uploadError.message);
+      console.error("Storage upload failed");
       await supabase.from("audio_manifests")
         .update({ generation_status: "failed", error_code: "storage_upload_failed" })
         .eq("id", manifest.id);
@@ -259,8 +259,8 @@ Deno.serve(async (req: Request) => {
     });
 
     return json(responseFromManifest(ready, signed.signedUrl, false));
-  } catch (error) {
-    console.error("Unexpected audio generation error", error);
+  } catch {
+    console.error("Audio generation function failed");
     await supabase.from("audio_manifests")
       .update({ generation_status: "failed", error_code: "internal_error" })
       .eq("id", manifest.id);

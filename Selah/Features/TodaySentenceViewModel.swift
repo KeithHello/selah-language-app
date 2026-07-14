@@ -97,7 +97,7 @@ final class TodaySentenceViewModel: ObservableObject {
                 }
                 // If transcript is non-empty, flowState is already .confirmingChinese
             } catch {
-                self.flowState = .error(message: "語音識別失敗：\(error.localizedDescription)")
+                self.flowState = .error(message: "語音識別暫時沒有完成，請再試一次。")
             }
         }
     }
@@ -148,7 +148,7 @@ final class TodaySentenceViewModel: ObservableObject {
             } catch let error as SelahAPIError {
                 self.flowState = .error(message: error.errorDescription ?? "翻譯失敗")
             } catch {
-                self.flowState = .error(message: "翻譯失敗：\(error.localizedDescription)")
+                self.flowState = .error(message: "翻譯暫時沒有完成，請稍後再試。")
             }
         }
     }
@@ -203,7 +203,7 @@ final class TodaySentenceViewModel: ObservableObject {
             do {
                 try self.modelContext.save()
             } catch {
-                self.flowState = .error(message: "儲存失敗：\(error.localizedDescription)")
+                self.flowState = .error(message: "儲存暫時沒有完成，請稍後再試。")
                 return
             }
 

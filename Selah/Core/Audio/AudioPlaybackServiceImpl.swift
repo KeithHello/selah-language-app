@@ -58,7 +58,7 @@ final class AudioPlaybackServiceImpl: NSObject, AudioPlaybackService {
             state = .failed(error.localizedDescription)
             throw error
         } catch {
-            state = .failed(error.localizedDescription)
+            state = .failed("播放暫時沒有完成")
             throw AudioPlaybackError.playbackFailed(error)
         }
         #else

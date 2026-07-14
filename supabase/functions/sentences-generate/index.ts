@@ -101,8 +101,8 @@ Deno.serve(async (req: Request) => {
     });
 
     if (!openaiResponse.ok) {
-      const errText = await openaiResponse.text();
-      console.error("OpenAI API error:", openaiResponse.status, errText);
+      // Never log the provider response body: it may contain request-derived text or credentials.
+      console.error("Translation provider failed", openaiResponse.status);
       return errorResponse("Translation service unavailable", 502, "translation_failed");
     }
 
@@ -123,7 +123,8 @@ Deno.serve(async (req: Request) => {
     try {
       parsed = JSON.parse(content);
     } catch {
-      console.error("Failed to parse LLM output:", content);
+      // Do not log generated content because it can include personal sentence material.
+      console.error("Translation provider returned invalid JSON");
       return errorResponse("Invalid translation format", 502, "translation_format_error");
     }
 
@@ -153,8 +154,8 @@ Deno.serve(async (req: Request) => {
       deconstruction: parsed.deconstruction ?? [],
       promptVersion: "v8.0",
     });
-  } catch (err) {
-    console.error("Unexpected error:", err);
+  } catch {
+    console.error("Translation function failed");
     return errorResponse("Internal server error", 500, "internal_error");
   }
 });

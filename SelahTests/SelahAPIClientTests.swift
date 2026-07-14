@@ -41,13 +41,14 @@ final class SelahAPIClientTests: XCTestCase {
     func testAPIError_descriptions() {
         XCTAssertFalse(SelahAPIError.notAuthenticated.errorDescription?.isEmpty ?? true)
         XCTAssertFalse(SelahAPIError.invalidResponse.errorDescription?.isEmpty ?? true)
-        XCTAssertTrue(SelahAPIError.serverError(500, "boom").errorDescription?.contains("500") ?? false)
-        XCTAssertTrue(SelahAPIError.serverError(500, "boom").errorDescription?.contains("boom") ?? false)
+        let serverError = SelahAPIError.serverError(500, "raw provider payload")
+        XCTAssertTrue(serverError.errorDescription?.contains("500") ?? false)
+        XCTAssertFalse(serverError.errorDescription?.contains("raw provider payload") ?? true)
     }
 
-    func testAPIError_tokenRefreshFailed() {
-        let error = SelahAPIError.tokenRefreshFailed("expired")
-        XCTAssertTrue(error.errorDescription?.contains("expired") ?? false)
+    func testAPIError_tokenRefreshFailedRedactsReason() {
+        let error = SelahAPIError.tokenRefreshFailed("refresh token payload")
+        XCTAssertFalse(error.errorDescription?.contains("refresh token payload") ?? true)
     }
 
     // MARK: - URL Construction (sanity)

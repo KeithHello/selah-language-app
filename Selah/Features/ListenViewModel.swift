@@ -44,7 +44,7 @@ final class ListenViewModel: ObservableObject {
             errorMessage = nil
         } catch {
             collection = []
-            errorMessage = "無法準備今天的聆聽內容：\(error.localizedDescription)"
+            errorMessage = "無法準備今天的聆聽內容，請稍後再試。"
         }
     }
 
@@ -54,7 +54,7 @@ final class ListenViewModel: ObservableObject {
             do {
                 try await playback.play(asset: item.audioAsset, speed: selectedSpeed)
             } catch {
-                errorMessage = error.localizedDescription
+                errorMessage = "音訊播放暫時沒有完成，請再試一次。"
             }
         }
     }
@@ -99,7 +99,7 @@ final class ListenViewModel: ObservableObject {
                 errorMessage = nil
             }
         } catch {
-            errorMessage = "無法儲存聆聽進度：\(error.localizedDescription)"
+            errorMessage = "無法儲存聆聽進度，請稍後再試。"
         }
     }
 

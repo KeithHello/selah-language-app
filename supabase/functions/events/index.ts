@@ -82,13 +82,13 @@ Deno.serve(async (req: Request) => {
     });
 
     if (error) {
-      console.error("Failed to insert event:", error);
+      console.error("Learning event insert failed");
       return errorResponse("Failed to record event", 500, "db_error");
     }
 
     return json({ status: "ok" }, 201);
-  } catch (err) {
-    console.error("Events endpoint error:", err);
+  } catch {
+    console.error("Learning events function failed");
     return errorResponse("Internal server error", 500, "internal_error");
   }
 });

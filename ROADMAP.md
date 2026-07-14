@@ -1,6 +1,6 @@
 # Selah - 开发路线图
 
-> 最后更新：2026-07-14 10:42
+> 最后更新：2026-07-14 17:18
 > 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
 > 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
 
@@ -146,7 +146,7 @@
 | 本地通知 | ✅ M4-C 核心层 | 可注入排程／撤销、HH:mm 解析与隐私安全文案；iOS UserNotifications adapter 已条件编译，CI run 29298637595 通過，真机权限验收待 Xcode |
 | Widget 就绪 | ✅ M4-C Widget-ready | Codable 摘要契约、计数构建器、文本边界与隐私约束；未创建 WidgetKit target，CI run 29298637595 通過 |
 | 无障碍 | ✅ M4-C 核心层 | VoiceOver 语义辅助、Reduce Motion 策略、Dynamic Type 缩放与 WCAG 对比度 helpers；CI run 29298637595 通過，完整 iOS UI 审计待 Xcode |
-| 隐私政策 | ❌ |
+| 隐私政策 | 🟡 M4-D 核心文件与日志脱敏完成 | 隐私与发布边界文档、Edge Functions/App 层敏感错误脱敏已完成；需 CI、Edge Function 部署审查、真实 Xcode 权限与 App Store Connect 隐私问卷验收 |
 
 ---
 

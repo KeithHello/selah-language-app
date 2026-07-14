@@ -64,14 +64,14 @@ enum SelahAPIError: Error, LocalizedError {
             return "尚未登入，請先註冊或登入。"
         case .invalidResponse:
             return "伺服器回應格式異常。"
-        case .decodingFailed(let error):
-            return "資料解析失敗：\(error.localizedDescription)"
-        case .networkError(let error):
-            return "網路連線異常：\(error.localizedDescription)"
-        case .serverError(let code, let message):
-            return "伺服器錯誤 (\(code))：\(message)"
-        case .tokenRefreshFailed(let reason):
-            return "登入已過期：\(reason)"
+        case .decodingFailed:
+            return "資料解析失敗。"
+        case .networkError:
+            return "網路連線異常。"
+        case .serverError(let code, _):
+            return "伺服器錯誤 (\(code))。"
+        case .tokenRefreshFailed:
+            return "登入已過期。"
         case .rateLimited:
             return "服務現在有點忙，這句話先留在本機，稍後會自動再試。"
         case .circuitOpen:
@@ -271,8 +271,7 @@ final class SelahAPIClient: SelahAPIClientProtocol {
             throw SelahAPIError.invalidResponse
         }
         guard (200...299).contains(httpResponse.statusCode) else {
-            let message = String(data: data, encoding: .utf8) ?? "Unknown error"
-            throw SelahAPIError.serverError(httpResponse.statusCode, message)
+            throw SelahAPIError.serverError(httpResponse.statusCode, "認證請求失敗")
         }
 
         do {

@@ -38,6 +38,7 @@ fastlane/test_output
 # OS / Editor
 .DS_Store
 Thumbs.db
+nul
 .idea/
 .vscode/
 *.swp

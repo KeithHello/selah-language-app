@@ -169,7 +169,11 @@ final class AppState: ObservableObject {
                 try await generationRetryQueue?.retryDueJobs(now: Date())
             }
         } catch {
-            print("Initialization error: \(error)")
+            // Keep diagnostics local and generic; never expose model or provider details in UI logs.
+            showToast = ToastInfo(
+                message: "目前還沒準備好，請稍後再試。",
+                style: .info
+            )
         }
 
         isLoading = false

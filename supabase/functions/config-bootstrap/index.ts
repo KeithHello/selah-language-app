@@ -31,8 +31,8 @@ Deno.serve(async (req: Request) => {
       if (!error && data) {
         seedSentences = data;
       }
-    } catch (err) {
-      console.error("Failed to fetch seed sentences:", err);
+    } catch {
+      console.error("Bootstrap seed sentence fetch failed");
     }
   }
 
