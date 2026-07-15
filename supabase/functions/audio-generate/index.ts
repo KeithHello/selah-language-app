@@ -2,31 +2,34 @@
 // Generates (or reuses) private TTS audio and returns a short-lived signed URL.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { json, errorResponse, handleOptions, requireAuth } from "../_shared/cors.ts";
+import {
+  errorResponse,
+  handleOptions,
+  json,
+  requireAuth,
+} from "../_shared/cors.ts";
 import {
   AUDIO_BUCKET,
   AUDIO_FORMAT,
   contentHash,
   estimatedDurationMs,
+  sha256,
   SIGNED_URL_TTL_SECONDS,
   TTS_MODEL,
   TTS_SPEED,
   userScope,
   userStoragePath,
-  VOICE_MAP,
-  sha256,
 } from "../_shared/audio.ts";
+import {
+  AudioGenerationInput,
+  buildTTSRequest,
+  validateAudioGenerationInput,
+} from "../_shared/audio_contract.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
-interface RequestBody {
-  sentenceId: string;
-  targetText: string;
-  voiceProfile?: string;
-  reason?: string;
-}
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 
 interface AudioManifest {
   id: string;
@@ -76,29 +79,29 @@ Deno.serve(async (req: Request) => {
   const userId = authResult;
 
   if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Audio service is not configured", 503, "audio_service_unavailable");
+    return errorResponse(
+      "Audio service is not configured",
+      503,
+      "audio_service_unavailable",
+    );
   }
 
-  let body: RequestBody;
+  let body: AudioGenerationInput;
   try {
     body = await req.json();
   } catch {
     return errorResponse("Invalid JSON body", 400, "invalid_body");
   }
 
-  const targetText = body.targetText?.trim();
-  if (!body.sentenceId || !targetText) {
-    return errorResponse("sentenceId and targetText are required", 400, "missing_audio_input");
+  const validation = validateAudioGenerationInput(body);
+  if (!validation.ok) {
+    return errorResponse(
+      validation.message,
+      validation.status,
+      validation.code,
+    );
   }
-  if (targetText.length > 1000) {
-    return errorResponse("targetText too long (max 1000 chars)", 400, "text_too_long");
-  }
-
-  const voiceProfile = body.voiceProfile ?? "gentle-natural";
-  const openaiVoice = VOICE_MAP[voiceProfile];
-  if (!openaiVoice) {
-    return errorResponse("Unsupported voice profile", 400, "unsupported_voice_profile");
-  }
+  const { sentenceId, targetText, voiceProfile, openaiVoice } = validation;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const hash = await contentHash(targetText, voiceProfile);
@@ -113,7 +116,11 @@ Deno.serve(async (req: Request) => {
 
   if (existingError) {
     console.error("Audio manifest lookup failed");
-    return errorResponse("Audio manifest lookup failed", 500, "manifest_lookup_failed");
+    return errorResponse(
+      "Audio manifest lookup failed",
+      500,
+      "manifest_lookup_failed",
+    );
   }
 
   const existing = existingRaw as AudioManifest | null;
@@ -123,7 +130,11 @@ Deno.serve(async (req: Request) => {
       .createSignedUrl(existing.storage_path, SIGNED_URL_TTL_SECONDS);
     if (signedError || !signed?.signedUrl) {
       console.error("Signed URL creation failed");
-      return errorResponse("Audio delivery unavailable", 503, "signed_url_failed");
+      return errorResponse(
+        "Audio delivery unavailable",
+        503,
+        "signed_url_failed",
+      );
     }
 
     await supabase.from("audio_manifests")
@@ -133,7 +144,12 @@ Deno.serve(async (req: Request) => {
     return json(responseFromManifest(existing, signed.signedUrl, true));
   }
 
-  const storagePath = userStoragePath(userId, body.sentenceId, voiceProfile, hash);
+  const storagePath = userStoragePath(
+    userId,
+    sentenceId,
+    voiceProfile,
+    hash,
+  );
   let manifest: AudioManifest;
 
   if (existing) {
@@ -148,7 +164,11 @@ Deno.serve(async (req: Request) => {
       .select("*")
       .single();
     if (error || !data) {
-      return errorResponse("Audio generation state update failed", 500, "manifest_update_failed");
+      return errorResponse(
+        "Audio generation state update failed",
+        500,
+        "manifest_update_failed",
+      );
     }
     manifest = data as AudioManifest;
   } else {
@@ -156,7 +176,7 @@ Deno.serve(async (req: Request) => {
       .from("audio_manifests")
       .insert({
         owner_user_id: userId,
-        sentence_id: body.sentenceId,
+        sentence_id: sentenceId,
         seed_sentence_id: null,
         scope_key: scopeKey,
         voice_profile: voiceProfile,
@@ -172,26 +192,27 @@ Deno.serve(async (req: Request) => {
 
     if (error || !data) {
       console.error("Audio manifest insert failed");
-      return errorResponse("Audio generation state creation failed", 500, "manifest_insert_failed");
+      return errorResponse(
+        "Audio generation state creation failed",
+        500,
+        "manifest_insert_failed",
+      );
     }
     manifest = data as AudioManifest;
   }
 
   try {
-    const openaiResponse = await fetch("https://api.openai.com/v1/audio/speech", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+    const openaiResponse = await fetch(
+      "https://api.openai.com/v1/audio/speech",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify(buildTTSRequest(targetText, openaiVoice)),
       },
-      body: JSON.stringify({
-        model: TTS_MODEL,
-        input: targetText,
-        voice: openaiVoice,
-        response_format: AUDIO_FORMAT,
-        speed: TTS_SPEED,
-      }),
-    });
+    );
 
     if (!openaiResponse.ok) {
       console.error("OpenAI TTS failed", openaiResponse.status);
@@ -206,7 +227,11 @@ Deno.serve(async (req: Request) => {
       await supabase.from("audio_manifests")
         .update({ generation_status: "failed", error_code: "audio_too_small" })
         .eq("id", manifest.id);
-      return errorResponse("Generated audio was invalid", 502, "audio_too_small");
+      return errorResponse(
+        "Generated audio was invalid",
+        502,
+        "audio_too_small",
+      );
     }
 
     const audioDigest = await sha256(audioBuffer);
@@ -220,9 +245,16 @@ Deno.serve(async (req: Request) => {
     if (uploadError) {
       console.error("Storage upload failed");
       await supabase.from("audio_manifests")
-        .update({ generation_status: "failed", error_code: "storage_upload_failed" })
+        .update({
+          generation_status: "failed",
+          error_code: "storage_upload_failed",
+        })
         .eq("id", manifest.id);
-      return errorResponse("Audio storage failed", 503, "storage_upload_failed");
+      return errorResponse(
+        "Audio storage failed",
+        503,
+        "storage_upload_failed",
+      );
     }
 
     const { data: readyRaw, error: readyError } = await supabase
@@ -240,7 +272,11 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (readyError || !readyRaw) {
-      return errorResponse("Audio metadata update failed", 500, "manifest_ready_update_failed");
+      return errorResponse(
+        "Audio metadata update failed",
+        500,
+        "manifest_ready_update_failed",
+      );
     }
     const ready = readyRaw as AudioManifest;
 
@@ -248,12 +284,18 @@ Deno.serve(async (req: Request) => {
       .from(AUDIO_BUCKET)
       .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
     if (signedError || !signed?.signedUrl) {
-      return errorResponse("Audio generated but delivery URL failed", 503, "signed_url_failed");
+      return errorResponse(
+        "Audio generated but delivery URL failed",
+        503,
+        "signed_url_failed",
+      );
     }
 
     await supabase.from("usage_records").insert({
       user_id: userId,
-      operation_type: body.reason === "manual_regeneration" ? "audio_regeneration" : "audio_generation",
+      operation_type: body.reason === "manual_regeneration"
+        ? "audio_regeneration"
+        : "audio_generation",
       estimated_units: 1,
       client_request_id: crypto.randomUUID(),
     });
@@ -264,6 +306,10 @@ Deno.serve(async (req: Request) => {
     await supabase.from("audio_manifests")
       .update({ generation_status: "failed", error_code: "internal_error" })
       .eq("id", manifest.id);
-    return errorResponse("Internal audio generation error", 500, "internal_error");
+    return errorResponse(
+      "Internal audio generation error",
+      500,
+      "internal_error",
+    );
   }
 });

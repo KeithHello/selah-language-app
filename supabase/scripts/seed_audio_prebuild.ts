@@ -30,10 +30,15 @@ import {
 } from "../functions/_shared/audio.ts";
 
 const execute = Deno.args.includes("--execute");
-const seedPath = new URL("../../SeedContent/seed-sentences.json", import.meta.url);
+const seedPath = new URL(
+  "../../SeedContent/seed-sentences.json",
+  import.meta.url,
+);
 const seed = JSON.parse(await Deno.readTextFile(seedPath));
 const voices = Object.keys(VOICE_MAP);
-const workItems = seed.sentences.flatMap((sentence: { id: string; en_translation: string }) =>
+const workItems = seed.sentences.flatMap((
+  sentence: { id: string; en_translation: string },
+) =>
   voices.map((voiceProfile) => ({
     seedSentenceId: sentence.id,
     targetText: sentence.en_translation,
@@ -41,14 +46,22 @@ const workItems = seed.sentences.flatMap((sentence: { id: string; en_translation
   }))
 );
 
-console.log(`Seed audio plan: ${seed.sentences.length} sentences x ${voices.length} voices = ${workItems.length} MP3 files.`);
-console.log(`Model: ${TTS_MODEL}, speed: ${TTS_SPEED}, format: ${AUDIO_FORMAT}.`);
+console.log(
+  `Seed audio plan: ${seed.sentences.length} sentences x ${voices.length} voices = ${workItems.length} MP3 files.`,
+);
+console.log(
+  `Model: ${TTS_MODEL}, speed: ${TTS_SPEED}, format: ${AUDIO_FORMAT}.`,
+);
 
 if (!execute) {
   console.log("DRY RUN ONLY: no OpenAI or Supabase requests will be made.");
   for (const item of workItems) {
     const hash = await contentHash(item.targetText, item.voiceProfile);
-    console.log(`${item.seedSentenceId} | ${item.voiceProfile} | ${seedStoragePath(item.seedSentenceId, item.voiceProfile, hash)}`);
+    console.log(
+      `${item.seedSentenceId} | ${item.voiceProfile} | ${
+        seedStoragePath(item.seedSentenceId, item.voiceProfile, hash)
+      }`,
+    );
   }
   Deno.exit(0);
 }
@@ -57,7 +70,9 @@ const supabaseURL = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const openAIKey = Deno.env.get("OPENAI_API_KEY");
 if (!supabaseURL || !serviceRoleKey || !openAIKey) {
-  console.error("ERROR: --execute requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and OPENAI_API_KEY.");
+  console.error(
+    "ERROR: --execute requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, and OPENAI_API_KEY.",
+  );
   Deno.exit(1);
 }
 
@@ -87,7 +102,10 @@ for (const item of workItems) {
   try {
     const response = await fetch("https://api.openai.com/v1/audio/speech", {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openAIKey}` },
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openAIKey}`,
+      },
       body: JSON.stringify({
         model: TTS_MODEL,
         input: item.targetText,
@@ -100,38 +118,44 @@ for (const item of workItems) {
 
     const buffer = await response.arrayBuffer();
     const checksum = await sha256(buffer);
-    const { error: uploadError } = await supabase.storage.from(AUDIO_BUCKET).upload(path, new Uint8Array(buffer), {
-      contentType: "audio/mpeg",
-      upsert: true,
-    });
+    const { error: uploadError } = await supabase.storage.from(AUDIO_BUCKET)
+      .upload(path, new Uint8Array(buffer), {
+        contentType: "audio/mpeg",
+        upsert: true,
+      });
     if (uploadError) throw uploadError;
 
-    const { error: manifestError } = await supabase.from("audio_manifests").upsert({
-      owner_user_id: null,
-      sentence_id: null,
-      seed_sentence_id: item.seedSentenceId,
-      scope_key: scopeKey,
-      voice_profile: item.voiceProfile,
-      content_hash: hash,
-      storage_path: path,
-      tts_model: TTS_MODEL,
-      speed: TTS_SPEED,
-      audio_format: AUDIO_FORMAT,
-      byte_size: buffer.byteLength,
-      duration_ms: estimatedDurationMs(item.targetText),
-      sha256: checksum,
-      generation_status: "ready",
-      error_code: null,
-    }, { onConflict: "scope_key,content_hash" });
+    const { error: manifestError } = await supabase.from("audio_manifests")
+      .upsert({
+        owner_user_id: null,
+        sentence_id: null,
+        seed_sentence_id: item.seedSentenceId,
+        scope_key: scopeKey,
+        voice_profile: item.voiceProfile,
+        content_hash: hash,
+        storage_path: path,
+        tts_model: TTS_MODEL,
+        speed: TTS_SPEED,
+        audio_format: AUDIO_FORMAT,
+        byte_size: buffer.byteLength,
+        duration_ms: estimatedDurationMs(item.targetText),
+        sha256: checksum,
+        generation_status: "ready",
+        error_code: null,
+      }, { onConflict: "scope_key,content_hash" });
     if (manifestError) throw manifestError;
 
     generated++;
     console.log(`READY ${item.seedSentenceId} / ${item.voiceProfile}`);
   } catch (error) {
     failed++;
-    console.error(`FAILED ${item.seedSentenceId} / ${item.voiceProfile}: ${error}`);
+    console.error(
+      `FAILED ${item.seedSentenceId} / ${item.voiceProfile}: ${error}`,
+    );
   }
 }
 
-console.log(JSON.stringify({ generated, skipped, failed, total: workItems.length }));
+console.log(
+  JSON.stringify({ generated, skipped, failed, total: workItems.length }),
+);
 if (failed > 0) Deno.exit(1);

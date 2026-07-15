@@ -13,14 +13,19 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
 const SUPABASE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
 if (!SUPABASE_URL || !SUPABASE_KEY) {
-  console.error("ERROR: Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.");
+  console.error(
+    "ERROR: Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY environment variables.",
+  );
   Deno.exit(1);
 }
 
 const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
 // Read seed data
-const seedPath = new URL("../../SeedContent/seed-sentences.json", import.meta.url);
+const seedPath = new URL(
+  "../../SeedContent/seed-sentences.json",
+  import.meta.url,
+);
 const seedRaw = await Deno.readTextFile(seedPath);
 const seedData = JSON.parse(seedRaw);
 

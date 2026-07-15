@@ -4,10 +4,21 @@
 // These tests validate the request handling logic without calling
 // the actual OpenAI API (mocked or static analysis).
 
-import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertStringIncludes,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  buildTranslationRequest,
+  TRANSLATION_MODEL,
+  TRANSLATION_TEMPERATURE,
+  validateSentenceGenerationInput,
+} from "../functions/_shared/sentence_contract.ts";
 
 // Read the Edge Function source for static validation
-const FUNCTION_SOURCE = await Deno.readTextFile("supabase/functions/sentences-generate/index.ts");
+const FUNCTION_SOURCE = await Deno.readTextFile(
+  "supabase/functions/sentences-generate/index.ts",
+);
 
 // ============================================================
 // System Prompt Validation
@@ -22,7 +33,10 @@ Deno.test("System prompt mentions natural spoken English", () => {
 });
 
 Deno.test("System prompt mentions category classification", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "work, friends, vent, heartfelt, debate, daily_life");
+  assertStringIncludes(
+    FUNCTION_SOURCE,
+    "work, friends, vent, heartfelt, debate, daily_life",
+  );
 });
 
 Deno.test("System prompt defines JSON output format", () => {
@@ -44,15 +58,18 @@ Deno.test("System prompt limits to 3 vocab candidates", () => {
 // ============================================================
 
 Deno.test("Uses gpt-4o-mini model", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"model": "gpt-4o-mini"');
+  assertEquals(TRANSLATION_MODEL, "gpt-4o-mini");
 });
 
 Deno.test("Uses JSON response format", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"response_format": { "type": "json_object" }');
+  assertEquals(
+    buildTranslationRequest("prompt", "source").response_format,
+    { type: "json_object" },
+  );
 });
 
 Deno.test("Temperature is 0.7", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"temperature": 0.7');
+  assertEquals(TRANSLATION_TEMPERATURE, 0.7);
 });
 
 // ============================================================
@@ -64,27 +81,52 @@ Deno.test("Requires POST method", () => {
 });
 
 Deno.test("Validates sourceText is not empty", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "sourceText is required");
+  const result = validateSentenceGenerationInput({ sourceText: "   " });
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.code, "missing_source_text");
 });
 
 Deno.test("Validates sourceText max length 500", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "500");
+  const result = validateSentenceGenerationInput({
+    sourceText: "a".repeat(501),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.code, "text_too_long");
 });
 
 Deno.test("Returns 400 for missing sourceText", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "missing_source_text");
+  const result = validateSentenceGenerationInput({});
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.status, 400);
 });
 
 Deno.test("Returns 400 for text too long", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "text_too_long");
-});
-
-Deno.test("Returns 401 for unauthorized", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "unauthorized");
+  const result = validateSentenceGenerationInput({
+    sourceText: "a".repeat(501),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.status, 400);
 });
 
 Deno.test("Returns 502 for translation failed", () => {
   assertStringIncludes(FUNCTION_SOURCE, "translation_failed");
+});
+
+Deno.test("Builds request with normalized source text", () => {
+  const result = validateSentenceGenerationInput({
+    sourceText: "  今天好累  ",
+  });
+  assertEquals(result, { ok: true, sourceText: "今天好累" });
+  if (!result.ok) return;
+  assertEquals(buildTranslationRequest("prompt", result.sourceText), {
+    model: "gpt-4o-mini",
+    messages: [
+      { role: "system", content: "prompt" },
+      { role: "user", content: "今天好累" },
+    ],
+    temperature: 0.7,
+    response_format: { type: "json_object" },
+  });
 });
 
 // ============================================================

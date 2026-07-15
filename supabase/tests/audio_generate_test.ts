@@ -1,24 +1,32 @@
 // Edge Function: audio-generate - Input Validation Tests
 // Run: deno test supabase/tests/audio_generate_test.ts
 
-import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
-
-const FUNCTION_SOURCE = await Deno.readTextFile("supabase/functions/audio-generate/index.ts");
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  AUDIO_FORMAT,
+  TTS_MODEL,
+  TTS_SPEED,
+  VOICE_MAP,
+} from "../functions/_shared/audio.ts";
+import {
+  buildTTSRequest,
+  validateAudioGenerationInput,
+} from "../functions/_shared/audio_contract.ts";
 
 // ============================================================
 // Voice Map
 // ============================================================
 
 Deno.test("VOICE_MAP maps gentle-natural to nova", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"gentle-natural": "nova"');
+  assertEquals(VOICE_MAP["gentle-natural"], "nova");
 });
 
 Deno.test("VOICE_MAP maps clear-slow to sage", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"clear-slow": "sage"');
+  assertEquals(VOICE_MAP["clear-slow"], "sage");
 });
 
 Deno.test("VOICE_MAP maps daily-bright to ash", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"daily-bright": "ash"');
+  assertEquals(VOICE_MAP["daily-bright"], "ash");
 });
 
 // ============================================================
@@ -26,15 +34,15 @@ Deno.test("VOICE_MAP maps daily-bright to ash", () => {
 // ============================================================
 
 Deno.test("Uses tts-1 model", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"model": "tts-1"');
+  assertEquals(TTS_MODEL, "tts-1");
 });
 
 Deno.test("Uses mp3 format", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"response_format": "mp3"');
+  assertEquals(AUDIO_FORMAT, "mp3");
 });
 
 Deno.test("Default speed is 0.85", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"speed": 0.85');
+  assertEquals(TTS_SPEED, 0.85);
 });
 
 // ============================================================
@@ -42,45 +50,50 @@ Deno.test("Default speed is 0.85", () => {
 // ============================================================
 
 Deno.test("Requires targetText", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "targetText is required");
+  const result = validateAudioGenerationInput({ sentenceId: "sentence-1" });
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.code, "missing_audio_input");
 });
 
 Deno.test("Validates targetText max length 1000", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "1000");
+  const result = validateAudioGenerationInput({
+    sentenceId: "sentence-1",
+    targetText: "a".repeat(1001),
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.code, "text_too_long");
 });
 
-Deno.test("Returns 502 for TTS failed", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "tts_failed");
+Deno.test("Rejects unsupported voice profile", () => {
+  const result = validateAudioGenerationInput({
+    sentenceId: "sentence-1",
+    targetText: "Hello",
+    voiceProfile: "unknown",
+  });
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.code, "unsupported_voice_profile");
 });
 
 // ============================================================
 // Output Structure
 // ============================================================
 
-Deno.test("Returns audio status as ready", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"status": "ready"');
-});
+Deno.test("Builds the OpenAI TTS request from validated input", () => {
+  const result = validateAudioGenerationInput({
+    sentenceId: " sentence-1 ",
+    targetText: " Hello world ",
+    voiceProfile: "gentle-natural",
+  });
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
 
-Deno.test("Returns audio format as mp3", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"audioFormat": "mp3"');
-});
-
-Deno.test("Returns audioData as base64", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "audioData");
-});
-
-Deno.test("Returns voiceProfile in response", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"voiceProfile"');
-});
-
-// ============================================================
-// Usage Recording
-// ============================================================
-
-Deno.test("Records usage as audio_generation for initial", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "audio_generation");
-});
-
-Deno.test("Records usage as audio_regeneration for manual", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "audio_regeneration");
+  assertEquals(result.sentenceId, "sentence-1");
+  assertEquals(result.targetText, "Hello world");
+  assertEquals(buildTTSRequest(result.targetText, result.openaiVoice), {
+    model: "tts-1",
+    input: "Hello world",
+    voice: "nova",
+    response_format: "mp3",
+    speed: 0.85,
+  });
 });

@@ -4,10 +4,10 @@
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   CORS_HEADERS,
-  json,
   errorResponse,
-  handleOptions,
   getUserId,
+  handleOptions,
+  json,
   requireAuth,
 } from "../functions/_shared/cors.ts";
 
@@ -17,7 +17,10 @@ import {
 
 Deno.test("CORS_HEADERS contains required headers", () => {
   assertEquals(CORS_HEADERS["Access-Control-Allow-Origin"], "*");
-  assertEquals(CORS_HEADERS["Access-Control-Allow-Methods"], "POST, GET, OPTIONS");
+  assertEquals(
+    CORS_HEADERS["Access-Control-Allow-Methods"],
+    "POST, GET, OPTIONS",
+  );
   assertEquals(
     CORS_HEADERS["Access-Control-Allow-Headers"],
     "authorization, x-client-info, apikey, content-type",
