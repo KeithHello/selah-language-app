@@ -5,14 +5,14 @@
 ## 已確認的工程基線
 
 - M4-A 可靠性、M4-B 離線優先與 M4-C 使用者體驗核心層已有 GitHub Actions 驗證紀錄。
-- M4-C 清理提交 `2f71cc2` 目前仍在本機，尚未推送；因此不能把目前工作樹視為遠端已驗證狀態。
-- M4-D 已完成隱私與發布邊界文件，以及 App／Edge Functions 的敏感錯誤脫敏修改；這批修改也尚未完成 commit、push 與 CI。
+- M4-C／M4-D 核心层已推送；GitHub Actions run `29339236287` 在 HEAD `0eb8c56` 通过。
+- 该 CI 只验证 macOS Swift Package，不验证 iOS App target、Deno 测试或已部署 Edge Functions。
 - v1 的 provider fallback 決策為保留本機資料與 GenerationJob 後續重試，不自動切換未審查的替代 provider。
 - BGTaskScheduler、通知權限、WidgetKit、Dynamic Type 全螢幕審計與 VoiceOver 真機巡檢，均需要真正的 Xcode iOS target 與裝置驗證。
 
 ## M5 啟動前必做
 
-- 推送 `2f71cc2` 與 M4-D 修改，等待 GitHub Actions 的 `swift build`、`swift test`，並額外執行 Supabase Edge Function 靜態／部署前測試。
+- 更新并执行 Supabase Edge Function 行为测试，将 Deno 测试加入 CI。
 - 建立可編譯的 Xcode iOS target，確認 Bundle ID、Signing、最低 iOS 版本、Info.plist 權限說明與正式環境 endpoint。
 - 建立版本化 SwiftData schema；針對升級、空資料、失敗恢復與資料保留完成 fixture／裝置測試。
 - 實作並驗收 BGTaskScheduler 短批次重試；確認離線、超時、被系統中斷與回到前景後的恢復行為。
