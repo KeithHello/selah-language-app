@@ -47,7 +47,7 @@
 - [x] 将 Supabase 格式、lint、类型检查与测试加入 CI。
 - [ ] 为生成接口增加每用户额度、速率限制和并发去重。
 - [x] `events.metadata` 改为按事件类型区分的明确字段白名单。
-- [ ] 明确 JWT helper 仅解析 payload，认证依赖 `verify_jwt`；避免误导性安全边界。
+- [x] JWT helper 明确命名为解析网关已验证 claims，并注明签名验证依赖 `verify_jwt = true`。
 - [ ] 重新执行部署 smoke test，记录当前远端版本证据。
 
 ### P2：发布准备

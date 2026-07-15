@@ -5,7 +5,7 @@ import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   CORS_HEADERS,
   errorResponse,
-  getUserId,
+  getGatewayVerifiedUserId,
   handleOptions,
   json,
   requireAuth,
@@ -87,31 +87,31 @@ Deno.test("handleOptions() returns 200 with CORS headers", () => {
 });
 
 // ============================================================
-// getUserId()
+// getGatewayVerifiedUserId()
 // ============================================================
 
-Deno.test("getUserId() returns null for missing Authorization header", () => {
+Deno.test("getGatewayVerifiedUserId() returns null for missing Authorization header", () => {
   const req = new Request("https://example.com", {
     headers: new Headers(),
   });
-  assertEquals(getUserId(req), null);
+  assertEquals(getGatewayVerifiedUserId(req), null);
 });
 
-Deno.test("getUserId() returns null for malformed token", () => {
+Deno.test("getGatewayVerifiedUserId() returns null for malformed token", () => {
   const req = new Request("https://example.com", {
     headers: { Authorization: "Bearer not-a-jwt" },
   });
-  assertEquals(getUserId(req), null);
+  assertEquals(getGatewayVerifiedUserId(req), null);
 });
 
-Deno.test("getUserId() returns null for empty Bearer", () => {
+Deno.test("getGatewayVerifiedUserId() returns null for empty Bearer", () => {
   const req = new Request("https://example.com", {
     headers: { Authorization: "Bearer " },
   });
-  assertEquals(getUserId(req), null);
+  assertEquals(getGatewayVerifiedUserId(req), null);
 });
 
-Deno.test("getUserId() extracts user ID from valid JWT payload", () => {
+Deno.test("getGatewayVerifiedUserId() parses subject from gateway-verified JWT", () => {
   // Create a fake JWT with a payload containing sub
   const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
   const payload = btoa(JSON.stringify({ sub: "user-123", exp: 9999999999 }));
@@ -121,7 +121,7 @@ Deno.test("getUserId() extracts user ID from valid JWT payload", () => {
   const req = new Request("https://example.com", {
     headers: { Authorization: `Bearer ${token}` },
   });
-  assertEquals(getUserId(req), "user-123");
+  assertEquals(getGatewayVerifiedUserId(req), "user-123");
 });
 
 // ============================================================
