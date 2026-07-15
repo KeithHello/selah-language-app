@@ -872,18 +872,33 @@ struct TodaySentenceView: View {
 }
 
 struct NotesView: View {
-    @State private var selectedCategory: SentenceCategory? = nil
+    @EnvironmentObject private var appState: AppState
+    @Query(sort: \Sentence.createdAt, order: .reverse) private var sentences: [Sentence]
+    @Query(sort: \VocabItem.createdAt, order: .reverse) private var vocabItems: [VocabItem]
+    @Query(sort: \SpriteMemory.unlockedAt, order: .reverse) private var memories: [SpriteMemory]
+    @State private var selectedCategory: SentenceCategory?
+
+    private var summary: NotesSummary {
+        NotesPresentation.summary(sentences: sentences)
+    }
+
+    private var visibleSentences: [Sentence] {
+        NotesPresentation.visibleSentences(sentences, category: selectedCategory)
+    }
+
+    private var visibleMemories: [SpriteMemory] {
+        NotesPresentation.visibleMemories(memories)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: SelahSpacing.xl) {
-                    // Stats
                     HStack {
                         Text("📝 我的筆記")
                             .font(.selahDisplayMedium)
                         Spacer()
-                        Text("0 句 · 掌握 0 句")
+                        Text("\(summary.total) 句 · 掌握 \(summary.mastered) 句")
                             .selahBodySmall()
                     }
 
@@ -902,17 +917,22 @@ struct NotesView: View {
                         }
                     }
 
-                    // Empty state
-                    VStack(spacing: SelahSpacing.md) {
-                        Text("🌱")
-                            .font(.system(size: 48))
-                        Text("還沒有句子")
-                            .selahHeadlineMedium()
-                        Text("開始說你的第一句中文吧！")
-                            .selahBodyMedium()
+                    if visibleSentences.isEmpty {
+                        VStack(spacing: SelahSpacing.md) {
+                            Text("🌱")
+                                .font(.system(size: 48))
+                            Text(selectedCategory == nil ? "還沒有句子" : "這個分類還沒有句子")
+                                .selahHeadlineMedium()
+                            Text("開始說你的第一句中文吧！")
+                                .selahBodyMedium()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, SelahSpacing.xxl)
+                    } else {
+                        ForEach(visibleSentences) { sentence in
+                            sentenceCard(sentence)
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, SelahSpacing.xxl)
 
                     // Vocab section
                     vocabSection
@@ -927,6 +947,25 @@ struct NotesView: View {
         }
     }
 
+    private func sentenceCard(_ sentence: Sentence) -> some View {
+        VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+            HStack {
+                Badge(text: sentence.category.displayName, style: .amber)
+                Spacer()
+                if let state = sentence.reviewState?.state,
+                   state == .familiar || state == .quiet {
+                    Text("已掌握").selahLabelSmall().foregroundColor(.selahSage)
+                }
+            }
+            Text(sentence.sourceText).selahBodyMedium()
+            Text(sentence.targetText).selahHeadlineSmall().foregroundColor(.selahSage)
+        }
+        .padding(SelahSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.selahCardPrimary)
+        .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+    }
+
     private var vocabSection: some View {
         VStack(alignment: .leading, spacing: SelahSpacing.md) {
             Text("生詞")
@@ -935,25 +974,59 @@ struct NotesView: View {
             Text("生詞不分類別，是你在學習中自然累積的")
                 .selahBodySmall()
 
-            Text("還沒有生詞。在預覽和拆解中點擊詞組即可加入。")
-                .selahBodySmall()
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, SelahSpacing.lg)
+            if vocabItems.isEmpty {
+                Text("還沒有生詞。建立句子後，系統建議的重點詞組會出現在這裡。")
+                    .selahBodySmall()
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, SelahSpacing.lg)
+            } else {
+                ForEach(vocabItems) { item in
+                    HStack(alignment: .top, spacing: SelahSpacing.md) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.surfaceText).selahHeadlineSmall()
+                            Text(item.meaningInContext).selahBodySmall()
+                        }
+                        Spacer()
+                        Text(item.userFacingGroup)
+                            .selahLabelSmall()
+                            .foregroundColor(.selahCoral)
+                    }
+                    .padding(SelahSpacing.md)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                }
+            }
         }
     }
 
     private var memoriesSection: some View {
         VStack(alignment: .leading, spacing: SelahSpacing.md) {
-            Text("小豆的回憶")
+            Text("\(appState.activeCompanion?.displayName ?? "語言精靈")的回憶")
                 .font(.selahHeadlineLarge)
 
             Text("這些是學習旅程中，小豆記得的事")
                 .selahBodySmall()
 
-            Text("還沒有回憶。開始學習後，小豆會記下你和句子之間的故事。")
-                .selahBodySmall()
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, SelahSpacing.lg)
+            if visibleMemories.isEmpty {
+                Text("還沒有回憶。開始學習後，精靈會記下你和句子之間的故事。")
+                    .selahBodySmall()
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, SelahSpacing.lg)
+            } else {
+                ForEach(visibleMemories) { memory in
+                    HStack(alignment: .top, spacing: SelahSpacing.md) {
+                        Text(memory.icon).font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(memory.title).selahHeadlineSmall()
+                            Text(memory.descriptionText).selahBodySmall()
+                        }
+                    }
+                    .padding(SelahSpacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                }
+            }
         }
     }
 }
