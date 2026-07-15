@@ -26,7 +26,7 @@
 - [ ] 建立可编译、可启动的 iOS 17+ App target 与资源打包。
 - [ ] 确定并实现 MVP 认证边界；推荐 Supabase 匿名会话，后续可绑定账号。
 - [ ] App 启动路径建立真实 `SelahAPIClient`，句子和音频服务不再固定使用 Mock。
-- [ ] Seed 首次启动幂等导入；Onboarding 保存精灵名称、3 个种子句和默认设置。
+- [x] Onboarding 幂等保存精灵名称、3 个种子句和默认偏好状态。
 - [ ] 修复语音权限、按住／释放录音、最终 transcript 保存与音频引擎停止。
 - [ ] Today 保存统一经过音频生成、下载、校验、缓存；Listen 读取真实本地文件。
 - [ ] 修复离线重试 payload，保留目标文本、声线和失败是否可重试。
@@ -75,3 +75,4 @@
 - 2026-07-16：GitHub Actions `29434797968` 成功，HEAD `eb2e569`；Swift 233 个测试（1 skipped、0 failures），Deno 124 个测试（0 failures），格式、lint 与 Edge Function type-check 全部通过。
 - 2026-07-16：GitHub Actions `29435122636` 成功，HEAD `715a5db`；Notes 的真实句子统计、分类过滤、词汇和已解锁回忆接入通过 Swift 与 Deno 双端 CI。
 - 2026-07-16：GitHub Actions `29435376954` 成功，HEAD `2826ff6`；设置持久化测试、Swift 构建测试与 Supabase Deno 全套检查通过。
+- 2026-07-16：GitHub Actions `29435596159` 成功，HEAD `30529f7`；Onboarding 名称与三句 Seed 幂等持久化测试及双端 CI 通过。

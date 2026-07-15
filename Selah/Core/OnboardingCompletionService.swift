@@ -66,6 +66,25 @@ final class OnboardingCompletionService {
                 )
             )
         }
+        try unlockOnboardingMemories(companionID: companion.id, now: now)
         try modelContext.save()
+    }
+
+    private func unlockOnboardingMemories(companionID: UUID, now: Date) throws {
+        let keys = Set(["first_name", "first_seed_sentence"])
+        let memories = try modelContext.fetch(FetchDescriptor<SpriteMemory>())
+            .filter { $0.companionID == companionID && keys.contains($0.memoryKey) }
+
+        for memory in memories where !memory.unlocked {
+            memory.unlocked = true
+            memory.unlockedAt = now
+            modelContext.insert(
+                LearningEvent(
+                    eventType: .memoryUnlocked,
+                    metadataJSON: "{\"memory_key\":\"\(memory.memoryKey)\"}",
+                    happenedAt: now
+                )
+            )
+        }
     }
 }
