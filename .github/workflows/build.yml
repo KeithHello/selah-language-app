@@ -28,6 +28,25 @@ jobs:
           swift build 2>&1
           swift test 2>&1
 
+  ios:
+    name: iOS Simulator Build
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build iOS app
+        run: |
+          xcodebuild \
+            -project Selah.xcodeproj \
+            -scheme Selah \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
   deno:
     name: Supabase Deno Tests
     runs-on: ubuntu-latest
