@@ -2,12 +2,14 @@ name: Build & Test
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - codex/complete-non-animation-systems
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Selah (macOS)
+  swift:
+    name: Swift Package
     runs-on: macos-15
 
     steps:
@@ -25,3 +27,23 @@ jobs:
           swift package resolve 2>&1
           swift build 2>&1
           swift test 2>&1
+
+  deno:
+    name: Supabase Deno Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: lts
+          cache: true
+
+      - name: Check formatting
+        run: deno fmt --check supabase/functions supabase/tests supabase/scripts
+
+      - name: Run tests
+        run: deno test --allow-read supabase/tests

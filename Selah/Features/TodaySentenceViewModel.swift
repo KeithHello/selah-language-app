@@ -42,6 +42,7 @@ final class TodaySentenceViewModel: ObservableObject {
     @Published var flowState: TodaySentenceFlowState = .idle
     @Published var selectedCategory: SentenceCategory? = nil
     @Published var selectedVoiceProfile: VoiceProfile = .gentleNatural
+    @Published private(set) var sourceText = ""
 
     private let speechService: SpeechRecognitionService
     private let sentenceService: SentenceGenerationService
@@ -49,6 +50,7 @@ final class TodaySentenceViewModel: ObservableObject {
     private let modelContext: ModelContext
     private let connectivity: any ConnectivityProviding
     private let generationRetryQueue: (any GenerationRetryQueue)?
+    private let vocabularyHelp: VocabularyHelpUseCaseImpl?
 
     @Published private(set) var pendingOperation: PendingOperation?
 
@@ -62,6 +64,7 @@ final class TodaySentenceViewModel: ObservableObject {
         modelContext: ModelContext,
         connectivity: any ConnectivityProviding = ConnectivityMonitor(initialStatus: .online),
         generationRetryQueue: (any GenerationRetryQueue)? = nil,
+        vocabularyHelp: VocabularyHelpUseCaseImpl? = nil,
         defaultVoiceProfile: VoiceProfile = .gentleNatural
     ) {
         self.speechService = speechService
@@ -70,6 +73,7 @@ final class TodaySentenceViewModel: ObservableObject {
         self.modelContext = modelContext
         self.connectivity = connectivity
         self.generationRetryQueue = generationRetryQueue
+        self.vocabularyHelp = vocabularyHelp
         self.selectedVoiceProfile = defaultVoiceProfile
     }
 
@@ -80,6 +84,11 @@ final class TodaySentenceViewModel: ObservableObject {
 
         recognitionTask = Task { [weak self] in
             guard let self else { return }
+
+            guard await self.speechService.requestAuthorization() else {
+                self.flowState = .error(message: "需要麥克風與語音辨識權限才能使用語音輸入。")
+                return
+            }
 
             do {
                 let stream = self.speechService.start(language: .zhHant)
@@ -111,6 +120,7 @@ final class TodaySentenceViewModel: ObservableObject {
     /// Cancel and return to idle.
     func cancel() {
         stopRecording()
+        sourceText = ""
         flowState = .idle
     }
 
@@ -122,15 +132,17 @@ final class TodaySentenceViewModel: ObservableObject {
     // MARK: - Translation
 
     func translate(chineseText: String) {
-        guard !chineseText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+        let normalizedText = chineseText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalizedText.isEmpty else {
             flowState = .error(message: "請輸入中文句子")
             return
         }
+        sourceText = normalizedText
 
         Task { [weak self] in
             guard let self else { return }
             if await self.connectivity.currentStatus() != .online {
-                self.pendingOperation = .sentenceTranslation(sourceText: chineseText)
+                self.pendingOperation = .sentenceTranslation(sourceText: normalizedText)
                 self.flowState = .error(message: self.pendingOperation?.message ?? "目前離線，這句話先留在本機。")
                 return
             }
@@ -139,7 +151,7 @@ final class TodaySentenceViewModel: ObservableObject {
 
             do {
                 let result = try await self.sentenceService.generateSentence(
-                    sourceText: chineseText,
+                    sourceText: normalizedText,
                     sourceLanguage: .zhHant,
                     targetLanguage: .en,
                     categoryHint: self.selectedCategory
@@ -199,9 +211,17 @@ final class TodaySentenceViewModel: ObservableObject {
             self.modelContext.insert(audioAsset)
             sentence.audioAssets.append(audioAsset)
 
+            self.modelContext.insert(LearningEvent.sentenceCreated(sentence))
+
             // Save to SwiftData
             do {
                 try self.modelContext.save()
+                if let vocabularyHelp = self.vocabularyHelp {
+                    _ = try await vocabularyHelp.createFromCandidates(
+                        sentenceID: sentence.id,
+                        candidates: result.vocabulary
+                    )
+                }
             } catch {
                 self.flowState = .error(message: "儲存暫時沒有完成，請稍後再試。")
                 return
@@ -232,12 +252,10 @@ final class TodaySentenceViewModel: ObservableObject {
             if await self.connectivity.currentStatus() != .online {
                 audioAsset.generationStatus = .queued
                 self.pendingOperation = .audioGeneration(sentenceID: sentenceID)
-                let job = GenerationJob(
+                await self.enqueueAudioRetry(
                     sentenceID: sentenceID,
-                    jobType: .audioGeneration,
-                    payloadJSON: "{\"targetText\":\"\(targetText.replacingOccurrences(of: "\\\"", with: "\\\\\""))\",\"voiceProfile\":\"\(self.selectedVoiceProfile.rawValue)\"}"
+                    targetText: targetText
                 )
-                try? await self.generationRetryQueue?.enqueue(job)
                 try? self.modelContext.save()
                 return
             }
@@ -268,14 +286,27 @@ final class TodaySentenceViewModel: ObservableObject {
                 }
             } catch {
                 audioAsset.generationStatus = .failed
-                let job = GenerationJob(
+                await self.enqueueAudioRetry(
                     sentenceID: sentenceID,
-                    jobType: .audioGeneration,
-                    payloadJSON: "{\"targetText\":\"\(targetText.replacingOccurrences(of: "\\\"", with: "\\\\\""))\",\"voiceProfile\":\"\(self.selectedVoiceProfile.rawValue)\"}"
+                    targetText: targetText
                 )
-                try? await self.generationRetryQueue?.enqueue(job)
                 try? self.modelContext.save()
             }
         }
+    }
+
+    private func enqueueAudioRetry(sentenceID: UUID, targetText: String) async {
+        guard let generationRetryQueue else { return }
+        let payload = AudioGenerationRetryPayload(
+            targetText: targetText,
+            voiceProfile: selectedVoiceProfile,
+            reason: .initialGeneration
+        )
+        guard let job = try? GenerationJob(
+            sentenceID: sentenceID,
+            jobType: .audioGeneration,
+            audioPayload: payload
+        ) else { return }
+        try? await generationRetryQueue.enqueue(job)
     }
 }

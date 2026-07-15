@@ -11,7 +11,45 @@ private actor CountingSentenceService: SentenceGenerationService {
     }
 }
 
+private final class DeniedSpeechService: SpeechRecognitionService, @unchecked Sendable {
+    private(set) var startCallCount = 0
+
+    func requestAuthorization() async -> Bool { false }
+
+    func start(language: SourceLanguage) -> AsyncThrowingStream<String, Error> {
+        startCallCount += 1
+        return AsyncThrowingStream { $0.finish() }
+    }
+
+    func stop() {}
+}
+
 final class M4OfflineFirstTests: XCTestCase {
+    func testRecordingDoesNotStartWhenSpeechPermissionIsDenied() async {
+        let speechService = DeniedSpeechService()
+        let container = try! ModelContainer(
+            for: Sentence.self,
+            ReviewState.self,
+            AudioAsset.self,
+            configurations: ModelConfiguration(isStoredInMemoryOnly: true)
+        )
+        let vm = await MainActor.run {
+            TodaySentenceViewModel(
+                speechService: speechService,
+                sentenceService: MockSentenceGenerationService(),
+                audioService: MockAudioGenerationService(),
+                modelContext: container.mainContext
+            )
+        }
+
+        await MainActor.run { vm.startRecording() }
+        try? await Task.sleep(nanoseconds: 20_000_000)
+
+        let state = await MainActor.run { vm.flowState.label }
+        XCTAssertEqual(state, "error")
+        XCTAssertEqual(speechService.startCallCount, 0)
+    }
+
     func testConnectivityMonitorPublishesInjectedOfflineAndOnlineStates() async {
         let monitor = ConnectivityMonitor(initialStatus: .unknown) { .offline }
 
@@ -48,9 +86,11 @@ final class M4OfflineFirstTests: XCTestCase {
         let calls = await service.calls
         let state = await MainActor.run { vm.flowState.label }
         let pendingOperation = await MainActor.run { vm.pendingOperation }
+        let sourceText = await MainActor.run { vm.sourceText }
         XCTAssertEqual(calls, 0)
         XCTAssertEqual(state, "error")
         XCTAssertNotNil(pendingOperation)
+        XCTAssertEqual(sourceText, "今天好累")
     }
 
     func testPendingOperationUsesSafeTraditionalChineseMessage() {

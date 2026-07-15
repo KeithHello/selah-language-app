@@ -48,14 +48,12 @@ actor GenerationRetryQueueImpl: GenerationRetryQueue {
                 // Attempt the retry based on job type
                 switch job.jobType {
                 case .audioGeneration, .audioRegeneration:
-                    // Trigger audio generation
+                    let payload = try job.decodeAudioPayload()
                     _ = try await audioService.generateAudio(
                         sentenceID: job.sentenceID,
-                        targetText: "", // will be fetched by the real service
-                        voiceProfile: .gentleNatural,
-                        reason: job.jobType == .audioRegeneration
-                            ? .manualRegeneration
-                            : .initialGeneration
+                        targetText: payload.targetText,
+                        voiceProfile: payload.voiceProfile,
+                        reason: payload.reason
                     )
                 case .sentenceGeneration:
                     // Sentence generation retries happen in the UI flow

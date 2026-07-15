@@ -688,6 +688,7 @@ struct TodaySentenceView: View {
                 modelContext: modelContext,
                 connectivity: appState.connectivity,
                 generationRetryQueue: appState.generationRetryQueue,
+                vocabularyHelp: appState.vocabularyHelp,
                 defaultVoiceProfile: appState.preferences.voiceProfile
             )
         }
@@ -822,11 +823,7 @@ struct TodaySentenceView: View {
                 }
             }
             Button(action: {
-                if case .confirmingChinese(let transcript) = vm.flowState {
-                    vm.save(result: result, sourceText: transcript)
-                } else if !chineseText.isEmpty {
-                    vm.save(result: result, sourceText: chineseText)
-                }
+                vm.save(result: result, sourceText: vm.sourceText)
             }) {
                 HStack {
                     Image(systemName: "checkmark")
@@ -835,6 +832,7 @@ struct TodaySentenceView: View {
                     .frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.md)
                     .background(Color.selahSage).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
             }
+            .disabled(vm.sourceText.isEmpty)
             Button("不要了，重來") { vm.cancel() }.foregroundColor(.selahTextTertiary)
         }
     }
