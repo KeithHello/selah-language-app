@@ -53,6 +53,10 @@ final class AppState: ObservableObject {
     var reviewScheduler: (any ReviewScheduler)?
     var vocabularyHelp: VocabularyHelpUseCaseImpl?
     var generationRetryQueue: GenerationRetryQueueImpl?
+    private var preferenceStore: UserPreferenceStore?
+    #if canImport(UserNotifications)
+    private let notificationService = LocalNotificationService(client: UserNotificationsClient())
+    #endif
 
     struct ToastInfo: Identifiable {
         let id = UUID()
@@ -84,6 +88,7 @@ final class AppState: ObservableObject {
     func initialize() async {
         do {
             let context = modelContainer.mainContext
+            preferenceStore = UserPreferenceStore(modelContext: context)
 
             // Load or create preferences
             let prefDescriptor = FetchDescriptor<UserPreference>()
@@ -177,6 +182,28 @@ final class AppState: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    func savePreferences(synchronizeNotifications: Bool = false) async {
+        do {
+            try preferenceStore?.save(preferences)
+            #if canImport(UserNotifications)
+            if synchronizeNotifications {
+                try await notificationService.synchronize(
+                    preference: LocalNotificationPreferences(
+                        enabled: preferences.notificationEnabled,
+                        time: preferences.notificationTime
+                    )
+                )
+            }
+            #endif
+        } catch LocalNotificationError.permissionDenied {
+            preferences.notificationEnabled = false
+            try? preferenceStore?.save(preferences)
+            showToast = ToastInfo(message: "通知權限未開啟，提醒已保持關閉。", style: .info)
+        } catch {
+            showToast = ToastInfo(message: "設定暫時無法儲存，請稍後再試。", style: .info)
+        }
     }
 
     func retryPendingGenerationJobs() async {

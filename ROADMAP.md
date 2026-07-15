@@ -35,7 +35,7 @@
 ### P1：产品数据闭环
 
 - [ ] 保存生成句子时建立词汇条目。
-- [ ] Notes 查询真实句子、掌握数、词汇和回忆。
+- [x] Notes 查询真实句子、掌握数、词汇和已解锁回忆。
 - [ ] 学习事件触发精灵回忆解锁。
 - [ ] Settings 可进入、可编辑并持久化声线、速度、提醒等偏好。
 - [ ] Night Preview、通知、后台任务和 Widget 与真实 iOS 生命周期接线。
@@ -73,3 +73,4 @@
 - 2026-07-14：GitHub Actions `29339236287` 成功，HEAD `0eb8c56`。
 - 2026-07-16：确认当前仓库仍无 Xcode project／iOS target；本机无 Swift、Deno、Xcode。
 - 2026-07-16：GitHub Actions `29434797968` 成功，HEAD `eb2e569`；Swift 233 个测试（1 skipped、0 failures），Deno 124 个测试（0 failures），格式、lint 与 Edge Function type-check 全部通过。
+- 2026-07-16：GitHub Actions `29435122636` 成功，HEAD `715a5db`；Notes 的真实句子统计、分类过滤、词汇和已解锁回忆接入通过 Swift 与 Deno 双端 CI。

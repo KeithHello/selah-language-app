@@ -1206,6 +1206,32 @@ struct OnboardingView: View {
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
 
+    private var reminderTime: Binding<Date> {
+        Binding(
+            get: {
+                let parsed = LocalNotificationService.parseTime(
+                    appState.preferences.notificationTime,
+                    fallback: LocalNotificationService.defaultReminderTime
+                )
+                return Calendar.current.date(
+                    bySettingHour: parsed.hour,
+                    minute: parsed.minute,
+                    second: 0,
+                    of: Date()
+                ) ?? Date()
+            },
+            set: { value in
+                let components = Calendar.current.dateComponents([.hour, .minute], from: value)
+                appState.preferences.notificationTime = String(
+                    format: "%02d:%02d",
+                    components.hour ?? 20,
+                    components.minute ?? 0
+                )
+                Task { await appState.savePreferences(synchronizeNotifications: true) }
+            }
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: SelahSpacing.xl) {
@@ -1214,12 +1240,21 @@ struct SettingsView: View {
                     Text("學習偏好")
                         .font(.selahHeadlineLarge)
 
-                    // Default voice profile
                     VStack(alignment: .leading, spacing: SelahSpacing.sm) {
-                        Text("默認聲線")
+                        Text("預設聲音")
                             .selahLabelLarge()
-                        Text(appState.preferences.voiceProfile.displayName)
-                            .selahBodyMedium()
+                        Picker("預設聲音", selection: Binding(
+                            get: { appState.preferences.voiceProfile },
+                            set: { value in
+                                appState.preferences.voiceProfile = value
+                                Task { await appState.savePreferences() }
+                            }
+                        )) {
+                            ForEach(VoiceProfile.allCases.filter(\.isDefault), id: \.self) { voice in
+                                Text(voice.displayName).tag(voice)
+                            }
+                        }
+                        .pickerStyle(.menu)
                         Text(appState.preferences.voiceProfile.description)
                             .selahBodySmall()
                     }
@@ -1232,12 +1267,49 @@ struct SettingsView: View {
                             .strokeBorder(Color.selahBorderLight, lineWidth: 1)
                     )
 
-                    // Playback speed
                     VStack(alignment: .leading, spacing: SelahSpacing.sm) {
                         Text("播放速度")
                             .selahLabelLarge()
-                        Text(appState.preferences.playbackSpeed.displayName)
-                            .selahBodyMedium()
+                        Picker("播放速度", selection: Binding(
+                            get: { appState.preferences.playbackSpeed },
+                            set: { value in
+                                appState.preferences.playbackSpeed = value
+                                Task { await appState.savePreferences() }
+                            }
+                        )) {
+                            ForEach(PlaybackSpeed.allCases, id: \.self) { speed in
+                                Text(speed.displayName).tag(speed)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                    }
+                    .padding(SelahSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                            .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                    )
+
+                    VStack(alignment: .leading, spacing: SelahSpacing.md) {
+                        Toggle("每日學習提醒", isOn: Binding(
+                            get: { appState.preferences.notificationEnabled },
+                            set: { enabled in
+                                appState.preferences.notificationEnabled = enabled
+                                Task { await appState.savePreferences(synchronizeNotifications: true) }
+                            }
+                        ))
+                        .selahLabelLarge()
+
+                        if appState.preferences.notificationEnabled {
+                            DatePicker(
+                                "提醒時間",
+                                selection: reminderTime,
+                                displayedComponents: .hourAndMinute
+                            )
+                            .datePickerStyle(.compact)
+                        }
                     }
                     .padding(SelahSpacing.lg)
                     .frame(maxWidth: .infinity, alignment: .leading)
