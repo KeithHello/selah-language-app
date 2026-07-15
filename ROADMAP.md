@@ -43,10 +43,10 @@
 
 ### P1：后端与安全
 
-- [ ] 更新失效的 Deno 测试，使测试验证行为而非源码字符串。
-- [ ] 将 Supabase 测试加入 CI。
+- [x] 更新失效的 Deno 测试，使测试验证行为而非源码字符串。
+- [x] 将 Supabase 格式、lint、类型检查与测试加入 CI。
 - [ ] 为生成接口增加每用户额度、速率限制和并发去重。
-- [ ] `events.metadata` 改为明确字段白名单。
+- [x] `events.metadata` 改为按事件类型区分的明确字段白名单。
 - [ ] 明确 JWT helper 仅解析 payload，认证依赖 `verify_jwt`；避免误导性安全边界。
 - [ ] 重新执行部署 smoke test，记录当前远端版本证据。
 
@@ -72,3 +72,4 @@
 
 - 2026-07-14：GitHub Actions `29339236287` 成功，HEAD `0eb8c56`。
 - 2026-07-16：确认当前仓库仍无 Xcode project／iOS target；本机无 Swift、Deno、Xcode。
+- 2026-07-16：GitHub Actions `29434797968` 成功，HEAD `eb2e569`；Swift 233 个测试（1 skipped、0 failures），Deno 124 个测试（0 failures），格式、lint 与 Edge Function type-check 全部通过。
