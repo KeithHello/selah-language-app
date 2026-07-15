@@ -51,6 +51,8 @@ final class TodaySentenceViewModel: ObservableObject {
     private let connectivity: any ConnectivityProviding
     private let generationRetryQueue: (any GenerationRetryQueue)?
     private let vocabularyHelp: VocabularyHelpUseCaseImpl?
+    private let memoryUnlockService: SpriteMemoryUnlockService?
+    private let companionID: UUID?
 
     @Published private(set) var pendingOperation: PendingOperation?
 
@@ -65,6 +67,8 @@ final class TodaySentenceViewModel: ObservableObject {
         connectivity: any ConnectivityProviding = ConnectivityMonitor(initialStatus: .online),
         generationRetryQueue: (any GenerationRetryQueue)? = nil,
         vocabularyHelp: VocabularyHelpUseCaseImpl? = nil,
+        memoryUnlockService: SpriteMemoryUnlockService? = nil,
+        companionID: UUID? = nil,
         defaultVoiceProfile: VoiceProfile = .gentleNatural
     ) {
         self.speechService = speechService
@@ -74,6 +78,8 @@ final class TodaySentenceViewModel: ObservableObject {
         self.connectivity = connectivity
         self.generationRetryQueue = generationRetryQueue
         self.vocabularyHelp = vocabularyHelp
+        self.memoryUnlockService = memoryUnlockService
+        self.companionID = companionID
         self.selectedVoiceProfile = defaultVoiceProfile
     }
 
@@ -222,6 +228,7 @@ final class TodaySentenceViewModel: ObservableObject {
                         candidates: result.vocabulary
                     )
                 }
+                try self.unlockSentenceMilestones()
             } catch {
                 self.flowState = .error(message: "儲存暫時沒有完成，請稍後再試。")
                 return
@@ -241,6 +248,23 @@ final class TodaySentenceViewModel: ObservableObject {
     }
 
     // MARK: - Private
+
+    private func unlockSentenceMilestones() throws {
+        guard let memoryUnlockService, let companionID else { return }
+        let userOrigin = SentenceOrigin.userRecording.rawValue
+        let userSentences = try modelContext.fetch(
+            FetchDescriptor<Sentence>(
+                predicate: #Predicate<Sentence> { $0.originRaw == userOrigin && !$0.archived }
+            )
+        )
+        try memoryUnlockService.unlock(
+            for: .sentenceCount(count: userSentences.count),
+            companionID: companionID
+        )
+        if Set(userSentences.map(\.category)).count == SentenceCategory.allCases.count {
+            try memoryUnlockService.unlock(for: .allCategoriesCovered, companionID: companionID)
+        }
+    }
 
     private func triggerAudioGeneration(
         sentenceID: UUID,

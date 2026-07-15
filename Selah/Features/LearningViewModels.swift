@@ -71,10 +71,20 @@ final class PracticeViewModel: ObservableObject {
 
     private let modelContext: ModelContext
     private let reviewScheduler: any ReviewScheduler
+    private let memoryUnlockService: SpriteMemoryUnlockService?
+    private let companionID: UUID?
+    private var allRatingsClear = true
 
-    init(modelContext: ModelContext, reviewScheduler: any ReviewScheduler) {
+    init(
+        modelContext: ModelContext,
+        reviewScheduler: any ReviewScheduler,
+        memoryUnlockService: SpriteMemoryUnlockService? = nil,
+        companionID: UUID? = nil
+    ) {
         self.modelContext = modelContext
         self.reviewScheduler = reviewScheduler
+        self.memoryUnlockService = memoryUnlockService
+        self.companionID = companionID
     }
 
     var currentCard: PracticeCard? {
@@ -98,6 +108,7 @@ final class PracticeViewModel: ObservableObject {
                 )
             }
             currentIndex = 0
+            allRatingsClear = true
             isComplete = cards.isEmpty == false ? false : true
         } catch {
             cards = []
@@ -109,6 +120,8 @@ final class PracticeViewModel: ObservableObject {
     func rate(signal: RecallSignal) {
         guard let card = currentCard else { return }
         let sentenceID = card.sentence.id
+        allRatingsClear = allRatingsClear && signal == .clear
+        let completesAllClearSession = currentIndex == cards.count - 1 && allRatingsClear
 
         Task {
             do {
@@ -117,6 +130,12 @@ final class PracticeViewModel: ObservableObject {
                     signal: signal,
                     at: Date()
                 )
+                if completesAllClearSession, let memoryUnlockService, let companionID {
+                    try memoryUnlockService.unlock(
+                        for: .practiceAllCorrect,
+                        companionID: companionID
+                    )
+                }
             } catch {
                 await MainActor.run {
                     self.errorMessage = "這次回饋尚未保存，請稍後再試。"
@@ -189,11 +208,18 @@ final class NightPreviewViewModel: ObservableObject {
 final class PracticeViewModelHolder: ObservableObject {
     @Published var viewModel: PracticeViewModel?
 
-    func setup(modelContext: ModelContext, reviewScheduler: (any ReviewScheduler)?) {
+    func setup(
+        modelContext: ModelContext,
+        reviewScheduler: (any ReviewScheduler)?,
+        memoryUnlockService: SpriteMemoryUnlockService? = nil,
+        companionID: UUID? = nil
+    ) {
         guard viewModel == nil, let reviewScheduler else { return }
         viewModel = PracticeViewModel(
             modelContext: modelContext,
-            reviewScheduler: reviewScheduler
+            reviewScheduler: reviewScheduler,
+            memoryUnlockService: memoryUnlockService,
+            companionID: companionID
         )
     }
 }

@@ -11,6 +11,7 @@ final class TodaySentenceSaveTests: XCTestCase {
             ReviewState.self,
             AudioAsset.self,
             GenerationJob.self,
+            SpriteMemory.self,
             LearningEvent.self,
         ])
         let container = try ModelContainer(
@@ -18,6 +19,16 @@ final class TodaySentenceSaveTests: XCTestCase {
             configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
         )
         let context = container.mainContext
+        let companionID = UUID()
+        let firstSentenceMemory = SpriteMemory(
+            companionID: companionID,
+            memoryKey: "first_own_sentence",
+            title: "第一次自己的句子",
+            descriptionText: "完成第一句",
+            icon: "星星",
+            category: .started
+        )
+        context.insert(firstSentenceMemory)
         let vocabularyHelp = VocabularyHelpUseCaseImpl(
             vocabRepo: VocabRepositoryImpl(modelContext: context),
             learningEventRepo: LearningEventRepositoryImpl(modelContext: context)
@@ -27,7 +38,9 @@ final class TodaySentenceSaveTests: XCTestCase {
             sentenceService: MockSentenceGenerationService(),
             audioService: MockAudioGenerationService(),
             modelContext: context,
-            vocabularyHelp: vocabularyHelp
+            vocabularyHelp: vocabularyHelp,
+            memoryUnlockService: SpriteMemoryUnlockService(modelContext: context),
+            companionID: companionID
         )
         let result = GeneratedSentenceResult(
             targetText: "I was swamped today.",
@@ -52,5 +65,9 @@ final class TodaySentenceSaveTests: XCTestCase {
         XCTAssertEqual(vocabItems.first?.surfaceText, "swamped")
         XCTAssertTrue(events.contains { $0.eventType == .vocabAdded })
         XCTAssertTrue(events.contains { $0.eventType == .sentenceCreated })
+        XCTAssertTrue(firstSentenceMemory.unlocked)
+        XCTAssertTrue(events.contains {
+            $0.eventType == .memoryUnlocked && $0.metadataJSON.contains("first_own_sentence")
+        })
     }
 }

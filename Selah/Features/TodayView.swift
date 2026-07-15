@@ -345,6 +345,7 @@ struct TodayView: View {
 // MARK: - Placeholder Views (to be fully implemented in M0)
 
 struct ListenView: View {
+    @EnvironmentObject var appState: AppState
     @Environment(\.modelContext) private var modelContext
     @StateObject private var holder = ListenViewModelHolder()
     @State private var coachVisible = true
@@ -542,7 +543,9 @@ struct PracticeView: View {
         .task {
             holder.setup(
                 modelContext: modelContext,
-                reviewScheduler: appState.reviewScheduler
+                reviewScheduler: appState.reviewScheduler,
+                memoryUnlockService: appState.memoryUnlockService,
+                companionID: appState.activeCompanion?.id
             )
             await holder.viewModel?.load()
         }
@@ -701,6 +704,8 @@ struct TodaySentenceView: View {
                 connectivity: appState.connectivity,
                 generationRetryQueue: appState.generationRetryQueue,
                 vocabularyHelp: appState.vocabularyHelp,
+                memoryUnlockService: appState.memoryUnlockService,
+                companionID: appState.activeCompanion?.id,
                 defaultVoiceProfile: appState.preferences.voiceProfile
             )
         }

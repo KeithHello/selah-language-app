@@ -15,6 +15,8 @@ final class TodaySentenceViewModelHolder: ObservableObject {
         connectivity: any ConnectivityProviding = ConnectivityMonitor(initialStatus: .online),
         generationRetryQueue: (any GenerationRetryQueue)? = nil,
         vocabularyHelp: VocabularyHelpUseCaseImpl? = nil,
+        memoryUnlockService: SpriteMemoryUnlockService? = nil,
+        companionID: UUID? = nil,
         defaultVoiceProfile: VoiceProfile = .gentleNatural
     ) {
         guard viewModel == nil else { return }
@@ -26,6 +28,8 @@ final class TodaySentenceViewModelHolder: ObservableObject {
             connectivity: connectivity,
             generationRetryQueue: generationRetryQueue,
             vocabularyHelp: vocabularyHelp,
+            memoryUnlockService: memoryUnlockService,
+            companionID: companionID,
             defaultVoiceProfile: defaultVoiceProfile
         )
     }
