@@ -1035,6 +1035,7 @@ struct OnboardingView: View {
     @EnvironmentObject var appState: AppState
     @State private var step = 0
     @State private var petName = ""
+    @State private var selectedSeedIDs = Set(OnboardingSeedPreset.defaults.map(\.id))
 
     var body: some View {
         VStack(spacing: SelahSpacing.xxl) {
@@ -1141,18 +1142,26 @@ struct OnboardingView: View {
             Text("不用緊張，之後你的句子會慢慢取代它們")
                 .selahBodySmall()
 
-            // Simplified seed selection
-            ForEach(["今天過得怎麼樣？", "工作好累但還是完成了", "想約朋友吃飯"], id: \.self) { seed in
-                HStack {
-                    Text(seed)
-                        .selahBodyLarge()
-                    Spacer()
-                    Image(systemName: "circle")
-                        .foregroundColor(.selahBorder)
+            ForEach(OnboardingSeedPreset.defaults) { seed in
+                Button {
+                    if selectedSeedIDs.contains(seed.id) {
+                        selectedSeedIDs.remove(seed.id)
+                    } else if selectedSeedIDs.count < 3 {
+                        selectedSeedIDs.insert(seed.id)
+                    }
+                } label: {
+                    HStack {
+                        Text(seed.sourceText)
+                            .selahBodyLarge()
+                        Spacer()
+                        Image(systemName: selectedSeedIDs.contains(seed.id) ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(selectedSeedIDs.contains(seed.id) ? .selahCoral : .selahBorder)
+                    }
+                    .padding(SelahSpacing.md)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
                 }
-                .padding(SelahSpacing.md)
-                .background(Color.selahCardPrimary)
-                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                .buttonStyle(.plain)
             }
 
             Button(action: { step = 3 }) {
@@ -1161,9 +1170,10 @@ struct OnboardingView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, SelahSpacing.md)
-                    .background(Color.selahCoral)
+                    .background(selectedSeedIDs.count == 3 ? Color.selahCoral : Color.selahTextTertiary)
                     .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
             }
+            .disabled(selectedSeedIDs.count != 3)
         }
     }
 
@@ -1187,7 +1197,8 @@ struct OnboardingView: View {
             .padding(.vertical, SelahSpacing.xxl)
 
             Button(action: {
-                appState.preferences.onboardingCompleted = true
+                let selectedSeeds = OnboardingSeedPreset.defaults.filter { selectedSeedIDs.contains($0.id) }
+                appState.completeOnboarding(name: petName, selectedSeeds: selectedSeeds)
             }) {
                 Text("開始學習！")
                     .font(.selahHeadlineMedium)

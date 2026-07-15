@@ -37,7 +37,7 @@
 - [ ] 保存生成句子时建立词汇条目。
 - [x] Notes 查询真实句子、掌握数、词汇和已解锁回忆。
 - [ ] 学习事件触发精灵回忆解锁。
-- [ ] Settings 可进入、可编辑并持久化声线、速度、提醒等偏好。
+- [x] Settings 可进入、可编辑并持久化声线、速度、提醒等偏好；iOS 上同步每日本地提醒。
 - [ ] Night Preview、通知、后台任务和 Widget 与真实 iOS 生命周期接线。
 - [ ] 建立版本化 SwiftData schema 与升级 fixture 测试。
 
@@ -74,3 +74,4 @@
 - 2026-07-16：确认当前仓库仍无 Xcode project／iOS target；本机无 Swift、Deno、Xcode。
 - 2026-07-16：GitHub Actions `29434797968` 成功，HEAD `eb2e569`；Swift 233 个测试（1 skipped、0 failures），Deno 124 个测试（0 failures），格式、lint 与 Edge Function type-check 全部通过。
 - 2026-07-16：GitHub Actions `29435122636` 成功，HEAD `715a5db`；Notes 的真实句子统计、分类过滤、词汇和已解锁回忆接入通过 Swift 与 Deno 双端 CI。
+- 2026-07-16：GitHub Actions `29435376954` 成功，HEAD `2826ff6`；设置持久化测试、Swift 构建测试与 Supabase Deno 全套检查通过。

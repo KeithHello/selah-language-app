@@ -54,6 +54,7 @@ final class AppState: ObservableObject {
     var vocabularyHelp: VocabularyHelpUseCaseImpl?
     var generationRetryQueue: GenerationRetryQueueImpl?
     private var preferenceStore: UserPreferenceStore?
+    private var onboardingCompletionService: OnboardingCompletionService?
     #if canImport(UserNotifications)
     private let notificationService = LocalNotificationService(client: UserNotificationsClient())
     #endif
@@ -89,6 +90,7 @@ final class AppState: ObservableObject {
         do {
             let context = modelContainer.mainContext
             preferenceStore = UserPreferenceStore(modelContext: context)
+            onboardingCompletionService = OnboardingCompletionService(modelContext: context)
 
             // Load or create preferences
             let prefDescriptor = FetchDescriptor<UserPreference>()
@@ -203,6 +205,20 @@ final class AppState: ObservableObject {
             showToast = ToastInfo(message: "通知權限未開啟，提醒已保持關閉。", style: .info)
         } catch {
             showToast = ToastInfo(message: "設定暫時無法儲存，請稍後再試。", style: .info)
+        }
+    }
+
+    func completeOnboarding(name: String, selectedSeeds: [OnboardingSeedPreset]) {
+        guard let activeCompanion, let onboardingCompletionService else { return }
+        do {
+            try onboardingCompletionService.complete(
+                companionName: name,
+                selectedSeeds: selectedSeeds,
+                companion: activeCompanion,
+                preference: preferences
+            )
+        } catch {
+            showToast = ToastInfo(message: "初始內容暫時無法儲存，請稍後再試。", style: .info)
         }
     }
 
