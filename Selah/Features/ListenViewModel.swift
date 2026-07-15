@@ -15,8 +15,17 @@ final class ListenViewModel: ObservableObject {
     private let builder: ListenCollectionBuilder
     private let playback: AudioPlaybackServiceImpl
 
-    init(modelContext: ModelContext, playback: AudioPlaybackServiceImpl? = nil) {
-        self.builder = ListenCollectionBuilder(modelContext: modelContext)
+    init(
+        modelContext: ModelContext,
+        playback: AudioPlaybackServiceImpl? = nil,
+        memoryUnlockService: SpriteMemoryUnlockService? = nil,
+        companionID: UUID? = nil
+    ) {
+        self.builder = ListenCollectionBuilder(
+            modelContext: modelContext,
+            memoryUnlockService: memoryUnlockService,
+            companionID: companionID
+        )
         self.playback = playback ?? AudioPlaybackServiceImpl()
     }
 

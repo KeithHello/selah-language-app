@@ -14,9 +14,17 @@ struct ListenCollectionItem: Identifiable {
 @MainActor
 final class ListenCollectionBuilder {
     private let modelContext: ModelContext
+    private let memoryUnlockService: SpriteMemoryUnlockService?
+    private let companionID: UUID?
 
-    init(modelContext: ModelContext) {
+    init(
+        modelContext: ModelContext,
+        memoryUnlockService: SpriteMemoryUnlockService? = nil,
+        companionID: UUID? = nil
+    ) {
         self.modelContext = modelContext
+        self.memoryUnlockService = memoryUnlockService
+        self.companionID = companionID
     }
 
     func build(limit: Int = 3) throws -> [ListenCollectionItem] {
@@ -46,10 +54,27 @@ final class ListenCollectionBuilder {
     }
 
     func markListened(_ item: ListenCollectionItem) throws {
+        let isFirstCompletion = item.sentence.listenCompletedAt == nil
         item.sentence.listenCompletedAt = Date()
         item.sentence.reviewState?.markListened()
         item.audioAsset.lastPlayedAt = Date()
+        if isFirstCompletion {
+            modelContext.insert(LearningEvent.listenCompleted(item.sentence.id))
+        }
         try modelContext.save()
+
+        if isFirstCompletion, let memoryUnlockService, let companionID {
+            let typeRaw = LearningEventType.listenCompleted.rawValue
+            let count = try modelContext.fetchCount(
+                FetchDescriptor<LearningEvent>(
+                    predicate: #Predicate<LearningEvent> { $0.eventTypeRaw == typeRaw }
+                )
+            )
+            try memoryUnlockService.unlock(
+                for: .listenCompleted(count: count),
+                companionID: companionID
+            )
+        }
     }
 
     private func preferredReadyAsset(for sentence: Sentence) -> AudioAsset? {

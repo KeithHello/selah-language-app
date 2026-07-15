@@ -53,6 +53,7 @@ final class AppState: ObservableObject {
     var reviewScheduler: (any ReviewScheduler)?
     var vocabularyHelp: VocabularyHelpUseCaseImpl?
     var generationRetryQueue: GenerationRetryQueueImpl?
+    private(set) var memoryUnlockService: SpriteMemoryUnlockService?
     private var preferenceStore: UserPreferenceStore?
     private var onboardingCompletionService: OnboardingCompletionService?
     #if canImport(UserNotifications)
@@ -91,6 +92,7 @@ final class AppState: ObservableObject {
             let context = modelContainer.mainContext
             preferenceStore = UserPreferenceStore(modelContext: context)
             onboardingCompletionService = OnboardingCompletionService(modelContext: context)
+            memoryUnlockService = SpriteMemoryUnlockService(modelContext: context)
 
             // Load or create preferences
             let prefDescriptor = FetchDescriptor<UserPreference>()
@@ -111,15 +113,13 @@ final class AppState: ObservableObject {
             } else {
                 let companion = Companion(displayName: "小豆")
                 context.insert(companion)
-
-                // Create default sprite memories
-                let memories = SpriteMemoryPresets.all(for: companion.id)
-                for memory in memories {
-                    context.insert(memory)
-                }
-
                 try context.save()
                 activeCompanion = companion
+            }
+
+            if let companionID = activeCompanion?.id {
+                try memoryUnlockService?.ensurePresets(for: companionID)
+                try memoryUnlockService?.unlock(for: .appOpen(count: 1), companionID: companionID)
             }
 
             // Wire up services.

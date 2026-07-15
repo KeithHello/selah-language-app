@@ -367,7 +367,11 @@ struct ListenView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .onAppear {
-            holder.setup(modelContext: modelContext)
+            holder.setup(
+                modelContext: modelContext,
+                memoryUnlockService: appState.memoryUnlockService,
+                companionID: appState.activeCompanion?.id
+            )
         }
         .onDisappear {
             holder.viewModel?.stop()
@@ -503,9 +507,17 @@ struct ListenView: View {
 final class ListenViewModelHolder: ObservableObject {
     @Published var viewModel: ListenViewModel?
 
-    func setup(modelContext: ModelContext) {
+    func setup(
+        modelContext: ModelContext,
+        memoryUnlockService: SpriteMemoryUnlockService?,
+        companionID: UUID?
+    ) {
         guard viewModel == nil else { return }
-        let model = ListenViewModel(modelContext: modelContext)
+        let model = ListenViewModel(
+            modelContext: modelContext,
+            memoryUnlockService: memoryUnlockService,
+            companionID: companionID
+        )
         viewModel = model
         model.load()
     }

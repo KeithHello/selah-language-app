@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-非动画系统完整化实施中。当前工程具有大量已测试核心模块，但仍是 macOS Swift Package；真实 iOS App target、认证、真实 AI／音频运行路径和多项产品数据闭环尚未完成。
+非动画系统完整化实施中。当前已建立真实 iOS 17+ App target，并通过 iOS Simulator Release 构建；认证、真实 AI／音频运行路径和部分产品数据闭环尚未完成。
 
 ## 已验证基线
 
@@ -23,13 +23,13 @@
 
 ### P0：真实产品闭环
 
-- [ ] 建立可编译、可启动的 iOS 17+ App target 与资源打包。
+- [x] 建立可编译的 iOS 17+ App target，生成基础 App 信息并纳入模拟器 Release 构建门禁。
 - [ ] 确定并实现 MVP 认证边界；推荐 Supabase 匿名会话，后续可绑定账号。
 - [ ] App 启动路径建立真实 `SelahAPIClient`，句子和音频服务不再固定使用 Mock。
 - [x] Onboarding 幂等保存精灵名称、3 个种子句和默认偏好状态。
-- [ ] 修复语音权限、按住／释放录音、最终 transcript 保存与音频引擎停止。
+- [x] 修复语音权限、按住／释放录音、最终 transcript 保存与音频引擎停止，并通过核心测试与 iOS 编译。
 - [ ] Today 保存统一经过音频生成、下载、校验、缓存；Listen 读取真实本地文件。
-- [ ] 修复离线重试 payload，保留目标文本、声线和失败是否可重试。
+- [x] 修复离线重试 payload，保留目标文本、声线、原因和失败是否可重试。
 - [ ] 完成中文输入 → 英文生成 → TTS → Listen → Practice 的真实端到端验收。
 
 ### P1：产品数据闭环
@@ -52,7 +52,7 @@
 
 ### P2：发布准备
 
-- [ ] iOS 模拟器构建与测试。
+- [x] iOS Simulator Release 构建；核心测试继续由 Swift Package 门禁执行。
 - [ ] 真机验证 Speech、Microphone、AVAudioSession、离线恢复、低存储和通知权限。
 - [ ] App Icon、隐私政策 URL、截图和 Privacy Nutrition Label。
 - [ ] TestFlight 内测与 release build 验证。
@@ -76,3 +76,4 @@
 - 2026-07-16：GitHub Actions `29435122636` 成功，HEAD `715a5db`；Notes 的真实句子统计、分类过滤、词汇和已解锁回忆接入通过 Swift 与 Deno 双端 CI。
 - 2026-07-16：GitHub Actions `29435376954` 成功，HEAD `2826ff6`；设置持久化测试、Swift 构建测试与 Supabase Deno 全套检查通过。
 - 2026-07-16：GitHub Actions `29435596159` 成功，HEAD `30529f7`；Onboarding 名称与三句 Seed 幂等持久化测试及双端 CI 通过。
+- 2026-07-16：GitHub Actions `29436084806` 成功，HEAD `0d3bd7a`；首次真实 iOS Simulator Release 构建、Swift 核心测试与 Supabase Deno 门禁全部通过。
