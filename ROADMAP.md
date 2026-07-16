@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-非动画系统完整化实施中。当前已建立真实 iOS 17+ App target，并通过 iOS Simulator Release 构建；认证、真实 AI／音频运行路径和部分产品数据闭环尚未完成。
+非动画系统完整化实施中。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环和 Widget 已接线并通过 CI；严格后端配额、数据库升级演练与外部环境验收尚未完成。
 
 ## 已验证基线
 
@@ -28,24 +28,25 @@
 - [x] App 启动路径按运行配置建立真实 `SelahAPIClient`；未配置或未登录时明确阻止，不再静默回退 Mock。
 - [x] Onboarding 幂等保存精灵名称、3 个种子句和默认偏好状态。
 - [x] 修复语音权限、按住／释放录音、最终 transcript 保存与音频引擎停止，并通过核心测试与 iOS 编译。
-- [ ] Today 保存统一经过音频生成、下载、校验、缓存；Listen 读取真实本地文件。
+- [x] Today 保存统一经过音频生成、下载、校验、缓存；Listen 读取真实本地文件。
 - [x] 修复离线重试 payload，保留目标文本、声线、原因和失败是否可重试。
 - [ ] 完成中文输入 → 英文生成 → TTS → Listen → Practice 的真实端到端验收。
 
 ### P1：产品数据闭环
 
-- [ ] 保存生成句子时建立词汇条目。
+- [x] 保存生成句子时建立词汇条目。
 - [x] Notes 查询真实句子、掌握数、词汇和已解锁回忆。
-- [ ] 学习事件触发精灵回忆解锁。
+- [x] 学习事件触发精灵回忆解锁。
 - [x] Settings 可进入、可编辑并持久化声线、速度、提醒等偏好；iOS 上同步每日本地提醒。
-- [ ] Night Preview、通知、后台任务和 Widget 与真实 iOS 生命周期接线。
+- [x] Night Preview、本地通知和 Widget 与真实 iOS 生命周期接线。
+- [ ] 建立受系统调度的后台任务；当前离线重试在前台恢复时执行。
 - [ ] 建立版本化 SwiftData schema 与升级 fixture 测试。
 
 ### P1：后端与安全
 
 - [x] 更新失效的 Deno 测试，使测试验证行为而非源码字符串。
 - [x] 将 Supabase 格式、lint、类型检查与测试加入 CI。
-- [ ] 为生成接口增加每用户额度、速率限制和并发去重。
+- [ ] 为生成接口增加每用户额度和原子速率限制；音频生成中请求的并发去重已完成。
 - [x] `events.metadata` 改为按事件类型区分的明确字段白名单。
 - [x] JWT helper 明确命名为解析网关已验证 claims，并注明签名验证依赖 `verify_jwt = true`。
 - [ ] 重新执行部署 smoke test，记录当前远端版本证据。
@@ -79,3 +80,6 @@
 - 2026-07-16：GitHub Actions `29436084806` 成功，HEAD `0d3bd7a`；首次真实 iOS Simulator Release 构建、Swift 核心测试与 Supabase Deno 门禁全部通过。
 - 2026-07-16：GitHub Actions `29464700822` 成功，HEAD `9903999`；Night Preview 持久化与事件测试、iOS 构建及 Deno 门禁通过。
 - 2026-07-16：GitHub Actions `29466371853` 成功，HEAD `f9fab51`；Keychain 会话、运行配置、真实服务接线及移除产品 Mock 回退通过三门禁。
+- 2026-07-16：GitHub Actions `29466706748` 成功，HEAD `ea4de30`；真实 TTS 下载、校验、缓存与离线重试接线通过三门禁。
+- 2026-07-16：GitHub Actions `29468653533` 成功，HEAD `aee3a9b`；Widget Extension、App Group 快照和生命周期刷新通过三门禁。
+- 2026-07-16：GitHub Actions `29468811339` 成功，HEAD `27e3328`；生成中音频清单复用及防重复 TTS 调用通过三门禁。
