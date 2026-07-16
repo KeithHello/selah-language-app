@@ -73,6 +73,9 @@ final class AppState: ObservableObject {
     private var onboardingCompletionService: OnboardingCompletionService?
     private var apiClient: SelahAPIClient?
     private let widgetSnapshotStore = WidgetSnapshotStore()
+    #if canImport(BackgroundTasks)
+    private let backgroundRefreshScheduler = BackgroundRefreshScheduler()
+    #endif
     #if canImport(UserNotifications)
     private let notificationService = LocalNotificationService(client: UserNotificationsClient())
     #endif
@@ -102,6 +105,13 @@ final class AppState: ObservableObject {
         } catch {
             fatalError("Failed to create ModelContainer: \(error)")
         }
+
+        #if canImport(BackgroundTasks)
+        backgroundRefreshScheduler.register { [weak self] in
+            await self?.retryPendingGenerationJobs()
+            await self?.refreshWidgetSnapshot()
+        }
+        #endif
     }
 
     func initialize() async {
@@ -331,6 +341,9 @@ final class AppState: ObservableObject {
             await refreshWidgetSnapshot()
         case .background:
             await refreshWidgetSnapshot()
+            #if canImport(BackgroundTasks)
+            try? backgroundRefreshScheduler.schedule()
+            #endif
         case .inactive:
             break
         @unknown default:

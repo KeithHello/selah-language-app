@@ -254,11 +254,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Selah;
+				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.kdagentic.selah.refresh";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Selah 使用麥克風，把你說的中文轉成今天要學的英文句子。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Selah 使用語音辨識，將你的口述內容轉成文字供你確認。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIBackgroundModes = fetch;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kdagentic.selah;
@@ -278,11 +280,13 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = Selah;
+				INFOPLIST_KEY_BGTaskSchedulerPermittedIdentifiers = "com.kdagentic.selah.refresh";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Selah 使用麥克風，把你說的中文轉成今天要學的英文句子。";
 				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Selah 使用語音辨識，將你的口述內容轉成文字供你確認。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UIBackgroundModes = fetch;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				MARKETING_VERSION = 0.1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.kdagentic.selah;

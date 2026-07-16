@@ -24,6 +24,16 @@ private actor FakeNotificationClient: LocalNotificationClient {
 }
 
 final class M4AccessibilityAndExperienceTests: XCTestCase {
+    func testBackgroundRefreshPolicyUsesRegisteredIdentifierAndMinimumDelay() {
+        let now = Date(timeIntervalSince1970: 1_000)
+
+        XCTAssertEqual(BackgroundRefreshPolicy.taskIdentifier, "com.kdagentic.selah.refresh")
+        XCTAssertEqual(
+            BackgroundRefreshPolicy.earliestBeginDate(now: now),
+            now.addingTimeInterval(15 * 60)
+        )
+    }
+
     func testNotificationTimeParsesValidTimeAndFallsBackSafely() {
         XCTAssertEqual(LocalNotificationService.parseTime("07:05", fallback: "20:00").hour, 7)
         XCTAssertEqual(LocalNotificationService.parseTime("07:05", fallback: "20:00").minute, 5)
