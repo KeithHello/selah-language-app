@@ -75,7 +75,7 @@ jobs:
             "$RUNNER_TEMP/Selah.xcarchive.zip"
 
       - name: Upload archive artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Selah-unsigned-simulator-xcarchive
           path: ${{ runner.temp }}/Selah.xcarchive.zip
