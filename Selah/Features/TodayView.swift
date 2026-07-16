@@ -727,8 +727,12 @@ struct TodaySentenceView: View {
         case .idle: idleState(vm: vm)
         case .recording, .recognizingText: recordingState(vm: vm)
         case .confirmingChinese(let transcript): confirmingChineseState(vm: vm, transcript: transcript)
+        case .preparingCapture: preparingCaptureState
+        case .reviewingSegments: reviewingSegmentsState(vm: vm)
         case .translating: translatingState
         case .reviewingResult(let result): reviewingResultState(vm: vm, result: result)
+        case .translatingBatch: translatingBatchState
+        case .reviewingBatch(let results): reviewingBatchState(vm: vm, results: results)
         case .saving: savingState
         case .done: doneState(vm: vm)
         case .error(let message): errorState(vm: vm, message: message)
@@ -797,12 +801,72 @@ struct TodaySentenceView: View {
                 .overlay(RoundedRectangle(cornerRadius: SelahCornerRadius.md).strokeBorder(Color.selahCoral.opacity(0.3), lineWidth: 1))
             HStack(spacing: SelahSpacing.md) {
                 Button("重錄") { vm.cancel() }.buttonStyle(.bordered)
-                Button(action: { vm.translate(chineseText: transcript) }) {
+                Button(action: { vm.prepareCapture(rawTranscript: transcript) }) {
                     Text("確認 -> 翻譯").font(.selahHeadlineMedium).foregroundColor(.white)
                         .frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.md)
                         .background(Color.selahCoral).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
                 }
             }
+        }
+    }
+
+    private var preparingCaptureState: some View {
+        VStack(spacing: SelahSpacing.md) {
+            ProgressView().scaleEffect(1.5).tint(.selahCoral)
+            Text("正在整理語音內容").selahHeadlineMedium()
+            Text("先保留原文，再提出安全的清理與分句建議").selahBodySmall()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, SelahSpacing.xxl)
+    }
+
+    private func reviewingSegmentsState(vm: TodaySentenceViewModel) -> some View {
+        VStack(alignment: .leading, spacing: SelahSpacing.md) {
+            Text("確認學習語料").selahLabelLarge()
+            Text("可以修改句子、取消不想學的內容，也可以把相鄰句子合併。只有確認後才會翻譯並生成音頻")
+                .selahBodySmall()
+
+            ForEach(vm.segmentSuggestions) { segment in
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    HStack {
+                        Toggle(
+                            "第 \(segment.orderIndex + 1) 句，加入本次學習",
+                            isOn: Binding(
+                                get: { segment.selected },
+                                set: { vm.setSegmentSelected(id: segment.id, selected: $0) }
+                            )
+                        )
+                        if segment.orderIndex + 1 < vm.segmentSuggestions.count {
+                            Button("合併下一句") { vm.mergeSegmentWithNext(id: segment.id) }
+                                .font(.selahBodySmall)
+                        }
+                    }
+                    TextEditor(
+                        text: Binding(
+                            get: { segment.sourceText },
+                            set: { vm.updateSegmentText(id: segment.id, text: $0) }
+                        )
+                    )
+                    .font(.selahBodyLarge)
+                    .frame(minHeight: 64)
+                    .padding(SelahSpacing.sm)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
+                    if !segment.removedText.isEmpty {
+                        Text("建議移除：\(segment.removedText.joined(separator: "、"))，可直接編回原文")
+                            .selahBodySmall()
+                            .foregroundColor(.selahTextTertiary)
+                    }
+                }
+                .padding(SelahSpacing.md)
+                .background(Color.selahCardPrimary.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+            }
+
+            Button("確認分句並翻譯") { vm.translateSelectedSegments() }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahCoral)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -907,6 +971,48 @@ struct NotesView: View {
 
     private var summary: NotesSummary {
         NotesPresentation.summary(sentences: sentences)
+    }
+
+    private var translatingBatchState: some View {
+        VStack(spacing: SelahSpacing.md) {
+            ProgressView().scaleEffect(1.5).tint(.selahCoral)
+            Text("正在逐句生成學習內容").selahHeadlineMedium()
+            Text("每一句會保留獨立的翻譯、詞彙和練習進度").selahBodySmall()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, SelahSpacing.xxl)
+    }
+
+    private func reviewingBatchState(
+        vm: TodaySentenceViewModel,
+        results: [SegmentTranslationResult]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: SelahSpacing.md) {
+            Text("確認翻譯結果").selahLabelLarge()
+            ForEach(results) { result in
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    if let segment = vm.segmentSuggestions.first(where: { $0.id == result.segmentID }) {
+                        Text(segment.sourceText).selahBodyMedium()
+                            .foregroundColor(.selahTextSecondary)
+                    }
+                    Text(result.targetText).selahHeadlineMedium()
+                        .foregroundColor(.selahSage)
+                    if !result.vocabulary.isEmpty {
+                        Text(result.vocabulary.map(\.surfaceText).joined(separator: "、"))
+                            .selahBodySmall()
+                            .foregroundColor(.selahTextTertiary)
+                    }
+                }
+                .padding(SelahSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.selahSageSoft)
+                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+            }
+            Button("確認並保存這組學習句") { vm.saveBatch(results: results) }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahSage)
+                .frame(maxWidth: .infinity)
+        }
     }
 
     private var visibleSentences: [Sentence] {
