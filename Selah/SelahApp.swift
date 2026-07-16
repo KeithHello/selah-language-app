@@ -11,7 +11,9 @@ struct SelahApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if appState.isLoading {
+            if appState.persistenceRecoveryRequired {
+                PersistenceRecoveryView()
+            } else if appState.isLoading {
                 LaunchScreen()
                     .task {
                         await appState.initialize()
@@ -55,6 +57,7 @@ final class AppState: ObservableObject {
     @Published private(set) var authenticationState: AppAuthenticationState = .configurationMissing
     @Published private(set) var isAuthenticating = false
     @Published private(set) var authenticationError: String?
+    @Published private(set) var persistenceRecoveryRequired = false
 
     let modelContainer: ModelContainer
     let connectivity: ConnectivityMonitor
@@ -89,21 +92,26 @@ final class AppState: ObservableObject {
     init() {
         connectivity = ConnectivityMonitor()
         do {
-            let schema = Schema([
-                Sentence.self,
-                VocabItem.self,
-                ReviewState.self,
-                AudioAsset.self,
-                GenerationJob.self,
-                Companion.self,
-                SpriteMemory.self,
-                UserPreference.self,
-                LearningEvent.self,
-            ])
+            let schema = Schema(versionedSchema: SelahSchemaV2.self)
             let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-            modelContainer = try ModelContainer(for: schema, configurations: [config])
+            modelContainer = try ModelContainer(
+                for: schema,
+                migrationPlan: SelahMigrationPlan.self,
+                configurations: [config]
+            )
         } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
+            persistenceRecoveryRequired = true
+            do {
+                let schema = Schema(versionedSchema: SelahSchemaV2.self)
+                let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                modelContainer = try ModelContainer(
+                    for: schema,
+                    migrationPlan: SelahMigrationPlan.self,
+                    configurations: [fallback]
+                )
+            } catch {
+                fatalError("Failed to create the recovery ModelContainer: \(error)")
+            }
         }
 
         #if os(iOS)
@@ -401,6 +409,30 @@ struct LaunchScreen: View {
                     .font(.selahDisplayLarge)
                     .foregroundColor(.selahTextPrimary)
             }
+        }
+    }
+}
+
+struct PersistenceRecoveryView: View {
+    var body: some View {
+        ZStack {
+            Color.selahBgPrimary.ignoresSafeArea()
+            VStack(spacing: SelahSpacing.md) {
+                Image(systemName: "externaldrive.badge.exclamationmark")
+                    .font(.system(size: 42))
+                    .foregroundColor(.selahAmber)
+
+                Text("學習資料需要處理")
+                    .font(.selahDisplayLarge)
+                    .foregroundColor(.selahTextPrimary)
+
+                Text("Selah 無法安全升級本機資料，因此沒有刪除或重建任何內容。請保留 App，更新至較新版本後再重新開啟。")
+                    .font(.selahBodyLarge)
+                    .foregroundColor(.selahTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+            }
+            .padding(SelahSpacing.xl)
         }
     }
 }
