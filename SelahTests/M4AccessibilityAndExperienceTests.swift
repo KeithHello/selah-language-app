@@ -71,6 +71,22 @@ final class M4AccessibilityAndExperienceTests: XCTestCase {
         XCTAssertEqual(snapshot.generatedAt, Date(timeIntervalSince1970: 123))
     }
 
+    func testWidgetSnapshotStorePersistsSharedContract() throws {
+        let suite = "SelahWidgetTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let snapshot = WidgetReadySnapshotBuilder().build(
+            counts: WidgetReadyCounts(todaySentenceCount: 1, listenedCount: 2, dueReviewCount: 3),
+            recommendation: "練習一句",
+            companionDisplayName: "小豆",
+            generatedAt: Date(timeIntervalSince1970: 321)
+        )
+
+        try WidgetSnapshotStore(defaults: defaults).save(snapshot)
+
+        let data = try XCTUnwrap(defaults.data(forKey: WidgetSnapshotStore.snapshotKey))
+        XCTAssertEqual(try JSONDecoder().decode(WidgetReadySnapshot.self, from: data), snapshot)
+    }
+
     func testReduceMotionPolicyDisablesAnimations() {
         XCTAssertTrue(SelahMotionPolicy.policy(reduceMotion: false).allowsAnimation)
         XCTAssertFalse(SelahMotionPolicy.policy(reduceMotion: true).allowsAnimation)

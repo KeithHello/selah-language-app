@@ -32,8 +32,7 @@ struct SelahApp: App {
         }
         .modelContainer(appState.modelContainer)
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await appState.retryPendingGenerationJobs() }
+            Task { await appState.handleScenePhase(phase) }
         }
     }
 }
@@ -73,6 +72,7 @@ final class AppState: ObservableObject {
     private var preferenceStore: UserPreferenceStore?
     private var onboardingCompletionService: OnboardingCompletionService?
     private var apiClient: SelahAPIClient?
+    private let widgetSnapshotStore = WidgetSnapshotStore()
     #if canImport(UserNotifications)
     private let notificationService = LocalNotificationService(client: UserNotificationsClient())
     #endif
@@ -169,6 +169,7 @@ final class AppState: ObservableObject {
 
             connectivityStatus = await connectivity.refresh()
             try await configureNetworkServices(modelContext: context)
+            await refreshWidgetSnapshot()
         } catch {
             // Keep diagnostics local and generic; never expose model or provider details in UI logs.
             showToast = ToastInfo(
@@ -320,6 +321,48 @@ final class AppState: ObservableObject {
                 message: "背景處理暫時沒有完成，稍後會自動再試。",
                 style: .info
             )
+        }
+    }
+
+    func handleScenePhase(_ phase: ScenePhase) async {
+        switch phase {
+        case .active:
+            await retryPendingGenerationJobs()
+            await refreshWidgetSnapshot()
+        case .background:
+            await refreshWidgetSnapshot()
+        case .inactive:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    func refreshWidgetSnapshot(now: Date = Date()) async {
+        do {
+            let context = modelContainer.mainContext
+            let sentences = try context.fetch(FetchDescriptor<Sentence>())
+                .filter { !$0.archived }
+            let todayCount = sentences.filter { Calendar.current.isDate($0.createdAt, inSameDayAs: now) }.count
+            let listenedCount = sentences.filter { $0.listenCompletedAt != nil }.count
+            let dueCount = sentences.filter { sentence in
+                guard let review = sentence.reviewState else { return false }
+                return review.nextReviewAt <= now && (review.state == .learning || review.state == .familiar)
+            }.count
+            let recommendation = try await recommendationEngine?.recommendNextAction(now: now)
+            let snapshot = WidgetReadySnapshotBuilder().build(
+                counts: WidgetReadyCounts(
+                    todaySentenceCount: todayCount,
+                    listenedCount: listenedCount,
+                    dueReviewCount: dueCount
+                ),
+                recommendation: recommendation?.type.displayName ?? "今天留一句給自己",
+                companionDisplayName: activeCompanion?.displayName ?? "語言精靈",
+                generatedAt: now
+            )
+            try widgetSnapshotStore.save(snapshot)
+        } catch {
+            // Widget data is best-effort and must never block the main learning flow.
         }
     }
 }
