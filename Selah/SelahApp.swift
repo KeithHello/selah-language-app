@@ -92,7 +92,7 @@ final class AppState: ObservableObject {
     init() {
         connectivity = ConnectivityMonitor()
         do {
-            let schema = Schema(versionedSchema: SelahSchemaV2.self)
+            let schema = Schema(versionedSchema: SelahSchemaV3.self)
             let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
             modelContainer = try ModelContainer(
                 for: schema,
@@ -102,7 +102,7 @@ final class AppState: ObservableObject {
         } catch {
             persistenceRecoveryRequired = true
             do {
-                let schema = Schema(versionedSchema: SelahSchemaV2.self)
+                let schema = Schema(versionedSchema: SelahSchemaV3.self)
                 let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
                 modelContainer = try ModelContainer(
                     for: schema,

@@ -98,6 +98,31 @@ struct AudioGenerateRequest: Encodable {
     let clientRequestId: UUID
 }
 
+private struct CapturePrepareRequest: Encodable {
+    let rawTranscript: String
+    let sourceLanguage: String
+    let targetLanguage: String
+    let clientRequestId: UUID
+}
+
+private struct BatchSegmentRequest: Encodable {
+    let segmentId: UUID
+    let orderIndex: Int
+    let sourceText: String
+}
+
+private struct BatchSentenceGenerateRequest: Encodable {
+    let segments: [BatchSegmentRequest]
+    let sourceLanguage: String
+    let targetLanguage: String
+    let categoryHint: String?
+    let clientRequestId: UUID
+}
+
+private struct BatchSentenceGenerateResponse: Decodable {
+    let items: [SegmentTranslationResult]
+}
+
 private struct SignInRequest: Encodable {
     let email: String
     let password: String
@@ -263,6 +288,53 @@ final class SelahAPIClient: SelahAPIClientProtocol {
             body: body,
             capability: .audioGeneration
         )
+    }
+
+    func prepareCapture(
+        rawTranscript: String,
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage
+    ) async throws -> CapturePreparation {
+        let body = CapturePrepareRequest(
+            rawTranscript: rawTranscript,
+            sourceLanguage: sourceLanguage.rawValue,
+            targetLanguage: targetLanguage.rawValue,
+            clientRequestId: UUID()
+        )
+        return try await performRequest(
+            path: "/functions/v1/sentences-prepare",
+            method: "POST",
+            body: body,
+            capability: .sentenceGeneration
+        )
+    }
+
+    func generateSentenceBatch(
+        segments: [CaptureSegmentSuggestion],
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage,
+        categoryHint: SentenceCategory?
+    ) async throws -> [SegmentTranslationResult] {
+        let body = BatchSentenceGenerateRequest(
+            segments: segments.map {
+                BatchSegmentRequest(
+                    segmentId: $0.id,
+                    orderIndex: $0.orderIndex,
+                    sourceText: $0.sourceText
+                )
+            },
+            sourceLanguage: sourceLanguage.rawValue,
+            targetLanguage: targetLanguage.rawValue,
+            categoryHint: categoryHint?.rawValue,
+            clientRequestId: UUID()
+        )
+        let response: BatchSentenceGenerateResponse = try await performRequest(
+            path: "/functions/v1/sentences-batch-generate",
+            method: "POST",
+            body: body,
+            capability: .sentenceGeneration
+        )
+        return response.items
     }
 
     func fetchBootstrap() async throws -> BootstrapConfig {

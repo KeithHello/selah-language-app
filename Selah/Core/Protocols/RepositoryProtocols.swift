@@ -84,7 +84,39 @@ protocol SelahAPIClientProtocol {
         reason: AudioGenerationReason
     ) async throws -> GeneratedAudioResult
 
+    func prepareCapture(
+        rawTranscript: String,
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage
+    ) async throws -> CapturePreparation
+
+    func generateSentenceBatch(
+        segments: [CaptureSegmentSuggestion],
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage,
+        categoryHint: SentenceCategory?
+    ) async throws -> [SegmentTranslationResult]
+
     func fetchBootstrap() async throws -> BootstrapConfig
+}
+
+extension SelahAPIClientProtocol {
+    func prepareCapture(
+        rawTranscript: String,
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage
+    ) async throws -> CapturePreparation {
+        throw SelahAPIError.serverError(501, "capture preparation unavailable")
+    }
+
+    func generateSentenceBatch(
+        segments: [CaptureSegmentSuggestion],
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage,
+        categoryHint: SentenceCategory?
+    ) async throws -> [SegmentTranslationResult] {
+        throw SelahAPIError.serverError(501, "batch generation unavailable")
+    }
 }
 
 /// Bootstrap configuration from backend.

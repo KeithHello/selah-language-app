@@ -26,14 +26,24 @@ enum SelahSchemaV2: VersionedSchema {
     ]
 }
 
+enum SelahSchemaV3: VersionedSchema {
+    static let versionIdentifier = Schema.Version(3, 0, 0)
+    static let models: [any PersistentModel.Type] = SelahSchemaModels.v2 + [
+        CaptureDraft.self,
+        LearningSegmentDraft.self,
+    ]
+}
+
 enum SelahMigrationPlan: SchemaMigrationPlan {
     static let schemas: [any VersionedSchema.Type] = [
         SelahSchemaV1.self,
         SelahSchemaV2.self,
+        SelahSchemaV3.self,
     ]
 
     static let stages: [MigrationStage] = [
         .lightweight(fromVersion: SelahSchemaV1.self, toVersion: SelahSchemaV2.self),
+        .lightweight(fromVersion: SelahSchemaV2.self, toVersion: SelahSchemaV3.self),
     ]
 }
 
@@ -48,5 +58,9 @@ private enum SelahSchemaModels {
         SpriteMemory.self,
         UserPreference.self,
         LearningEvent.self,
+    ]
+
+    static let v2: [any PersistentModel.Type] = v1 + [
+        PersistenceMetadata.self,
     ]
 }

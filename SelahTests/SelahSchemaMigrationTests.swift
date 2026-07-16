@@ -39,6 +39,48 @@ final class SelahSchemaMigrationTests: XCTestCase {
         )
     }
 
+    func testV2StoreMigratesToV3AndAddsCaptureDraftModels() throws {
+        let storeURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent("selah-v2-to-v3-\(UUID().uuidString).store")
+        try createV2Store(at: storeURL)
+
+        let v3Schema = Schema(versionedSchema: SelahSchemaV3.self)
+        let configuration = ModelConfiguration(
+            "SelahMigrationV3",
+            schema: v3Schema,
+            url: storeURL,
+            allowsSave: true,
+            cloudKitDatabase: .none
+        )
+        let container = try ModelContainer(
+            for: v3Schema,
+            migrationPlan: SelahMigrationPlan.self,
+            configurations: [configuration]
+        )
+        let capture = CaptureDraft(
+            rawTranscript: "呃，我今天很累。",
+            normalizedTranscript: "呃，我今天很累。"
+        )
+        let segment = LearningSegmentDraft(
+            captureID: capture.id,
+            orderIndex: 0,
+            originalText: "呃，我今天很累。",
+            sourceText: "我今天很累。"
+        )
+        capture.segments = [segment]
+        container.mainContext.insert(capture)
+        try container.mainContext.save()
+
+        XCTAssertEqual(
+            try container.mainContext.fetch(FetchDescriptor<CaptureDraft>()).count,
+            1
+        )
+        XCTAssertEqual(
+            try container.mainContext.fetch(FetchDescriptor<LearningSegmentDraft>()).count,
+            1
+        )
+    }
+
     private func createV1Store(at storeURL: URL, preferenceID: UUID) throws {
         let v1Schema = Schema(versionedSchema: SelahSchemaV1.self)
         let v1Configuration = ModelConfiguration(
@@ -55,5 +97,17 @@ final class SelahSchemaMigrationTests: XCTestCase {
         let preference = UserPreference(id: preferenceID, onboardingCompleted: true)
         container.mainContext.insert(preference)
         try container.mainContext.save()
+    }
+
+    private func createV2Store(at storeURL: URL) throws {
+        let schema = Schema(versionedSchema: SelahSchemaV2.self)
+        let configuration = ModelConfiguration(
+            "SelahMigrationV2Fixture",
+            schema: schema,
+            url: storeURL,
+            allowsSave: true,
+            cloudKitDatabase: .none
+        )
+        _ = try ModelContainer(for: schema, configurations: [configuration])
     }
 }

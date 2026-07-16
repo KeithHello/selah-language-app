@@ -23,4 +23,30 @@ actor SentenceGenerationServiceImpl: SentenceGenerationService {
             categoryHint: categoryHint
         )
     }
+
+    func prepareCapture(
+        rawTranscript: String,
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage
+    ) async throws -> CapturePreparation {
+        try await apiClient.prepareCapture(
+            rawTranscript: rawTranscript,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage
+        )
+    }
+
+    func generateSentenceBatch(
+        segments: [CaptureSegmentSuggestion],
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage,
+        categoryHint: SentenceCategory?
+    ) async throws -> [SegmentTranslationResult] {
+        try await apiClient.generateSentenceBatch(
+            segments: segments,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            categoryHint: categoryHint
+        )
+    }
 }
