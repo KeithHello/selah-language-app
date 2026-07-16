@@ -960,6 +960,47 @@ struct TodaySentenceView: View {
             Button("再試一次") { vm.dismissError() }.buttonStyle(.borderedProminent).tint(.selahCoral)
         }.frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.xxl)
     }
+    private var translatingBatchState: some View {
+        VStack(spacing: SelahSpacing.md) {
+            ProgressView().scaleEffect(1.5).tint(.selahCoral)
+            Text("Preparing batch translations").selahHeadlineMedium()
+            Text("We are translating the selected segments.").selahBodySmall()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, SelahSpacing.xxl)
+    }
+
+    private func reviewingBatchState(
+        vm: TodaySentenceViewModel,
+        results: [SegmentTranslationResult]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: SelahSpacing.md) {
+            Text("Review translations").selahLabelLarge()
+            ForEach(results) { result in
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    if let segment = vm.segmentSuggestions.first(where: { $0.id == result.segmentID }) {
+                        Text(segment.sourceText).selahBodyMedium()
+                            .foregroundColor(.selahTextSecondary)
+                    }
+                    Text(result.targetText).selahHeadlineMedium()
+                        .foregroundColor(.selahSage)
+                    if !result.vocabulary.isEmpty {
+                        Text(result.vocabulary.map(\.surfaceText).joined(separator: ", "))
+                            .selahBodySmall()
+                            .foregroundColor(.selahTextTertiary)
+                    }
+                }
+                .padding(SelahSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.selahSageSoft)
+                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+            }
+            Button("Save all sentences") { vm.saveBatch(results: results) }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahSage)
+                .frame(maxWidth: .infinity)
+        }
+    }
 }
 
 struct NotesView: View {

@@ -280,7 +280,13 @@ final class TodaySentenceViewModel: ObservableObject {
                     targetLanguage: .en,
                     categoryHint: self.selectedCategory
                 )
-                self.flowState = .reviewingBatch(results: results)
+                let orderByID = Dictionary(
+                    uniqueKeysWithValues: selected.enumerated().map { ($1.id, $0) }
+                )
+                let orderedResults = results.sorted {
+                    (orderByID[$0.segmentID] ?? .max) < (orderByID[$1.segmentID] ?? .max)
+                }
+                self.flowState = .reviewingBatch(results: orderedResults)
             } catch let error as SelahAPIError {
                 self.persistCurrentCaptureDraft(status: .failed)
                 self.flowState = .error(message: error.errorDescription ?? "批量翻譯失敗")

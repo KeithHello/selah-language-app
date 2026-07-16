@@ -91,6 +91,11 @@ Deno.serve(async (req: Request) => {
       },
     );
     if (error || !raw) {
+      await failClaims(
+        supabase as unknown as RPCClient,
+        authResult,
+        claimedIDs,
+      );
       return errorResponse(
         "Generation capacity unavailable",
         503,

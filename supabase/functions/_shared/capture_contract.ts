@@ -244,8 +244,36 @@ export function buildBatchTranslationRequest(
                   segmentId: { type: "string" },
                   targetText: { type: "string" },
                   category: { type: "string" },
-                  vocabulary: { type: "array", items: { type: "object" } },
-                  deconstruction: { type: "array", items: { type: "object" } },
+                  vocabulary: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      additionalProperties: false,
+                      required: [
+                        "surfaceText",
+                        "meaningInContext",
+                        "suggestedHelpState",
+                      ],
+                      properties: {
+                        surfaceText: { type: "string" },
+                        meaningInContext: { type: "string" },
+                        suggestedHelpState: { type: "string" },
+                      },
+                    },
+                  },
+                  deconstruction: {
+                    type: "array",
+                    items: {
+                      type: "object",
+                      additionalProperties: false,
+                      required: ["surfaceText", "meaning", "type"],
+                      properties: {
+                        surfaceText: { type: "string" },
+                        meaning: { type: "string" },
+                        type: { type: "string" },
+                      },
+                    },
+                  },
                 },
               },
             },
