@@ -86,4 +86,33 @@ final class AudioDeliveryCoordinator {
             reason: .manualRegeneration
         )
     }
+
+    func retry(sentenceID: UUID, payload: AudioGenerationRetryPayload) async throws -> URL {
+        let sentenceIDValue = sentenceID
+        let sentences = try modelContext.fetch(
+            FetchDescriptor<Sentence>(
+                predicate: #Predicate<Sentence> { $0.id == sentenceIDValue }
+            )
+        )
+        guard let sentence = sentences.first else {
+            throw AudioCacheError.invalidDownloadURL
+        }
+        let asset = sentence.audioAssets.first(where: {
+            $0.voiceProfile == payload.voiceProfile && $0.generationStatus != .ready
+        }) ?? AudioAsset(
+            sentenceID: sentenceID,
+            voiceProfile: payload.voiceProfile,
+            generationReason: payload.reason
+        )
+        if asset.modelContext == nil {
+            modelContext.insert(asset)
+            sentence.audioAssets.append(asset)
+        }
+        return try await generateAndCache(
+            asset: asset,
+            sentenceID: sentenceID,
+            targetText: payload.targetText,
+            reason: payload.reason
+        )
+    }
 }

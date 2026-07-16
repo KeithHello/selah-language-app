@@ -68,6 +68,7 @@ final class AppState: ObservableObject {
     var reviewScheduler: (any ReviewScheduler)?
     var vocabularyHelp: VocabularyHelpUseCaseImpl?
     var generationRetryQueue: GenerationRetryQueueImpl?
+    private(set) var audioDeliveryCoordinator: AudioDeliveryCoordinator?
     private(set) var memoryUnlockService: SpriteMemoryUnlockService?
     private var preferenceStore: UserPreferenceStore?
     private var onboardingCompletionService: OnboardingCompletionService?
@@ -203,11 +204,19 @@ final class AppState: ObservableObject {
     ) async throws {
         let sentenceService = SentenceGenerationServiceImpl(apiClient: client)
         let audioService = AudioGenerationServiceImpl(apiClient: client)
+        let cacheService = try AudioCacheService()
+        let deliveryCoordinator = AudioDeliveryCoordinator(
+            audioService: audioService,
+            cacheService: cacheService,
+            modelContext: modelContext
+        )
         sentenceGenService = sentenceService
         audioGenService = audioService
+        audioDeliveryCoordinator = deliveryCoordinator
         generationRetryQueue = GenerationRetryQueueImpl(
             jobRepo: GenerationJobRepositoryImpl(modelContext: modelContext),
-            audioService: audioService
+            audioService: audioService,
+            audioDeliveryCoordinator: deliveryCoordinator
         )
         authenticationState = .signedIn
         try await generationRetryQueue?.recoverInterruptedJobs()
@@ -255,6 +264,7 @@ final class AppState: ObservableObject {
             try apiClient?.clearSession()
             sentenceGenService = nil
             audioGenService = nil
+            audioDeliveryCoordinator = nil
             generationRetryQueue = nil
             authenticationState = .signedOut
         } catch {

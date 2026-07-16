@@ -709,6 +709,7 @@ struct TodaySentenceView: View {
                 speechService: speechService,
                 sentenceService: sentenceService,
                 audioService: audioService,
+                audioDeliveryCoordinator: appState.audioDeliveryCoordinator,
                 modelContext: modelContext,
                 connectivity: appState.connectivity,
                 generationRetryQueue: appState.generationRetryQueue,

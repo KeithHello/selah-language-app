@@ -24,8 +24,8 @@
 ### P0：真实产品闭环
 
 - [x] 建立可编译的 iOS 17+ App target，生成基础 App 信息并纳入模拟器 Release 构建门禁。
-- [ ] 确定并实现 MVP 认证边界；推荐 Supabase 匿名会话，后续可绑定账号。
-- [ ] App 启动路径建立真实 `SelahAPIClient`，句子和音频服务不再固定使用 Mock。
+- [x] 实现 Supabase Email／Password MVP 认证边界，会话保存于 Keychain，启动时安全恢复。
+- [x] App 启动路径按运行配置建立真实 `SelahAPIClient`；未配置或未登录时明确阻止，不再静默回退 Mock。
 - [x] Onboarding 幂等保存精灵名称、3 个种子句和默认偏好状态。
 - [x] 修复语音权限、按住／释放录音、最终 transcript 保存与音频引擎停止，并通过核心测试与 iOS 编译。
 - [ ] Today 保存统一经过音频生成、下载、校验、缓存；Listen 读取真实本地文件。
@@ -77,3 +77,5 @@
 - 2026-07-16：GitHub Actions `29435376954` 成功，HEAD `2826ff6`；设置持久化测试、Swift 构建测试与 Supabase Deno 全套检查通过。
 - 2026-07-16：GitHub Actions `29435596159` 成功，HEAD `30529f7`；Onboarding 名称与三句 Seed 幂等持久化测试及双端 CI 通过。
 - 2026-07-16：GitHub Actions `29436084806` 成功，HEAD `0d3bd7a`；首次真实 iOS Simulator Release 构建、Swift 核心测试与 Supabase Deno 门禁全部通过。
+- 2026-07-16：GitHub Actions `29464700822` 成功，HEAD `9903999`；Night Preview 持久化与事件测试、iOS 构建及 Deno 门禁通过。
+- 2026-07-16：GitHub Actions `29466371853` 成功，HEAD `f9fab51`；Keychain 会话、运行配置、真实服务接线及移除产品 Mock 回退通过三门禁。

@@ -47,6 +47,7 @@ final class TodaySentenceViewModel: ObservableObject {
     private let speechService: SpeechRecognitionService
     private let sentenceService: SentenceGenerationService
     private let audioService: AudioGenerationService
+    private let audioDeliveryCoordinator: AudioDeliveryCoordinator?
     private let modelContext: ModelContext
     private let connectivity: any ConnectivityProviding
     private let generationRetryQueue: (any GenerationRetryQueue)?
@@ -63,6 +64,7 @@ final class TodaySentenceViewModel: ObservableObject {
         speechService: SpeechRecognitionService,
         sentenceService: SentenceGenerationService,
         audioService: AudioGenerationService,
+        audioDeliveryCoordinator: AudioDeliveryCoordinator? = nil,
         modelContext: ModelContext,
         connectivity: any ConnectivityProviding = ConnectivityMonitor(initialStatus: .online),
         generationRetryQueue: (any GenerationRetryQueue)? = nil,
@@ -74,6 +76,7 @@ final class TodaySentenceViewModel: ObservableObject {
         self.speechService = speechService
         self.sentenceService = sentenceService
         self.audioService = audioService
+        self.audioDeliveryCoordinator = audioDeliveryCoordinator
         self.modelContext = modelContext
         self.connectivity = connectivity
         self.generationRetryQueue = generationRetryQueue
@@ -287,6 +290,14 @@ final class TodaySentenceViewModel: ObservableObject {
             audioAsset.generationStatus = .generating
 
             do {
+                if let audioDeliveryCoordinator = self.audioDeliveryCoordinator {
+                    _ = try await audioDeliveryCoordinator.generateAndCache(
+                        asset: audioAsset,
+                        sentenceID: sentenceID,
+                        targetText: targetText
+                    )
+                    return
+                }
                 let result = try await self.audioService.generateAudio(
                     sentenceID: sentenceID,
                     targetText: targetText,
