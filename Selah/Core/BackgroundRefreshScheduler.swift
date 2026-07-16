@@ -9,7 +9,7 @@ enum BackgroundRefreshPolicy {
     }
 }
 
-#if canImport(BackgroundTasks)
+#if os(iOS)
 import BackgroundTasks
 
 @MainActor

@@ -73,7 +73,7 @@ final class AppState: ObservableObject {
     private var onboardingCompletionService: OnboardingCompletionService?
     private var apiClient: SelahAPIClient?
     private let widgetSnapshotStore = WidgetSnapshotStore()
-    #if canImport(BackgroundTasks)
+    #if os(iOS)
     private let backgroundRefreshScheduler = BackgroundRefreshScheduler()
     #endif
     #if canImport(UserNotifications)
@@ -106,7 +106,7 @@ final class AppState: ObservableObject {
             fatalError("Failed to create ModelContainer: \(error)")
         }
 
-        #if canImport(BackgroundTasks)
+        #if os(iOS)
         backgroundRefreshScheduler.register { [weak self] in
             await self?.retryPendingGenerationJobs()
             await self?.refreshWidgetSnapshot()
@@ -341,7 +341,7 @@ final class AppState: ObservableObject {
             await refreshWidgetSnapshot()
         case .background:
             await refreshWidgetSnapshot()
-            #if canImport(BackgroundTasks)
+            #if os(iOS)
             try? backgroundRefreshScheduler.schedule()
             #endif
         case .inactive:
