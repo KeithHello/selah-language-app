@@ -39,7 +39,7 @@
 - [x] 学习事件触发精灵回忆解锁。
 - [x] Settings 可进入、可编辑并持久化声线、速度、提醒等偏好；iOS 上同步每日本地提醒。
 - [x] Night Preview、本地通知和 Widget 与真实 iOS 生命周期接线。
-- [ ] 建立受系统调度的后台任务；当前离线重试在前台恢复时执行。
+- [x] 建立受系统调度的后台刷新；恢复离线生成队列并刷新 Widget，同时保留前台恢复兜底。
 - [ ] 建立版本化 SwiftData schema 与升级 fixture 测试。
 
 ### P1：后端与安全
@@ -83,3 +83,4 @@
 - 2026-07-16：GitHub Actions `29466706748` 成功，HEAD `ea4de30`；真实 TTS 下载、校验、缓存与离线重试接线通过三门禁。
 - 2026-07-16：GitHub Actions `29468653533` 成功，HEAD `aee3a9b`；Widget Extension、App Group 快照和生命周期刷新通过三门禁。
 - 2026-07-16：GitHub Actions `29468811339` 成功，HEAD `27e3328`；生成中音频清单复用及防重复 TTS 调用通过三门禁。
+- 2026-07-16：GitHub Actions `29469098753` 成功，HEAD `f8571dd`；iOS 后台刷新注册、调度、离线队列恢复及 Widget 刷新通过三门禁。
