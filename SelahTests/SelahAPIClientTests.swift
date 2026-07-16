@@ -83,6 +83,41 @@ final class SelahAPIClientTests: XCTestCase {
         XCTAssertNotNil(client)
     }
 
+    func testGenerationRequestsEncodeStableClientRequestIDs() throws {
+        let sentenceRequestID = UUID(uuidString: "8D42C8E5-4F0E-4A37-B63D-51C4AB25D1F0")!
+        let audioRequestID = UUID(uuidString: "92D4BA92-CB72-421F-BC94-B36EF91BF61C")!
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+
+        let sentenceData = try encoder.encode(
+            SentenceGenerateRequest(
+                sourceText: "今天好累",
+                sourceLanguage: "zh-Hant",
+                targetLanguage: "en",
+                categoryHint: nil,
+                clientRequestId: sentenceRequestID
+            )
+        )
+        let audioData = try encoder.encode(
+            AudioGenerateRequest(
+                sentenceId: UUID(),
+                targetText: "I am tired.",
+                voiceProfile: "gentle-natural",
+                reason: "initial_generation",
+                clientRequestId: audioRequestID
+            )
+        )
+        let sentenceJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: sentenceData) as? [String: Any]
+        )
+        let audioJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: audioData) as? [String: Any]
+        )
+
+        XCTAssertEqual(sentenceJSON["client_request_id"] as? String, sentenceRequestID.uuidString)
+        XCTAssertEqual(audioJSON["client_request_id"] as? String, audioRequestID.uuidString)
+    }
+
     // MARK: - GeneratedSentenceResult (Codable round-trip)
 
     func testGeneratedSentenceResult_codable() throws {

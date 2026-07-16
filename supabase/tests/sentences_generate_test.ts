@@ -167,3 +167,17 @@ Deno.test("Records usage as sentence_generation", () => {
 Deno.test("Records client_request_id", () => {
   assertStringIncludes(FUNCTION_SOURCE, "client_request_id");
 });
+
+Deno.test("Claims capacity before calling the translation provider", () => {
+  const claimIndex = FUNCTION_SOURCE.indexOf("claim_generation_request");
+  const providerIndex = FUNCTION_SOURCE.indexOf(
+    "https://api.openai.com/v1/chat/completions",
+  );
+  assertEquals(claimIndex >= 0, true);
+  assertEquals(providerIndex > claimIndex, true);
+});
+
+Deno.test("Completes or fails the request ledger", () => {
+  assertStringIncludes(FUNCTION_SOURCE, "complete_generation_request");
+  assertStringIncludes(FUNCTION_SOURCE, "fail_generation_request");
+});

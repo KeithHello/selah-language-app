@@ -107,3 +107,27 @@ jobs:
 
       - name: Run tests
         run: deno test --allow-read supabase/tests
+
+  database:
+    name: Supabase Migration & Concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Start isolated local database and apply migrations
+        run: supabase db start
+
+      - name: Run pgTAP migration tests
+        run: supabase test db supabase/tests/database/generation_limits.test.sql
+
+      - name: Run concurrent claim test
+        run: bash supabase/tests/database/generation_limits_concurrency.sh

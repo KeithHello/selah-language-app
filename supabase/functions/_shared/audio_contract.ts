@@ -5,6 +5,7 @@ export interface AudioGenerationInput {
   targetText?: string;
   voiceProfile?: string;
   reason?: string;
+  clientRequestId?: string;
 }
 
 export type AudioInputValidation =
@@ -14,6 +15,7 @@ export type AudioInputValidation =
     targetText: string;
     voiceProfile: string;
     openaiVoice: string;
+    clientRequestId: string;
   }
   | { ok: false; status: number; code: string; message: string };
 
@@ -50,7 +52,29 @@ export function validateAudioGenerationInput(
     };
   }
 
-  return { ok: true, sentenceId, targetText, voiceProfile, openaiVoice };
+  const clientRequestId = body.clientRequestId?.trim().toLowerCase();
+  if (!clientRequestId || !isUUID(clientRequestId)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_client_request_id",
+      message: "clientRequestId must be a UUID",
+    };
+  }
+
+  return {
+    ok: true,
+    sentenceId,
+    targetText,
+    voiceProfile,
+    openaiVoice,
+    clientRequestId,
+  };
+}
+
+function isUUID(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    .test(value);
 }
 
 export function buildTTSRequest(

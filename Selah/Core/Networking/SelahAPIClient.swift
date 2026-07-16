@@ -82,18 +82,20 @@ enum SelahAPIError: Error, LocalizedError {
 
 // MARK: - Request / Response DTOs
 
-private struct SentenceGenerateRequest: Encodable {
+struct SentenceGenerateRequest: Encodable {
     let sourceText: String
     let sourceLanguage: String
     let targetLanguage: String
     let categoryHint: String?
+    let clientRequestId: UUID
 }
 
-private struct AudioGenerateRequest: Encodable {
-    let sentenceId: String
+struct AudioGenerateRequest: Encodable {
+    let sentenceId: UUID
     let targetText: String
     let voiceProfile: String
     let reason: String
+    let clientRequestId: UUID
 }
 
 private struct SignInRequest: Encodable {
@@ -231,7 +233,8 @@ final class SelahAPIClient: SelahAPIClientProtocol {
             sourceText: sourceText,
             sourceLanguage: sourceLanguage.rawValue,
             targetLanguage: targetLanguage.rawValue,
-            categoryHint: categoryHint?.rawValue
+            categoryHint: categoryHint?.rawValue,
+            clientRequestId: UUID()
         )
         return try await performRequest(
             path: "/functions/v1/sentences-generate",
@@ -248,10 +251,11 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         reason: AudioGenerationReason
     ) async throws -> GeneratedAudioResult {
         let body = AudioGenerateRequest(
-            sentenceId: sentenceID.uuidString,
+            sentenceId: sentenceID,
             targetText: targetText,
             voiceProfile: voiceProfile.rawValue,
-            reason: reason.rawValue
+            reason: reason.rawValue,
+            clientRequestId: UUID()
         )
         return try await performRequest(
             path: "/functions/v1/audio-generate",

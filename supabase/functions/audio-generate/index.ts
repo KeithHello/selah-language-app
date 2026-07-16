@@ -33,6 +33,25 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
   "";
+const AUDIO_MINUTE_LIMIT = Math.max(
+  1,
+  Number.parseInt(Deno.env.get("AUDIO_MINUTE_LIMIT") ?? "10", 10) || 10,
+);
+const AUDIO_DAILY_LIMIT = Math.max(
+  1,
+  Number.parseInt(Deno.env.get("AUDIO_DAILY_LIMIT") ?? "100", 10) || 100,
+);
+
+interface GenerationClaim {
+  decision:
+    | "claimed"
+    | "replay"
+    | "in_progress"
+    | "rate_limited"
+    | "quota_exceeded";
+  retryAfterSeconds: number;
+  responsePayload: Record<string, unknown> | null;
+}
 
 interface AudioManifest {
   id: string;
@@ -104,7 +123,13 @@ Deno.serve(async (req: Request) => {
       validation.code,
     );
   }
-  const { sentenceId, targetText, voiceProfile, openaiVoice } = validation;
+  const {
+    sentenceId,
+    targetText,
+    voiceProfile,
+    openaiVoice,
+    clientRequestId,
+  } = validation;
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const hash = await contentHash(targetText, voiceProfile);
@@ -151,6 +176,47 @@ Deno.serve(async (req: Request) => {
     return json(responseFromManifest(existing!, null, true), 202);
   }
 
+  const { data: claimRaw, error: claimError } = await supabase.rpc(
+    "claim_generation_request",
+    {
+      p_user_id: userId,
+      p_operation_type: "audio_generation",
+      p_client_request_id: clientRequestId,
+      p_minute_limit: AUDIO_MINUTE_LIMIT,
+      p_daily_limit: AUDIO_DAILY_LIMIT,
+    },
+  );
+  if (claimError || !claimRaw) {
+    console.error("Audio capacity claim failed");
+    return errorResponse(
+      "Audio generation capacity unavailable",
+      503,
+      "generation_capacity_unavailable",
+    );
+  }
+
+  const claim = claimRaw as GenerationClaim;
+  if (claim.decision === "in_progress") {
+    return errorResponse(
+      "Request is still in progress",
+      429,
+      "request_in_progress",
+    );
+  }
+  if (claim.decision === "rate_limited") {
+    return errorResponse("Too many audio requests", 429, "rate_limited");
+  }
+  if (claim.decision === "quota_exceeded") {
+    return errorResponse("Daily audio quota exceeded", 429, "quota_exceeded");
+  }
+  if (claim.decision === "replay") {
+    return errorResponse(
+      "Completed audio manifest is unavailable",
+      409,
+      "audio_manifest_inconsistent",
+    );
+  }
+
   const storagePath = userStoragePath(
     userId,
     sentenceId,
@@ -171,6 +237,11 @@ Deno.serve(async (req: Request) => {
       .select("*")
       .single();
     if (error || !data) {
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "audio_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Audio generation state update failed",
         500,
@@ -199,6 +270,11 @@ Deno.serve(async (req: Request) => {
 
     if (error || !data) {
       console.error("Audio manifest insert failed");
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "audio_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Audio generation state creation failed",
         500,
@@ -226,6 +302,11 @@ Deno.serve(async (req: Request) => {
       await supabase.from("audio_manifests")
         .update({ generation_status: "failed", error_code: "tts_failed" })
         .eq("id", manifest.id);
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "audio_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse("Audio generation failed", 502, "tts_failed");
     }
 
@@ -234,6 +315,11 @@ Deno.serve(async (req: Request) => {
       await supabase.from("audio_manifests")
         .update({ generation_status: "failed", error_code: "audio_too_small" })
         .eq("id", manifest.id);
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "audio_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Generated audio was invalid",
         502,
@@ -257,6 +343,11 @@ Deno.serve(async (req: Request) => {
           error_code: "storage_upload_failed",
         })
         .eq("id", manifest.id);
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "audio_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Audio storage failed",
         503,
@@ -279,6 +370,11 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (readyError || !readyRaw) {
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "audio_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Audio metadata update failed",
         500,
@@ -291,6 +387,11 @@ Deno.serve(async (req: Request) => {
       .from(AUDIO_BUCKET)
       .createSignedUrl(storagePath, SIGNED_URL_TTL_SECONDS);
     if (signedError || !signed?.signedUrl) {
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "audio_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Audio generated but delivery URL failed",
         503,
@@ -298,21 +399,40 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    await supabase.from("usage_records").insert({
-      user_id: userId,
-      operation_type: body.reason === "manual_regeneration"
-        ? "audio_regeneration"
-        : "audio_generation",
-      estimated_units: 1,
-      client_request_id: crypto.randomUUID(),
-    });
+    const responsePayload = responseFromManifest(
+      ready,
+      signed.signedUrl,
+      false,
+    );
+    const { data: completed, error: completionError } = await supabase.rpc(
+      "complete_generation_request",
+      {
+        p_user_id: userId,
+        p_operation_type: "audio_generation",
+        p_client_request_id: clientRequestId,
+        p_response_payload: responsePayload,
+      },
+    );
+    if (completionError || completed !== true) {
+      console.error("Audio request completion failed");
+      return errorResponse(
+        "Audio completion unavailable",
+        503,
+        "generation_completion_unavailable",
+      );
+    }
 
-    return json(responseFromManifest(ready, signed.signedUrl, false));
+    return json(responsePayload);
   } catch {
     console.error("Audio generation function failed");
     await supabase.from("audio_manifests")
       .update({ generation_status: "failed", error_code: "internal_error" })
       .eq("id", manifest.id);
+    await supabase.rpc("fail_generation_request", {
+      p_user_id: userId,
+      p_operation_type: "audio_generation",
+      p_client_request_id: clientRequestId,
+    });
     return errorResponse(
       "Internal audio generation error",
       500,

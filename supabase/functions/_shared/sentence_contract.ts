@@ -6,10 +6,11 @@ export interface SentenceGenerationInput {
   sourceLanguage?: string;
   targetLanguage?: string;
   categoryHint?: string;
+  clientRequestId?: string;
 }
 
 export type SentenceInputValidation =
-  | { ok: true; sourceText: string }
+  | { ok: true; sourceText: string; clientRequestId: string }
   | { ok: false; status: number; code: string; message: string };
 
 export function validateSentenceGenerationInput(
@@ -32,7 +33,21 @@ export function validateSentenceGenerationInput(
       message: "sourceText too long (max 500 chars)",
     };
   }
-  return { ok: true, sourceText };
+  const clientRequestId = body.clientRequestId?.trim().toLowerCase();
+  if (!clientRequestId || !isUUID(clientRequestId)) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_client_request_id",
+      message: "clientRequestId must be a UUID",
+    };
+  }
+  return { ok: true, sourceText, clientRequestId };
+}
+
+function isUUID(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+    .test(value);
 }
 
 export function buildTranslationRequest(

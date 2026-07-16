@@ -59,6 +59,28 @@ Return ONLY valid JSON with this exact structure:
 }`;
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
+const SENTENCE_MINUTE_LIMIT = Math.max(
+  1,
+  Number.parseInt(Deno.env.get("SENTENCE_MINUTE_LIMIT") ?? "5", 10) || 5,
+);
+const SENTENCE_DAILY_LIMIT = Math.max(
+  1,
+  Number.parseInt(Deno.env.get("SENTENCE_DAILY_LIMIT") ?? "20", 10) || 20,
+);
+
+interface GenerationClaim {
+  decision:
+    | "claimed"
+    | "replay"
+    | "in_progress"
+    | "rate_limited"
+    | "quota_exceeded";
+  retryAfterSeconds: number;
+  responsePayload: Record<string, unknown> | null;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -69,6 +91,14 @@ Deno.serve(async (req: Request) => {
 
   if (req.method !== "POST") {
     return errorResponse("Method not allowed", 405, "method_not_allowed");
+  }
+
+  if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return errorResponse(
+      "Translation service is not configured",
+      503,
+      "translation_service_unavailable",
+    );
   }
 
   let body: SentenceGenerationInput;
@@ -86,7 +116,48 @@ Deno.serve(async (req: Request) => {
       validation.code,
     );
   }
-  const { sourceText } = validation;
+  const { sourceText, clientRequestId } = validation;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: claimRaw, error: claimError } = await supabase.rpc(
+    "claim_generation_request",
+    {
+      p_user_id: userId,
+      p_operation_type: "sentence_generation",
+      p_client_request_id: clientRequestId,
+      p_minute_limit: SENTENCE_MINUTE_LIMIT,
+      p_daily_limit: SENTENCE_DAILY_LIMIT,
+    },
+  );
+  if (claimError || !claimRaw) {
+    console.error("Generation capacity claim failed");
+    return errorResponse(
+      "Generation capacity unavailable",
+      503,
+      "generation_capacity_unavailable",
+    );
+  }
+
+  const claim = claimRaw as GenerationClaim;
+  if (claim.decision === "replay" && claim.responsePayload) {
+    return json(claim.responsePayload);
+  }
+  if (claim.decision === "in_progress") {
+    return errorResponse(
+      "Request is still in progress",
+      429,
+      "request_in_progress",
+    );
+  }
+  if (claim.decision === "rate_limited") {
+    return errorResponse("Too many generation requests", 429, "rate_limited");
+  }
+  if (claim.decision === "quota_exceeded") {
+    return errorResponse(
+      "Daily generation quota exceeded",
+      429,
+      "quota_exceeded",
+    );
+  }
 
   try {
     const openaiResponse = await fetch(
@@ -106,6 +177,11 @@ Deno.serve(async (req: Request) => {
     if (!openaiResponse.ok) {
       // Never log the provider response body: it may contain request-derived text or credentials.
       console.error("Translation provider failed", openaiResponse.status);
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Translation service unavailable",
         502,
@@ -117,6 +193,11 @@ Deno.serve(async (req: Request) => {
     const content = openaiData.choices?.[0]?.message?.content;
 
     if (!content) {
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Empty translation response",
         502,
@@ -144,6 +225,11 @@ Deno.serve(async (req: Request) => {
     } catch {
       // Do not log generated content because it can include personal sentence material.
       console.error("Translation provider returned invalid JSON");
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Invalid translation format",
         502,
@@ -153,6 +239,11 @@ Deno.serve(async (req: Request) => {
 
     // Validate required fields
     if (!parsed.targetText || typeof parsed.targetText !== "string") {
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+      });
       return errorResponse(
         "Missing targetText in translation",
         502,
@@ -160,29 +251,39 @@ Deno.serve(async (req: Request) => {
       );
     }
 
-    // Record usage (dormant in MVP, for future billing)
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
-    if (supabaseUrl && supabaseKey) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      await supabase.from("usage_records").insert({
-        user_id: userId,
-        operation_type: "sentence_generation",
-        estimated_units: 1,
-        client_request_id: crypto.randomUUID(),
-      });
-    }
-
-    return json({
+    const responsePayload = {
       targetText: parsed.targetText,
       category: parsed.category ?? body.categoryHint ?? "daily_life",
       vocabulary: parsed.vocabulary ?? [],
       deconstruction: parsed.deconstruction ?? [],
       promptVersion: "v8.0",
-    });
+    };
+    const { data: completed, error: completionError } = await supabase.rpc(
+      "complete_generation_request",
+      {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+        p_response_payload: responsePayload,
+      },
+    );
+    if (completionError || completed !== true) {
+      console.error("Generation request completion failed");
+      return errorResponse(
+        "Generation completion unavailable",
+        503,
+        "generation_completion_unavailable",
+      );
+    }
+
+    return json(responsePayload);
   } catch {
     console.error("Translation function failed");
+    await supabase.rpc("fail_generation_request", {
+      p_user_id: userId,
+      p_operation_type: "sentence_generation",
+      p_client_request_id: clientRequestId,
+    });
     return errorResponse("Internal server error", 500, "internal_error");
   }
 });

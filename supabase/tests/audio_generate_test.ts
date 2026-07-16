@@ -1,7 +1,10 @@
 // Edge Function: audio-generate - Input Validation Tests
 // Run: deno test supabase/tests/audio_generate_test.ts
 
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertStringIncludes,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   AUDIO_FORMAT,
   TTS_MODEL,
@@ -15,6 +18,10 @@ import {
 import {
   shouldReuseInFlightGeneration,
 } from "../functions/_shared/audio_generation_policy.ts";
+
+const FUNCTION_SOURCE = await Deno.readTextFile(
+  "supabase/functions/audio-generate/index.ts",
+);
 
 // ============================================================
 // Voice Map
@@ -133,3 +140,17 @@ Deno.test(
     assertEquals(shouldReuseInFlightGeneration(null), false);
   },
 );
+
+Deno.test("Claims capacity before calling the TTS provider", () => {
+  const claimIndex = FUNCTION_SOURCE.indexOf("claim_generation_request");
+  const providerIndex = FUNCTION_SOURCE.indexOf(
+    "https://api.openai.com/v1/audio/speech",
+  );
+  assertEquals(claimIndex >= 0, true);
+  assertEquals(providerIndex > claimIndex, true);
+});
+
+Deno.test("Completes or fails the audio request ledger", () => {
+  assertStringIncludes(FUNCTION_SOURCE, "complete_generation_request");
+  assertStringIncludes(FUNCTION_SOURCE, "fail_generation_request");
+});
