@@ -12,6 +12,9 @@ import {
   buildTTSRequest,
   validateAudioGenerationInput,
 } from "../functions/_shared/audio_contract.ts";
+import {
+  shouldReuseInFlightGeneration,
+} from "../functions/_shared/audio_generation_policy.ts";
 
 // ============================================================
 // Voice Map
@@ -97,3 +100,14 @@ Deno.test("Builds the OpenAI TTS request from validated input", () => {
     speed: 0.85,
   });
 });
+
+Deno.test(
+  "Reuses queued and generating manifests to prevent duplicate provider calls",
+  () => {
+    assertEquals(shouldReuseInFlightGeneration("queued"), true);
+    assertEquals(shouldReuseInFlightGeneration("generating"), true);
+    assertEquals(shouldReuseInFlightGeneration("ready"), false);
+    assertEquals(shouldReuseInFlightGeneration("failed"), false);
+    assertEquals(shouldReuseInFlightGeneration(null), false);
+  },
+);

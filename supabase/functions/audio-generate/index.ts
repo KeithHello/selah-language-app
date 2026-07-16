@@ -25,6 +25,9 @@ import {
   buildTTSRequest,
   validateAudioGenerationInput,
 } from "../_shared/audio_contract.ts";
+import {
+  shouldReuseInFlightGeneration,
+} from "../_shared/audio_generation_policy.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -142,6 +145,10 @@ Deno.serve(async (req: Request) => {
       .eq("id", existing.id);
 
     return json(responseFromManifest(existing, signed.signedUrl, true));
+  }
+
+  if (shouldReuseInFlightGeneration(existing?.generation_status ?? null)) {
+    return json(responseFromManifest(existing!, null, true), 202);
   }
 
   const storagePath = userStoragePath(
