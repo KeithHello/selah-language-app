@@ -8,14 +8,14 @@
 
 ## 当前阶段
 
-非动画系统完整化实施中。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环和 Widget 已接线并通过 CI；严格后端配额、数据库升级演练与外部环境验收尚未完成。
+非动画系统的代码内实施已完成。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线并通过 CI；远端部署 smoke、真机和发布材料仍属于外部环境验收。
 
 ## 已验证基线
 
 | 项目 | 层级 | 证据 |
 |---|---|---|
 | Swift 核心模型、仓库、推荐、复习、可靠性模块 | 核心层已验证 | GitHub Actions run `29339236287`：227 tests，1 skipped，0 failures |
-| Supabase schema 与 Edge Function 源码 | 代码存在 | 3 个 migration、5 个 Edge Functions；当前未重新执行部署 smoke test |
+| Supabase schema 与 Edge Function 源码 | 本地数据库层已验证 | 4 个 migration、5 个 Edge Functions；临时 Supabase 的 pgTAP 与并发测试通过，当前未重新执行远端部署 smoke test |
 | Seed 内容 | 内容已验证 | `v8.2`，30 句，6 类各 5 句，无重复 ID、无空核心字段 |
 | 动画参考 | 样片存在 | 3 个 HyperFrames MP4；正式动画系统不在本轮范围 |
 
@@ -40,13 +40,13 @@
 - [x] Settings 可进入、可编辑并持久化声线、速度、提醒等偏好；iOS 上同步每日本地提醒。
 - [x] Night Preview、本地通知和 Widget 与真实 iOS 生命周期接线。
 - [x] 建立受系统调度的后台刷新；恢复离线生成队列并刷新 Widget，同时保留前台恢复兜底。
-- [ ] 建立版本化 SwiftData schema 与升级 fixture 测试。
+- [x] 建立版本化 SwiftData schema 与 V1→V2 磁盘升级 fixture；迁移失败时保留原数据并显示恢复界面。
 
 ### P1：后端与安全
 
 - [x] 更新失效的 Deno 测试，使测试验证行为而非源码字符串。
 - [x] 将 Supabase 格式、lint、类型检查与测试加入 CI。
-- [ ] 为生成接口增加每用户额度和原子速率限制；音频生成中请求的并发去重已完成。
+- [x] 为生成接口增加每用户额度、原子速率限制与客户端请求幂等账本；临时数据库 8 路并发验证仅 1 个请求获得额度。
 - [x] `events.metadata` 改为按事件类型区分的明确字段白名单。
 - [x] JWT helper 明确命名为解析网关已验证 claims，并注明签名验证依赖 `verify_jwt = true`。
 - [ ] 重新执行部署 smoke test，记录当前远端版本证据。
@@ -61,13 +61,13 @@
 ## 明确排除
 
 - 120 个宠物动画及 Rive／Lottie 动画系统。
-- 未经主人确认的 Supabase 外部配置变更、数据库迁移、密钥修改、推送远端或公开发布。
+- 未经主人确认的 Supabase 外部配置变更、密钥修改、部署、合并或公开发布；本轮仅在当前分支和 CI 临时数据库执行已获授权的 migration。
 
 ## 阻塞与外部条件
 
-- 当前 Windows 环境没有 Swift、Deno、Xcode；完整 Swift／iOS 验证需 macOS CI 或 Mac。
+- 当前 Windows 环境没有 Swift 与 Xcode；Swift／iOS 验证依赖 macOS CI，Deno 检查可通过临时 CLI 执行。
 - TestFlight 需要 Apple Developer 账号、签名与 App Store Connect 权限。
-- 后端认证策略、数据库迁移和线上部署属于外部状态变更，执行前需主人确认。
+- 后端远端迁移、认证策略变更和线上部署属于外部状态变更，执行前需主人再次确认。
 
 ## 最近验证
 
@@ -86,3 +86,5 @@
 - 2026-07-16：GitHub Actions `29469098753` 成功，HEAD `f8571dd`；iOS 后台刷新注册、调度、离线队列恢复及 Widget 刷新通过三门禁。
 - 2026-07-16：GitHub Actions `29469244363` 成功，HEAD `41fa2af`；生成并校验包含 Widget Extension 的无签名模拟器 `.xcarchive`，归档 artifact 上传成功。
 - 2026-07-16：GitHub Actions `29469491952` 成功，HEAD `1ed6795`；App／Widget 隐私清单进入归档并通过 plist 校验，归档上传动作升级至 Node.js 24 且无弃用告警。
+- 2026-07-16：GitHub Actions `29479890128` 成功，HEAD `87bc44d`；4 个 Supabase migration、15 项 pgTAP 契约、8 路并发额度竞争、134 项 Deno 测试、Swift 与 iOS 归档全部通过。
+- 2026-07-16：GitHub Actions `29480172533` 成功，HEAD `8e72955`；SwiftData V1→V2 真实磁盘升级保留数据，Swift 248 个测试（1 skipped、0 failures），Supabase、iOS 构建与归档全部通过。
