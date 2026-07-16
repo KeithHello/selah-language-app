@@ -29,7 +29,7 @@ jobs:
           swift test 2>&1
 
   ios:
-    name: iOS Simulator Build
+    name: iOS Build & Archive
     runs-on: macos-15
 
     steps:
@@ -46,6 +46,39 @@ jobs:
             -destination 'generic/platform=iOS Simulator' \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Archive unsigned simulator app
+        run: |
+          xcodebuild \
+            -project Selah.xcodeproj \
+            -scheme Selah \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -archivePath "$RUNNER_TEMP/Selah.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO \
+            archive
+
+      - name: Verify archive contents
+        run: |
+          APP="$RUNNER_TEMP/Selah.xcarchive/Products/Applications/Selah.app"
+          WIDGET="$APP/PlugIns/SelahWidget.appex"
+          test -d "$APP"
+          test -d "$WIDGET"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.kdagentic.selah"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$WIDGET/Info.plist")" = "com.kdagentic.selah.widget"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$RUNNER_TEMP/Selah.xcarchive" \
+            "$RUNNER_TEMP/Selah.xcarchive.zip"
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Selah-unsigned-simulator-xcarchive
+          path: ${{ runner.temp }}/Selah.xcarchive.zip
+          if-no-files-found: error
+          retention-days: 7
 
   deno:
     name: Supabase Deno Tests
