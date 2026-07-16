@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-非动画系统的代码内实施已完成。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线并通过 CI；远端部署 smoke、真机和发布材料仍属于外部环境验收。
+非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画也已完成代码接线并通过 CI。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；远端部署 smoke、真机视觉和发布材料仍属于外部环境验收。
 
 ## 已验证基线
 
@@ -60,8 +60,9 @@
 
 ## 2026-07-17 Native animation pilot
 
-- [ ] 完成首批 10 个 SwiftUI 原生动画及 Today／录音／Listen／Practice 触发接线。
-- [ ] 通过 Swift 核心测试、iOS 模拟器构建和真实设备视觉验收。
+- [x] 完成首批 10 个 SwiftUI 原生动画及 Today／录音／Listen／Practice 触发接线。
+- [x] 通过 Swift 核心测试和 iOS 模拟器 Release 构建／无签名归档；GitHub Actions run `29514198511`：259 tests，1 skipped，0 failures。
+- [ ] 完成真实设备视觉、触控时序、性能和 Reduce Motion 验收。
 - [ ] 连续自用后再决定是否扩展剩余 P0、P1、P2 动画；本阶段不引入 Lottie、Rive 或视频资产。
 
 ## 明确排除
@@ -94,6 +95,7 @@
 - 2026-07-16：GitHub Actions `29469491952` 成功，HEAD `1ed6795`；App／Widget 隐私清单进入归档并通过 plist 校验，归档上传动作升级至 Node.js 24 且无弃用告警。
 - 2026-07-16：GitHub Actions `29479890128` 成功，HEAD `87bc44d`；4 个 Supabase migration、15 项 pgTAP 契约、8 路并发额度竞争、134 项 Deno 测试、Swift 与 iOS 归档全部通过。
 - 2026-07-16：GitHub Actions `29480172533` 成功，HEAD `8e72955`；SwiftData V1→V2 真实磁盘升级保留数据，Swift 248 个测试（1 skipped、0 failures），Supabase、iOS 构建与归档全部通过。
+- 2026-07-17：GitHub Actions `29514198511` 成功，HEAD `f464ed4`；首批 10 个原生 SwiftUI 精灵动画的状态机测试、Swift 259 个测试（1 skipped、0 failures）、iOS Simulator Release 构建／归档、Supabase Deno、临时数据库 migration／pgTAP／并发检查全部通过。
 ## 2026-07-16 Long-voice hybrid learning flow
 
 - [x] Local conservative disfluency cleanup, segment suggestions, editing, and merge.
