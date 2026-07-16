@@ -150,8 +150,8 @@ struct PetSpriteView: View {
         case .recDone:
             return PetSpritePose(
                 bodyOffset: CGSize(width: 0, height: -6 * pulse),
-                leafRotation: -20 * pulse,
-                eyeScaleY: 0.7 + (0.3 * (1 - pulse))
+                eyeScaleY: 0.7 + (0.3 * (1 - pulse)),
+                leafRotation: -20 * pulse
             )
         case .quizGood:
             return PetSpritePose(
