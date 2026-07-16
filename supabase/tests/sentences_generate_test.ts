@@ -108,6 +108,28 @@ Deno.test("Returns 400 for text too long", () => {
   if (!result.ok) assertEquals(result.status, 400);
 });
 
+Deno.test("Requires a UUID clientRequestId", () => {
+  const missing = validateSentenceGenerationInput({ sourceText: "今天好累" });
+  assertEquals(missing.ok, false);
+  if (!missing.ok) assertEquals(missing.code, "invalid_client_request_id");
+
+  const malformed = validateSentenceGenerationInput({
+    sourceText: "今天好累",
+    clientRequestId: "not-a-uuid",
+  });
+  assertEquals(malformed.ok, false);
+  if (!malformed.ok) assertEquals(malformed.code, "invalid_client_request_id");
+});
+
+Deno.test("Returns the normalized clientRequestId", () => {
+  const clientRequestId = "8d42c8e5-4f0e-4a37-b63d-51c4ab25d1f0";
+  const result = validateSentenceGenerationInput({
+    sourceText: "今天好累",
+    clientRequestId,
+  });
+  assertEquals(result, { ok: true, sourceText: "今天好累", clientRequestId });
+});
+
 Deno.test("Returns 502 for translation failed", () => {
   assertStringIncludes(FUNCTION_SOURCE, "translation_failed");
 });
@@ -115,8 +137,13 @@ Deno.test("Returns 502 for translation failed", () => {
 Deno.test("Builds request with normalized source text", () => {
   const result = validateSentenceGenerationInput({
     sourceText: "  今天好累  ",
+    clientRequestId: "8d42c8e5-4f0e-4a37-b63d-51c4ab25d1f0",
   });
-  assertEquals(result, { ok: true, sourceText: "今天好累" });
+  assertEquals(result, {
+    ok: true,
+    sourceText: "今天好累",
+    clientRequestId: "8d42c8e5-4f0e-4a37-b63d-51c4ab25d1f0",
+  });
   if (!result.ok) return;
   assertEquals(buildTranslationRequest("prompt", result.sourceText), {
     model: "gpt-4o-mini",

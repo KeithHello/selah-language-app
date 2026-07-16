@@ -77,6 +77,23 @@ Deno.test("Rejects unsupported voice profile", () => {
   if (!result.ok) assertEquals(result.code, "unsupported_voice_profile");
 });
 
+Deno.test("Requires a UUID clientRequestId", () => {
+  const missing = validateAudioGenerationInput({
+    sentenceId: "sentence-1",
+    targetText: "Hello",
+  });
+  assertEquals(missing.ok, false);
+  if (!missing.ok) assertEquals(missing.code, "invalid_client_request_id");
+
+  const malformed = validateAudioGenerationInput({
+    sentenceId: "sentence-1",
+    targetText: "Hello",
+    clientRequestId: "not-a-uuid",
+  });
+  assertEquals(malformed.ok, false);
+  if (!malformed.ok) assertEquals(malformed.code, "invalid_client_request_id");
+});
+
 // ============================================================
 // Output Structure
 // ============================================================
@@ -86,12 +103,17 @@ Deno.test("Builds the OpenAI TTS request from validated input", () => {
     sentenceId: " sentence-1 ",
     targetText: " Hello world ",
     voiceProfile: "gentle-natural",
+    clientRequestId: "92d4ba92-cb72-421f-bc94-b36ef91bf61c",
   });
   assertEquals(result.ok, true);
   if (!result.ok) return;
 
   assertEquals(result.sentenceId, "sentence-1");
   assertEquals(result.targetText, "Hello world");
+  assertEquals(
+    result.clientRequestId,
+    "92d4ba92-cb72-421f-bc94-b36ef91bf61c",
+  );
   assertEquals(buildTTSRequest(result.targetText, result.openaiVoice), {
     model: "tts-1",
     input: "Hello world",

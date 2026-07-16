@@ -21,6 +21,9 @@ const SCHEMA_SQL = await Deno.readTextFile(
 const RLS_SQL = await Deno.readTextFile(
   "supabase/migrations/002_rls_policies.sql",
 );
+const GENERATION_LIMITS_SQL = await Deno.readTextFile(
+  "supabase/migrations/004_generation_limits.sql",
+);
 
 // ============================================================
 // Table existence
@@ -261,4 +264,28 @@ Deno.test("usage_records has only INSERT policy", () => {
     !RLS_SQL.includes("ON public.usage_records FOR SELECT"),
     true,
   );
+});
+
+Deno.test("generation limits migration creates atomic request ledger", () => {
+  assertStringIncludes(
+    GENERATION_LIMITS_SQL,
+    "CREATE TABLE public.generation_requests",
+  );
+  assertStringIncludes(
+    GENERATION_LIMITS_SQL,
+    "UNIQUE (user_id, operation_type, client_request_id)",
+  );
+  assertStringIncludes(GENERATION_LIMITS_SQL, "pg_advisory_xact_lock");
+});
+
+Deno.test("generation limit functions are service-role only", () => {
+  assertStringIncludes(
+    GENERATION_LIMITS_SQL,
+    "REVOKE ALL ON FUNCTION public.claim_generation_request",
+  );
+  assertStringIncludes(
+    GENERATION_LIMITS_SQL,
+    "GRANT EXECUTE ON FUNCTION public.claim_generation_request",
+  );
+  assertStringIncludes(GENERATION_LIMITS_SQL, "TO service_role");
 });
