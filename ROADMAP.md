@@ -88,3 +88,12 @@
 - 2026-07-16：GitHub Actions `29469491952` 成功，HEAD `1ed6795`；App／Widget 隐私清单进入归档并通过 plist 校验，归档上传动作升级至 Node.js 24 且无弃用告警。
 - 2026-07-16：GitHub Actions `29479890128` 成功，HEAD `87bc44d`；4 个 Supabase migration、15 项 pgTAP 契约、8 路并发额度竞争、134 项 Deno 测试、Swift 与 iOS 归档全部通过。
 - 2026-07-16：GitHub Actions `29480172533` 成功，HEAD `8e72955`；SwiftData V1→V2 真实磁盘升级保留数据，Swift 248 个测试（1 skipped、0 failures），Supabase、iOS 构建与归档全部通过。
+## 2026-07-16 Long-voice hybrid learning flow
+
+- [x] Local conservative disfluency cleanup, segment suggestions, editing, and merge.
+- [x] CaptureDraft and LearningSegmentDraft SwiftData V3 migration.
+- [x] AI preparation and 1–5 segment batch translation Edge Functions with strict JSON Schema and atomic quota handling.
+- [x] Today UI/ViewModel confirmation, batch translation, review, save, and existing TTS/Listen/Practice retry pipeline reuse.
+- [x] GitHub Actions run `29495850665`: Swift, iOS archive, Deno, Supabase migration, pgTAP, and concurrency checks passed.
+- [ ] Real remote Supabase + OpenAI key acceptance: auth, quota, AI quality, TTS generation, and network retry.
+- [ ] Product follow-up: Japanese target language, capture grouping queries, recording recovery, and 120 animation assets.
