@@ -16,6 +16,12 @@ struct SelahApp: App {
                     .task {
                         await appState.initialize()
                     }
+            } else if appState.authenticationState == .configurationMissing {
+                MissingRuntimeConfigurationView()
+                    .environmentObject(appState)
+            } else if appState.authenticationState == .signedOut {
+                AuthenticationView()
+                    .environmentObject(appState)
             } else if !appState.preferences.onboardingCompleted {
                 OnboardingView()
                     .environmentObject(appState)
@@ -34,6 +40,12 @@ struct SelahApp: App {
 
 // MARK: - App State
 
+enum AppAuthenticationState: Equatable {
+    case configurationMissing
+    case signedOut
+    case signedIn
+}
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var isLoading = true
@@ -41,6 +53,9 @@ final class AppState: ObservableObject {
     @Published var activeCompanion: Companion?
     @Published var showToast: ToastInfo?
     @Published private(set) var connectivityStatus: ConnectivityStatus = .unknown
+    @Published private(set) var authenticationState: AppAuthenticationState = .configurationMissing
+    @Published private(set) var isAuthenticating = false
+    @Published private(set) var authenticationError: String?
 
     let modelContainer: ModelContainer
     let connectivity: ConnectivityMonitor
@@ -56,6 +71,7 @@ final class AppState: ObservableObject {
     private(set) var memoryUnlockService: SpriteMemoryUnlockService?
     private var preferenceStore: UserPreferenceStore?
     private var onboardingCompletionService: OnboardingCompletionService?
+    private var apiClient: SelahAPIClient?
     #if canImport(UserNotifications)
     private let notificationService = LocalNotificationService(client: UserNotificationsClient())
     #endif
@@ -122,23 +138,8 @@ final class AppState: ObservableObject {
                 try memoryUnlockService?.unlock(for: .appOpen(count: 1), companionID: companionID)
             }
 
-            // Wire up services.
-            // M0: Mock services for prototype flow.
-            // M1: Real services use SelahAPIClient (needs Supabase auth token).
-            //     When not authenticated, we fall back to Mock for offline UX.
-            //     The app should call apiClient.signIn() before using real services.
-            // For now, keep Mock for speech and use Mock for sentence/audio.
-            // When the user logs in, SelahApp can swap to real implementations.
-            let mockSentence = MockSentenceGenerationService()
-            let mockAudio = MockAudioGenerationService()
-            let mockSpeech = MockSpeechRecognitionService()
-
-            sentenceGenService = mockSentence
-            audioGenService = mockAudio
-            speechService = mockSpeech
-
-            // M1: Real speech recognition is always available (iOS native).
-            // Swap in the real speech recognizer so recording works on device.
+            // Native speech recognition is device-local. Sentence and audio
+            // generation are configured only after a real authenticated session.
             #if canImport(Speech)
             speechService = SpeechRecognitionServiceImpl()
             #endif
@@ -165,16 +166,8 @@ final class AppState: ObservableObject {
                 learningEventRepo: eventRepo
             )
 
-            let jobRepo = GenerationJobRepositoryImpl(modelContext: context)
-            generationRetryQueue = GenerationRetryQueueImpl(
-                jobRepo: jobRepo,
-                audioService: audioGenService ?? mockAudio
-            )
             connectivityStatus = await connectivity.refresh()
-            try await generationRetryQueue?.recoverInterruptedJobs()
-            if connectivityStatus.isOnline {
-                try await generationRetryQueue?.retryDueJobs(now: Date())
-            }
+            try await configureNetworkServices(modelContext: context)
         } catch {
             // Keep diagnostics local and generic; never expose model or provider details in UI logs.
             showToast = ToastInfo(
@@ -184,6 +177,89 @@ final class AppState: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    private func configureNetworkServices(modelContext: ModelContext) async throws {
+        guard let configuration = SelahRuntimeConfiguration.load() else {
+            authenticationState = .configurationMissing
+            return
+        }
+
+        let client = SelahAPIClient(
+            supabaseURL: configuration.supabaseURL,
+            publishableKey: configuration.publishableKey
+        )
+        apiClient = client
+        if try client.restoreSession() {
+            try await activateAuthenticatedServices(client: client, modelContext: modelContext)
+        } else {
+            authenticationState = .signedOut
+        }
+    }
+
+    private func activateAuthenticatedServices(
+        client: SelahAPIClient,
+        modelContext: ModelContext
+    ) async throws {
+        let sentenceService = SentenceGenerationServiceImpl(apiClient: client)
+        let audioService = AudioGenerationServiceImpl(apiClient: client)
+        sentenceGenService = sentenceService
+        audioGenService = audioService
+        generationRetryQueue = GenerationRetryQueueImpl(
+            jobRepo: GenerationJobRepositoryImpl(modelContext: modelContext),
+            audioService: audioService
+        )
+        authenticationState = .signedIn
+        try await generationRetryQueue?.recoverInterruptedJobs()
+        if connectivityStatus.isOnline {
+            try await generationRetryQueue?.retryDueJobs(now: Date())
+        }
+    }
+
+    func signIn(email: String, password: String) async {
+        await authenticate(email: email, password: password, createAccount: false)
+    }
+
+    func signUp(email: String, password: String) async {
+        await authenticate(email: email, password: password, createAccount: true)
+    }
+
+    private func authenticate(email: String, password: String, createAccount: Bool) async {
+        guard let apiClient else {
+            authenticationState = .configurationMissing
+            return
+        }
+        isAuthenticating = true
+        authenticationError = nil
+        defer { isAuthenticating = false }
+        do {
+            if createAccount {
+                try await apiClient.signUp(email: email, password: password)
+            }
+            try await apiClient.signIn(email: email, password: password)
+            connectivityStatus = await connectivity.refresh()
+            try await activateAuthenticatedServices(
+                client: apiClient,
+                modelContext: modelContainer.mainContext
+            )
+        } catch {
+            authenticationState = .signedOut
+            authenticationError = createAccount
+                ? "帳號建立或登入沒有完成，請檢查 Email 與密碼。"
+                : "登入沒有完成，請檢查 Email 與密碼。"
+        }
+    }
+
+    func signOut() {
+        do {
+            try apiClient?.clearSession()
+            sentenceGenService = nil
+            audioGenService = nil
+            generationRetryQueue = nil
+            authenticationState = .signedOut
+        } catch {
+            showToast = ToastInfo(message: "登出暫時沒有完成，請稍後再試。", style: .info)
+        }
     }
 
     func savePreferences(synchronizeNotifications: Bool = false) async {

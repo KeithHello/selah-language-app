@@ -696,10 +696,19 @@ struct TodaySentenceView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .onAppear {
+            guard let speechService = appState.speechService,
+                  let sentenceService = appState.sentenceGenService,
+                  let audioService = appState.audioGenService else {
+                appState.showToast = AppState.ToastInfo(
+                    message: "真實服務尚未準備好，請重新登入後再試。",
+                    style: .info
+                )
+                return
+            }
             viewModelHolder.setup(
-                speechService: appState.speechService ?? MockSpeechRecognitionService(),
-                sentenceService: appState.sentenceGenService ?? MockSentenceGenerationService(),
-                audioService: appState.audioGenService ?? MockAudioGenerationService(),
+                speechService: speechService,
+                sentenceService: sentenceService,
+                audioService: audioService,
                 modelContext: modelContext,
                 connectivity: appState.connectivity,
                 generationRetryQueue: appState.generationRetryQueue,
@@ -1347,6 +1356,15 @@ struct SettingsView: View {
                         RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
                             .strokeBorder(Color.selahBorderLight, lineWidth: 1)
                     )
+                }
+
+                VStack(alignment: .leading, spacing: SelahSpacing.md) {
+                    Text("帳號")
+                        .font(.selahHeadlineLarge)
+                    Button("登出", role: .destructive) {
+                        appState.signOut()
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 // About

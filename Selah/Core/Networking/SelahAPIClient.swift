@@ -131,6 +131,7 @@ final class SelahAPIClient: SelahAPIClientProtocol {
 
     private let supabaseURL: String
     private let publishableKey: String
+    private let sessionStore: any AuthSessionStoring
     private let retryPolicy: RetryPolicy
     private let sentenceBreaker = CapabilityCircuitBreaker()
     private let audioBreaker = CapabilityCircuitBreaker()
@@ -156,22 +157,37 @@ final class SelahAPIClient: SelahAPIClientProtocol {
 
     // MARK: - Init
 
-    init(supabaseURL: String, publishableKey: String, retryPolicy: RetryPolicy = RetryPolicy()) {
+    init(
+        supabaseURL: String,
+        publishableKey: String,
+        retryPolicy: RetryPolicy = RetryPolicy(),
+        sessionStore: any AuthSessionStoring = KeychainAuthSessionStore()
+    ) {
         self.supabaseURL = supabaseURL.hasSuffix("/") ? String(supabaseURL.dropLast()) : supabaseURL
         self.publishableKey = publishableKey
         self.retryPolicy = retryPolicy
+        self.sessionStore = sessionStore
     }
 
     // MARK: - Session Management
 
-    func setSession(accessToken: String, refreshToken: String) {
-        self.authToken = accessToken
-        self.refreshTokenValue = refreshToken
+    func restoreSession() throws -> Bool {
+        guard let session = try sessionStore.load() else { return false }
+        authToken = session.accessToken
+        refreshTokenValue = session.refreshToken
+        return true
     }
 
-    func clearSession() {
+    func setSession(accessToken: String, refreshToken: String) throws {
+        self.authToken = accessToken
+        self.refreshTokenValue = refreshToken
+        try sessionStore.save(AuthSession(accessToken: accessToken, refreshToken: refreshToken))
+    }
+
+    func clearSession() throws {
         self.authToken = nil
         self.refreshTokenValue = nil
+        try sessionStore.clear()
     }
 
     // MARK: - Auth
@@ -180,7 +196,7 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         let url = URL(string: "\(supabaseURL)/auth/v1/token?grant_type=password")!
         let body = SignInRequest(email: email, password: password)
         let response: AuthResponse = try await performAuthRequest(url: url, body: body)
-        setSession(accessToken: response.accessToken, refreshToken: response.refreshToken)
+        try setSession(accessToken: response.accessToken, refreshToken: response.refreshToken)
     }
 
     func signUp(email: String, password: String) async throws {
@@ -292,6 +308,9 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         let response: AuthResponse = try await performAuthRequest(url: url, body: body)
         self.authToken = response.accessToken
         self.refreshTokenValue = response.refreshToken
+        try sessionStore.save(
+            AuthSession(accessToken: response.accessToken, refreshToken: response.refreshToken)
+        )
     }
 
     /// Generic request performer with automatic token refresh on 401.
