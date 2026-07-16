@@ -348,13 +348,29 @@ struct ListenView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.modelContext) private var modelContext
     @StateObject private var holder = ListenViewModelHolder()
+    @StateObject private var petAnimationController = PetAnimationController()
     @State private var coachVisible = true
 
     var body: some View {
         ScrollView {
             VStack(spacing: SelahSpacing.xl) {
+                if let companion = appState.activeCompanion {
+                    PetSpriteView(
+                        animationController: petAnimationController,
+                        decorationStage: companion.decorationStage
+                    )
+                }
                 if let viewModel = holder.viewModel {
                     content(viewModel)
+                        .onChange(of: viewModel.isPlaying) { _, isPlaying in
+                            petAnimationController.setContext(isPlaying ? .listenPlaying : .listenEnter)
+                        }
+                        .onChange(of: viewModel.stage) { _, stage in
+                            if stage == 2 {
+                                petAnimationController.setContext(.listenEnter)
+                                petAnimationController.trigger(.listenComplete)
+                            }
+                        }
                 } else {
                     ProgressView()
                         .padding(.vertical, SelahSpacing.xxl)
@@ -368,6 +384,7 @@ struct ListenView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .onAppear {
+            petAnimationController.setContext(.listenEnter)
             holder.setup(
                 modelContext: modelContext,
                 memoryUnlockService: appState.memoryUnlockService,
@@ -376,6 +393,7 @@ struct ListenView: View {
         }
         .onDisappear {
             holder.viewModel?.stop()
+            petAnimationController.setContext(.idle)
         }
     }
 
@@ -528,9 +546,16 @@ struct PracticeView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.modelContext) private var modelContext
     @StateObject private var holder = PracticeViewModelHolder()
+    @StateObject private var petAnimationController = PetAnimationController()
 
     var body: some View {
         VStack(spacing: SelahSpacing.xl) {
+            if let companion = appState.activeCompanion {
+                PetSpriteView(
+                    animationController: petAnimationController,
+                    decorationStage: companion.decorationStage
+                )
+            }
             if let viewModel = holder.viewModel {
                 practiceContent(viewModel)
             } else {
@@ -540,6 +565,9 @@ struct PracticeView: View {
         .padding(SelahSpacing.page)
         .background(Color.selahBgPrimary)
         .navigationTitle("✏️ 練習")
+        .onAppear {
+            petAnimationController.setContext(.idle)
+        }
         .task {
             holder.setup(
                 modelContext: modelContext,
@@ -570,9 +598,15 @@ struct PracticeView: View {
                 .foregroundColor(.selahTextTertiary)
             QuizCard(zhText: card.zhText, enText: card.enText)
             AssessmentButtons(
-                onGood: { viewModel.rate(signal: .clear) },
+                onGood: {
+                    petAnimationController.trigger(.quizGood)
+                    viewModel.rate(signal: .clear)
+                },
                 onMid: { viewModel.rate(signal: .almost) },
-                onFail: { viewModel.rate(signal: .failed) }
+                onFail: {
+                    petAnimationController.trigger(.quizFail)
+                    viewModel.rate(signal: .failed)
+                }
             )
         }
     }
@@ -670,11 +704,18 @@ struct TodaySentenceView: View {
     @Environment(\.dismiss) private var dismiss
 
     @StateObject private var viewModelHolder = TodaySentenceViewModelHolder()
+    @StateObject private var petAnimationController = PetAnimationController()
     @State private var chineseText = ""
 
     var body: some View {
         ScrollView {
             VStack(spacing: SelahSpacing.xl) {
+                if let companion = appState.activeCompanion {
+                    PetSpriteView(
+                        animationController: petAnimationController,
+                        decorationStage: companion.decorationStage
+                    )
+                }
                 Text("說一句中文\n它會變成你之後會聽、會練的英文")
                     .font(.selahDisplayMedium)
                     .multilineTextAlignment(.center)
@@ -686,6 +727,19 @@ struct TodaySentenceView: View {
                     ))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     flowContent(vm: vm)
+                        .onChange(of: vm.flowState.label) { oldLabel, newLabel in
+                            let oldWasRecording = isRecordingAnimationState(oldLabel)
+                            let newIsRecording = isRecordingAnimationState(newLabel)
+
+                            if newIsRecording {
+                                petAnimationController.setContext(.recording)
+                            } else {
+                                petAnimationController.setContext(.idle)
+                                if oldWasRecording {
+                                    petAnimationController.trigger(.recDone)
+                                }
+                            }
+                        }
                 }
             }
             .padding(SelahSpacing.page)
@@ -696,6 +750,7 @@ struct TodaySentenceView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .onAppear {
+            petAnimationController.setContext(.idle)
             guard let speechService = appState.speechService,
                   let sentenceService = appState.sentenceGenService,
                   let audioService = appState.audioGenService else {
@@ -868,6 +923,10 @@ struct TodaySentenceView: View {
                 .tint(.selahCoral)
                 .frame(maxWidth: .infinity)
         }
+    }
+
+    private func isRecordingAnimationState(_ label: String) -> Bool {
+        label == "recording" || label == "recognizingText"
     }
 
     // MARK: - Translating

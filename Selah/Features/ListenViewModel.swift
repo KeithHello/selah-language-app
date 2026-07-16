@@ -9,6 +9,7 @@ final class ListenViewModel: ObservableObject {
     @Published private(set) var stage = 1
     @Published private(set) var blindListenCount = 0
     @Published private(set) var isLoading = false
+    @Published private(set) var isPlaying = false
     @Published var errorMessage: String?
     @Published var selectedSpeed: PlaybackSpeed = .learning
 
@@ -50,6 +51,7 @@ final class ListenViewModel: ObservableObject {
             currentIndex = 0
             stage = 1
             blindListenCount = 0
+            isPlaying = false
             errorMessage = nil
         } catch {
             collection = []
@@ -59,10 +61,12 @@ final class ListenViewModel: ObservableObject {
 
     func playCurrent() {
         guard let item = currentItem else { return }
+        isPlaying = true
         Task {
             do {
                 try await playback.play(asset: item.audioAsset, speed: selectedSpeed)
             } catch {
+                isPlaying = false
                 errorMessage = "音訊播放暫時沒有完成，請再試一次。"
             }
         }
@@ -71,6 +75,7 @@ final class ListenViewModel: ObservableObject {
     func pauseOrResume() {
         if playback.isPlaying {
             playback.pause()
+            isPlaying = false
         } else {
             playCurrent()
         }
@@ -101,6 +106,7 @@ final class ListenViewModel: ObservableObject {
         do {
             try builder.markListened(item)
             playback.stop()
+            isPlaying = false
             currentIndex += 1
             stage = 1
             blindListenCount = 0
@@ -121,5 +127,6 @@ final class ListenViewModel: ObservableObject {
 
     func stop() {
         playback.stop()
+        isPlaying = false
     }
 }

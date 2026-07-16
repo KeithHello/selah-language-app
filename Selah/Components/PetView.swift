@@ -9,31 +9,45 @@ struct PetView: View {
     let companion: Companion
     var todayStory: String = ""
 
-    @State private var floatOffset: CGFloat = 0
-    @State private var isAnimating = false
+    @StateObject private var animationController: PetAnimationController
+
+    init(
+        companion: Companion,
+        todayStory: String = "",
+        animationController: PetAnimationController? = nil
+    ) {
+        self.companion = companion
+        self.todayStory = todayStory
+        _animationController = StateObject(
+            wrappedValue: animationController ?? PetAnimationController()
+        )
+    }
 
     var body: some View {
         VStack(spacing: SelahSpacing.sm) {
             // Sprite body
             ZStack {
-                // Float animation
-                spriteBody
-                    .offset(y: floatOffset)
-                    .animation(
-                        Animation.easeInOut(duration: 2.0)
-                            .repeatForever(autoreverses: true),
-                        value: floatOffset
-                    )
-                    .selahDecorativeAccessibility()
-
-                // Decoration (sprout / leaf / bud / bloom)
-                decorationView
-                    .offset(y: -38)
+                PetSpriteView(
+                    animationController: animationController,
+                    decorationStage: companion.decorationStage
+                )
             }
-            .frame(width: 100, height: 120)
             .selahAccessibility(label: "陪伴精靈 \(companion.displayName)", value: moodAccessibilityValue)
             .onAppear {
-                floatOffset = -6
+                animationController.setContext(.idle)
+            }
+            .task(id: companion.decorationStage) {
+                while !Task.isCancelled {
+                    try? await Task.sleep(nanoseconds: 6_000_000_000)
+                    guard !Task.isCancelled else { break }
+                    animationController.trigger(.blink)
+
+                    if companion.decorationStage != .none {
+                        try? await Task.sleep(nanoseconds: 2_000_000_000)
+                        guard !Task.isCancelled else { break }
+                        animationController.trigger(.leafSway)
+                    }
+                }
             }
 
             // Name
@@ -47,84 +61,6 @@ struct PetView: View {
             // Today's story card
             if !todayStory.isEmpty {
                 storyCard
-            }
-        }
-    }
-
-    // MARK: - Sprite Body
-
-    private var spriteBody: some View {
-        ZStack {
-            // Body: amber gradient circle
-            Circle()
-                .fill(
-                    LinearGradient(
-                        colors: [Color.selahAmber, Color.selahAmber.opacity(0.7)],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
-                )
-                .frame(width: 60, height: 60)
-
-            // Eyes: two black dots
-            HStack(spacing: 16) {
-                Circle().fill(Color.selahTextPrimary).frame(width: 6, height: 6)
-                Circle().fill(Color.selahTextPrimary).frame(width: 6, height: 6)
-            }
-
-            // Smile: arc
-            SmileArc()
-                .stroke(Color.selahTextPrimary, lineWidth: 2)
-                .frame(width: 20, height: 10)
-                .offset(y: 6)
-
-            // Blush: two coral circles
-            HStack(spacing: 36) {
-                Circle().fill(Color.selahCoral.opacity(0.15)).frame(width: 8, height: 6)
-                Circle().fill(Color.selahCoral.opacity(0.15)).frame(width: 8, height: 6)
-            }
-            .offset(y: 10)
-        }
-    }
-
-    // MARK: - Decoration
-
-    @ViewBuilder
-    private var decorationView: some View {
-        switch companion.decorationStage {
-        case .none:
-            EmptyView()
-        case .sprout:
-            // Small leaf sprout
-            Image(systemName: "leaf.fill")
-                .font(.system(size: 12))
-                .foregroundColor(.selahSage)
-                .scaleEffect(isAnimating ? 1.1 : 1.0)
-                .animation(.easeInOut(duration: 1.5).repeatForever(), value: isAnimating)
-                .onAppear { isAnimating = true }
-        case .leaf:
-            Image(systemName: "leaf.fill")
-                .font(.system(size: 18))
-                .foregroundColor(.selahSage)
-        case .bud:
-            HStack(spacing: 0) {
-                Image(systemName: "leaf.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.selahSage)
-                Circle()
-                    .fill(Color.selahRose.opacity(0.7))
-                    .frame(width: 8, height: 8)
-                    .offset(x: -2, y: -4)
-            }
-        case .bloom:
-            HStack(spacing: 0) {
-                Image(systemName: "leaf.fill")
-                    .font(.system(size: 18))
-                    .foregroundColor(.selahSage)
-                Image(systemName: "flower")
-                    .font(.system(size: 14))
-                    .foregroundColor(.selahCoral)
-                    .offset(x: -2, y: -4)
             }
         }
     }
@@ -170,22 +106,6 @@ struct PetView: View {
                 x: SelahShadow.sm.x,
                 y: SelahShadow.sm.y
             )
-    }
-}
-
-// MARK: - Smile Arc Shape
-
-private struct SmileArc: Shape {
-    func path(in rect: CGRect) -> Path {
-        var path = Path()
-        path.addArc(
-            center: CGPoint(x: rect.midX, y: rect.minY),
-            radius: rect.width / 2,
-            startAngle: .degrees(20),
-            endAngle: .degrees(160),
-            clockwise: false
-        )
-        return path
     }
 }
 
