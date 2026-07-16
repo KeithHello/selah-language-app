@@ -68,6 +68,8 @@ jobs:
           test -d "$WIDGET"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.kdagentic.selah"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$WIDGET/Info.plist")" = "com.kdagentic.selah.widget"
+          plutil -lint "$APP/PrivacyInfo.xcprivacy"
+          plutil -lint "$WIDGET/PrivacyInfo.xcprivacy"
           ditto -c -k --sequesterRsrc --keepParent \
             "$RUNNER_TEMP/Selah.xcarchive" \
             "$RUNNER_TEMP/Selah.xcarchive.zip"
