@@ -53,7 +53,7 @@ final class PetAnimationStateMachineTests: XCTestCase {
         )
         state = PetAnimationStateMachine.reduce(state, event: .trigger(.blink))
 
-        XCTAssertEqual(state.activeID, .recording)
+        XCTAssertEqual(state.activeID, .recRecording)
         XCTAssertNil(state.transientID)
     }
 
