@@ -86,6 +86,17 @@ actor ReviewSchedulerImpl: ReviewScheduler {
             .map { $0 }
     }
 
+    func markPreviewed(sentenceIDs: [UUID], at date: Date) async throws {
+        guard !sentenceIDs.isEmpty else { return }
+        for sentenceID in sentenceIDs {
+            guard let sentence = try await sentenceRepo.fetch(id: sentenceID),
+                  sentence.previewedAt == nil else { continue }
+            sentence.previewedAt = date
+            try await sentenceRepo.save(sentence)
+        }
+        try await learningEventRepo.save(.previewCompleted())
+    }
+
     func isContentPoolLow() async throws -> Bool {
         let count = try await sentenceRepo.count()
         return count < 5

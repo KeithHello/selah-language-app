@@ -195,12 +195,16 @@ final class NightPreviewViewModel: ObservableObject {
         }
     }
 
-    func markPreviewed() {
-        let now = Date()
-        for item in items where item.sentence.previewedAt == nil {
-            item.sentence.previewedAt = now
+    func markPreviewed() async {
+        do {
+            try await reviewScheduler.markPreviewed(
+                sentenceIDs: items.map(\.id),
+                at: Date()
+            )
+            isComplete = true
+        } catch {
+            errorMessage = "這次預覽進度尚未保存，請稍後再試。"
         }
-        isComplete = true
     }
 }
 

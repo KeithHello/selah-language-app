@@ -657,7 +657,7 @@ struct NightPreviewView: View {
                 .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
             }
 
-            Button("預習好了") { viewModel.markPreviewed() }
+            Button("預習好了") { Task { await viewModel.markPreviewed() } }
                 .buttonStyle(.borderedProminent)
                 .tint(.selahSage)
         }
