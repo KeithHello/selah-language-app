@@ -1,6 +1,6 @@
 # Selah 开发路线图
 
-> 最后更新：2026-07-16
+> 最后更新：2026-07-17
 >
 > 状态依据：仓库当前代码、GitHub Actions 和只读端到端接线审查。
 >
@@ -17,7 +17,7 @@
 | Swift 核心模型、仓库、推荐、复习、可靠性模块 | 核心层已验证 | GitHub Actions run `29339236287`：227 tests，1 skipped，0 failures |
 | Supabase schema 与 Edge Function 源码 | 本地数据库层已验证 | 4 个 migration、5 个 Edge Functions；临时 Supabase 的 pgTAP 与并发测试通过，当前未重新执行远端部署 smoke test |
 | Seed 内容 | 内容已验证 | `v8.2`，30 句，6 类各 5 句，无重复 ID、无空核心字段 |
-| 动画参考 | 样片存在 | 3 个 HyperFrames MP4；正式动画系统不在本轮范围 |
+| 动画参考 | 样片存在 | 3 个 HyperFrames MP4；首批 10 个原生 SwiftUI 动画进入当前试点 |
 
 ## 进行中
 
@@ -58,9 +58,15 @@
 - [ ] App Icon、隐私政策 URL、截图和 App Store Privacy Nutrition Label；App 与 Widget 的 `PrivacyInfo.xcprivacy` 已进入归档并验证。
 - [ ] TestFlight 内测与 release build 验证。
 
+## 2026-07-17 Native animation pilot
+
+- [ ] 完成首批 10 个 SwiftUI 原生动画及 Today／录音／Listen／Practice 触发接线。
+- [ ] 通过 Swift 核心测试、iOS 模拟器构建和真实设备视觉验收。
+- [ ] 连续自用后再决定是否扩展剩余 P0、P1、P2 动画；本阶段不引入 Lottie、Rive 或视频资产。
+
 ## 明确排除
 
-- 120 个宠物动画及 Rive／Lottie 动画系统。
+- 剩余 110 个宠物动画及 Rive／Lottie 动画系统；首批 10 个试点不属于排除项。
 - 未经主人确认的 Supabase 外部配置变更、密钥修改、部署、合并或公开发布；本轮仅在当前分支和 CI 临时数据库执行已获授权的 migration。
 
 ## 阻塞与外部条件
