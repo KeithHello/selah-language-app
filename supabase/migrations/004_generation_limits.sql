@@ -11,7 +11,11 @@ CREATE TABLE public.generation_requests (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     CONSTRAINT generation_requests_operation_check CHECK (
-        operation_type IN ('sentence_generation', 'audio_generation')
+        operation_type IN (
+            'sentence_generation',
+            'audio_generation',
+            'capture_preparation'
+        )
     ),
     CONSTRAINT generation_requests_status_check CHECK (
         status IN ('in_progress', 'succeeded', 'failed')
@@ -50,7 +54,11 @@ DECLARE
     v_daily_count INTEGER;
     v_retry_after INTEGER;
 BEGIN
-    IF p_operation_type NOT IN ('sentence_generation', 'audio_generation') THEN
+    IF p_operation_type NOT IN (
+        'sentence_generation',
+        'audio_generation',
+        'capture_preparation'
+    ) THEN
         RAISE EXCEPTION 'Unsupported generation operation' USING ERRCODE = '22023';
     END IF;
     IF p_minute_limit < 1 OR p_daily_limit < 1 THEN

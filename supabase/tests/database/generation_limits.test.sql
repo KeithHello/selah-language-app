@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(15);
+select plan(18);
 
 select has_table('public', 'generation_requests', 'request ledger exists');
 select has_function(
@@ -155,14 +155,48 @@ select is(
 );
 
 select is(
+  public.claim_generation_request(
+    '10000000-0000-4000-8000-000000000001',
+    'capture_preparation',
+    '20000000-0000-4000-8000-000000000010',
+    1,
+    2
+  )->>'decision',
+  'claimed',
+  'capture preparation uses its own operation quota'
+);
+
+select ok(
+  public.complete_generation_request(
+    '10000000-0000-4000-8000-000000000001',
+    'capture_preparation',
+    '20000000-0000-4000-8000-000000000010',
+    '{"segments":[]}'::jsonb
+  ),
+  'capture preparation request can be completed'
+);
+
+select is(
+  public.claim_generation_request(
+    '10000000-0000-4000-8000-000000000001',
+    'capture_preparation',
+    '20000000-0000-4000-8000-000000000010',
+    1,
+    2
+  )->>'decision',
+  'replay',
+  'completed capture preparation request is replayed'
+);
+
+select is(
   (select count(*)::integer from public.generation_requests),
-  3,
+  4,
   'rejected requests do not create ledger rows'
 );
 
 select is(
   (select count(*)::integer from public.usage_records),
-  3,
+  4,
   'only successful claims consume usage attempts'
 );
 

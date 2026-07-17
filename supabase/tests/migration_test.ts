@@ -289,3 +289,8 @@ Deno.test("generation limit functions are service-role only", () => {
   );
   assertStringIncludes(GENERATION_LIMITS_SQL, "TO service_role");
 });
+
+Deno.test("generation limits include capture preparation operation", () => {
+  assertStringIncludes(GENERATION_LIMITS_SQL, "'capture_preparation'");
+  assertStringIncludes(GENERATION_LIMITS_SQL, "p_operation_type NOT IN (");
+});

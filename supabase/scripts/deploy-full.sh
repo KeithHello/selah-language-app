@@ -69,7 +69,10 @@ supabase secrets set SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY}"
 echo ""
 echo "[5/7] 部署 Edge Functions..."
 supabase functions deploy sentences-generate
+supabase functions deploy sentences-prepare
+supabase functions deploy sentences-batch-generate
 supabase functions deploy audio-generate
+supabase functions deploy audio-download-url
 supabase functions deploy config-bootstrap
 supabase functions deploy events
 
