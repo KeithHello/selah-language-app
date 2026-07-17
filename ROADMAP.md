@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画也已完成代码接线并通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；远端部署 smoke、真机视觉和发布材料仍属于外部环境验收。
+非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画也已完成代码接线并通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。第二阶段的真实远端验收运行器、付费开关和验收文档已补齐，但未执行远端调用；真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；远端部署 smoke、真机视觉和发布材料仍属于外部环境验收。
 
 ## 已验证基线
 
@@ -107,3 +107,16 @@
 - [x] GitHub Actions run `29567690871`: `sentences-prepare` 配额／幂等接线、7 个 Edge Function 部署清单、Swift、iOS archive、Deno 144 tests、pgTAP 18 tests 和并发检查全部通过；未执行远端部署。
 - [ ] Real remote Supabase + OpenAI key acceptance: auth, quota, AI quality, TTS generation, and network retry.
 - [ ] Product follow-up: Japanese target language, capture grouping queries, recording recovery, and 120 animation assets.
+
+## 阶段二至阶段十
+
+- [x] 阶段二（远端验收准备）：新增默认 dry-run 的 `remote_acceptance.ts`，覆盖认证、bootstrap、长语音整理、幂等重放、批量翻译、TTS、signed URL 和音频下载；执行模式必须显式设置 `REMOTE_ACCEPTANCE_ALLOW_BILLABLE=true`。
+- [ ] 阶段二（真实远端验收）：密钥轮换、远端 migration／Edge Function 部署、真实 OpenAI 质量与配额、TTS／Listen／Practice、重试和成本证据。
+- [ ] 阶段三（真实 iOS 运行验收）：macOS／iPhone 上验证麦克风、Speech、AVAudioSession、权限、断网恢复、Listen 播放结束和 Practice 时序。
+- [ ] 阶段四（动画可视化与首轮自用）：开发者动画 Gallery、CI 可下载模拟器包／录屏，并用首批 10 个动画进行个人试用。
+- [ ] 阶段五（稳定性修正）：根据真实试用修正长录音恢复、段落合并、音频缓存、重试和学习数据边界。
+- [ ] 阶段六（动画扩展）：在首轮试用稳定后，按优先级扩展剩余 110 个动画；继续优先 SwiftUI 原生实现，必要时再评估 Lottie／Rive。
+- [ ] 阶段七（日语支持）：扩展目标语言模型、提示词、TTS 声线、UI 文案、配置开关和验收用例。
+- [ ] 阶段八（发布准备）：App Icon、隐私政策 URL、截图、Privacy Nutrition Label、权限说明和发布 checklist。
+- [ ] 阶段九（TestFlight）：签名 release build、内部测试、崩溃／性能／耗电检查和小范围反馈修复。
+- [ ] 阶段十（正式发布与运营）：主人确认后再进行 App Store 发布、远端生产配置、监控、配额告警和版本迭代。
