@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画也已完成代码接线并通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。第二阶段的真实远端验收运行器、付费开关和验收文档已补齐，但未执行远端调用；真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；远端部署 smoke、真机视觉和发布材料仍属于外部环境验收。
+非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画也已完成代码接线并通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。第二阶段已完成远端 migration、7 个 Edge Functions 部署和 30 条 seed 导入；真实翻译验收因 `.env` 中 OpenAI key 返回 401 而暂停。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；真机视觉和发布材料仍属于外部环境验收。
 
 ## 已验证基线
 
@@ -98,6 +98,7 @@
 - 2026-07-16：GitHub Actions `29480172533` 成功，HEAD `8e72955`；SwiftData V1→V2 真实磁盘升级保留数据，Swift 248 个测试（1 skipped、0 failures），Supabase、iOS 构建与归档全部通过。
 - 2026-07-17：GitHub Actions `29514198511` 成功，HEAD `f464ed4`；首批 10 个原生 SwiftUI 精灵动画的状态机测试、Swift 259 个测试（1 skipped、0 failures）、iOS Simulator Release 构建／归档、Supabase Deno、临时数据库 migration／pgTAP／并发检查全部通过。
 - 2026-07-17：GitHub Actions `29569616987` 成功，HEAD `ffce932`；远端验收运行器契约、Deno、Swift、iOS Simulator Release 归档、4 个 migration、18 项 pgTAP 和并发额度检查全部通过；未执行真实远端调用。
+- 2026-07-18：远端项目 `ijonabyyppmgvoufgamt` migration `001`–`004` 已应用，7 个 Edge Functions 为 ACTIVE，30 条 seed sentences 导入成功；真实验收在翻译 provider 处返回 HTTP 502，直接 OpenAI `/v1/models` 检查确认 key 为 `invalid_api_key`，TTS 尚未调用。
 ## 2026-07-16 Long-voice hybrid learning flow
 
 - [x] Local conservative disfluency cleanup, segment suggestions, editing, and merge.
@@ -112,7 +113,8 @@
 ## 阶段二至阶段十
 
 - [x] 阶段二（远端验收准备）：新增默认 dry-run 的 `remote_acceptance.ts`，覆盖认证、bootstrap、长语音整理、幂等重放、批量翻译、TTS、signed URL 和音频下载；执行模式必须显式设置 `REMOTE_ACCEPTANCE_ALLOW_BILLABLE=true`。
-- [ ] 阶段二（真实远端验收）：密钥轮换、远端 migration／Edge Function 部署、真实 OpenAI 质量与配额、TTS／Listen／Practice、重试和成本证据。
+- [x] 阶段二（远端部署）：远端 migration `001`–`004`、7 个 ACTIVE Edge Functions 和 30 条 seed sentences 已完成；未执行远端回滚、合并或发布。
+- [ ] 阶段二（真实远端验收）：密钥轮换、真实 OpenAI 质量与配额、TTS／Listen／Practice、重试和成本证据；当前阻塞为 `.env` 中 OpenAI key 返回 HTTP 401 `invalid_api_key`。
 - [ ] 阶段三（真实 iOS 运行验收）：macOS／iPhone 上验证麦克风、Speech、AVAudioSession、权限、断网恢复、Listen 播放结束和 Practice 时序。
 - [ ] 阶段四（动画可视化与首轮自用）：开发者动画 Gallery、CI 可下载模拟器包／录屏，并用首批 10 个动画进行个人试用。
 - [ ] 阶段五（稳定性修正）：根据真实试用修正长录音恢复、段落合并、音频缓存、重试和学习数据边界。
