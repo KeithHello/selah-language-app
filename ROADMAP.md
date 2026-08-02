@@ -68,7 +68,7 @@
 - [x] 素材工程化：9 个动作姿态 PNG（1x/2x/3x）、闭眼覆盖层与 12 帧姿态序列已生成并进入 `Assets.xcassets`。
 - [x] 建立 `Assets.xcassets` 与 `PetLayeredArtwork` 静态渲染层，`PetSpriteView` 已切换为分层渲染并保留原生装饰与状态光环。
 - [x] 完成 10 个动作的渲染映射、Debug Gallery 与分层素材单元测试代码。
-- [ ] 完成 Swift 测试、iOS 模拟器 Release 构建与无签名归档（依赖 macOS CI）。
+- [x] 完成 Swift 测试、iOS 模拟器 Release 构建与无签名归档；GitHub Actions run `30756448030` 四门禁全绿。
 - [ ] 完成真机视觉、性能与 Reduce Motion 验收。
 - [ ] 完成真机视觉、性能与 Reduce Motion 验收。
 
