@@ -1,5 +1,26 @@
 import SwiftUI
+#if canImport(UIKit)
 import UIKit
+#elseif canImport(AppKit)
+import AppKit
+#endif
+
+/// Platform-agnostic image wrapper so the sprite renders on both iOS and macOS.
+enum PetPlatformImage {
+    #if canImport(UIKit)
+    case uiImage(UIImage)
+    #elseif canImport(AppKit)
+    case nsImage(NSImage)
+    #endif
+
+    static func load(named name: String) -> PetPlatformImage? {
+        #if canImport(UIKit)
+        return UIImage(named: name).map(PetPlatformImage.uiImage)
+        #elseif canImport(AppKit)
+        return NSImage(named: name).map(PetPlatformImage.nsImage)
+        #endif
+    }
+}
 
 /// Static layered artwork for the seed companion.
 ///
@@ -134,15 +155,15 @@ struct PetLayeredSpriteView: View {
     var phase: Double = 0
     var reduceMotion = false
 
-    private let bodyImage: UIImage?
-    private let closedEyesImage: UIImage?
+    private let bodyImage: PetPlatformImage?
+    private let closedEyesImage: PetPlatformImage?
 
     init(
         animationID: PetAnimationID,
         phase: Double = 0,
         reduceMotion: Bool = false,
-        bodyImage: UIImage? = nil,
-        closedEyesImage: UIImage? = nil
+        bodyImage: PetPlatformImage? = nil,
+        closedEyesImage: PetPlatformImage? = nil
     ) {
         self.animationID = animationID
         self.phase = phase
@@ -177,9 +198,9 @@ struct PetLayeredSpriteView: View {
 
     @ViewBuilder
     private var bodyLayer: some View {
-        let image = bodyImage ?? UIImage(named: config.pose.imageName)
+        let image = bodyImage ?? PetPlatformImage.load(named: config.pose.imageName)
         if let image {
-            Image(uiImage: image)
+            platformImage(image)
                 .resizable()
                 .interpolation(.high)
                 .scaledToFit()
@@ -190,9 +211,9 @@ struct PetLayeredSpriteView: View {
     @ViewBuilder
     private var closedEyesLayer: some View {
         if config.eyeState == .closed, config.eyeOverlayOpacity > 0 {
-            let image = closedEyesImage ?? UIImage(named: "SeedEyesClosed")
+            let image = closedEyesImage ?? PetPlatformImage.load(named: "SeedEyesClosed")
             if let image {
-                Image(uiImage: image)
+                platformImage(image)
                     .resizable()
                     .interpolation(.high)
                     .scaledToFit()
@@ -215,6 +236,19 @@ struct PetLayeredSpriteView: View {
             x: 100 * (265 + 190 / 2) / 720,
             y: 120 * (370 + 65 / 2) / 864
         )
+    }
+
+    @ViewBuilder
+    private func platformImage(_ image: PetPlatformImage) -> some View {
+        switch image {
+        #if canImport(UIKit)
+        case .uiImage(let uiImage):
+            Image(uiImage: uiImage)
+        #elseif canImport(AppKit)
+        case .nsImage(let nsImage):
+            Image(nsImage: nsImage)
+        #endif
+        }
     }
 }
 

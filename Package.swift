@@ -16,6 +16,7 @@ let package = Package(
             exclude: [
                 "PrivacyInfo.xcprivacy",
                 "Selah.entitlements",
+                "Resources/Assets.xcassets",
             ],
             swiftSettings: [
                 .swiftLanguageMode(.v5)
