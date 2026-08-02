@@ -65,11 +65,11 @@
 
 - [x] 主人批准方案 A：静态分层精灵 + SwiftUI 原生微动效。
 - [x] 设计规范写入 `docs/superpowers/specs/2026-08-03-pet-layered-sprite-pilot-design.md`。
-- [ ] 素材工程化：统一 2.5D 身体、闭眼、柔和眼神三组透明素材与 12 帧姿态序列。
-- [ ] 建立 `Assets.xcassets` 与 `PetLayeredArtwork` 静态渲染层。
-- [ ] 分三批接入待机、Listen／Recording、Practice 共 10 个动作。
-- [ ] 完成 Debug Gallery 与单元测试。
-- [ ] 完成 Swift 测试、iOS 模拟器 Release 构建与无签名归档。
+- [x] 素材工程化：9 个动作姿态 PNG（1x/2x/3x）、闭眼覆盖层与 12 帧姿态序列已生成并进入 `Assets.xcassets`。
+- [x] 建立 `Assets.xcassets` 与 `PetLayeredArtwork` 静态渲染层，`PetSpriteView` 已切换为分层渲染并保留原生装饰与状态光环。
+- [x] 完成 10 个动作的渲染映射、Debug Gallery 与分层素材单元测试代码。
+- [ ] 完成 Swift 测试、iOS 模拟器 Release 构建与无签名归档（依赖 macOS CI）。
+- [ ] 完成真机视觉、性能与 Reduce Motion 验收。
 - [ ] 完成真机视觉、性能与 Reduce Motion 验收。
 
 - [x] 完成首批 10 个 SwiftUI Shape 原型动画及 Today／录音／Listen／Practice 触发接线。
