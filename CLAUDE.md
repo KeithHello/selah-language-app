@@ -9,7 +9,7 @@ Selah 是 iOS 17+ 原生语言学习应用。核心闭环是：用户用中文�
 - `Package.swift` 当前只验证 macOS Swift Package 核心层，不等同于可运行的 iOS App。
 - `Selah/` 包含 SwiftUI、SwiftData、服务与学习引擎代码。
 - `supabase/` 包含数据库迁移、Edge Functions 和 Deno 测试。
-- 动画系统首轮只实施 10 个 SwiftUI 原生试点动作；不得为了动画改动阻塞核心产品闭环。Lottie、Rive、120 个完整动作和远端动画素材不属于本轮范围。
+- 动画系统首轮只实施 10 个 SwiftUI 原生试点动作；已批准方向为「统一分层静态精灵 + SwiftUI 原生微动效」，不引入视频、Lottie、Rive 或新动画依赖；不得为了动画改动阻塞核心产品闭环。120 个完整动作、远端动画素材与更多表情素材不属于本轮范围。
 
 ## 完成定义
 

@@ -1,6 +1,6 @@
 # Selah 开发路线图
 
-> 最后更新：2026-07-17
+> 最后更新：2026-08-03
 >
 > 状态依据：仓库当前代码、GitHub Actions 和只读端到端接线审查。
 >
@@ -17,7 +17,7 @@
 | Swift 核心模型、仓库、推荐、复习、可靠性模块 | 核心层已验证 | GitHub Actions run `29339236287`：227 tests，1 skipped，0 failures |
 | Supabase schema 与 Edge Function 源码 | 本地数据库层已验证 | 4 个 migration、5 个 Edge Functions；临时 Supabase 的 pgTAP 与并发测试通过，当前未重新执行远端部署 smoke test |
 | Seed 内容 | 内容已验证 | `v8.2`，30 句，6 类各 5 句，无重复 ID、无空核心字段 |
-| 动画参考 | 样片存在 | 3 个 HyperFrames MP4；首批 10 个原生 SwiftUI 动画进入当前试点 |
+| 动画参考 | 样片存在 | 3 个 HyperFrames MP4 与 10 动作审阅片；已批准改为静态分层精灵 + SwiftUI 原生微动效 |
 
 ## 进行中
 
@@ -61,14 +61,25 @@
 
 ## 2026-07-17 Native animation pilot
 
-- [x] 完成首批 10 个 SwiftUI 原生动画及 Today／录音／Listen／Practice 触发接线。
+### 2026-08-03 Layered sprite pilot（已批准方向）
+
+- [x] 主人批准方案 A：静态分层精灵 + SwiftUI 原生微动效。
+- [x] 设计规范写入 `docs/superpowers/specs/2026-08-03-pet-layered-sprite-pilot-design.md`。
+- [ ] 素材工程化：统一 2.5D 身体、闭眼、柔和眼神三组透明素材与 12 帧姿态序列。
+- [ ] 建立 `Assets.xcassets` 与 `PetLayeredArtwork` 静态渲染层。
+- [ ] 分三批接入待机、Listen／Recording、Practice 共 10 个动作。
+- [ ] 完成 Debug Gallery 与单元测试。
+- [ ] 完成 Swift 测试、iOS 模拟器 Release 构建与无签名归档。
+- [ ] 完成真机视觉、性能与 Reduce Motion 验收。
+
+- [x] 完成首批 10 个 SwiftUI Shape 原型动画及 Today／录音／Listen／Practice 触发接线。
 - [x] 通过 Swift 核心测试和 iOS 模拟器 Release 构建／无签名归档；GitHub Actions run `29514198511`：259 tests，1 skipped，0 failures。
 - [ ] 完成真实设备视觉、触控时序、性能和 Reduce Motion 验收。
-- [ ] 连续自用后再决定是否扩展剩余 P0、P1、P2 动画；本阶段不引入 Lottie、Rive 或视频资产。
+- [ ] 静态分层精灵稳定后连续自用，再决定是否扩展剩余 P0、P1、P2 动画；本阶段不引入 Lottie、Rive 或视频资产。
 
 ## 明确排除
 
-- 剩余 110 个宠物动画及 Rive／Lottie 动画系统；首批 10 个试点不属于排除项。
+- 剩余 110 个宠物动画、视频运行时素材及 Rive／Lottie 动画系统；首批 10 个静态分层试点不属于排除项。
 - 未经主人确认的 Supabase 外部配置变更、密钥修改、部署、合并或公开发布；本轮仅在当前分支和 CI 临时数据库执行已获授权的 migration。
 
 ## 阻塞与外部条件
