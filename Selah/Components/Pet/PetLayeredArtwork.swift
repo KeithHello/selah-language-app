@@ -238,15 +238,14 @@ struct PetLayeredSpriteView: View {
         )
     }
 
-    @ViewBuilder
-    private func platformImage(_ image: PetPlatformImage) -> some View {
+    private func platformImage(_ image: PetPlatformImage) -> Image {
         switch image {
         #if canImport(UIKit)
         case .uiImage(let uiImage):
-            Image(uiImage: uiImage)
+            return Image(uiImage: uiImage)
         #elseif canImport(AppKit)
         case .nsImage(let nsImage):
-            Image(nsImage: nsImage)
+            return Image(nsImage: nsImage)
         #endif
         }
     }
