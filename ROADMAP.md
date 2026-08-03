@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画已完成初版代码接线并通过基线 CI。当前正在收口素材分层、柔和眼神和 Debug Gallery 入口，修正后的工作树尚未重新通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。第二阶段已完成远端 migration、7 个 Edge Functions 部署和 30 条 seed 导入；真实翻译验收因 `.env` 中 OpenAI key 返回 401 而暂停。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；真机视觉和发布材料仍属于外部环境验收。
+非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画已完成代码接线，素材分层、柔和眼神和 Debug Gallery 入口收口修正也已通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。第二阶段已完成远端 migration、7 个 Edge Functions 部署和 30 条 seed 导入；真实翻译验收因 `.env` 中 OpenAI key 返回 401 而暂停。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；真机视觉和发布材料仍属于外部环境验收。
 
 ## 已验证基线
 
@@ -69,10 +69,10 @@
 - [x] 建立 `Assets.xcassets` 与 `PetLayeredArtwork` 静态渲染层，`PetSpriteView` 已切换为分层渲染并保留原生装饰与状态光环。
 - [x] 完成 10 个动作的渲染映射、Debug Gallery 与分层素材单元测试代码。
 - [x] 完成 Swift 测试、iOS 模拟器 Release 构建与无签名归档；GitHub Actions run `30756448030` 四门禁全绿。
-- [ ] 修正身体姿态素材，移除源 SVG 叶片和中性滤镜阴影，保持成长装饰由 SwiftUI 原生层负责。
-- [ ] 将 `quiz-fail` 与 `rec-done` 接入 `SeedEyesSoft`，并覆盖 Reduce Motion 表情退化。
-- [ ] 从 Debug 设置入口接入 10 动作 Gallery，确保 Release 导航不包含该入口。
-- [ ] 对上述收口改动重新执行 Swift、iOS archive、Supabase Deno、migration／concurrency 四门禁。
+- [x] 修正身体姿态素材，移除源 SVG 叶片和中性滤镜阴影，保持成长装饰由 SwiftUI 原生层负责。
+- [x] 将 `quiz-fail` 与 `rec-done` 接入 `SeedEyesSoft`，并覆盖 Reduce Motion 表情退化。
+- [x] 从 Debug 设置入口接入 10 动作 Gallery，确保 Release 导航不包含该入口。
+- [x] 对上述收口改动重新执行 Swift、iOS archive、Supabase Deno、migration／concurrency 四门禁；GitHub Actions run `30813697889` 全部成功。
 - [ ] 完成真机视觉、性能与 Reduce Motion 验收。
 
 - [x] 完成首批 10 个 SwiftUI Shape 原型动画及 Today／录音／Listen／Practice 触发接线。
@@ -113,6 +113,7 @@
 - 2026-07-17：GitHub Actions `29514198511` 成功，HEAD `f464ed4`；首批 10 个原生 SwiftUI 精灵动画的状态机测试、Swift 259 个测试（1 skipped、0 failures）、iOS Simulator Release 构建／归档、Supabase Deno、临时数据库 migration／pgTAP／并发检查全部通过。
 - 2026-07-17：GitHub Actions `29569616987` 成功，HEAD `ffce932`；远端验收运行器契约、Deno、Swift、iOS Simulator Release 归档、4 个 migration、18 项 pgTAP 和并发额度检查全部通过；未执行真实远端调用。
 - 2026-07-18：远端项目 `ijonabyyppmgvoufgamt` migration `001`–`004` 已应用，7 个 Edge Functions 为 ACTIVE，30 条 seed sentences 导入成功；真实验收在翻译 provider 处返回 HTTP 502，直接 OpenAI `/v1/models` 检查确认 key 为 `invalid_api_key`，TTS 尚未调用。
+- 2026-08-03：GitHub Actions `30813697889` 成功，HEAD `e170f90`；Swift Package、iOS Build & Archive、Supabase Deno、Supabase Migration & Concurrency 全部通过。
 ## 2026-07-16 Long-voice hybrid learning flow
 
 - [x] Local conservative disfluency cleanup, segment suggestions, editing, and merge.
