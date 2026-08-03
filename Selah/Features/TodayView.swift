@@ -1594,6 +1594,35 @@ struct SettingsView: View {
                             .strokeBorder(Color.selahBorderLight, lineWidth: 1)
                     )
                 }
+
+                #if DEBUG
+                VStack(alignment: .leading, spacing: SelahSpacing.md) {
+                    Text("開發者工具")
+                        .font(.selahHeadlineLarge)
+
+                    NavigationLink {
+                        PetAnimationGalleryView()
+                    } label: {
+                        HStack {
+                            Label("精靈動畫預覽", systemImage: "sparkles.rectangle.stack")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(.secondary)
+                        }
+                        .selahLabelLarge()
+                        .foregroundColor(.selahTextPrimary)
+                        .padding(SelahSpacing.lg)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.selahCardPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                                .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                        )
+                    }
+                }
+                #endif
             }
             .padding(SelahSpacing.page)
         }

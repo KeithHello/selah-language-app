@@ -60,8 +60,8 @@ PetSpriteView
 
 | 素材 | 内容 | 用途 |
 |---|---|---|
-| `seed-body-sheet` | 12 帧身体姿态序列（6×2） | `gentle-float`、`listen-enter`、`listen-playing`、`quiz-good` 等身体姿态 |
-| `seed-eyes-closed` | 透明闭眼覆盖层 | `blink`、`quiz-fail`、`rec-done` |
+| `seed-body-sheet` | 12 帧身体姿态源序列（6×2）；运行时导出 9 张关键姿态裁剪图 | `gentle-float`、`listen-enter`、`listen-playing`、`quiz-good` 等身体姿态 |
+| `seed-eyes-closed` | 透明闭眼覆盖层 | `blink` |
 | `seed-eyes-soft` | 透明柔和眼神覆盖层 | `quiz-fail`、`rec-done` |
 
 ### 5.2 画布与导出
@@ -75,6 +75,8 @@ PetSpriteView
 - 三张素材使用完全相同的画布、脚底锚点和面部坐标。
 - 不烘焙落地阴影、背景、光环和文字。
 - 身体素材不包含叶片。
+
+身体素材生成流程先从 12 帧源序列导出 9 张运行时关键姿态，再清除源 SVG 中的叶片组与中性滤镜阴影；成长叶片、花苞和花朵由 SwiftUI 原生装饰层负责。
 
 ### 5.3 姿态帧约定
 
@@ -142,7 +144,9 @@ PetSpriteView
 - 所有一次性动作都有结束时间。
 - reaction 完成后恢复 context。
 - `leaf-sway` 受装饰阶段限制。
-- 三张素材都能被加载。
+- 身体素材不包含叶片或中性矩形阴影。
+- `blink` 使用闭眼覆盖层，`quiz-fail` 与 `rec-done` 使用柔和眼神覆盖层。
+- 三张身体素材与两张表情覆盖层都能被加载。
 - Reduce Motion 每个动作都有退化方案。
 - 精灵序列帧索引计算正确。
 
@@ -166,6 +170,7 @@ Windows 本机无法完成 Xcode 与真机验证，「代码完成」与「平�
 - 一次性动作结束后正确恢复原状态。
 - Reduce Motion 全覆盖。
 - VoiceOver 不逐层读取装饰图片。
+- Debug Gallery 可从 Debug 设置入口打开，Release 导航不暴露该入口。
 - 未引入新依赖、视频或额外动作。
 - 自动测试、iOS 构建与归档通过。
 - 真机视觉与性能完成验收。

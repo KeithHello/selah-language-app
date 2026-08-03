@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画也已完成代码接线并通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。第二阶段已完成远端 migration、7 个 Edge Functions 部署和 30 条 seed 导入；真实翻译验收因 `.env` 中 OpenAI key 返回 401 而暂停。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；真机视觉和发布材料仍属于外部环境验收。
+非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画已完成初版代码接线并通过基线 CI。当前正在收口素材分层、柔和眼神和 Debug Gallery 入口，修正后的工作树尚未重新通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。第二阶段已完成远端 migration、7 个 Edge Functions 部署和 30 条 seed 导入；真实翻译验收因 `.env` 中 OpenAI key 返回 401 而暂停。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；真机视觉和发布材料仍属于外部环境验收。
 
 ## 已验证基线
 
@@ -69,7 +69,10 @@
 - [x] 建立 `Assets.xcassets` 与 `PetLayeredArtwork` 静态渲染层，`PetSpriteView` 已切换为分层渲染并保留原生装饰与状态光环。
 - [x] 完成 10 个动作的渲染映射、Debug Gallery 与分层素材单元测试代码。
 - [x] 完成 Swift 测试、iOS 模拟器 Release 构建与无签名归档；GitHub Actions run `30756448030` 四门禁全绿。
-- [ ] 完成真机视觉、性能与 Reduce Motion 验收。
+- [ ] 修正身体姿态素材，移除源 SVG 叶片和中性滤镜阴影，保持成长装饰由 SwiftUI 原生层负责。
+- [ ] 将 `quiz-fail` 与 `rec-done` 接入 `SeedEyesSoft`，并覆盖 Reduce Motion 表情退化。
+- [ ] 从 Debug 设置入口接入 10 动作 Gallery，确保 Release 导航不包含该入口。
+- [ ] 对上述收口改动重新执行 Swift、iOS archive、Supabase Deno、migration／concurrency 四门禁。
 - [ ] 完成真机视觉、性能与 Reduce Motion 验收。
 
 - [x] 完成首批 10 个 SwiftUI Shape 原型动画及 Today／录音／Listen／Practice 触发接线。

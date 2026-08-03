@@ -67,14 +67,16 @@ enum PetLayeredPose: String, CaseIterable {
     }
 }
 
-enum PetEyeState {
+enum PetEyeState: Equatable {
     case open
     case closed
+    case soft
 
     var overlayImageName: String? {
         switch self {
         case .open: return nil
         case .closed: return "SeedEyesClosed"
+        case .soft: return "SeedEyesSoft"
         }
     }
 }
@@ -85,6 +87,17 @@ struct PetLayeredSpriteConfig {
     var eyeOverlayOpacity: Double = 0
     var shadowScale: CGFloat = 1
     var shadowOpacity: Double = 0.14
+
+    static func reduced(for animationID: PetAnimationID) -> PetLayeredSpriteConfig {
+        let eyeState = PetLayeredArtworkMapping.eyeState(for: animationID)
+        return PetLayeredSpriteConfig(
+            pose: PetLayeredArtworkMapping.pose(for: animationID),
+            eyeState: eyeState,
+            eyeOverlayOpacity: eyeState == .open ? 0 : 1,
+            shadowScale: 1,
+            shadowOpacity: 0.14
+        )
+    }
 
     static func config(for animationID: PetAnimationID, phase: Double) -> PetLayeredSpriteConfig {
         let pulse = sin(.pi * phase)
@@ -124,12 +137,16 @@ struct PetLayeredSpriteConfig {
         case .quizFail:
             return PetLayeredSpriteConfig(
                 pose: .quizFail,
+                eyeState: .soft,
+                eyeOverlayOpacity: pulse,
                 shadowScale: 1.08,
                 shadowOpacity: 0.16
             )
         case .recDone:
             return PetLayeredSpriteConfig(
                 pose: .recDone,
+                eyeState: .soft,
+                eyeOverlayOpacity: pulse,
                 shadowScale: 0.86,
                 shadowOpacity: 0.10
             )
@@ -146,7 +163,14 @@ enum PetLayeredArtworkMapping {
     }
 
     static func eyeState(for animationID: PetAnimationID) -> PetEyeState {
-        animationID == .blink ? .closed : .open
+        switch animationID {
+        case .blink:
+            return .closed
+        case .quizFail, .recDone:
+            return .soft
+        default:
+            return .open
+        }
     }
 }
 
@@ -156,27 +180,27 @@ struct PetLayeredSpriteView: View {
     var reduceMotion = false
 
     private let bodyImage: PetPlatformImage?
-    private let closedEyesImage: PetPlatformImage?
+    private let eyeOverlayImage: PetPlatformImage?
 
     init(
         animationID: PetAnimationID,
         phase: Double = 0,
         reduceMotion: Bool = false,
         bodyImage: PetPlatformImage? = nil,
-        closedEyesImage: PetPlatformImage? = nil
+        eyeOverlayImage: PetPlatformImage? = nil
     ) {
         self.animationID = animationID
         self.phase = phase
         self.reduceMotion = reduceMotion
         self.bodyImage = bodyImage
-        self.closedEyesImage = closedEyesImage
+        self.eyeOverlayImage = eyeOverlayImage
     }
 
     var body: some View {
         ZStack {
             softShadow
             bodyLayer
-            closedEyesLayer
+            eyeOverlayLayer
         }
         .frame(width: 100, height: 120)
         .selahDecorativeAccessibility()
@@ -184,7 +208,7 @@ struct PetLayeredSpriteView: View {
 
     private var config: PetLayeredSpriteConfig {
         reduceMotion
-            ? PetLayeredSpriteConfig(pose: PetLayeredArtworkMapping.pose(for: animationID))
+            ? PetLayeredSpriteConfig.reduced(for: animationID)
             : PetLayeredSpriteConfig.config(for: animationID, phase: phase)
     }
 
@@ -209,9 +233,11 @@ struct PetLayeredSpriteView: View {
     }
 
     @ViewBuilder
-    private var closedEyesLayer: some View {
-        if config.eyeState == .closed, config.eyeOverlayOpacity > 0 {
-            let image = closedEyesImage ?? PetPlatformImage.load(named: "SeedEyesClosed")
+    private var eyeOverlayLayer: some View {
+        if config.eyeState != .open,
+           config.eyeOverlayOpacity > 0,
+           let overlayName = config.eyeState.overlayImageName {
+            let image = eyeOverlayImage ?? PetPlatformImage.load(named: overlayName)
             if let image {
                 platformImage(image)
                     .resizable()
