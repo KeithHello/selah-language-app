@@ -79,7 +79,15 @@
 
 - [x] 推送文档提交 `90781cb` 至远端分支；GitHub Actions run `31405928557`（HEAD `90781cb`）全部成功。
 - [x] 创建 draft PR `#1`（`codex/complete-non-animation-systems` → `main`），待主人审阅后合并。
-- [ ] 默认 seed 语音预生成：30 句 × 默认声线 `gentle-natural`（nova）；真实 OpenAI key 仍返回 401 `invalid_api_key`，等待轮换。
+- [x] 确认远端 seed 音频已完整：`audio_manifests` 120 条 ready（30 句 × 4 声线，含默认声线 `gentle-natural` 30 条），Storage 120 个 MP3 全量验证通过（下载 200、MP3 头有效、字节数与 manifest 一致、SHA-256 120/120 匹配）；生成时间 2026-07-11。
+- [x] `seed_audio_prebuild.ts` 支持 `--voice` 参数按声线过滤（dry-run 已验证 30 句 × `gentle-natural` 计划）。
+- [ ] 真机验收默认声线试听与 Onboarding 预取 3 句音频播放。
+
+### 2026-08-11 OpenAI / Supabase key 现状（待主人确认）
+
+- `.env` 中 `OPENAI_API_KEY`（`sk-proj-` 前缀）已失效：`/v1/models` 返回 401 `invalid_api_key`。
+- 用户环境变量 `OPENAI_API_KEY` 有效（`/v1/models` 200，130 个模型）；若后续需要生成新音频（用户句子、日语等）可直接使用。
+- `.env` 中 `SUPABASE_SERVICE_ROLE_KEY`（`sb_secret_` 新格式）有效，但仅能通过服务端 SDK（supabase-js）使用，浏览器直连 REST 会被网关以「Forbidden use of secret API key in browser」拒绝；`SUPABASE_ACCESS_TOKEN` 已失效（管理 API 401）。
 
 - [x] 完成首批 10 个 SwiftUI Shape 原型动画及 Today／录音／Listen／Practice 触发接线。
 - [x] 通过 Swift 核心测试和 iOS 模拟器 Release 构建／无签名归档；GitHub Actions run `29514198511`：259 tests，1 skipped，0 failures。
