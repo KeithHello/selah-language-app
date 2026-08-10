@@ -13,6 +13,7 @@
  * Usage:
  *   deno run --allow-net --allow-read --allow-env supabase/scripts/seed_audio_prebuild.ts
  *   deno run --allow-net --allow-read --allow-env supabase/scripts/seed_audio_prebuild.ts --execute
+ *   deno run --allow-net --allow-read --allow-env supabase/scripts/seed_audio_prebuild.ts --voice gentle-natural --execute
  */
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
@@ -30,12 +31,20 @@ import {
 } from "../functions/_shared/audio.ts";
 
 const execute = Deno.args.includes("--execute");
+const voiceIndex = Deno.args.indexOf("--voice");
+const voiceFilter = voiceIndex >= 0 ? Deno.args[voiceIndex + 1] : undefined;
+if (voiceFilter && !(voiceFilter in VOICE_MAP)) {
+  console.error(
+    `ERROR: unknown voice "${voiceFilter}". Available: ${Object.keys(VOICE_MAP).join(", ")}.`,
+  );
+  Deno.exit(1);
+}
 const seedPath = new URL(
   "../../SeedContent/seed-sentences.json",
   import.meta.url,
 );
 const seed = JSON.parse(await Deno.readTextFile(seedPath));
-const voices = Object.keys(VOICE_MAP);
+const voices = voiceFilter ? [voiceFilter] : Object.keys(VOICE_MAP);
 const workItems = seed.sentences.flatMap((
   sentence: { id: string; en_translation: string },
 ) =>

@@ -75,6 +75,12 @@
 - [x] 对上述收口改动重新执行 Swift、iOS archive、Supabase Deno、migration／concurrency 四门禁；GitHub Actions run `30813697889` 全部成功。
 - [ ] 完成真机视觉、性能与 Reduce Motion 验收。
 
+### 2026-08-11 收尾与默认语音准备
+
+- [x] 推送文档提交 `90781cb` 至远端分支；GitHub Actions run `31405928557`（HEAD `90781cb`）全部成功。
+- [x] 创建 draft PR `#1`（`codex/complete-non-animation-systems` → `main`），待主人审阅后合并。
+- [ ] 默认 seed 语音预生成：30 句 × 默认声线 `gentle-natural`（nova）；真实 OpenAI key 仍返回 401 `invalid_api_key`，等待轮换。
+
 - [x] 完成首批 10 个 SwiftUI Shape 原型动画及 Today／录音／Listen／Practice 触发接线。
 - [x] 通过 Swift 核心测试和 iOS 模拟器 Release 构建／无签名归档；GitHub Actions run `29514198511`：259 tests，1 skipped，0 failures。
 - [ ] 完成真实设备视觉、触控时序、性能和 Reduce Motion 验收。
