@@ -35,7 +35,9 @@ const voiceIndex = Deno.args.indexOf("--voice");
 const voiceFilter = voiceIndex >= 0 ? Deno.args[voiceIndex + 1] : undefined;
 if (voiceFilter && !(voiceFilter in VOICE_MAP)) {
   console.error(
-    `ERROR: unknown voice "${voiceFilter}". Available: ${Object.keys(VOICE_MAP).join(", ")}.`,
+    `ERROR: unknown voice "${voiceFilter}". Available: ${
+      Object.keys(VOICE_MAP).join(", ")
+    }.`,
   );
   Deno.exit(1);
 }
