@@ -24,6 +24,16 @@ private actor FakeNotificationClient: LocalNotificationClient {
 }
 
 final class M4AccessibilityAndExperienceTests: XCTestCase {
+    func testBackgroundRefreshPolicyUsesRegisteredIdentifierAndMinimumDelay() {
+        let now = Date(timeIntervalSince1970: 1_000)
+
+        XCTAssertEqual(BackgroundRefreshPolicy.taskIdentifier, "com.kdagentic.selah.refresh")
+        XCTAssertEqual(
+            BackgroundRefreshPolicy.earliestBeginDate(now: now),
+            now.addingTimeInterval(15 * 60)
+        )
+    }
+
     func testNotificationTimeParsesValidTimeAndFallsBackSafely() {
         XCTAssertEqual(LocalNotificationService.parseTime("07:05", fallback: "20:00").hour, 7)
         XCTAssertEqual(LocalNotificationService.parseTime("07:05", fallback: "20:00").minute, 5)
@@ -69,6 +79,22 @@ final class M4AccessibilityAndExperienceTests: XCTestCase {
         XCTAssertFalse(snapshot.recommendation.contains(sentence))
         XCTAssertFalse(snapshot.companionDisplayName.contains(sentence))
         XCTAssertEqual(snapshot.generatedAt, Date(timeIntervalSince1970: 123))
+    }
+
+    func testWidgetSnapshotStorePersistsSharedContract() throws {
+        let suite = "SelahWidgetTests.\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let snapshot = WidgetReadySnapshotBuilder().build(
+            counts: WidgetReadyCounts(todaySentenceCount: 1, listenedCount: 2, dueReviewCount: 3),
+            recommendation: "練習一句",
+            companionDisplayName: "小豆",
+            generatedAt: Date(timeIntervalSince1970: 321)
+        )
+
+        try WidgetSnapshotStore(defaults: defaults).save(snapshot)
+
+        let data = try XCTUnwrap(defaults.data(forKey: WidgetSnapshotStore.snapshotKey))
+        XCTAssertEqual(try JSONDecoder().decode(WidgetReadySnapshot.self, from: data), snapshot)
     }
 
     func testReduceMotionPolicyDisablesAnimations() {

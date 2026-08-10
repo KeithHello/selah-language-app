@@ -3,9 +3,20 @@
 // Calls GPT-4o-mini with the v8 translation system prompt.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { CORS_HEADERS, json, errorResponse, handleOptions, requireAuth } from "../_shared/cors.ts";
+import {
+  errorResponse,
+  handleOptions,
+  json,
+  requireAuth,
+} from "../_shared/cors.ts";
+import {
+  buildTranslationRequest,
+  SentenceGenerationInput,
+  validateSentenceGenerationInput,
+} from "../_shared/sentence_contract.ts";
 
-const SYSTEM_PROMPT = `You are a teaching-oriented translation engine for the language learning app "Selah."
+const SYSTEM_PROMPT =
+  `You are a teaching-oriented translation engine for the language learning app "Selah."
 
 ## Your Role
 Your job is to help a Traditional Chinese speaker learn natural spoken English. You receive a Chinese sentence that the user actually said or typed in their real life, and you generate an English version they can understand, hear, practice, and eventually use in real conversations.
@@ -48,12 +59,27 @@ Return ONLY valid JSON with this exact structure:
 }`;
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
+const SENTENCE_MINUTE_LIMIT = Math.max(
+  1,
+  Number.parseInt(Deno.env.get("SENTENCE_MINUTE_LIMIT") ?? "5", 10) || 5,
+);
+const SENTENCE_DAILY_LIMIT = Math.max(
+  1,
+  Number.parseInt(Deno.env.get("SENTENCE_DAILY_LIMIT") ?? "20", 10) || 20,
+);
 
-interface RequestBody {
-  sourceText: string;
-  sourceLanguage?: string;
-  targetLanguage?: string;
-  categoryHint?: string;
+interface GenerationClaim {
+  decision:
+    | "claimed"
+    | "replay"
+    | "in_progress"
+    | "rate_limited"
+    | "quota_exceeded";
+  retryAfterSeconds: number;
+  responsePayload: Record<string, unknown> | null;
 }
 
 Deno.serve(async (req: Request) => {
@@ -67,57 +93,131 @@ Deno.serve(async (req: Request) => {
     return errorResponse("Method not allowed", 405, "method_not_allowed");
   }
 
-  let body: RequestBody;
+  if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    return errorResponse(
+      "Translation service is not configured",
+      503,
+      "translation_service_unavailable",
+    );
+  }
+
+  let body: SentenceGenerationInput;
   try {
     body = await req.json();
   } catch {
     return errorResponse("Invalid JSON body", 400, "invalid_body");
   }
 
-  if (!body.sourceText || body.sourceText.trim().length === 0) {
-    return errorResponse("sourceText is required", 400, "missing_source_text");
+  const validation = validateSentenceGenerationInput(body);
+  if (!validation.ok) {
+    return errorResponse(
+      validation.message,
+      validation.status,
+      validation.code,
+    );
+  }
+  const { sourceText, clientRequestId } = validation;
+  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const { data: claimRaw, error: claimError } = await supabase.rpc(
+    "claim_generation_request",
+    {
+      p_user_id: userId,
+      p_operation_type: "sentence_generation",
+      p_client_request_id: clientRequestId,
+      p_minute_limit: SENTENCE_MINUTE_LIMIT,
+      p_daily_limit: SENTENCE_DAILY_LIMIT,
+    },
+  );
+  if (claimError || !claimRaw) {
+    console.error("Generation capacity claim failed");
+    return errorResponse(
+      "Generation capacity unavailable",
+      503,
+      "generation_capacity_unavailable",
+    );
   }
 
-  if (body.sourceText.length > 500) {
-    return errorResponse("sourceText too long (max 500 chars)", 400, "text_too_long");
+  const claim = claimRaw as GenerationClaim;
+  if (claim.decision === "replay" && claim.responsePayload) {
+    return json(claim.responsePayload);
+  }
+  if (claim.decision === "in_progress") {
+    return errorResponse(
+      "Request is still in progress",
+      429,
+      "request_in_progress",
+    );
+  }
+  if (claim.decision === "rate_limited") {
+    return errorResponse("Too many generation requests", 429, "rate_limited");
+  }
+  if (claim.decision === "quota_exceeded") {
+    return errorResponse(
+      "Daily generation quota exceeded",
+      429,
+      "quota_exceeded",
+    );
   }
 
   try {
-    const openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
+    const openaiResponse = await fetch(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENAI_API_KEY}`,
+        },
+        body: JSON.stringify(
+          buildTranslationRequest(SYSTEM_PROMPT, sourceText),
+        ),
       },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: body.sourceText },
-        ],
-        temperature: 0.7,
-        response_format: { type: "json_object" },
-      }),
-    });
+    );
 
     if (!openaiResponse.ok) {
       // Never log the provider response body: it may contain request-derived text or credentials.
       console.error("Translation provider failed", openaiResponse.status);
-      return errorResponse("Translation service unavailable", 502, "translation_failed");
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+      });
+      return errorResponse(
+        "Translation service unavailable",
+        502,
+        "translation_failed",
+      );
     }
 
     const openaiData = await openaiResponse.json();
     const content = openaiData.choices?.[0]?.message?.content;
 
     if (!content) {
-      return errorResponse("Empty translation response", 502, "translation_empty");
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+      });
+      return errorResponse(
+        "Empty translation response",
+        502,
+        "translation_empty",
+      );
     }
 
     let parsed: {
       targetText: string;
       category: string;
-      vocabulary: Array<{ surfaceText: string; meaningInContext: string; suggestedHelpState: string }>;
-      deconstruction: Array<{ surfaceText: string; meaning: string; type: string }>;
+      vocabulary: Array<
+        {
+          surfaceText: string;
+          meaningInContext: string;
+          suggestedHelpState: string;
+        }
+      >;
+      deconstruction: Array<
+        { surfaceText: string; meaning: string; type: string }
+      >;
     };
 
     try {
@@ -125,37 +225,65 @@ Deno.serve(async (req: Request) => {
     } catch {
       // Do not log generated content because it can include personal sentence material.
       console.error("Translation provider returned invalid JSON");
-      return errorResponse("Invalid translation format", 502, "translation_format_error");
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+      });
+      return errorResponse(
+        "Invalid translation format",
+        502,
+        "translation_format_error",
+      );
     }
 
     // Validate required fields
     if (!parsed.targetText || typeof parsed.targetText !== "string") {
-      return errorResponse("Missing targetText in translation", 502, "translation_missing_fields");
-    }
-
-    // Record usage (dormant in MVP, for future billing)
-    const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-
-    if (supabaseUrl && supabaseKey) {
-      const supabase = createClient(supabaseUrl, supabaseKey);
-      await supabase.from("usage_records").insert({
-        user_id: userId,
-        operation_type: "sentence_generation",
-        estimated_units: 1,
-        client_request_id: crypto.randomUUID(),
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
       });
+      return errorResponse(
+        "Missing targetText in translation",
+        502,
+        "translation_missing_fields",
+      );
     }
 
-    return json({
+    const responsePayload = {
       targetText: parsed.targetText,
       category: parsed.category ?? body.categoryHint ?? "daily_life",
       vocabulary: parsed.vocabulary ?? [],
       deconstruction: parsed.deconstruction ?? [],
       promptVersion: "v8.0",
-    });
+    };
+    const { data: completed, error: completionError } = await supabase.rpc(
+      "complete_generation_request",
+      {
+        p_user_id: userId,
+        p_operation_type: "sentence_generation",
+        p_client_request_id: clientRequestId,
+        p_response_payload: responsePayload,
+      },
+    );
+    if (completionError || completed !== true) {
+      console.error("Generation request completion failed");
+      return errorResponse(
+        "Generation completion unavailable",
+        503,
+        "generation_completion_unavailable",
+      );
+    }
+
+    return json(responsePayload);
   } catch {
     console.error("Translation function failed");
+    await supabase.rpc("fail_generation_request", {
+      p_user_id: userId,
+      p_operation_type: "sentence_generation",
+      p_client_request_id: clientRequestId,
+    });
     return errorResponse("Internal server error", 500, "internal_error");
   }
 });

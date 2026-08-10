@@ -1,201 +1,154 @@
-# Selah - 开发路线图
+# Selah 开发路线图
 
-> 最后更新：2026-07-14 22:50
-> 资料来源：selah-v8-unified-design-spec.md + selah-v8-ios-architecture.md
-> 工程审查：CodeBuddy MCP deepseek-v4-pro（2026-07-08）
+> 最后更新：2026-08-03
+>
+> 状态依据：仓库当前代码、GitHub Actions 和只读端到端接线审查。
+>
+> 完成口径：遵循 `CLAUDE.md` 的五级完成定义。
 
----
+## 当前阶段
 
-## 当前阶段：M3 学习引擎接线完成，进入 M4 产品打磨
+非动画系统的代码内实施已完成；首批 10 个原生 SwiftUI 精灵动画已完成代码接线，素材分层、柔和眼神和 Debug Gallery 入口收口修正也已通过 CI。长语音准备接口的部署清单、专用配额和幂等账本已补齐并通过 CI。第二阶段已完成远端 migration、7 个 Edge Functions 部署和 30 条 seed 导入；真实翻译验收因 `.env` 中 OpenAI key 返回 401 而暂停。真实 iOS 17+ App target、认证、AI／音频运行路径、学习数据闭环、Widget、原子生成额度及 SwiftData 版本迁移均已接线；真机视觉和发布材料仍属于外部环境验收。
 
-### 已完成
+## 已验证基线
 
-| 项目 | 状态 | 说明 |
-|------|------|------|
-| v8 设计冻结 | ✅ | 统一设计规格 + iOS 架构设计 |
-| M0 iOS 原型壳 | ✅ | 22 Swift 源文件，39 编译单元，GitHub Actions CI 通过 |
-| 单元测试（iOS） | ✅ | 9 测试文件，150+ 用例 |
-| Supabase 后端 | ✅ | 11 表 Migration + RLS + 4 Edge Functions + 6 测试文件 |
-| 种子句内容 | ✅ v2 | 30 句（繁体中文、网络流行语、年轻人真实口语），含完整翻译+拆解+词汇 |
-| LLM System Prompt | ✅ | v8 翻译引擎定义 + JSON Schema |
-| TTS 音色选定 | ✅ | nova/sage/ash/shimmer 映射到 3+1 种用户感知声线 |
-| 后端技术栈 | ✅ | Supabase（已确认连通） |
-| 翻译 LLM | ✅ | GPT-4o-mini（Edge Function 已集成） |
-| TTS Provider | ✅ | OpenAI TTS tts-1（4 音色已映射） |
-| Supabase 项目 | ✅ | 已创建，URL + Keys 已配置 |
-| 部署脚本 | ✅ | 合并 Migration SQL + seed import Deno 脚本 + deploy 指南 |
+| 项目 | 层级 | 证据 |
+|---|---|---|
+| Swift 核心模型、仓库、推荐、复习、可靠性模块 | 核心层已验证 | GitHub Actions run `29339236287`：227 tests，1 skipped，0 failures |
+| Supabase schema 与 Edge Function 源码 | 本地数据库层已验证 | 4 个 migration、5 个 Edge Functions；临时 Supabase 的 pgTAP 与并发测试通过，当前未重新执行远端部署 smoke test |
+| Seed 内容 | 内容已验证 | `v8.2`，30 句，6 类各 5 句，无重复 ID、无空核心字段 |
+| 动画参考 | 样片存在 | 3 个 HyperFrames MP4 与 10 动作审阅片；已批准改为静态分层精灵 + SwiftUI 原生微动效 |
 
-### 待完成
+## 进行中
 
-| 项目 | 状态 | 说明 |
-|------|------|------|
-| Apple Developer 帐号 | ❌ | $99/年，TestFlight 必须 |
-| OpenAI API Key | ✅ | 已提供，gpt-4o-mini + tts-1 已測試連通 |
-| Supabase 部署權限 | ✅ | Access Token 已提供，Migration + Edge Functions + 種子句均已部署 |
-| 种子句音频预生成 | ❌ M2 前 | 30 句 × 3 声线 = 90 mp3 |
+### P0：真实产品闭环
 
----
+- [x] 建立可编译的 iOS 17+ App target，生成基础 App 信息并纳入模拟器 Release 构建门禁。
+- [x] 实现 Supabase Email／Password MVP 认证边界，会话保存于 Keychain，启动时安全恢复。
+- [x] App 启动路径按运行配置建立真实 `SelahAPIClient`；未配置或未登录时明确阻止，不再静默回退 Mock。
+- [x] Onboarding 幂等保存精灵名称、3 个种子句和默认偏好状态。
+- [x] 修复语音权限、按住／释放录音、最终 transcript 保存与音频引擎停止，并通过核心测试与 iOS 编译。
+- [x] Today 保存统一经过音频生成、下载、校验、缓存；Listen 读取真实本地文件。
+- [x] 修复离线重试 payload，保留目标文本、声线、原因和失败是否可重试。
+- [ ] 完成中文输入 → 英文生成 → TTS → Listen → Practice 的真实端到端验收。
 
-## 里程碑路线图
+### P1：产品数据闭环
 
-### M0 - 原生原型壳 ✅ 完成
+- [x] 保存生成句子时建立词汇条目。
+- [x] Notes 查询真实句子、掌握数、词汇和已解锁回忆。
+- [x] 学习事件触发精灵回忆解锁。
+- [x] Settings 可进入、可编辑并持久化声线、速度、提醒等偏好；iOS 上同步每日本地提醒。
+- [x] Night Preview、本地通知和 Widget 与真实 iOS 生命周期接线。
+- [x] 建立受系统调度的后台刷新；恢复离线生成队列并刷新 Widget，同时保留前台恢复兜底。
+- [x] 建立版本化 SwiftData schema 与 V1→V2 磁盘升级 fixture；迁移失败时保留原数据并显示恢复界面。
 
-**目标**：可运行的 SwiftUI App，全部画面用 Mock 数据可走通。
+### P1：后端与安全
 
-| 任务 | 状态 |
-|------|------|
-| Xcode 项目初始化（SwiftUI, iOS 17+） | ✅ |
-| SwiftData Schema 建立（9 实体） | ✅ |
-| Design Tokens 实现 | ✅ |
-| Component Library 实现（13 组件） | ✅ |
-| Today 画面 Mock | ✅ |
-| Today Sentence 画面 Mock | ✅ |
-| Listen 画面 Mock | ✅ |
-| Practice 画面 Mock | ✅ |
-| Night Preview 画面 Mock | ✅ |
-| Notes 画面 Mock | ✅ |
-| Settings 画面 Mock | ✅ |
-| Onboarding 画面 Mock | ✅ |
-| Mock 服务层 | ✅ |
-| 本地任务队列 Schema | ✅ |
-| Companion 仓库（多宠就绪） | ✅ |
-| GitHub Actions CI（macos-15, swift build） | ✅ |
+- [x] 更新失效的 Deno 测试，使测试验证行为而非源码字符串。
+- [x] 将 Supabase 格式、lint、类型检查与测试加入 CI。
+- [x] 为生成接口增加每用户额度、原子速率限制与客户端请求幂等账本；临时数据库 8 路并发验证仅 1 个请求获得额度。
+- [x] `events.metadata` 改为按事件类型区分的明确字段白名单。
+- [x] JWT helper 明确命名为解析网关已验证 claims，并注明签名验证依赖 `verify_jwt = true`。
+- [x] `sentences-prepare` 纳入 Edge Function 配置与完整部署脚本，使用独立 `capture_preparation` 配额和幂等 ledger；未配置或未部署远端前不会调用 OpenAI。
+- [ ] 重新执行部署 smoke test，记录当前远端版本证据。
 
----
+### P2：发布准备
 
-### M1 - 真实句子创建
+- [x] iOS Simulator Release 构建与无签名 `.xcarchive` 归档；校验 App、Widget bundle 并保存 CI artifact。
+- [ ] 真机验证 Speech、Microphone、AVAudioSession、离线恢复、低存储和通知权限。
+- [ ] App Icon、隐私政策 URL、截图和 App Store Privacy Nutrition Label；App 与 Widget 的 `PrivacyInfo.xcprivacy` 已进入归档并验证。
+- [ ] TestFlight 内测与 release build 验证。
 
-**目标**：用户可以输入中文、获得 AI 翻译英文、保存句子。
+## 2026-07-17 Native animation pilot
 
-**前置**：M0 ✅ + 后端 API ✅ + OpenAI API Key ✅ + Supabase 部署權限 ✅
+### 2026-08-03 Layered sprite pilot（已批准方向）
 
-| 任务 | 状态 | 关键产出 |
-|------|------|---------|
-| 后端 /v1/sentences/generate | ✅ | 已部署，GPT-4o-mini + v8 Prompt，測試 200 OK |
-| 后端 /v1/audio/generate | ✅ | 已部署，OpenAI TTS + 3 声线映射，測試 200 OK |
-| 后端 /v1/config/bootstrap | ✅ | 已部署，返回 30 句種子句 + 聲線配置，測試 200 OK |
-| 后端 /v1/events | ✅ | 已部署，事件白名單驗證，測試 201 OK |
-| Migration SQL + RLS | ✅ | 已執行至 DB，11 表 + 完整 RLS Policy |
-| Edge Functions 部署到 Supabase | ✅ | 4 個端點全部部署完成 |
-| Migration 執行到 Supabase DB | ✅ | 001 + 002 已執行 |
-| 種子句匯入 seed_sentences | ✅ | 30 句已匯入，DB 驗證 count=30 |
-| SelahAPIClient 实现 | ✅ | iOS HTTP 客户端 + Supabase Auth + 401 自動刷新 |
-| SentenceGenerationService 真实实现 | ✅ | actor 實作，轉調 API Client |
-| AudioGenerationService 真实实现 | ✅ | actor 實作，轉調 API Client |
-| M1 測試 | ✅ | APIClient + Service Implementations；M3 回歸契約已補齊，GitHub Actions 215 tests：0 failures |
-| iOS 语音识别集成 | ✅ | SpeechRecognitionServiceImpl（SFSpeechRecognizer zh-Hant-TW + #if os(iOS) 守衛） |
-| Today Sentence 全流程接通 | ✅ | 完整狀態機：idle->recording->confirming->translating->reviewing->saving->done + 錯誤重試 |
-| 声线选择 UI | ✅ | VoiceProfilePicker（4 種聲線含 shimmer 進階選項）+ SettingsView 默認聲線 |
-| M1 前端測試 | ✅ | VoiceProfile + FlowState 測試 |
-| 音频本地缓存 | ✅ | AudioCacheService：Application Support、SHA-256、原子寫入、100 MB LRU |
-| 生成重试队列 | 🟡 部分完成 | GenerationJob 指數退避與 SwiftData repository 已接線；BGTaskScheduler 留 M4 |
+- [x] 主人批准方案 A：静态分层精灵 + SwiftUI 原生微动效。
+- [x] 设计规范写入 `docs/superpowers/specs/2026-08-03-pet-layered-sprite-pilot-design.md`。
+- [x] 素材工程化：9 个动作姿态 PNG（1x/2x/3x）、闭眼覆盖层与 12 帧姿态序列已生成并进入 `Assets.xcassets`。
+- [x] 建立 `Assets.xcassets` 与 `PetLayeredArtwork` 静态渲染层，`PetSpriteView` 已切换为分层渲染并保留原生装饰与状态光环。
+- [x] 完成 10 个动作的渲染映射、Debug Gallery 与分层素材单元测试代码。
+- [x] 完成 Swift 测试、iOS 模拟器 Release 构建与无签名归档；GitHub Actions run `30756448030` 四门禁全绿。
+- [x] 修正身体姿态素材，移除源 SVG 叶片和中性滤镜阴影，保持成长装饰由 SwiftUI 原生层负责。
+- [x] 将 `quiz-fail` 与 `rec-done` 接入 `SeedEyesSoft`，并覆盖 Reduce Motion 表情退化。
+- [x] 从 Debug 设置入口接入 10 动作 Gallery，确保 Release 导航不包含该入口。
+- [x] 对上述收口改动重新执行 Swift、iOS archive、Supabase Deno、migration／concurrency 四门禁；GitHub Actions run `30813697889` 全部成功。
+- [ ] 完成真机视觉、性能与 Reduce Motion 验收。
 
----
+### 2026-08-11 收尾与默认语音准备
 
-### M2 - 真实聆听与音频
+- [x] 推送文档提交 `90781cb` 至远端分支；GitHub Actions run `31405928557`（HEAD `90781cb`）全部成功。
+- [x] 创建 draft PR `#1`（`codex/complete-non-animation-systems` → `main`），待主人审阅后合并。
+- [x] 确认远端 seed 音频已完整：`audio_manifests` 120 条 ready（30 句 × 4 声线，含默认声线 `gentle-natural` 30 条），Storage 120 个 MP3 全量验证通过（下载 200、MP3 头有效、字节数与 manifest 一致、SHA-256 120/120 匹配）；生成时间 2026-07-11。
+- [x] `seed_audio_prebuild.ts` 支持 `--voice` 参数按声线过滤（dry-run 已验证 30 句 × `gentle-natural` 计划）。
+- [ ] 真机验收默认声线试听与 Onboarding 预取 3 句音频播放。
 
-**目标**：用户可以完整经历聆听四步流程，音频生成可靠。
+### 2026-08-11 OpenAI / Supabase key 现状（待主人确认）
 
-**前置**：M1 + TTS Provider ✅
+- `.env` 中 `OPENAI_API_KEY`（`sk-proj-` 前缀）已失效：`/v1/models` 返回 401 `invalid_api_key`。
+- 用户环境变量 `OPENAI_API_KEY` 有效（`/v1/models` 200，130 个模型）；若后续需要生成新音频（用户句子、日语等）可直接使用。
+- `.env` 中 `SUPABASE_SERVICE_ROLE_KEY`（`sb_secret_` 新格式）有效，但仅能通过服务端 SDK（supabase-js）使用，浏览器直连 REST 会被网关以「Forbidden use of secret API key in browser」拒绝；`SUPABASE_ACCESS_TOKEN` 已失效（管理 API 401）。
 
-| 任务 | 状态 | 关键产出 |
-|------|------|---------|
-| AudioPlaybackService 完整实现 | ✅ | AVFoundation 實作、播放/暫停/seek/四速/A-B loop；真機中斷驗收待 Xcode |
-| 音频状态机 | ✅ | manifest + AudioAsset 支援 queued -> generating -> ready / failed |
-| 音频生成分步处理 | ✅ | AudioDeliveryCoordinator：句子保存不等待 TTS，失敗不回滾句子 |
-| 音频去重 | ✅ | SHA-256 content hash + scope 唯一 manifest，cache hit 直接 signed URL |
-| 文件完整性校验 | ✅ | HTTP、最小大小、預期大小、SHA-256、原子 move |
-| 音频后台生成弹性 | 🟡 部分完成 | 持久化 job schema/指數退避已有；BGTaskScheduler 需 Xcode target/background mode |
-| 聆听全集构建 | ✅ | ListenCollectionBuilder：今日新句 -> preview 未聽 -> due，最多 3 句 |
-| 上下文桥接 | ✅ M3 | RecommendationEngine 已提供 listen/practice/preview 後的下一步建議 |
-| Practice 仅允许已聆听句子 | ✅ M3 | SwiftData 題庫只接收 isPracticeReady 的句子；評分寫回 ReviewScheduler |
-| 手动音频重生成 | ✅ 基礎層 | AudioDeliveryCoordinator.regenerate 保留舊檔直到新檔驗證；UI 入口留下一輪 |
-| Seed 音频离线捆绑 | 🟡 已就緒 | 120 檔 prebuild dry-run 通過；實際 OpenAI 生成須主人另行確認成本 |
+- [x] 完成首批 10 个 SwiftUI Shape 原型动画及 Today／录音／Listen／Practice 触发接线。
+- [x] 通过 Swift 核心测试和 iOS 模拟器 Release 构建／无签名归档；GitHub Actions run `29514198511`：259 tests，1 skipped，0 failures。
+- [ ] 完成真实设备视觉、触控时序、性能和 Reduce Motion 验收。
+- [ ] 静态分层精灵稳定后连续自用，再决定是否扩展剩余 P0、P1、P2 动画；本阶段不引入 Lottie、Rive 或视频资产。
 
----
+## 明确排除
 
-### M3 - 学习引擎
+- 剩余 110 个宠物动画、视频运行时素材及 Rive／Lottie 动画系统；首批 10 个静态分层试点不属于排除项。
+- 未经主人确认的 Supabase 外部配置变更、密钥修改、部署、合并或公开发布；本轮仅在当前分支和 CI 临时数据库执行已获授权的 migration。
 
-**目标**：间隔重复 + 智能推荐 + 词汇帮助规则全部运作。
+## 阻塞与外部条件
 
-**前置**：M2
+- 当前 Windows 环境没有 Swift 与 Xcode；Swift／iOS 验证依赖 macOS CI，Deno 检查可通过临时 CLI 执行。
+- TestFlight 需要 Apple Developer 账号、签名与 App Store Connect 权限。
+- 后端远端迁移、认证策略变更和线上部署属于外部状态变更，执行前需主人再次确认。
 
-| 任务 | 状态 | 关键产出 |
-|------|------|---------|
-| ReviewScheduler 实现 | ✅ 已有 Swift 实现 | clear->3天 / almost->明天 / failed->今天 |
-| RecommendationEngine 实现 | ✅ 已有 Swift 实现 | 5 条规则链，状态优先 |
-| VocabularyHelpUseCase 实现 | ✅ 已有 Swift 实现 | 系统建议+行为驱动隐藏/再显示 |
-| SpriteMemoryPresets | ✅ 已有 Swift 实现 | 30 个回憶預設 |
-| 推荐理由预览 | ✅ M3 | Today 動態顯示推薦理由與最多 2 條明細 |
-| 上下文学习集 | ✅ M3 | TodayRecommendation + BridgeSuggestion 依學習狀態銜接，不強制日程 |
-| 生词状态转换规则 | ✅ 已有 Swift 实现 | new->learning->familiar->owned |
-| Night Preview 列队 | ✅ M3 | SwiftData 依未預覽、個人句子與建立時間建立佇列 |
+## 最近验证
 
----
+- 2026-07-14：GitHub Actions `29339236287` 成功，HEAD `0eb8c56`。
+- 2026-07-16：确认当前仓库仍无 Xcode project／iOS target；本机无 Swift、Deno、Xcode。
+- 2026-07-16：GitHub Actions `29434797968` 成功，HEAD `eb2e569`；Swift 233 个测试（1 skipped、0 failures），Deno 124 个测试（0 failures），格式、lint 与 Edge Function type-check 全部通过。
+- 2026-07-16：GitHub Actions `29435122636` 成功，HEAD `715a5db`；Notes 的真实句子统计、分类过滤、词汇和已解锁回忆接入通过 Swift 与 Deno 双端 CI。
+- 2026-07-16：GitHub Actions `29435376954` 成功，HEAD `2826ff6`；设置持久化测试、Swift 构建测试与 Supabase Deno 全套检查通过。
+- 2026-07-16：GitHub Actions `29435596159` 成功，HEAD `30529f7`；Onboarding 名称与三句 Seed 幂等持久化测试及双端 CI 通过。
+- 2026-07-16：GitHub Actions `29436084806` 成功，HEAD `0d3bd7a`；首次真实 iOS Simulator Release 构建、Swift 核心测试与 Supabase Deno 门禁全部通过。
+- 2026-07-16：GitHub Actions `29464700822` 成功，HEAD `9903999`；Night Preview 持久化与事件测试、iOS 构建及 Deno 门禁通过。
+- 2026-07-16：GitHub Actions `29466371853` 成功，HEAD `f9fab51`；Keychain 会话、运行配置、真实服务接线及移除产品 Mock 回退通过三门禁。
+- 2026-07-16：GitHub Actions `29466706748` 成功，HEAD `ea4de30`；真实 TTS 下载、校验、缓存与离线重试接线通过三门禁。
+- 2026-07-16：GitHub Actions `29468653533` 成功，HEAD `aee3a9b`；Widget Extension、App Group 快照和生命周期刷新通过三门禁。
+- 2026-07-16：GitHub Actions `29468811339` 成功，HEAD `27e3328`；生成中音频清单复用及防重复 TTS 调用通过三门禁。
+- 2026-07-16：GitHub Actions `29469098753` 成功，HEAD `f8571dd`；iOS 后台刷新注册、调度、离线队列恢复及 Widget 刷新通过三门禁。
+- 2026-07-16：GitHub Actions `29469244363` 成功，HEAD `41fa2af`；生成并校验包含 Widget Extension 的无签名模拟器 `.xcarchive`，归档 artifact 上传成功。
+- 2026-07-16：GitHub Actions `29469491952` 成功，HEAD `1ed6795`；App／Widget 隐私清单进入归档并通过 plist 校验，归档上传动作升级至 Node.js 24 且无弃用告警。
+- 2026-07-16：GitHub Actions `29479890128` 成功，HEAD `87bc44d`；4 个 Supabase migration、15 项 pgTAP 契约、8 路并发额度竞争、134 项 Deno 测试、Swift 与 iOS 归档全部通过。
+- 2026-07-16：GitHub Actions `29480172533` 成功，HEAD `8e72955`；SwiftData V1→V2 真实磁盘升级保留数据，Swift 248 个测试（1 skipped、0 failures），Supabase、iOS 构建与归档全部通过。
+- 2026-07-17：GitHub Actions `29514198511` 成功，HEAD `f464ed4`；首批 10 个原生 SwiftUI 精灵动画的状态机测试、Swift 259 个测试（1 skipped、0 failures）、iOS Simulator Release 构建／归档、Supabase Deno、临时数据库 migration／pgTAP／并发检查全部通过。
+- 2026-07-17：GitHub Actions `29569616987` 成功，HEAD `ffce932`；远端验收运行器契约、Deno、Swift、iOS Simulator Release 归档、4 个 migration、18 项 pgTAP 和并发额度检查全部通过；未执行真实远端调用。
+- 2026-07-18：远端项目 `ijonabyyppmgvoufgamt` migration `001`–`004` 已应用，7 个 Edge Functions 为 ACTIVE，30 条 seed sentences 导入成功；真实验收在翻译 provider 处返回 HTTP 502，直接 OpenAI `/v1/models` 检查确认 key 为 `invalid_api_key`，TTS 尚未调用。
+- 2026-08-03：GitHub Actions `30813697889` 成功，HEAD `e170f90`；Swift Package、iOS Build & Archive、Supabase Deno、Supabase Migration & Concurrency 全部通过。
+## 2026-07-16 Long-voice hybrid learning flow
 
-### M4 - 产品打磨
+- [x] Local conservative disfluency cleanup, segment suggestions, editing, and merge.
+- [x] CaptureDraft and LearningSegmentDraft SwiftData V3 migration.
+- [x] AI preparation and 1–5 segment batch translation Edge Functions with strict JSON Schema and atomic quota handling.
+- [x] Today UI/ViewModel confirmation, batch translation, review, save, and existing TTS/Listen/Practice retry pipeline reuse.
+- [x] GitHub Actions run `29495850665`: Swift, iOS archive, Deno, Supabase migration, pgTAP, and concurrency checks passed.
+- [x] GitHub Actions run `29567690871`: `sentences-prepare` 配额／幂等接线、7 个 Edge Function 部署清单、Swift、iOS archive、Deno 144 tests、pgTAP 18 tests 和并发检查全部通过；未执行远端部署。
+- [ ] Real remote Supabase + OpenAI key acceptance: auth, quota, AI quality, TTS generation, and network retry.
+- [ ] Product follow-up: Japanese target language, capture grouping queries, recording recovery, and 120 animation assets.
 
-**目标**：健壮性、隐私、账号、发布准备。
+## 阶段二至阶段十
 
-**前置**：M3
-
-| 任务 | 状态 |
-|------|------|
-| 错误恢复 + 熔断器 | ✅ M4-A | Typed error classification、3 次有界重試、句子／音頻獨立 circuit breaker、GenerationJob 中斷恢復；CI run 29255430137 通過 |
-| 离线处理 | ✅ M4-B | ConnectivityMonitor、離線翻譯阻斷、待處理音訊 GenerationJob、AppState online-only retry；CI run 29258705736 通過 |
-| 本地通知 | ✅ M4-C 核心层 | 可注入排程／撤销、HH:mm 解析与隐私安全文案；iOS UserNotifications adapter 已条件编译，CI run 29298637595 通過，真机权限验收待 Xcode |
-| Widget 就绪 | ✅ M4-C Widget-ready | Codable 摘要契约、计数构建器、文本边界与隐私约束；未创建 WidgetKit target，CI run 29298637595 通過 |
-| 无障碍 | ✅ M4-C 核心层 | VoiceOver 语义辅助、Reduce Motion 策略、Dynamic Type 缩放与 WCAG 对比度 helpers；CI run 29298637595 通過，完整 iOS UI 审计待 Xcode |
-| 隐私政策 | ✅ M4-D 核心层 | 隐私与发布边界文档、Edge Functions/App 层敏感错误脱敏已完成；CI run 29338902674 通过；真实 Xcode 权限与 App Store Connect 隐私问卷验收待 M5 |
-
----
-
-### M5 - 发布准备
-
-**目标**：TestFlight + App Store 审核。
-
-**前置**：M4 + Apple Developer 帐号
-
-| 任务 | 状态 |
-|------|------|
-| App Icon | ❌ |
-| App Store 截图 | ❌ |
-| TestFlight 测试 | ❌ |
-| App Store 审核提交 | ❌ |
-| 🚀 正式发布 | ❌ |
-
----
-
-## 设计资产状态
-
-| 资产 | 状态 |
-|------|------|
-| 互动原型 | ✅ 已审计并通过 |
-| v8 统一设计规格 | ✅ |
-| v8 iOS 架构设计 | ✅ |
-| iOS 设计规格 | ✅ |
-| 用户故事（18 Stories） | ✅ |
-| 宠物流派方向 | ✅ pet-concept-C.png |
-| 种子精灵多角度图（5 张） | ✅ |
-| 种子动画参考样片（3 个 MP4） | ✅ |
-| 30 句种子句数据 | ✅ |
-| LLM System Prompt | ✅ |
-| Supabase Migration + RLS | ✅ |
-| 4 Edge Functions | ✅ |
-| 宠物 Lottie/Rive 动画 | ❌ |
-| App Icon | ❌ |
-| App Store 截图 | ❌ |
-
----
-
-## 工程审查发现的关键风险（CodeBuddy MCP deepseek-v4-pro）
-
-| 风险 | 严重度 | 状态 | 建议 |
-|------|--------|------|------|
-| 冷启动种子句不足 | 🔴 高 | ✅ 已解决 | 已扩充到 30 句 |
-| 间隔重复缺少参数 | 🔴 高 | ✅ 已解决 | ReviewState 已定义明确天数 |
-| SwiftData 迁移方案 | 🟡 中 | ❌ 待定 | v1 发布前定义 |
-| 同步策略 | 🟡 中 | ✅ 已决定 | MVP 无同步，local-first |
-| 异步音频生成队列 | 🟡 中 | ✅ 已解决 | GenerationJob 持久化队列已实现 |
-| Provider 降级 | 🟡 中 | ❌ 待定 | M4 阶段实现熔断器 |
-| 后台任务预算 | 🟢 低 | ❌ M4 | BGTaskScheduler 30s 限制 |
+- [x] 阶段二（远端验收准备）：新增默认 dry-run 的 `remote_acceptance.ts`，覆盖认证、bootstrap、长语音整理、幂等重放、批量翻译、TTS、signed URL 和音频下载；执行模式必须显式设置 `REMOTE_ACCEPTANCE_ALLOW_BILLABLE=true`。
+- [x] 阶段二（远端部署）：远端 migration `001`–`004`、7 个 ACTIVE Edge Functions 和 30 条 seed sentences 已完成；未执行远端回滚、合并或发布。
+- [ ] 阶段二（真实远端验收）：密钥轮换、真实 OpenAI 质量与配额、TTS／Listen／Practice、重试和成本证据；当前阻塞为 `.env` 中 OpenAI key 返回 HTTP 401 `invalid_api_key`。
+- [ ] 阶段三（真实 iOS 运行验收）：macOS／iPhone 上验证麦克风、Speech、AVAudioSession、权限、断网恢复、Listen 播放结束和 Practice 时序。
+- [ ] 阶段四（动画可视化与首轮自用）：开发者动画 Gallery、CI 可下载模拟器包／录屏，并用首批 10 个动画进行个人试用。
+- [ ] 阶段五（稳定性修正）：根据真实试用修正长录音恢复、段落合并、音频缓存、重试和学习数据边界。
+- [ ] 阶段六（动画扩展）：在首轮试用稳定后，按优先级扩展剩余 110 个动画；继续优先 SwiftUI 原生实现，必要时再评估 Lottie／Rive。
+- [ ] 阶段七（日语支持）：扩展目标语言模型、提示词、TTS 声线、UI 文案、配置开关和验收用例。
+- [ ] 阶段八（发布准备）：App Icon、隐私政策 URL、截图、Privacy Nutrition Label、权限说明和发布 checklist。
+- [ ] 阶段九（TestFlight）：签名 release build、内部测试、崩溃／性能／耗电检查和小范围反馈修复。
+- [ ] 阶段十（正式发布与运营）：主人确认后再进行 App Store 发布、远端生产配置、监控、配额告警和版本迭代。

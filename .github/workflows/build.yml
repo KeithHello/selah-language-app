@@ -2,17 +2,19 @@ name: Build & Test
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
+      - codex/complete-non-animation-systems
   workflow_dispatch:
 
 jobs:
-  build:
-    name: Build Selah (macOS)
+  swift:
+    name: Swift Package
     runs-on: macos-15
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Show environment
         run: |
@@ -25,3 +27,107 @@ jobs:
           swift package resolve 2>&1
           swift build 2>&1
           swift test 2>&1
+
+  ios:
+    name: iOS Build & Archive
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Build iOS app
+        run: |
+          xcodebuild \
+            -project Selah.xcodeproj \
+            -scheme Selah \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+
+      - name: Archive unsigned simulator app
+        run: |
+          xcodebuild \
+            -project Selah.xcodeproj \
+            -scheme Selah \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -archivePath "$RUNNER_TEMP/Selah.xcarchive" \
+            CODE_SIGNING_ALLOWED=NO \
+            SKIP_INSTALL=NO \
+            archive
+
+      - name: Verify archive contents
+        run: |
+          APP="$RUNNER_TEMP/Selah.xcarchive/Products/Applications/Selah.app"
+          WIDGET="$APP/PlugIns/SelahWidget.appex"
+          test -d "$APP"
+          test -d "$WIDGET"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP/Info.plist")" = "com.kdagentic.selah"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$WIDGET/Info.plist")" = "com.kdagentic.selah.widget"
+          plutil -lint "$APP/PrivacyInfo.xcprivacy"
+          plutil -lint "$WIDGET/PrivacyInfo.xcprivacy"
+          ditto -c -k --sequesterRsrc --keepParent \
+            "$RUNNER_TEMP/Selah.xcarchive" \
+            "$RUNNER_TEMP/Selah.xcarchive.zip"
+
+      - name: Upload archive artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: Selah-unsigned-simulator-xcarchive
+          path: ${{ runner.temp }}/Selah.xcarchive.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  deno:
+    name: Supabase Deno Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.3
+          cache: true
+
+      - name: Check formatting
+        run: deno fmt --check supabase/functions supabase/tests supabase/scripts
+
+      - name: Lint
+        run: deno lint supabase/functions supabase/tests supabase/scripts
+
+      - name: Type-check Edge Functions
+        run: deno check supabase/functions/*/index.ts
+
+      - name: Run tests
+        run: deno test --allow-read supabase/tests
+
+  database:
+    name: Supabase Migration & Concurrency
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Supabase CLI
+        uses: supabase/setup-cli@v2
+        with:
+          version: 2.84.2
+          github-token: ${{ github.token }}
+
+      - name: Start isolated local database and apply migrations
+        run: supabase db start
+
+      - name: Run pgTAP migration tests
+        run: supabase test db supabase/tests/database/generation_limits.test.sql
+
+      - name: Run concurrent claim test
+        run: bash supabase/tests/database/generation_limits_concurrency.sh

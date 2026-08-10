@@ -18,6 +18,12 @@ pool_mode = "transaction"
 [functions.sentences-generate]
 verify_jwt = true
 
+[functions.sentences-prepare]
+verify_jwt = true
+
+[functions.sentences-batch-generate]
+verify_jwt = true
+
 [functions.audio-generate]
 verify_jwt = true
 

@@ -1,26 +1,30 @@
 import Foundation
 
 /// Local persistent generation retry queue.
-actor GenerationRetryQueueImpl: GenerationRetryQueue {
+@MainActor
+final class GenerationRetryQueueImpl: GenerationRetryQueue {
 
     private let jobRepo: GenerationJobRepository
     private let audioService: AudioGenerationService
     private let breaker: CapabilityCircuitBreaker
     private let retryPolicy: RetryPolicy
     private let maxJobsPerRun: Int
+    private let audioDeliveryCoordinator: AudioDeliveryCoordinator?
 
     init(
         jobRepo: GenerationJobRepository,
         audioService: AudioGenerationService,
         breaker: CapabilityCircuitBreaker = CapabilityCircuitBreaker(),
         retryPolicy: RetryPolicy = RetryPolicy(),
-        maxJobsPerRun: Int = 3
+        maxJobsPerRun: Int = 3,
+        audioDeliveryCoordinator: AudioDeliveryCoordinator? = nil
     ) {
         self.jobRepo = jobRepo
         self.audioService = audioService
         self.breaker = breaker
         self.retryPolicy = retryPolicy
         self.maxJobsPerRun = max(1, maxJobsPerRun)
+        self.audioDeliveryCoordinator = audioDeliveryCoordinator
     }
 
     func enqueue(_ job: GenerationJob) async throws {
@@ -48,15 +52,20 @@ actor GenerationRetryQueueImpl: GenerationRetryQueue {
                 // Attempt the retry based on job type
                 switch job.jobType {
                 case .audioGeneration, .audioRegeneration:
-                    // Trigger audio generation
-                    _ = try await audioService.generateAudio(
-                        sentenceID: job.sentenceID,
-                        targetText: "", // will be fetched by the real service
-                        voiceProfile: .gentleNatural,
-                        reason: job.jobType == .audioRegeneration
-                            ? .manualRegeneration
-                            : .initialGeneration
-                    )
+                    let payload = try job.decodeAudioPayload()
+                    if let audioDeliveryCoordinator {
+                        _ = try await audioDeliveryCoordinator.retry(
+                            sentenceID: job.sentenceID,
+                            payload: payload
+                        )
+                    } else {
+                        _ = try await audioService.generateAudio(
+                            sentenceID: job.sentenceID,
+                            targetText: payload.targetText,
+                            voiceProfile: payload.voiceProfile,
+                            reason: payload.reason
+                        )
+                    }
                 case .sentenceGeneration:
                     // Sentence generation retries happen in the UI flow
                     break

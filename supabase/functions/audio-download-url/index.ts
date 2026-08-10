@@ -2,7 +2,12 @@
 // Refreshes a signed download URL for an existing audio manifest without TTS work.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { json, errorResponse, handleOptions, requireAuth } from "../_shared/cors.ts";
+import {
+  errorResponse,
+  handleOptions,
+  json,
+  requireAuth,
+} from "../_shared/cors.ts";
 import {
   AUDIO_BUCKET,
   isAudioManifestAccessible,
@@ -10,7 +15,8 @@ import {
 } from "../_shared/audio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 
 interface RequestBody {
   manifestId: string;
@@ -27,7 +33,11 @@ Deno.serve(async (req: Request) => {
   const userId = authResult;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Audio service is not configured", 503, "audio_service_unavailable");
+    return errorResponse(
+      "Audio service is not configured",
+      503,
+      "audio_service_unavailable",
+    );
   }
 
   let body: RequestBody;
@@ -44,12 +54,18 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
   const { data: manifest, error } = await supabase
     .from("audio_manifests")
-    .select("id, owner_user_id, seed_sentence_id, voice_profile, storage_path, sha256, byte_size, duration_ms, generation_status, error_code")
+    .select(
+      "id, owner_user_id, seed_sentence_id, voice_profile, storage_path, sha256, byte_size, duration_ms, generation_status, error_code",
+    )
     .eq("id", body.manifestId)
     .maybeSingle();
 
   if (error) {
-    return errorResponse("Audio manifest lookup failed", 500, "manifest_lookup_failed");
+    return errorResponse(
+      "Audio manifest lookup failed",
+      500,
+      "manifest_lookup_failed",
+    );
   }
   if (!manifest || !isAudioManifestAccessible(manifest, userId)) {
     return errorResponse("Audio asset not found", 404, "audio_not_found");
@@ -68,7 +84,11 @@ Deno.serve(async (req: Request) => {
     .createSignedUrl(manifest.storage_path, SIGNED_URL_TTL_SECONDS);
 
   if (signedError || !signed?.signedUrl) {
-    return errorResponse("Audio delivery unavailable", 503, "signed_url_failed");
+    return errorResponse(
+      "Audio delivery unavailable",
+      503,
+      "signed_url_failed",
+    );
   }
 
   await supabase.from("audio_manifests")

@@ -13,6 +13,11 @@ let package = Package(
         .target(
             name: "Selah",
             path: "Selah",
+            exclude: [
+                "PrivacyInfo.xcprivacy",
+                "Selah.entitlements",
+                "Resources/Assets.xcassets",
+            ],
             swiftSettings: [
                 .swiftLanguageMode(.v5)
             ]

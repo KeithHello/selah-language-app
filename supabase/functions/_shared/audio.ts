@@ -22,7 +22,13 @@ export async function contentHash(
   speed = TTS_SPEED,
   format = AUDIO_FORMAT,
 ): Promise<string> {
-  const canonical = [normalizeText(targetText), voiceProfile, model, speed, format].join("|");
+  const canonical = [
+    normalizeText(targetText),
+    voiceProfile,
+    model,
+    speed,
+    format,
+  ].join("|");
   const bytes = new TextEncoder().encode(canonical);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return Array.from(new Uint8Array(digest))
@@ -71,5 +77,6 @@ export function isAudioManifestAccessible(
   manifest: { owner_user_id: string | null; seed_sentence_id: string | null },
   userId: string,
 ): boolean {
-  return manifest.seed_sentence_id !== null || manifest.owner_user_id === userId;
+  return manifest.seed_sentence_id !== null ||
+    manifest.owner_user_id === userId;
 }

@@ -11,11 +11,19 @@ struct SelahApp: App {
 
     var body: some Scene {
         WindowGroup {
-            if appState.isLoading {
+            if appState.persistenceRecoveryRequired {
+                PersistenceRecoveryView()
+            } else if appState.isLoading {
                 LaunchScreen()
                     .task {
                         await appState.initialize()
                     }
+            } else if appState.authenticationState == .configurationMissing {
+                MissingRuntimeConfigurationView()
+                    .environmentObject(appState)
+            } else if appState.authenticationState == .signedOut {
+                AuthenticationView()
+                    .environmentObject(appState)
             } else if !appState.preferences.onboardingCompleted {
                 OnboardingView()
                     .environmentObject(appState)
@@ -26,13 +34,18 @@ struct SelahApp: App {
         }
         .modelContainer(appState.modelContainer)
         .onChange(of: scenePhase) { _, phase in
-            guard phase == .active else { return }
-            Task { await appState.retryPendingGenerationJobs() }
+            Task { await appState.handleScenePhase(phase) }
         }
     }
 }
 
 // MARK: - App State
+
+enum AppAuthenticationState: Equatable {
+    case configurationMissing
+    case signedOut
+    case signedIn
+}
 
 @MainActor
 final class AppState: ObservableObject {
@@ -41,6 +54,10 @@ final class AppState: ObservableObject {
     @Published var activeCompanion: Companion?
     @Published var showToast: ToastInfo?
     @Published private(set) var connectivityStatus: ConnectivityStatus = .unknown
+    @Published private(set) var authenticationState: AppAuthenticationState = .configurationMissing
+    @Published private(set) var isAuthenticating = false
+    @Published private(set) var authenticationError: String?
+    @Published private(set) var persistenceRecoveryRequired = false
 
     let modelContainer: ModelContainer
     let connectivity: ConnectivityMonitor
@@ -53,6 +70,18 @@ final class AppState: ObservableObject {
     var reviewScheduler: (any ReviewScheduler)?
     var vocabularyHelp: VocabularyHelpUseCaseImpl?
     var generationRetryQueue: GenerationRetryQueueImpl?
+    private(set) var audioDeliveryCoordinator: AudioDeliveryCoordinator?
+    private(set) var memoryUnlockService: SpriteMemoryUnlockService?
+    private var preferenceStore: UserPreferenceStore?
+    private var onboardingCompletionService: OnboardingCompletionService?
+    private var apiClient: SelahAPIClient?
+    private let widgetSnapshotStore = WidgetSnapshotStore()
+    #if os(iOS)
+    private let backgroundRefreshScheduler = BackgroundRefreshScheduler()
+    #endif
+    #if canImport(UserNotifications)
+    private let notificationService = LocalNotificationService(client: UserNotificationsClient())
+    #endif
 
     struct ToastInfo: Identifiable {
         let id = UUID()
@@ -63,27 +92,42 @@ final class AppState: ObservableObject {
     init() {
         connectivity = ConnectivityMonitor()
         do {
-            let schema = Schema([
-                Sentence.self,
-                VocabItem.self,
-                ReviewState.self,
-                AudioAsset.self,
-                GenerationJob.self,
-                Companion.self,
-                SpriteMemory.self,
-                UserPreference.self,
-                LearningEvent.self,
-            ])
+            let schema = Schema(versionedSchema: SelahSchemaV3.self)
             let config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
-            modelContainer = try ModelContainer(for: schema, configurations: [config])
+            modelContainer = try ModelContainer(
+                for: schema,
+                migrationPlan: SelahMigrationPlan.self,
+                configurations: [config]
+            )
         } catch {
-            fatalError("Failed to create ModelContainer: \(error)")
+            persistenceRecoveryRequired = true
+            do {
+                let schema = Schema(versionedSchema: SelahSchemaV3.self)
+                let fallback = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
+                modelContainer = try ModelContainer(
+                    for: schema,
+                    migrationPlan: SelahMigrationPlan.self,
+                    configurations: [fallback]
+                )
+            } catch {
+                fatalError("Failed to create the recovery ModelContainer: \(error)")
+            }
         }
+
+        #if os(iOS)
+        backgroundRefreshScheduler.register { [weak self] in
+            await self?.retryPendingGenerationJobs()
+            await self?.refreshWidgetSnapshot()
+        }
+        #endif
     }
 
     func initialize() async {
         do {
             let context = modelContainer.mainContext
+            preferenceStore = UserPreferenceStore(modelContext: context)
+            onboardingCompletionService = OnboardingCompletionService(modelContext: context)
+            memoryUnlockService = SpriteMemoryUnlockService(modelContext: context)
 
             // Load or create preferences
             let prefDescriptor = FetchDescriptor<UserPreference>()
@@ -104,34 +148,17 @@ final class AppState: ObservableObject {
             } else {
                 let companion = Companion(displayName: "小豆")
                 context.insert(companion)
-
-                // Create default sprite memories
-                let memories = SpriteMemoryPresets.all(for: companion.id)
-                for memory in memories {
-                    context.insert(memory)
-                }
-
                 try context.save()
                 activeCompanion = companion
             }
 
-            // Wire up services.
-            // M0: Mock services for prototype flow.
-            // M1: Real services use SelahAPIClient (needs Supabase auth token).
-            //     When not authenticated, we fall back to Mock for offline UX.
-            //     The app should call apiClient.signIn() before using real services.
-            // For now, keep Mock for speech and use Mock for sentence/audio.
-            // When the user logs in, SelahApp can swap to real implementations.
-            let mockSentence = MockSentenceGenerationService()
-            let mockAudio = MockAudioGenerationService()
-            let mockSpeech = MockSpeechRecognitionService()
+            if let companionID = activeCompanion?.id {
+                try memoryUnlockService?.ensurePresets(for: companionID)
+                try memoryUnlockService?.unlock(for: .appOpen(count: 1), companionID: companionID)
+            }
 
-            sentenceGenService = mockSentence
-            audioGenService = mockAudio
-            speechService = mockSpeech
-
-            // M1: Real speech recognition is always available (iOS native).
-            // Swap in the real speech recognizer so recording works on device.
+            // Native speech recognition is device-local. Sentence and audio
+            // generation are configured only after a real authenticated session.
             #if canImport(Speech)
             speechService = SpeechRecognitionServiceImpl()
             #endif
@@ -158,16 +185,9 @@ final class AppState: ObservableObject {
                 learningEventRepo: eventRepo
             )
 
-            let jobRepo = GenerationJobRepositoryImpl(modelContext: context)
-            generationRetryQueue = GenerationRetryQueueImpl(
-                jobRepo: jobRepo,
-                audioService: audioGenService ?? mockAudio
-            )
             connectivityStatus = await connectivity.refresh()
-            try await generationRetryQueue?.recoverInterruptedJobs()
-            if connectivityStatus.isOnline {
-                try await generationRetryQueue?.retryDueJobs(now: Date())
-            }
+            try await configureNetworkServices(modelContext: context)
+            await refreshWidgetSnapshot()
         } catch {
             // Keep diagnostics local and generic; never expose model or provider details in UI logs.
             showToast = ToastInfo(
@@ -177,6 +197,134 @@ final class AppState: ObservableObject {
         }
 
         isLoading = false
+    }
+
+    private func configureNetworkServices(modelContext: ModelContext) async throws {
+        guard let configuration = SelahRuntimeConfiguration.load() else {
+            authenticationState = .configurationMissing
+            return
+        }
+
+        let client = SelahAPIClient(
+            supabaseURL: configuration.supabaseURL,
+            publishableKey: configuration.publishableKey
+        )
+        apiClient = client
+        if try client.restoreSession() {
+            try await activateAuthenticatedServices(client: client, modelContext: modelContext)
+        } else {
+            authenticationState = .signedOut
+        }
+    }
+
+    private func activateAuthenticatedServices(
+        client: SelahAPIClient,
+        modelContext: ModelContext
+    ) async throws {
+        let sentenceService = SentenceGenerationServiceImpl(apiClient: client)
+        let audioService = AudioGenerationServiceImpl(apiClient: client)
+        let cacheService = try AudioCacheService()
+        let deliveryCoordinator = AudioDeliveryCoordinator(
+            audioService: audioService,
+            cacheService: cacheService,
+            modelContext: modelContext
+        )
+        sentenceGenService = sentenceService
+        audioGenService = audioService
+        audioDeliveryCoordinator = deliveryCoordinator
+        generationRetryQueue = GenerationRetryQueueImpl(
+            jobRepo: GenerationJobRepositoryImpl(modelContext: modelContext),
+            audioService: audioService,
+            audioDeliveryCoordinator: deliveryCoordinator
+        )
+        authenticationState = .signedIn
+        try await generationRetryQueue?.recoverInterruptedJobs()
+        if connectivityStatus.isOnline {
+            try await generationRetryQueue?.retryDueJobs(now: Date())
+        }
+    }
+
+    func signIn(email: String, password: String) async {
+        await authenticate(email: email, password: password, createAccount: false)
+    }
+
+    func signUp(email: String, password: String) async {
+        await authenticate(email: email, password: password, createAccount: true)
+    }
+
+    private func authenticate(email: String, password: String, createAccount: Bool) async {
+        guard let apiClient else {
+            authenticationState = .configurationMissing
+            return
+        }
+        isAuthenticating = true
+        authenticationError = nil
+        defer { isAuthenticating = false }
+        do {
+            if createAccount {
+                try await apiClient.signUp(email: email, password: password)
+            }
+            try await apiClient.signIn(email: email, password: password)
+            connectivityStatus = await connectivity.refresh()
+            try await activateAuthenticatedServices(
+                client: apiClient,
+                modelContext: modelContainer.mainContext
+            )
+        } catch {
+            authenticationState = .signedOut
+            authenticationError = createAccount
+                ? "帳號建立或登入沒有完成，請檢查 Email 與密碼。"
+                : "登入沒有完成，請檢查 Email 與密碼。"
+        }
+    }
+
+    func signOut() {
+        do {
+            try apiClient?.clearSession()
+            sentenceGenService = nil
+            audioGenService = nil
+            audioDeliveryCoordinator = nil
+            generationRetryQueue = nil
+            authenticationState = .signedOut
+        } catch {
+            showToast = ToastInfo(message: "登出暫時沒有完成，請稍後再試。", style: .info)
+        }
+    }
+
+    func savePreferences(synchronizeNotifications: Bool = false) async {
+        do {
+            try preferenceStore?.save(preferences)
+            #if canImport(UserNotifications)
+            if synchronizeNotifications {
+                try await notificationService.synchronize(
+                    preference: LocalNotificationPreferences(
+                        enabled: preferences.notificationEnabled,
+                        time: preferences.notificationTime
+                    )
+                )
+            }
+            #endif
+        } catch LocalNotificationError.permissionDenied {
+            preferences.notificationEnabled = false
+            try? preferenceStore?.save(preferences)
+            showToast = ToastInfo(message: "通知權限未開啟，提醒已保持關閉。", style: .info)
+        } catch {
+            showToast = ToastInfo(message: "設定暫時無法儲存，請稍後再試。", style: .info)
+        }
+    }
+
+    func completeOnboarding(name: String, selectedSeeds: [OnboardingSeedPreset]) {
+        guard let activeCompanion, let onboardingCompletionService else { return }
+        do {
+            try onboardingCompletionService.complete(
+                companionName: name,
+                selectedSeeds: selectedSeeds,
+                companion: activeCompanion,
+                preference: preferences
+            )
+        } catch {
+            showToast = ToastInfo(message: "初始內容暫時無法儲存，請稍後再試。", style: .info)
+        }
     }
 
     func retryPendingGenerationJobs() async {
@@ -191,6 +339,51 @@ final class AppState: ObservableObject {
                 message: "背景處理暫時沒有完成，稍後會自動再試。",
                 style: .info
             )
+        }
+    }
+
+    func handleScenePhase(_ phase: ScenePhase) async {
+        switch phase {
+        case .active:
+            await retryPendingGenerationJobs()
+            await refreshWidgetSnapshot()
+        case .background:
+            await refreshWidgetSnapshot()
+            #if os(iOS)
+            try? backgroundRefreshScheduler.schedule()
+            #endif
+        case .inactive:
+            break
+        @unknown default:
+            break
+        }
+    }
+
+    func refreshWidgetSnapshot(now: Date = Date()) async {
+        do {
+            let context = modelContainer.mainContext
+            let sentences = try context.fetch(FetchDescriptor<Sentence>())
+                .filter { !$0.archived }
+            let todayCount = sentences.filter { Calendar.current.isDate($0.createdAt, inSameDayAs: now) }.count
+            let listenedCount = sentences.filter { $0.listenCompletedAt != nil }.count
+            let dueCount = sentences.filter { sentence in
+                guard let review = sentence.reviewState else { return false }
+                return review.nextReviewAt <= now && (review.state == .learning || review.state == .familiar)
+            }.count
+            let recommendation = try await recommendationEngine?.recommendNextAction(now: now)
+            let snapshot = WidgetReadySnapshotBuilder().build(
+                counts: WidgetReadyCounts(
+                    todaySentenceCount: todayCount,
+                    listenedCount: listenedCount,
+                    dueReviewCount: dueCount
+                ),
+                recommendation: recommendation?.type.displayName ?? "今天留一句給自己",
+                companionDisplayName: activeCompanion?.displayName ?? "語言精靈",
+                generatedAt: now
+            )
+            try widgetSnapshotStore.save(snapshot)
+        } catch {
+            // Widget data is best-effort and must never block the main learning flow.
         }
     }
 }
@@ -216,6 +409,30 @@ struct LaunchScreen: View {
                     .font(.selahDisplayLarge)
                     .foregroundColor(.selahTextPrimary)
             }
+        }
+    }
+}
+
+struct PersistenceRecoveryView: View {
+    var body: some View {
+        ZStack {
+            Color.selahBgPrimary.ignoresSafeArea()
+            VStack(spacing: SelahSpacing.md) {
+                Image(systemName: "externaldrive.badge.exclamationmark")
+                    .font(.system(size: 42))
+                    .foregroundColor(.selahAmber)
+
+                Text("學習資料需要處理")
+                    .font(.selahDisplayLarge)
+                    .foregroundColor(.selahTextPrimary)
+
+                Text("Selah 無法安全升級本機資料，因此沒有刪除或重建任何內容。請保留 App，更新至較新版本後再重新開啟。")
+                    .font(.selahBodyLarge)
+                    .foregroundColor(.selahTextSecondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 420)
+            }
+            .padding(SelahSpacing.xl)
         }
     }
 }

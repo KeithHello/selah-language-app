@@ -10,10 +10,20 @@
 // Note: These are static analysis tests that parse the SQL file.
 // Full integration tests require a running PostgreSQL instance.
 
-import { assertEquals, assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertStringIncludes,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 
-const SCHEMA_SQL = await Deno.readTextFile("supabase/migrations/001_initial_schema.sql");
-const RLS_SQL = await Deno.readTextFile("supabase/migrations/002_rls_policies.sql");
+const SCHEMA_SQL = await Deno.readTextFile(
+  "supabase/migrations/001_initial_schema.sql",
+);
+const RLS_SQL = await Deno.readTextFile(
+  "supabase/migrations/002_rls_policies.sql",
+);
+const GENERATION_LIMITS_SQL = await Deno.readTextFile(
+  "supabase/migrations/004_generation_limits.sql",
+);
 
 // ============================================================
 // Table existence
@@ -35,7 +45,10 @@ const REQUIRED_TABLES = [
 
 for (const table of REQUIRED_TABLES) {
   Deno.test(`Migration creates table: ${table}`, () => {
-    assertStringIncludes(SCHEMA_SQL, `CREATE TABLE IF NOT EXISTS public.${table}`);
+    assertStringIncludes(
+      SCHEMA_SQL,
+      `CREATE TABLE IF NOT EXISTS public.${table}`,
+    );
   });
 }
 
@@ -52,7 +65,10 @@ Deno.test("sentences table has target_text column", () => {
 });
 
 Deno.test("sentences table has category column", () => {
-  assertStringIncludes(SCHEMA_SQL, "category TEXT NOT NULL DEFAULT 'daily_life'");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "category TEXT NOT NULL DEFAULT 'daily_life'",
+  );
 });
 
 Deno.test("sentences table has review_state column", () => {
@@ -60,11 +76,17 @@ Deno.test("sentences table has review_state column", () => {
 });
 
 Deno.test("sentences table has next_review_at column", () => {
-  assertStringIncludes(SCHEMA_SQL, "next_review_at TIMESTAMPTZ NOT NULL DEFAULT now()");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "next_review_at TIMESTAMPTZ NOT NULL DEFAULT now()",
+  );
 });
 
 Deno.test("sentences table has deconstruction JSONB column", () => {
-  assertStringIncludes(SCHEMA_SQL, "deconstruction JSONB NOT NULL DEFAULT '[]'::jsonb");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "deconstruction JSONB NOT NULL DEFAULT '[]'::jsonb",
+  );
 });
 
 // ============================================================
@@ -76,7 +98,10 @@ Deno.test("vocab_items table has help_state column", () => {
 });
 
 Deno.test("vocab_items table has active_help_visible column", () => {
-  assertStringIncludes(SCHEMA_SQL, "active_help_visible BOOLEAN NOT NULL DEFAULT true");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "active_help_visible BOOLEAN NOT NULL DEFAULT true",
+  );
 });
 
 // ============================================================
@@ -84,11 +109,17 @@ Deno.test("vocab_items table has active_help_visible column", () => {
 // ============================================================
 
 Deno.test("audio_assets table has generation_status column", () => {
-  assertStringIncludes(SCHEMA_SQL, "generation_status TEXT NOT NULL DEFAULT 'queued'");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "generation_status TEXT NOT NULL DEFAULT 'queued'",
+  );
 });
 
 Deno.test("audio_assets table has voice_profile column", () => {
-  assertStringIncludes(SCHEMA_SQL, "voice_profile TEXT NOT NULL DEFAULT 'gentle-natural'");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "voice_profile TEXT NOT NULL DEFAULT 'gentle-natural'",
+  );
 });
 
 // ============================================================
@@ -108,19 +139,31 @@ Deno.test("generation_jobs table has max_retries column", () => {
 // ============================================================
 
 Deno.test("sentences table references auth.users", () => {
-  assertStringIncludes(SCHEMA_SQL, "REFERENCES auth.users(id) ON DELETE CASCADE");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "REFERENCES auth.users(id) ON DELETE CASCADE",
+  );
 });
 
 Deno.test("vocab_items references sentences", () => {
-  assertStringIncludes(SCHEMA_SQL, "REFERENCES public.sentences(id) ON DELETE CASCADE");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "REFERENCES public.sentences(id) ON DELETE CASCADE",
+  );
 });
 
 Deno.test("audio_assets references sentences", () => {
-  assertStringIncludes(SCHEMA_SQL, "REFERENCES public.sentences(id) ON DELETE CASCADE");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "REFERENCES public.sentences(id) ON DELETE CASCADE",
+  );
 });
 
 Deno.test("sprite_memories references companions", () => {
-  assertStringIncludes(SCHEMA_SQL, "REFERENCES public.companions(id) ON DELETE CASCADE");
+  assertStringIncludes(
+    SCHEMA_SQL,
+    "REFERENCES public.companions(id) ON DELETE CASCADE",
+  );
 });
 
 // ============================================================
@@ -165,19 +208,31 @@ Deno.test("handle_new_user function creates companion", () => {
 // ============================================================
 
 Deno.test("RLS enabled on user_profiles", () => {
-  assertStringIncludes(RLS_SQL, "ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY");
+  assertStringIncludes(
+    RLS_SQL,
+    "ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY",
+  );
 });
 
 Deno.test("RLS enabled on sentences", () => {
-  assertStringIncludes(RLS_SQL, "ALTER TABLE public.sentences ENABLE ROW LEVEL SECURITY");
+  assertStringIncludes(
+    RLS_SQL,
+    "ALTER TABLE public.sentences ENABLE ROW LEVEL SECURITY",
+  );
 });
 
 Deno.test("RLS enabled on vocab_items", () => {
-  assertStringIncludes(RLS_SQL, "ALTER TABLE public.vocab_items ENABLE ROW LEVEL SECURITY");
+  assertStringIncludes(
+    RLS_SQL,
+    "ALTER TABLE public.vocab_items ENABLE ROW LEVEL SECURITY",
+  );
 });
 
 Deno.test("RLS enabled on seed_sentences", () => {
-  assertStringIncludes(RLS_SQL, "ALTER TABLE public.seed_sentences ENABLE ROW LEVEL SECURITY");
+  assertStringIncludes(
+    RLS_SQL,
+    "ALTER TABLE public.seed_sentences ENABLE ROW LEVEL SECURITY",
+  );
 });
 
 Deno.test("Users can view own sentences policy", () => {
@@ -189,12 +244,13 @@ Deno.test("Users can insert own sentences policy", () => {
 });
 
 Deno.test("Authenticated users can read seed sentences policy", () => {
-  assertStringIncludes(RLS_SQL, '"Authenticated users can read seed sentences"');
+  assertStringIncludes(
+    RLS_SQL,
+    '"Authenticated users can read seed sentences"',
+  );
 });
 
 Deno.test("learning_events has no UPDATE policy (append-only)", () => {
-  // Verify there is no UPDATE policy for learning_events
-  const rlsSection = RLS_SQL.split("learning_events");
   // Should not contain "FOR UPDATE" in the context of learning_events
   assertEquals(
     !RLS_SQL.includes("ON public.learning_events FOR UPDATE"),
@@ -208,4 +264,33 @@ Deno.test("usage_records has only INSERT policy", () => {
     !RLS_SQL.includes("ON public.usage_records FOR SELECT"),
     true,
   );
+});
+
+Deno.test("generation limits migration creates atomic request ledger", () => {
+  assertStringIncludes(
+    GENERATION_LIMITS_SQL,
+    "CREATE TABLE public.generation_requests",
+  );
+  assertStringIncludes(
+    GENERATION_LIMITS_SQL,
+    "UNIQUE (user_id, operation_type, client_request_id)",
+  );
+  assertStringIncludes(GENERATION_LIMITS_SQL, "pg_advisory_xact_lock");
+});
+
+Deno.test("generation limit functions are service-role only", () => {
+  assertStringIncludes(
+    GENERATION_LIMITS_SQL,
+    "REVOKE ALL ON FUNCTION public.claim_generation_request",
+  );
+  assertStringIncludes(
+    GENERATION_LIMITS_SQL,
+    "GRANT EXECUTE ON FUNCTION public.claim_generation_request",
+  );
+  assertStringIncludes(GENERATION_LIMITS_SQL, "TO service_role");
+});
+
+Deno.test("generation limits include capture preparation operation", () => {
+  assertStringIncludes(GENERATION_LIMITS_SQL, "'capture_preparation'");
+  assertStringIncludes(GENERATION_LIMITS_SQL, "p_operation_type NOT IN (");
 });

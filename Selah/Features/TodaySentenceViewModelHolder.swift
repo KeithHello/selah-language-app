@@ -11,9 +11,13 @@ final class TodaySentenceViewModelHolder: ObservableObject {
         speechService: SpeechRecognitionService,
         sentenceService: SentenceGenerationService,
         audioService: AudioGenerationService,
+        audioDeliveryCoordinator: AudioDeliveryCoordinator? = nil,
         modelContext: ModelContext,
         connectivity: any ConnectivityProviding = ConnectivityMonitor(initialStatus: .online),
         generationRetryQueue: (any GenerationRetryQueue)? = nil,
+        vocabularyHelp: VocabularyHelpUseCaseImpl? = nil,
+        memoryUnlockService: SpriteMemoryUnlockService? = nil,
+        companionID: UUID? = nil,
         defaultVoiceProfile: VoiceProfile = .gentleNatural
     ) {
         guard viewModel == nil else { return }
@@ -21,9 +25,13 @@ final class TodaySentenceViewModelHolder: ObservableObject {
             speechService: speechService,
             sentenceService: sentenceService,
             audioService: audioService,
+            audioDeliveryCoordinator: audioDeliveryCoordinator,
             modelContext: modelContext,
             connectivity: connectivity,
             generationRetryQueue: generationRetryQueue,
+            vocabularyHelp: vocabularyHelp,
+            memoryUnlockService: memoryUnlockService,
+            companionID: companionID,
             defaultVoiceProfile: defaultVoiceProfile
         )
     }

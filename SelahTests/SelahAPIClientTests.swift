@@ -4,18 +4,29 @@ import XCTest
 @MainActor
 final class SelahAPIClientTests: XCTestCase {
 
+    final class MemorySessionStore: AuthSessionStoring {
+        var session: AuthSession?
+        func load() throws -> AuthSession? { session }
+        func save(_ session: AuthSession) throws { self.session = session }
+        func clear() throws { session = nil }
+    }
+
     var apiClient: SelahAPIClient!
+    var sessionStore: MemorySessionStore!
 
     override func setUp() {
         super.setUp()
+        sessionStore = MemorySessionStore()
         apiClient = SelahAPIClient(
             supabaseURL: "https://ijonabyyppmgvoufgamt.supabase.co",
-            publishableKey: "sb_publishable_test"
+            publishableKey: "sb_publishable_test",
+            sessionStore: sessionStore
         )
     }
 
     override func tearDown() {
         apiClient = nil
+        sessionStore = nil
         super.tearDown()
     }
 
@@ -25,15 +36,23 @@ final class SelahAPIClientTests: XCTestCase {
         XCTAssertFalse(apiClient.isAuthenticated)
     }
 
-    func testSetSession_setsAuthState() {
-        apiClient.setSession(accessToken: "test-access", refreshToken: "test-refresh")
+    func testSetSession_setsAuthState() throws {
+        try apiClient.setSession(accessToken: "test-access", refreshToken: "test-refresh")
         XCTAssertTrue(apiClient.isAuthenticated)
+        XCTAssertEqual(sessionStore.session, AuthSession(accessToken: "test-access", refreshToken: "test-refresh"))
     }
 
-    func testClearSession_removesAuth() {
-        apiClient.setSession(accessToken: "test-access", refreshToken: "test-refresh")
-        apiClient.clearSession()
+    func testClearSession_removesAuth() throws {
+        try apiClient.setSession(accessToken: "test-access", refreshToken: "test-refresh")
+        try apiClient.clearSession()
         XCTAssertFalse(apiClient.isAuthenticated)
+        XCTAssertNil(sessionStore.session)
+    }
+
+    func testRestoreSessionRestoresPersistedTokens() throws {
+        sessionStore.session = AuthSession(accessToken: "stored-access", refreshToken: "stored-refresh")
+        XCTAssertTrue(try apiClient.restoreSession())
+        XCTAssertTrue(apiClient.isAuthenticated)
     }
 
     // MARK: - SelahAPIError
@@ -56,11 +75,47 @@ final class SelahAPIClientTests: XCTestCase {
     func testInit_stripsTrailingSlash() {
         let client = SelahAPIClient(
             supabaseURL: "https://example.com/",
-            publishableKey: "key"
+            publishableKey: "key",
+            sessionStore: MemorySessionStore()
         )
         // Indirect test: no double-slash in bootstrap path
         // The client is created successfully — no crash
         XCTAssertNotNil(client)
+    }
+
+    func testGenerationRequestsEncodeStableClientRequestIDs() throws {
+        let sentenceRequestID = UUID(uuidString: "8D42C8E5-4F0E-4A37-B63D-51C4AB25D1F0")!
+        let audioRequestID = UUID(uuidString: "92D4BA92-CB72-421F-BC94-B36EF91BF61C")!
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+
+        let sentenceData = try encoder.encode(
+            SentenceGenerateRequest(
+                sourceText: "今天好累",
+                sourceLanguage: "zh-Hant",
+                targetLanguage: "en",
+                categoryHint: nil,
+                clientRequestId: sentenceRequestID
+            )
+        )
+        let audioData = try encoder.encode(
+            AudioGenerateRequest(
+                sentenceId: UUID(),
+                targetText: "I am tired.",
+                voiceProfile: "gentle-natural",
+                reason: "initial_generation",
+                clientRequestId: audioRequestID
+            )
+        )
+        let sentenceJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: sentenceData) as? [String: Any]
+        )
+        let audioJSON = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: audioData) as? [String: Any]
+        )
+
+        XCTAssertEqual(sentenceJSON["client_request_id"] as? String, sentenceRequestID.uuidString)
+        XCTAssertEqual(audioJSON["client_request_id"] as? String, audioRequestID.uuidString)
     }
 
     // MARK: - GeneratedSentenceResult (Codable round-trip)

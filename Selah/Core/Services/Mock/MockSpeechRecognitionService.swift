@@ -15,6 +15,8 @@ final class MockSpeechRecognitionService: SpeechRecognitionService, @unchecked S
     private var currentIndex = 0
     private var continuation: AsyncThrowingStream<String, Error>.Continuation?
 
+    func requestAuthorization() async -> Bool { true }
+
     func start(language: SourceLanguage) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             self.continuation = continuation

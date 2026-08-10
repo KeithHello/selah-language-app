@@ -199,6 +199,12 @@ final class MockAudioGenerationServiceTests: XCTestCase {
 /// Tests for the MockSpeechRecognitionService.
 final class MockSpeechRecognitionServiceTests: XCTestCase {
 
+    func testRequestAuthorizationSucceeds() async {
+        let service = MockSpeechRecognitionService()
+        let authorized = await service.requestAuthorization()
+        XCTAssertTrue(authorized)
+    }
+
     func testStartReturnsTranscript() async throws {
         let service = MockSpeechRecognitionService()
 

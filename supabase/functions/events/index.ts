@@ -3,27 +3,22 @@
 // Never stores raw sentence text.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { json, errorResponse, handleOptions, requireAuth } from "../_shared/cors.ts";
+import {
+  errorResponse,
+  handleOptions,
+  json,
+  requireAuth,
+} from "../_shared/cors.ts";
+import {
+  ALLOWED_EVENT_TYPES,
+  sanitizeEventMetadata,
+} from "../_shared/event_contract.ts";
 
 interface RequestBody {
   eventType: string;
   sentenceId?: string;
   metadata?: Record<string, unknown>;
 }
-
-// Whitelist of allowed event types
-const ALLOWED_EVENT_TYPES = new Set([
-  "sentence_created",
-  "listen_started",
-  "listen_completed",
-  "practice_started",
-  "practice_rated",
-  "preview_completed",
-  "vocab_added",
-  "vocab_removed",
-  "voice_selected",
-  "memory_unlocked",
-]);
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -45,7 +40,9 @@ Deno.serve(async (req: Request) => {
 
   if (!body.eventType || !ALLOWED_EVENT_TYPES.has(body.eventType)) {
     return errorResponse(
-      `Invalid event type. Allowed: ${Array.from(ALLOWED_EVENT_TYPES).join(", ")}`,
+      `Invalid event type. Allowed: ${
+        Array.from(ALLOWED_EVENT_TYPES).join(", ")
+      }`,
       400,
       "invalid_event_type",
     );
@@ -61,18 +58,7 @@ Deno.serve(async (req: Request) => {
   try {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    // Strip any potentially sensitive data from metadata
-    const safeMetadata: Record<string, unknown> = {};
-    if (body.metadata) {
-      for (const [key, value] of Object.entries(body.metadata)) {
-        // Only allow primitive values in metadata (no nested objects that could contain sentence text)
-        if (typeof value === "string" && value.length <= 200) {
-          safeMetadata[key] = value;
-        } else if (typeof value === "number" || typeof value === "boolean") {
-          safeMetadata[key] = value;
-        }
-      }
-    }
+    const safeMetadata = sanitizeEventMetadata(body.eventType, body.metadata);
 
     const { error } = await supabase.from("learning_events").insert({
       user_id: userId,

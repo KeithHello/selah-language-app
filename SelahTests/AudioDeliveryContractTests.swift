@@ -47,4 +47,15 @@ final class AudioDeliveryContractTests: XCTestCase {
         XCTAssertFalse(result.isReady)
         XCTAssertNil(result.downloadURL)
     }
+
+    func testLocallyAvailableAudioIsReadyWithoutDownloadURL() {
+        let result = GeneratedAudioResult(
+            status: .ready,
+            voiceProfile: .gentleNatural,
+            localFilePath: "/tmp/sentence.mp3",
+            durationMs: 1800
+        )
+
+        XCTAssertTrue(result.isReady)
+    }
 }

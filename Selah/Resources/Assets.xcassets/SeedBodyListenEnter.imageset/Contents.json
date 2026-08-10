@@ -1,0 +1,23 @@
+{
+    "images":  [
+                   {
+                       "scale":  "1x",
+                       "filename":  "SeedBodyListenEnter@1x.png",
+                       "idiom":  "universal"
+                   },
+                   {
+                       "scale":  "2x",
+                       "filename":  "SeedBodyListenEnter@2x.png",
+                       "idiom":  "universal"
+                   },
+                   {
+                       "scale":  "3x",
+                       "filename":  "SeedBodyListenEnter@3x.png",
+                       "idiom":  "universal"
+                   }
+               ],
+    "info":  {
+                 "author":  "xcode",
+                 "version":  1
+             }
+}

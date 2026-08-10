@@ -31,10 +31,12 @@ export function handleOptions(): Response {
 }
 
 /**
- * Extract and verify the Supabase JWT from the Authorization header.
- * Returns the user ID if valid, null otherwise.
+ * Parse the user ID from a JWT already verified by the Supabase gateway.
+ *
+ * This helper does not verify the signature. It is safe only for functions
+ * deployed with `verify_jwt = true`; direct runtimes must verify upstream first.
  */
-export function getUserId(req: Request): string | null {
+export function getGatewayVerifiedUserId(req: Request): string | null {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
@@ -55,11 +57,12 @@ export function getUserId(req: Request): string | null {
 }
 
 /**
- * Validate that the request has a valid user token.
- * Returns userId or sends a 401 response.
+ * Require gateway-verified JWT claims and return the subject.
+ * This performs structural parsing only; signature verification belongs to
+ * the Supabase gateway configured with `verify_jwt = true`.
  */
 export function requireAuth(req: Request): string | Response {
-  const userId = getUserId(req);
+  const userId = getGatewayVerifiedUserId(req);
   if (!userId) {
     return errorResponse("Unauthorized", 401, "unauthorized");
   }

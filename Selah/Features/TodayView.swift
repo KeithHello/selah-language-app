@@ -345,15 +345,32 @@ struct TodayView: View {
 // MARK: - Placeholder Views (to be fully implemented in M0)
 
 struct ListenView: View {
+    @EnvironmentObject var appState: AppState
     @Environment(\.modelContext) private var modelContext
     @StateObject private var holder = ListenViewModelHolder()
+    @StateObject private var petAnimationController = PetAnimationController()
     @State private var coachVisible = true
 
     var body: some View {
         ScrollView {
             VStack(spacing: SelahSpacing.xl) {
+                if let companion = appState.activeCompanion {
+                    PetSpriteView(
+                        animationController: petAnimationController,
+                        decorationStage: companion.decorationStage
+                    )
+                }
                 if let viewModel = holder.viewModel {
                     content(viewModel)
+                        .onChange(of: viewModel.isPlaying) { _, isPlaying in
+                            petAnimationController.setContext(isPlaying ? .listenPlaying : .listenEnter)
+                        }
+                        .onChange(of: viewModel.stage) { _, stage in
+                            if stage == 2 {
+                                petAnimationController.setContext(.listenEnter)
+                                petAnimationController.trigger(.listenComplete)
+                            }
+                        }
                 } else {
                     ProgressView()
                         .padding(.vertical, SelahSpacing.xxl)
@@ -367,10 +384,16 @@ struct ListenView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .onAppear {
-            holder.setup(modelContext: modelContext)
+            petAnimationController.setContext(.listenEnter)
+            holder.setup(
+                modelContext: modelContext,
+                memoryUnlockService: appState.memoryUnlockService,
+                companionID: appState.activeCompanion?.id
+            )
         }
         .onDisappear {
             holder.viewModel?.stop()
+            petAnimationController.setContext(.idle)
         }
     }
 
@@ -503,9 +526,17 @@ struct ListenView: View {
 final class ListenViewModelHolder: ObservableObject {
     @Published var viewModel: ListenViewModel?
 
-    func setup(modelContext: ModelContext) {
+    func setup(
+        modelContext: ModelContext,
+        memoryUnlockService: SpriteMemoryUnlockService?,
+        companionID: UUID?
+    ) {
         guard viewModel == nil else { return }
-        let model = ListenViewModel(modelContext: modelContext)
+        let model = ListenViewModel(
+            modelContext: modelContext,
+            memoryUnlockService: memoryUnlockService,
+            companionID: companionID
+        )
         viewModel = model
         model.load()
     }
@@ -515,9 +546,16 @@ struct PracticeView: View {
     @EnvironmentObject var appState: AppState
     @Environment(\.modelContext) private var modelContext
     @StateObject private var holder = PracticeViewModelHolder()
+    @StateObject private var petAnimationController = PetAnimationController()
 
     var body: some View {
         VStack(spacing: SelahSpacing.xl) {
+            if let companion = appState.activeCompanion {
+                PetSpriteView(
+                    animationController: petAnimationController,
+                    decorationStage: companion.decorationStage
+                )
+            }
             if let viewModel = holder.viewModel {
                 practiceContent(viewModel)
             } else {
@@ -527,10 +565,15 @@ struct PracticeView: View {
         .padding(SelahSpacing.page)
         .background(Color.selahBgPrimary)
         .navigationTitle("✏️ 練習")
+        .onAppear {
+            petAnimationController.setContext(.idle)
+        }
         .task {
             holder.setup(
                 modelContext: modelContext,
-                reviewScheduler: appState.reviewScheduler
+                reviewScheduler: appState.reviewScheduler,
+                memoryUnlockService: appState.memoryUnlockService,
+                companionID: appState.activeCompanion?.id
             )
             await holder.viewModel?.load()
         }
@@ -555,9 +598,15 @@ struct PracticeView: View {
                 .foregroundColor(.selahTextTertiary)
             QuizCard(zhText: card.zhText, enText: card.enText)
             AssessmentButtons(
-                onGood: { viewModel.rate(signal: .clear) },
+                onGood: {
+                    petAnimationController.trigger(.quizGood)
+                    viewModel.rate(signal: .clear)
+                },
                 onMid: { viewModel.rate(signal: .almost) },
-                onFail: { viewModel.rate(signal: .failed) }
+                onFail: {
+                    petAnimationController.trigger(.quizFail)
+                    viewModel.rate(signal: .failed)
+                }
             )
         }
     }
@@ -642,7 +691,7 @@ struct NightPreviewView: View {
                 .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
             }
 
-            Button("預習好了") { viewModel.markPreviewed() }
+            Button("預習好了") { Task { await viewModel.markPreviewed() } }
                 .buttonStyle(.borderedProminent)
                 .tint(.selahSage)
         }
@@ -655,11 +704,18 @@ struct TodaySentenceView: View {
     @Environment(\.dismiss) private var dismiss
 
     @StateObject private var viewModelHolder = TodaySentenceViewModelHolder()
+    @StateObject private var petAnimationController = PetAnimationController()
     @State private var chineseText = ""
 
     var body: some View {
         ScrollView {
             VStack(spacing: SelahSpacing.xl) {
+                if let companion = appState.activeCompanion {
+                    PetSpriteView(
+                        animationController: petAnimationController,
+                        decorationStage: companion.decorationStage
+                    )
+                }
                 Text("說一句中文\n它會變成你之後會聽、會練的英文")
                     .font(.selahDisplayMedium)
                     .multilineTextAlignment(.center)
@@ -671,6 +727,19 @@ struct TodaySentenceView: View {
                     ))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     flowContent(vm: vm)
+                        .onChange(of: vm.flowState.label) { oldLabel, newLabel in
+                            let oldWasRecording = isRecordingAnimationState(oldLabel)
+                            let newIsRecording = isRecordingAnimationState(newLabel)
+
+                            if newIsRecording {
+                                petAnimationController.setContext(.recording)
+                            } else {
+                                petAnimationController.setContext(.idle)
+                                if oldWasRecording {
+                                    petAnimationController.trigger(.recDone)
+                                }
+                            }
+                        }
                 }
             }
             .padding(SelahSpacing.page)
@@ -681,13 +750,27 @@ struct TodaySentenceView: View {
         .navigationBarTitleDisplayMode(.inline)
         #endif
         .onAppear {
+            petAnimationController.setContext(.idle)
+            guard let speechService = appState.speechService,
+                  let sentenceService = appState.sentenceGenService,
+                  let audioService = appState.audioGenService else {
+                appState.showToast = AppState.ToastInfo(
+                    message: "真實服務尚未準備好，請重新登入後再試。",
+                    style: .info
+                )
+                return
+            }
             viewModelHolder.setup(
-                speechService: appState.speechService ?? MockSpeechRecognitionService(),
-                sentenceService: appState.sentenceGenService ?? MockSentenceGenerationService(),
-                audioService: appState.audioGenService ?? MockAudioGenerationService(),
+                speechService: speechService,
+                sentenceService: sentenceService,
+                audioService: audioService,
+                audioDeliveryCoordinator: appState.audioDeliveryCoordinator,
                 modelContext: modelContext,
                 connectivity: appState.connectivity,
                 generationRetryQueue: appState.generationRetryQueue,
+                vocabularyHelp: appState.vocabularyHelp,
+                memoryUnlockService: appState.memoryUnlockService,
+                companionID: appState.activeCompanion?.id,
                 defaultVoiceProfile: appState.preferences.voiceProfile
             )
         }
@@ -699,8 +782,12 @@ struct TodaySentenceView: View {
         case .idle: idleState(vm: vm)
         case .recording, .recognizingText: recordingState(vm: vm)
         case .confirmingChinese(let transcript): confirmingChineseState(vm: vm, transcript: transcript)
+        case .preparingCapture: preparingCaptureState
+        case .reviewingSegments: reviewingSegmentsState(vm: vm)
         case .translating: translatingState
         case .reviewingResult(let result): reviewingResultState(vm: vm, result: result)
+        case .translatingBatch: translatingBatchState
+        case .reviewingBatch(let results): reviewingBatchState(vm: vm, results: results)
         case .saving: savingState
         case .done: doneState(vm: vm)
         case .error(let message): errorState(vm: vm, message: message)
@@ -769,13 +856,77 @@ struct TodaySentenceView: View {
                 .overlay(RoundedRectangle(cornerRadius: SelahCornerRadius.md).strokeBorder(Color.selahCoral.opacity(0.3), lineWidth: 1))
             HStack(spacing: SelahSpacing.md) {
                 Button("重錄") { vm.cancel() }.buttonStyle(.bordered)
-                Button(action: { vm.translate(chineseText: transcript) }) {
+                Button(action: { vm.prepareCapture(rawTranscript: transcript) }) {
                     Text("確認 -> 翻譯").font(.selahHeadlineMedium).foregroundColor(.white)
                         .frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.md)
                         .background(Color.selahCoral).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
                 }
             }
         }
+    }
+
+    private var preparingCaptureState: some View {
+        VStack(spacing: SelahSpacing.md) {
+            ProgressView().scaleEffect(1.5).tint(.selahCoral)
+            Text("正在整理語音內容").selahHeadlineMedium()
+            Text("先保留原文，再提出安全的清理與分句建議").selahBodySmall()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, SelahSpacing.xxl)
+    }
+
+    private func reviewingSegmentsState(vm: TodaySentenceViewModel) -> some View {
+        VStack(alignment: .leading, spacing: SelahSpacing.md) {
+            Text("確認學習語料").selahLabelLarge()
+            Text("可以修改句子、取消不想學的內容，也可以把相鄰句子合併。只有確認後才會翻譯並生成音頻")
+                .selahBodySmall()
+
+            ForEach(vm.segmentSuggestions) { segment in
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    HStack {
+                        Toggle(
+                            "第 \(segment.orderIndex + 1) 句，加入本次學習",
+                            isOn: Binding(
+                                get: { segment.selected },
+                                set: { vm.setSegmentSelected(id: segment.id, selected: $0) }
+                            )
+                        )
+                        if segment.orderIndex + 1 < vm.segmentSuggestions.count {
+                            Button("合併下一句") { vm.mergeSegmentWithNext(id: segment.id) }
+                                .font(.selahBodySmall)
+                        }
+                    }
+                    TextEditor(
+                        text: Binding(
+                            get: { segment.sourceText },
+                            set: { vm.updateSegmentText(id: segment.id, text: $0) }
+                        )
+                    )
+                    .font(.selahBodyLarge)
+                    .frame(minHeight: 64)
+                    .padding(SelahSpacing.sm)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
+                    if !segment.removedText.isEmpty {
+                        Text("建議移除：\(segment.removedText.joined(separator: "、"))，可直接編回原文")
+                            .selahBodySmall()
+                            .foregroundColor(.selahTextTertiary)
+                    }
+                }
+                .padding(SelahSpacing.md)
+                .background(Color.selahCardPrimary.opacity(0.7))
+                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+            }
+
+            Button("確認分句並翻譯") { vm.translateSelectedSegments() }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahCoral)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private func isRecordingAnimationState(_ label: String) -> Bool {
+        label == "recording" || label == "recognizingText"
     }
 
     // MARK: - Translating
@@ -822,11 +973,7 @@ struct TodaySentenceView: View {
                 }
             }
             Button(action: {
-                if case .confirmingChinese(let transcript) = vm.flowState {
-                    vm.save(result: result, sourceText: transcript)
-                } else if !chineseText.isEmpty {
-                    vm.save(result: result, sourceText: chineseText)
-                }
+                vm.save(result: result, sourceText: vm.sourceText)
             }) {
                 HStack {
                     Image(systemName: "checkmark")
@@ -835,6 +982,7 @@ struct TodaySentenceView: View {
                     .frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.md)
                     .background(Color.selahSage).clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
             }
+            .disabled(vm.sourceText.isEmpty)
             Button("不要了，重來") { vm.cancel() }.foregroundColor(.selahTextTertiary)
         }
     }
@@ -871,21 +1019,119 @@ struct TodaySentenceView: View {
             Button("再試一次") { vm.dismissError() }.buttonStyle(.borderedProminent).tint(.selahCoral)
         }.frame(maxWidth: .infinity).padding(.vertical, SelahSpacing.xxl)
     }
+    private var translatingBatchState: some View {
+        VStack(spacing: SelahSpacing.md) {
+            ProgressView().scaleEffect(1.5).tint(.selahCoral)
+            Text("Preparing batch translations").selahHeadlineMedium()
+            Text("We are translating the selected segments.").selahBodySmall()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, SelahSpacing.xxl)
+    }
+
+    private func reviewingBatchState(
+        vm: TodaySentenceViewModel,
+        results: [SegmentTranslationResult]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: SelahSpacing.md) {
+            Text("Review translations").selahLabelLarge()
+            ForEach(results) { result in
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    if let segment = vm.segmentSuggestions.first(where: { $0.id == result.segmentID }) {
+                        Text(segment.sourceText).selahBodyMedium()
+                            .foregroundColor(.selahTextSecondary)
+                    }
+                    Text(result.targetText).selahHeadlineMedium()
+                        .foregroundColor(.selahSage)
+                    if !result.vocabulary.isEmpty {
+                        Text(result.vocabulary.map(\.surfaceText).joined(separator: ", "))
+                            .selahBodySmall()
+                            .foregroundColor(.selahTextTertiary)
+                    }
+                }
+                .padding(SelahSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.selahSageSoft)
+                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+            }
+            Button("Save all sentences") { vm.saveBatch(results: results) }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahSage)
+                .frame(maxWidth: .infinity)
+        }
+    }
 }
 
 struct NotesView: View {
-    @State private var selectedCategory: SentenceCategory? = nil
+    @EnvironmentObject private var appState: AppState
+    @Query(sort: \Sentence.createdAt, order: .reverse) private var sentences: [Sentence]
+    @Query(sort: \VocabItem.createdAt, order: .reverse) private var vocabItems: [VocabItem]
+    @Query(sort: \SpriteMemory.unlockedAt, order: .reverse) private var memories: [SpriteMemory]
+    @State private var selectedCategory: SentenceCategory?
+
+    private var summary: NotesSummary {
+        NotesPresentation.summary(sentences: sentences)
+    }
+
+    private var translatingBatchState: some View {
+        VStack(spacing: SelahSpacing.md) {
+            ProgressView().scaleEffect(1.5).tint(.selahCoral)
+            Text("正在逐句生成學習內容").selahHeadlineMedium()
+            Text("每一句會保留獨立的翻譯、詞彙和練習進度").selahBodySmall()
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, SelahSpacing.xxl)
+    }
+
+    private func reviewingBatchState(
+        vm: TodaySentenceViewModel,
+        results: [SegmentTranslationResult]
+    ) -> some View {
+        VStack(alignment: .leading, spacing: SelahSpacing.md) {
+            Text("確認翻譯結果").selahLabelLarge()
+            ForEach(results) { result in
+                VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+                    if let segment = vm.segmentSuggestions.first(where: { $0.id == result.segmentID }) {
+                        Text(segment.sourceText).selahBodyMedium()
+                            .foregroundColor(.selahTextSecondary)
+                    }
+                    Text(result.targetText).selahHeadlineMedium()
+                        .foregroundColor(.selahSage)
+                    if !result.vocabulary.isEmpty {
+                        Text(result.vocabulary.map(\.surfaceText).joined(separator: "、"))
+                            .selahBodySmall()
+                            .foregroundColor(.selahTextTertiary)
+                    }
+                }
+                .padding(SelahSpacing.md)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.selahSageSoft)
+                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+            }
+            Button("確認並保存這組學習句") { vm.saveBatch(results: results) }
+                .buttonStyle(.borderedProminent)
+                .tint(.selahSage)
+                .frame(maxWidth: .infinity)
+        }
+    }
+
+    private var visibleSentences: [Sentence] {
+        NotesPresentation.visibleSentences(sentences, category: selectedCategory)
+    }
+
+    private var visibleMemories: [SpriteMemory] {
+        NotesPresentation.visibleMemories(memories)
+    }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(alignment: .leading, spacing: SelahSpacing.xl) {
-                    // Stats
                     HStack {
                         Text("📝 我的筆記")
                             .font(.selahDisplayMedium)
                         Spacer()
-                        Text("0 句 · 掌握 0 句")
+                        Text("\(summary.total) 句 · 掌握 \(summary.mastered) 句")
                             .selahBodySmall()
                     }
 
@@ -904,17 +1150,22 @@ struct NotesView: View {
                         }
                     }
 
-                    // Empty state
-                    VStack(spacing: SelahSpacing.md) {
-                        Text("🌱")
-                            .font(.system(size: 48))
-                        Text("還沒有句子")
-                            .selahHeadlineMedium()
-                        Text("開始說你的第一句中文吧！")
-                            .selahBodyMedium()
+                    if visibleSentences.isEmpty {
+                        VStack(spacing: SelahSpacing.md) {
+                            Text("🌱")
+                                .font(.system(size: 48))
+                            Text(selectedCategory == nil ? "還沒有句子" : "這個分類還沒有句子")
+                                .selahHeadlineMedium()
+                            Text("開始說你的第一句中文吧！")
+                                .selahBodyMedium()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, SelahSpacing.xxl)
+                    } else {
+                        ForEach(visibleSentences) { sentence in
+                            sentenceCard(sentence)
+                        }
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, SelahSpacing.xxl)
 
                     // Vocab section
                     vocabSection
@@ -929,6 +1180,25 @@ struct NotesView: View {
         }
     }
 
+    private func sentenceCard(_ sentence: Sentence) -> some View {
+        VStack(alignment: .leading, spacing: SelahSpacing.sm) {
+            HStack {
+                Badge(text: sentence.category.displayName, style: .amber)
+                Spacer()
+                if let state = sentence.reviewState?.state,
+                   state == .familiar || state == .quiet {
+                    Text("已掌握").selahLabelSmall().foregroundColor(.selahSage)
+                }
+            }
+            Text(sentence.sourceText).selahBodyMedium()
+            Text(sentence.targetText).selahHeadlineSmall().foregroundColor(.selahSage)
+        }
+        .padding(SelahSpacing.lg)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.selahCardPrimary)
+        .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+    }
+
     private var vocabSection: some View {
         VStack(alignment: .leading, spacing: SelahSpacing.md) {
             Text("生詞")
@@ -937,25 +1207,59 @@ struct NotesView: View {
             Text("生詞不分類別，是你在學習中自然累積的")
                 .selahBodySmall()
 
-            Text("還沒有生詞。在預覽和拆解中點擊詞組即可加入。")
-                .selahBodySmall()
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, SelahSpacing.lg)
+            if vocabItems.isEmpty {
+                Text("還沒有生詞。建立句子後，系統建議的重點詞組會出現在這裡。")
+                    .selahBodySmall()
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, SelahSpacing.lg)
+            } else {
+                ForEach(vocabItems) { item in
+                    HStack(alignment: .top, spacing: SelahSpacing.md) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(item.surfaceText).selahHeadlineSmall()
+                            Text(item.meaningInContext).selahBodySmall()
+                        }
+                        Spacer()
+                        Text(item.userFacingGroup)
+                            .selahLabelSmall()
+                            .foregroundColor(.selahCoral)
+                    }
+                    .padding(SelahSpacing.md)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                }
+            }
         }
     }
 
     private var memoriesSection: some View {
         VStack(alignment: .leading, spacing: SelahSpacing.md) {
-            Text("小豆的回憶")
+            Text("\(appState.activeCompanion?.displayName ?? "語言精靈")的回憶")
                 .font(.selahHeadlineLarge)
 
             Text("這些是學習旅程中，小豆記得的事")
                 .selahBodySmall()
 
-            Text("還沒有回憶。開始學習後，小豆會記下你和句子之間的故事。")
-                .selahBodySmall()
-                .frame(maxWidth: .infinity, alignment: .center)
-                .padding(.vertical, SelahSpacing.lg)
+            if visibleMemories.isEmpty {
+                Text("還沒有回憶。開始學習後，精靈會記下你和句子之間的故事。")
+                    .selahBodySmall()
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .padding(.vertical, SelahSpacing.lg)
+            } else {
+                ForEach(visibleMemories) { memory in
+                    HStack(alignment: .top, spacing: SelahSpacing.md) {
+                        Text(memory.icon).font(.title2)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(memory.title).selahHeadlineSmall()
+                            Text(memory.descriptionText).selahBodySmall()
+                        }
+                    }
+                    .padding(SelahSpacing.md)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                }
+            }
         }
     }
 }
@@ -964,6 +1268,7 @@ struct OnboardingView: View {
     @EnvironmentObject var appState: AppState
     @State private var step = 0
     @State private var petName = ""
+    @State private var selectedSeedIDs = Set(OnboardingSeedPreset.defaults.map(\.id))
 
     var body: some View {
         VStack(spacing: SelahSpacing.xxl) {
@@ -1070,18 +1375,26 @@ struct OnboardingView: View {
             Text("不用緊張，之後你的句子會慢慢取代它們")
                 .selahBodySmall()
 
-            // Simplified seed selection
-            ForEach(["今天過得怎麼樣？", "工作好累但還是完成了", "想約朋友吃飯"], id: \.self) { seed in
-                HStack {
-                    Text(seed)
-                        .selahBodyLarge()
-                    Spacer()
-                    Image(systemName: "circle")
-                        .foregroundColor(.selahBorder)
+            ForEach(OnboardingSeedPreset.defaults) { seed in
+                Button {
+                    if selectedSeedIDs.contains(seed.id) {
+                        selectedSeedIDs.remove(seed.id)
+                    } else if selectedSeedIDs.count < 3 {
+                        selectedSeedIDs.insert(seed.id)
+                    }
+                } label: {
+                    HStack {
+                        Text(seed.sourceText)
+                            .selahBodyLarge()
+                        Spacer()
+                        Image(systemName: selectedSeedIDs.contains(seed.id) ? "checkmark.circle.fill" : "circle")
+                            .foregroundColor(selectedSeedIDs.contains(seed.id) ? .selahCoral : .selahBorder)
+                    }
+                    .padding(SelahSpacing.md)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
                 }
-                .padding(SelahSpacing.md)
-                .background(Color.selahCardPrimary)
-                .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.md))
+                .buttonStyle(.plain)
             }
 
             Button(action: { step = 3 }) {
@@ -1090,9 +1403,10 @@ struct OnboardingView: View {
                     .foregroundColor(.white)
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, SelahSpacing.md)
-                    .background(Color.selahCoral)
+                    .background(selectedSeedIDs.count == 3 ? Color.selahCoral : Color.selahTextTertiary)
                     .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.sm))
             }
+            .disabled(selectedSeedIDs.count != 3)
         }
     }
 
@@ -1116,7 +1430,8 @@ struct OnboardingView: View {
             .padding(.vertical, SelahSpacing.xxl)
 
             Button(action: {
-                appState.preferences.onboardingCompleted = true
+                let selectedSeeds = OnboardingSeedPreset.defaults.filter { selectedSeedIDs.contains($0.id) }
+                appState.completeOnboarding(name: petName, selectedSeeds: selectedSeeds)
             }) {
                 Text("開始學習！")
                     .font(.selahHeadlineMedium)
@@ -1135,6 +1450,32 @@ struct OnboardingView: View {
 struct SettingsView: View {
     @EnvironmentObject var appState: AppState
 
+    private var reminderTime: Binding<Date> {
+        Binding(
+            get: {
+                let parsed = LocalNotificationService.parseTime(
+                    appState.preferences.notificationTime,
+                    fallback: LocalNotificationService.defaultReminderTime
+                )
+                return Calendar.current.date(
+                    bySettingHour: parsed.hour,
+                    minute: parsed.minute,
+                    second: 0,
+                    of: Date()
+                ) ?? Date()
+            },
+            set: { value in
+                let components = Calendar.current.dateComponents([.hour, .minute], from: value)
+                appState.preferences.notificationTime = String(
+                    format: "%02d:%02d",
+                    components.hour ?? 20,
+                    components.minute ?? 0
+                )
+                Task { await appState.savePreferences(synchronizeNotifications: true) }
+            }
+        )
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: SelahSpacing.xl) {
@@ -1143,12 +1484,21 @@ struct SettingsView: View {
                     Text("學習偏好")
                         .font(.selahHeadlineLarge)
 
-                    // Default voice profile
                     VStack(alignment: .leading, spacing: SelahSpacing.sm) {
-                        Text("默認聲線")
+                        Text("預設聲音")
                             .selahLabelLarge()
-                        Text(appState.preferences.voiceProfile.displayName)
-                            .selahBodyMedium()
+                        Picker("預設聲音", selection: Binding(
+                            get: { appState.preferences.voiceProfile },
+                            set: { value in
+                                appState.preferences.voiceProfile = value
+                                Task { await appState.savePreferences() }
+                            }
+                        )) {
+                            ForEach(VoiceProfile.allCases.filter(\.isDefault), id: \.self) { voice in
+                                Text(voice.displayName).tag(voice)
+                            }
+                        }
+                        .pickerStyle(.menu)
                         Text(appState.preferences.voiceProfile.description)
                             .selahBodySmall()
                     }
@@ -1161,12 +1511,21 @@ struct SettingsView: View {
                             .strokeBorder(Color.selahBorderLight, lineWidth: 1)
                     )
 
-                    // Playback speed
                     VStack(alignment: .leading, spacing: SelahSpacing.sm) {
                         Text("播放速度")
                             .selahLabelLarge()
-                        Text(appState.preferences.playbackSpeed.displayName)
-                            .selahBodyMedium()
+                        Picker("播放速度", selection: Binding(
+                            get: { appState.preferences.playbackSpeed },
+                            set: { value in
+                                appState.preferences.playbackSpeed = value
+                                Task { await appState.savePreferences() }
+                            }
+                        )) {
+                            ForEach(PlaybackSpeed.allCases, id: \.self) { speed in
+                                Text(speed.displayName).tag(speed)
+                            }
+                        }
+                        .pickerStyle(.segmented)
                     }
                     .padding(SelahSpacing.lg)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -1176,6 +1535,43 @@ struct SettingsView: View {
                         RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
                             .strokeBorder(Color.selahBorderLight, lineWidth: 1)
                     )
+
+                    VStack(alignment: .leading, spacing: SelahSpacing.md) {
+                        Toggle("每日學習提醒", isOn: Binding(
+                            get: { appState.preferences.notificationEnabled },
+                            set: { enabled in
+                                appState.preferences.notificationEnabled = enabled
+                                Task { await appState.savePreferences(synchronizeNotifications: true) }
+                            }
+                        ))
+                        .selahLabelLarge()
+
+                        if appState.preferences.notificationEnabled {
+                            DatePicker(
+                                "提醒時間",
+                                selection: reminderTime,
+                                displayedComponents: .hourAndMinute
+                            )
+                            .datePickerStyle(.compact)
+                        }
+                    }
+                    .padding(SelahSpacing.lg)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color.selahCardPrimary)
+                    .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                            .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                    )
+                }
+
+                VStack(alignment: .leading, spacing: SelahSpacing.md) {
+                    Text("帳號")
+                        .font(.selahHeadlineLarge)
+                    Button("登出", role: .destructive) {
+                        appState.signOut()
+                    }
+                    .buttonStyle(.bordered)
                 }
 
                 // About
@@ -1198,6 +1594,35 @@ struct SettingsView: View {
                             .strokeBorder(Color.selahBorderLight, lineWidth: 1)
                     )
                 }
+
+                #if DEBUG
+                VStack(alignment: .leading, spacing: SelahSpacing.md) {
+                    Text("開發者工具")
+                        .font(.selahHeadlineLarge)
+
+                    NavigationLink {
+                        PetAnimationGalleryView()
+                    } label: {
+                        HStack {
+                            Label("精靈動畫預覽", systemImage: "sparkles.rectangle.stack")
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption.weight(.semibold))
+                                .foregroundColor(.secondary)
+                        }
+                        .selahLabelLarge()
+                        .foregroundColor(.selahTextPrimary)
+                        .padding(SelahSpacing.lg)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(Color.selahCardPrimary)
+                        .clipShape(RoundedRectangle(cornerRadius: SelahCornerRadius.lg))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: SelahCornerRadius.lg)
+                                .strokeBorder(Color.selahBorderLight, lineWidth: 1)
+                        )
+                    }
+                }
+                #endif
             }
             .padding(SelahSpacing.page)
         }

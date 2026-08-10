@@ -3,7 +3,12 @@
 // and feature flags. Called by the iOS app on first launch.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { json, errorResponse, handleOptions, requireAuth } from "../_shared/cors.ts";
+import {
+  errorResponse,
+  handleOptions,
+  json,
+  requireAuth,
+} from "../_shared/cors.ts";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -25,7 +30,9 @@ Deno.serve(async (req: Request) => {
       const supabase = createClient(supabaseUrl, supabaseKey);
       const { data, error } = await supabase
         .from("seed_sentences")
-        .select("id, zh_text, en_translation, category, difficulty, deconstruction, vocab_candidates, seed_tags")
+        .select(
+          "id, zh_text, en_translation, category, difficulty, deconstruction, vocab_candidates, seed_tags",
+        )
         .order("category", { ascending: true });
 
       if (!error && data) {

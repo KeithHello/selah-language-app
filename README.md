@@ -4,18 +4,21 @@ iOS-native minimal language learning app. Turn your real-life Chinese sentences 
 
 ## Current Status
 
-**M0 — Native Prototype Shell (in progress)**
+**Core package implemented; product integration in progress**
 
-Design frozen (v8). Swift source code written. Ready for Xcode compilation on a Mac.
+The repository currently builds as a macOS Swift Package and contains the SwiftUI,
+SwiftData, Supabase, learning-engine, audio, and reliability core. It is not yet a
+runnable iOS application because the Xcode iOS target and several real service/data
+flows are still being integrated. See `ROADMAP.md` for the evidence-based status.
 
 ## Tech Stack
 
 - **Frontend**: SwiftUI (iOS 17+)
 - **Persistence**: SwiftData
 - **Speech Recognition**: SFSpeechRecognizer (iOS native)
-- **Backend**: TBD (Supabase Edge Functions / Cloudflare Workers)
-- **Translation**: LLM Provider TBD
-- **TTS**: Provider TBD
+- **Backend**: Supabase Edge Functions + Postgres/RLS
+- **Translation**: OpenAI through server-side Edge Functions
+- **TTS**: OpenAI TTS through server-side Edge Functions
 
 ## Project Structure
 
@@ -67,17 +70,22 @@ Selah/
                                   NightPreview, TodaySentence, Notes, Onboarding
 
 SeedContent/
-├── seed-sentences.json         # 20 seed sentences with full learning data
+├── seed-sentences.json         # 30 seed sentences with full learning data
 └── llm-translation-prompt-v8.md  # LLM system prompt for translation
 ```
 
 ## Getting Started
 
-1. Open Xcode 15.4+ on macOS 14+
-2. Create a new iOS project named "Selah" with SwiftUI, targeting iOS 17+
-3. Add the source files from this repository into the project
-4. Add "Plus Jakarta Sans" font to the project (or replace with system font)
-5. Build and run on simulator or device
+The current verified build is the Swift Package core:
+
+```bash
+swift package resolve
+swift build
+swift test
+```
+
+The runnable iOS target is tracked as active work in `ROADMAP.md`; do not treat the
+package build as an iOS simulator or TestFlight build.
 
 ## Design Documents
 

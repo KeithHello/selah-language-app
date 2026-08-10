@@ -16,7 +16,9 @@ struct GeneratedAudioResult: Decodable {
     let cacheHit: Bool
     let errorCode: String?
 
-    var isReady: Bool { status == .ready && downloadURL != nil }
+    var isReady: Bool {
+        status == .ready && (downloadURL != nil || localFilePath != nil)
+    }
 
     enum CodingKeys: String, CodingKey {
         case status

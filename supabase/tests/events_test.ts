@@ -1,36 +1,38 @@
 // Edge Function: events - Validation Tests
 // Run: deno test supabase/tests/events_test.ts
 
-import { assertStringIncludes } from "https://deno.land/std@0.224.0/assert/mod.ts";
-
-const FUNCTION_SOURCE = await Deno.readTextFile("supabase/functions/events/index.ts");
+import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  ALLOWED_EVENT_TYPES,
+  sanitizeEventMetadata,
+} from "../functions/_shared/event_contract.ts";
 
 // ============================================================
 // Event Type Whitelist
 // ============================================================
 
 Deno.test("Whitelist includes sentence_created", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"sentence_created"');
+  assertEquals(ALLOWED_EVENT_TYPES.has("sentence_created"), true);
 });
 
 Deno.test("Whitelist includes listen_completed", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"listen_completed"');
+  assertEquals(ALLOWED_EVENT_TYPES.has("listen_completed"), true);
 });
 
 Deno.test("Whitelist includes practice_rated", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"practice_rated"');
+  assertEquals(ALLOWED_EVENT_TYPES.has("practice_rated"), true);
 });
 
 Deno.test("Whitelist includes vocab_added", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"vocab_added"');
+  assertEquals(ALLOWED_EVENT_TYPES.has("vocab_added"), true);
 });
 
 Deno.test("Whitelist includes voice_selected", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"voice_selected"');
+  assertEquals(ALLOWED_EVENT_TYPES.has("voice_selected"), true);
 });
 
 Deno.test("Whitelist includes memory_unlocked", () => {
-  assertStringIncludes(FUNCTION_SOURCE, '"memory_unlocked"');
+  assertEquals(ALLOWED_EVENT_TYPES.has("memory_unlocked"), true);
 });
 
 // ============================================================
@@ -38,26 +40,34 @@ Deno.test("Whitelist includes memory_unlocked", () => {
 // ============================================================
 
 Deno.test("Strips metadata values longer than 200 chars", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "200");
+  assertEquals(
+    sanitizeEventMetadata("vocab_added", { word: "a".repeat(201) }),
+    {},
+  );
 });
 
 Deno.test("Only allows string/number/boolean in metadata", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "typeof value === 'string'");
-  assertStringIncludes(FUNCTION_SOURCE, "typeof value === 'number'");
+  assertEquals(
+    sanitizeEventMetadata("sentence_created", {
+      category: "work",
+      origin: "user_recording",
+      nested: { raw: "private" },
+    }),
+    { category: "work", origin: "user_recording" },
+  );
 });
 
 // ============================================================
 // Input Validation
 // ============================================================
 
-Deno.test("Returns 400 for invalid event type", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "invalid_event_type");
-});
-
-Deno.test("Returns 201 on successful insert", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "201");
-});
-
-Deno.test("Returns 500 for DB error", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "db_error");
+Deno.test("Drops metadata keys not whitelisted for the event", () => {
+  assertEquals(
+    sanitizeEventMetadata("practice_rated", {
+      signal: "clear",
+      raw_sentence_text: "private",
+      category: "work",
+    }),
+    { signal: "clear" },
+  );
 });

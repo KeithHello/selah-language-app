@@ -2,19 +2,13 @@
 // Run: deno test supabase/tests/voice_map_test.ts
 
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import { VOICE_MAP } from "../functions/_shared/audio.ts";
 
 // ============================================================
 // Voice Profile Mapping
 // Maps v8 user-facing voice labels to OpenAI TTS voice IDs.
 // This mirrors the VOICE_MAP in audio-generate/index.ts.
 // ============================================================
-
-const VOICE_MAP: Record<string, string> = {
-  "gentle-natural": "nova",
-  "clear-slow": "sage",
-  "daily-bright": "ash",
-  "elegant-british": "shimmer",
-};
 
 Deno.test("gentle-natural maps to nova", () => {
   assertEquals(VOICE_MAP["gentle-natural"], "nova");
@@ -36,8 +30,8 @@ Deno.test("unknown voice defaults to nova", () => {
   assertEquals(VOICE_MAP["unknown"] ?? "nova", "nova");
 });
 
-Deno.test("all 3 voice profiles are mapped", () => {
-  assertEquals(Object.keys(VOICE_MAP).length, 3);
+Deno.test("all 4 voice profiles are mapped", () => {
+  assertEquals(Object.keys(VOICE_MAP).length, 4);
 });
 
 Deno.test("all OpenAI voices are unique", () => {

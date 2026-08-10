@@ -82,18 +82,45 @@ enum SelahAPIError: Error, LocalizedError {
 
 // MARK: - Request / Response DTOs
 
-private struct SentenceGenerateRequest: Encodable {
+struct SentenceGenerateRequest: Encodable {
     let sourceText: String
     let sourceLanguage: String
     let targetLanguage: String
     let categoryHint: String?
+    let clientRequestId: UUID
 }
 
-private struct AudioGenerateRequest: Encodable {
-    let sentenceId: String
+struct AudioGenerateRequest: Encodable {
+    let sentenceId: UUID
     let targetText: String
     let voiceProfile: String
     let reason: String
+    let clientRequestId: UUID
+}
+
+private struct CapturePrepareRequest: Encodable {
+    let rawTranscript: String
+    let sourceLanguage: String
+    let targetLanguage: String
+    let clientRequestId: UUID
+}
+
+private struct BatchSegmentRequest: Encodable {
+    let segmentId: UUID
+    let orderIndex: Int
+    let sourceText: String
+}
+
+private struct BatchSentenceGenerateRequest: Encodable {
+    let segments: [BatchSegmentRequest]
+    let sourceLanguage: String
+    let targetLanguage: String
+    let categoryHint: String?
+    let clientRequestId: UUID
+}
+
+private struct BatchSentenceGenerateResponse: Decodable {
+    let items: [SegmentTranslationResult]
 }
 
 private struct SignInRequest: Encodable {
@@ -131,6 +158,7 @@ final class SelahAPIClient: SelahAPIClientProtocol {
 
     private let supabaseURL: String
     private let publishableKey: String
+    private let sessionStore: any AuthSessionStoring
     private let retryPolicy: RetryPolicy
     private let sentenceBreaker = CapabilityCircuitBreaker()
     private let audioBreaker = CapabilityCircuitBreaker()
@@ -156,22 +184,37 @@ final class SelahAPIClient: SelahAPIClientProtocol {
 
     // MARK: - Init
 
-    init(supabaseURL: String, publishableKey: String, retryPolicy: RetryPolicy = RetryPolicy()) {
+    init(
+        supabaseURL: String,
+        publishableKey: String,
+        retryPolicy: RetryPolicy = RetryPolicy(),
+        sessionStore: any AuthSessionStoring = KeychainAuthSessionStore()
+    ) {
         self.supabaseURL = supabaseURL.hasSuffix("/") ? String(supabaseURL.dropLast()) : supabaseURL
         self.publishableKey = publishableKey
         self.retryPolicy = retryPolicy
+        self.sessionStore = sessionStore
     }
 
     // MARK: - Session Management
 
-    func setSession(accessToken: String, refreshToken: String) {
-        self.authToken = accessToken
-        self.refreshTokenValue = refreshToken
+    func restoreSession() throws -> Bool {
+        guard let session = try sessionStore.load() else { return false }
+        authToken = session.accessToken
+        refreshTokenValue = session.refreshToken
+        return true
     }
 
-    func clearSession() {
+    func setSession(accessToken: String, refreshToken: String) throws {
+        self.authToken = accessToken
+        self.refreshTokenValue = refreshToken
+        try sessionStore.save(AuthSession(accessToken: accessToken, refreshToken: refreshToken))
+    }
+
+    func clearSession() throws {
         self.authToken = nil
         self.refreshTokenValue = nil
+        try sessionStore.clear()
     }
 
     // MARK: - Auth
@@ -180,7 +223,7 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         let url = URL(string: "\(supabaseURL)/auth/v1/token?grant_type=password")!
         let body = SignInRequest(email: email, password: password)
         let response: AuthResponse = try await performAuthRequest(url: url, body: body)
-        setSession(accessToken: response.accessToken, refreshToken: response.refreshToken)
+        try setSession(accessToken: response.accessToken, refreshToken: response.refreshToken)
     }
 
     func signUp(email: String, password: String) async throws {
@@ -215,7 +258,8 @@ final class SelahAPIClient: SelahAPIClientProtocol {
             sourceText: sourceText,
             sourceLanguage: sourceLanguage.rawValue,
             targetLanguage: targetLanguage.rawValue,
-            categoryHint: categoryHint?.rawValue
+            categoryHint: categoryHint?.rawValue,
+            clientRequestId: UUID()
         )
         return try await performRequest(
             path: "/functions/v1/sentences-generate",
@@ -232,10 +276,11 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         reason: AudioGenerationReason
     ) async throws -> GeneratedAudioResult {
         let body = AudioGenerateRequest(
-            sentenceId: sentenceID.uuidString,
+            sentenceId: sentenceID,
             targetText: targetText,
             voiceProfile: voiceProfile.rawValue,
-            reason: reason.rawValue
+            reason: reason.rawValue,
+            clientRequestId: UUID()
         )
         return try await performRequest(
             path: "/functions/v1/audio-generate",
@@ -243,6 +288,53 @@ final class SelahAPIClient: SelahAPIClientProtocol {
             body: body,
             capability: .audioGeneration
         )
+    }
+
+    func prepareCapture(
+        rawTranscript: String,
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage
+    ) async throws -> CapturePreparation {
+        let body = CapturePrepareRequest(
+            rawTranscript: rawTranscript,
+            sourceLanguage: sourceLanguage.rawValue,
+            targetLanguage: targetLanguage.rawValue,
+            clientRequestId: UUID()
+        )
+        return try await performRequest(
+            path: "/functions/v1/sentences-prepare",
+            method: "POST",
+            body: body,
+            capability: .sentenceGeneration
+        )
+    }
+
+    func generateSentenceBatch(
+        segments: [CaptureSegmentSuggestion],
+        sourceLanguage: SourceLanguage,
+        targetLanguage: TargetLanguage,
+        categoryHint: SentenceCategory?
+    ) async throws -> [SegmentTranslationResult] {
+        let body = BatchSentenceGenerateRequest(
+            segments: segments.map {
+                BatchSegmentRequest(
+                    segmentId: $0.id,
+                    orderIndex: $0.orderIndex,
+                    sourceText: $0.sourceText
+                )
+            },
+            sourceLanguage: sourceLanguage.rawValue,
+            targetLanguage: targetLanguage.rawValue,
+            categoryHint: categoryHint?.rawValue,
+            clientRequestId: UUID()
+        )
+        let response: BatchSentenceGenerateResponse = try await performRequest(
+            path: "/functions/v1/sentences-batch-generate",
+            method: "POST",
+            body: body,
+            capability: .sentenceGeneration
+        )
+        return response.items
     }
 
     func fetchBootstrap() async throws -> BootstrapConfig {
@@ -292,6 +384,9 @@ final class SelahAPIClient: SelahAPIClientProtocol {
         let response: AuthResponse = try await performAuthRequest(url: url, body: body)
         self.authToken = response.accessToken
         self.refreshTokenValue = response.refreshToken
+        try sessionStore.save(
+            AuthSession(accessToken: response.accessToken, refreshToken: response.refreshToken)
+        )
     }
 
     /// Generic request performer with automatic token refresh on 401.

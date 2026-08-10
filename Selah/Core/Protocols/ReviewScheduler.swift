@@ -24,6 +24,9 @@ protocol ReviewScheduler {
     /// Get sentences suitable for Night Preview.
     func suitableForPreview(limit: Int) async throws -> [Sentence]
 
+    /// Persist completion of a Night Preview session and its learning event.
+    func markPreviewed(sentenceIDs: [UUID], at date: Date) async throws
+
     /// Check if there are enough personal sentences in the pool.
     func isContentPoolLow() async throws -> Bool
 

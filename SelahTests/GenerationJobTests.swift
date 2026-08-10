@@ -46,6 +46,32 @@ final class GenerationJobTests: XCTestCase {
         """)
     }
 
+    func testAudioRetryPayloadRoundTripsRequiredRequestContext() throws {
+        let payload = AudioGenerationRetryPayload(
+            targetText: "I need a quiet evening.",
+            voiceProfile: .elegantBritish,
+            reason: .voiceChangedRegeneration
+        )
+
+        let job = try GenerationJob(
+            sentenceID: UUID(),
+            jobType: .audioRegeneration,
+            audioPayload: payload
+        )
+
+        XCTAssertEqual(try job.decodeAudioPayload(), payload)
+    }
+
+    func testAudioRetryPayloadRejectsMissingRequestContext() {
+        let job = GenerationJob(
+            sentenceID: UUID(),
+            jobType: .audioGeneration,
+            payloadJSON: "{}"
+        )
+
+        XCTAssertThrowsError(try job.decodeAudioPayload())
+    }
+
     // MARK: - Status transitions
 
     func testMarkInProgress() {

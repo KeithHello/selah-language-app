@@ -1,6 +1,12 @@
 import Foundation
 import SwiftData
 
+struct AudioGenerationRetryPayload: Codable, Equatable {
+    let targetText: String
+    let voiceProfile: VoiceProfile
+    let reason: AudioGenerationReason
+}
+
 /// Local retry queue entry for AI generation, TTS generation,
 /// and manual voice regeneration.
 @Model
@@ -55,6 +61,37 @@ final class GenerationJob {
         self.payloadJSON = payloadJSON
         self.createdAt = Date()
         self.updatedAt = Date()
+    }
+
+    convenience init(
+        id: UUID = UUID(),
+        sentenceID: UUID,
+        jobType: GenerationJobType,
+        maxRetries: Int = 5,
+        audioPayload: AudioGenerationRetryPayload
+    ) throws {
+        let data = try JSONEncoder().encode(audioPayload)
+        guard let payloadJSON = String(data: data, encoding: .utf8) else {
+            throw EncodingError.invalidValue(
+                audioPayload,
+                EncodingError.Context(
+                    codingPath: [],
+                    debugDescription: "Audio retry payload could not be encoded as UTF-8 JSON."
+                )
+            )
+        }
+        self.init(
+            id: id,
+            sentenceID: sentenceID,
+            jobType: jobType,
+            maxRetries: maxRetries,
+            payloadJSON: payloadJSON
+        )
+    }
+
+    func decodeAudioPayload() throws -> AudioGenerationRetryPayload {
+        let data = Data(payloadJSON.utf8)
+        return try JSONDecoder().decode(AudioGenerationRetryPayload.self, from: data)
     }
 
     func markInProgress() {
