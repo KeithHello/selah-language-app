@@ -89,6 +89,20 @@
 - 用户环境变量 `OPENAI_API_KEY` 有效（`/v1/models` 200，130 个模型）；若后续需要生成新音频（用户句子、日语等）可直接使用。
 - `.env` 中 `SUPABASE_SERVICE_ROLE_KEY`（`sb_secret_` 新格式）有效，但仅能通过服务端 SDK（supabase-js）使用，浏览器直连 REST 会被网关以「Forbidden use of secret API key in browser」拒绝；`SUPABASE_ACCESS_TOKEN` 已失效（管理 API 401）。
 
+### 2026-08-11 Flutter 客户端基线（代码完成，待平台验收）
+
+- [x] 新建 `SelahFlutter/` 独立 Flutter 工程（Flutter 3.44.9 / Dart 3.12.2），iOS + Android target；现有 SwiftUI 工程与 Supabase 未做任何修改。
+- [x] 建立 Selah 品牌设计系统：暖米色 token（`#FBF8F4` 背景、珊瑚 `#E06B54` 主色、薰衣草／鼠尾草／琥珀輔色）、Plus Jakarta Sans 字階、4pt 間距、圓角與陰影、動效時長與 Reduce Motion；決策記於 `design-system/selah/MASTER.md` 與 Flutter 內部 token。
+- [x] 建立 Domain 層：實體、Repository 介面、領域枚舉（與 Swift 側字符串值一致）、`GenerateSentenceUseCase`／`GenerateAudioUseCase`／`ListenUseCase`。
+- [x] 建立 Data 層：SQLite V1–V3（SwiftData V3 對應）、Repository 實作、DTO 契約、`FixtureSelahApiClient`（離線、不產生 TTS 費用）。
+- [x] 建立頁面：Onboarding（命名＋3 句選取）、Today（中文輸入→生成→聆聽）、Settings（聲線／速度／提醒）、精靈 10 動作 Gallery。
+- [x] 精靈分層渲染：複製 9 身體姿態 + 2 眼神 PNG 至 `assets/sprites/`，Flutter 版 `SelahSprite`（身體＋眼神覆蓋＋原生裝飾＋狀態光環），Reduce Motion 支持。
+- [x] 平台配置：Android 權限（RECORD_AUDIO／INTERNET／通知）與 iOS 隱私說明（麥克風／語音辨識）已加入。
+- [x] 驗證：`flutter analyze` 0 issue；11 個測試全過（DTO 契約、SQLite V3、Use Case、主題、App 啟動）；`flutter build apk --debug` 成功。
+- [ ] macOS CI：新增 Flutter analyze／test／iOS 無簽名建置門禁（待授權配置 CI）。
+- [ ] Supabase 真實接通：切換 `FixtureSelahApiClient` → 既有 7 個 Edge Functions（依賴有效 OpenAI secret 與授權）。
+- [ ] iOS 真機與 TestFlight 驗收；Android 真機語音與音頻驗收。
+
 - [x] 完成首批 10 个 SwiftUI Shape 原型动画及 Today／录音／Listen／Practice 触发接线。
 - [x] 通过 Swift 核心测试和 iOS 模拟器 Release 构建／无签名归档；GitHub Actions run `29514198511`：259 tests，1 skipped，0 failures。
 - [ ] 完成真实设备视觉、触控时序、性能和 Reduce Motion 验收。
