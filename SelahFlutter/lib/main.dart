@@ -1,8 +1,5 @@
-import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'app/native_entry.dart'
+    if (dart.library.js_interop) 'web/web_entry.dart'
+    as entry;
 
-import 'app/selah_app.dart';
-
-void main() {
-  runApp(const ProviderScope(child: SelahApp()));
-}
+Future<void> main() async => entry.launch();

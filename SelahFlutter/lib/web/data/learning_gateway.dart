@@ -1,0 +1,68 @@
+import '../domain/learning_models.dart';
+
+class LearningFailure implements Exception {
+  const LearningFailure(this.message, {this.code = 'unavailable'});
+  final String message;
+  final String code;
+  @override
+  String toString() => message;
+}
+
+abstract class LearningGateway {
+  bool get configured;
+  String? get userId;
+  String? get email;
+  Stream<String?> get accountChanges;
+  Future<void> signIn(String email, String password);
+  Future<void> signUp(String email, String password);
+  Future<void> resetPassword(String email);
+  Future<void> signOut();
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  });
+  Future<LearningSnapshot> synchronize(LearningSnapshot local);
+  Future<Map<String, dynamic>?> seedAudio(String seedId, String voice);
+  Future<String> transcribe(Map<String, dynamic> recording, String requestId);
+}
+
+class UnconfiguredGateway implements LearningGateway {
+  @override
+  bool get configured => false;
+  @override
+  String? get userId => null;
+  @override
+  String? get email => null;
+  @override
+  Stream<String?> get accountChanges => const Stream.empty();
+  Never _missing() => throw const LearningFailure(
+    '在线服务尚未配置。你可以继续学习已保存的内容。',
+    code: 'not_configured',
+  );
+  @override
+  Future<void> signIn(String email, String password) async => _missing();
+  @override
+  Future<void> signUp(String email, String password) async => _missing();
+  @override
+  Future<void> resetPassword(String email) async => _missing();
+  @override
+  Future<void> signOut() async {}
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async => _missing();
+  @override
+  Future<LearningSnapshot> synchronize(LearningSnapshot local) async =>
+      _missing();
+  @override
+  Future<Map<String, dynamic>?> seedAudio(String seedId, String voice) async =>
+      _missing();
+  @override
+  Future<String> transcribe(
+    Map<String, dynamic> recording,
+    String requestId,
+  ) async => _missing();
+}

@@ -65,3 +65,17 @@ flutter:
 
   assets:
     - assets/sprites/
+    - assets/content/
+    - assets/audio/
+    - assets/fonts/
+
+  fonts:
+    - family: Roboto
+      fonts:
+        - asset: assets/fonts/Roboto.ttf
+    - family: Plus Jakarta Sans
+      fonts:
+        - asset: assets/fonts/PlusJakartaSans.ttf
+    - family: Noto Sans SC
+      fonts:
+        - asset: assets/fonts/NotoSansSC.ttf

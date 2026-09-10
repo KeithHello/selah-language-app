@@ -60,7 +60,15 @@ dist/
 # AI local config
 .workbuddy/
 
+# Local browser acceptance captures and test backups
+output/playwright/
+.playwright-cli/
+
+# Local generated reports, previews and browser bundles
+/output/
+/preview-output/
+supabase/supabase/.temp/
+
 # Supabase CLI
 supabase/.temp/
 supabase/config.toml.bak
-

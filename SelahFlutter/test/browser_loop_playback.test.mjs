@@ -1,0 +1,211 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import bridgeModule from '../web/selah_bridge.js';
+
+const { createBridge, helpers } = bridgeModule;
+
+function createAudioClass(timers) {
+  class FakeAudio {
+    static lastInstance;
+    constructor() {
+      this.listeners = {};
+      this.playbackRate = 1;
+      FakeAudio.lastInstance = this;
+    }
+    addEventListener(name, handler) {
+      (this.listeners[name] ||= []).push(handler);
+    }
+    removeEventListener(name, handler) {
+      this.listeners[name] = (this.listeners[name] || []).filter((item) => item !== handler);
+    }
+    emit(name) {
+      for (const handler of this.listeners[name] || []) handler({ type: name, target: this });
+    }
+    emitAsync(name) {
+      this.emit(name);
+    }
+    async play() {
+      timers.microtasks.push(() => this.emit('playing'));
+    }
+    pause() {
+      timers.microtasks.push(() => this.emit('pause'));
+    }
+    removeAttribute() {}
+    load() {}
+  };
+  return FakeAudio;
+}
+
+function makeEnvironment() {
+  const cache = helpers.createMemoryAudioCache();
+  const timers = { timeouts: [], now: 100000, microtasks: [] };
+  let activeTimerId = 0;
+  const root = {
+    Audio: createAudioClass(timers),
+    navigator: {},
+    URL: {
+      createObjectURL: (() => {
+        let id = 0;
+        return () => `blob:audio-${++id}`;
+      })(),
+      revokeObjectURL() {},
+    },
+    fetch: async () => ({
+      ok: true,
+      headers: { get: () => 'audio/mpeg' },
+      arrayBuffer: async () => new Uint8Array([1, 2, 3, 4]).buffer,
+    }),
+    setTimeout: (handler, delay) => {
+      const id = ++activeTimerId;
+      timers.timeouts.push({ id, handler, delay, fired: false });
+      return id;
+    },
+    clearTimeout: (id) => {
+      const item = timers.timeouts.find((timeout) => timeout.id === id);
+      if (item) item.fired = true;
+    },
+    Date: class FakeDate extends Date {
+      static now() { return timers.now; }
+    },
+  };
+  const bridge = createBridge({ root, options: { audioCache: cache } });
+  const call = (action, payload) => bridge(action, JSON.stringify({ accountId: 'guest', ...payload }));
+  const flush = async () => {
+    while (timers.microtasks.length) {
+      const tasks = timers.microtasks.splice(0);
+      for (const task of tasks) await task();
+    }
+  };
+  const fireLatest = () => {
+    const item = [...timers.timeouts].reverse().find((timeout) => !timeout.fired);
+    if (item) { item.fired = true; item.handler(); return true; }
+    return false;
+  };
+  const fireAndFlush = async (id) => {
+    fire(id);
+    await flush();
+  };
+  const tracks = [
+    { sentenceId: 'a', role: 'target', language: 'en', key: 'a-target' },
+    { sentenceId: 'a', role: 'source', language: 'zh-Hant', key: 'a-source' },
+    { sentenceId: 'b', role: 'target', language: 'en', key: 'b-target' },
+    { sentenceId: 'b', role: 'source', language: 'zh-Hant', key: 'b-source' },
+  ];
+  const settle = async () => {
+    await flush();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    await flush();
+  };
+  return { cache, timers, root, bridge, call, flush, fireLatest, settle, tracks };
+}
+
+test('loop playback follows target then source and continues to next sentence', async () => {
+  const env = makeEnvironment();
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-1',
+    order: 'targetFirst',
+    durationMs: 15 * 60 * 1000,
+    tracks: env.tracks,
+    gapMs: { language: 10, sentence: 20 },
+  });
+  await env.flush();
+  await new Promise((resolve) => setTimeout(resolve, 30));
+  let status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-1' }));
+  assert.equal(status.state, 'playing');
+  assert.equal(status.phase, 'target');
+  assert.equal(status.sentenceIndex, 0);
+
+  env.root.Audio.lastInstance?.emitAsync('ended');
+  await env.flush();
+  env.fireLatest();
+  await env.settle();
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-1' }));
+  assert.equal(status.phase, 'source');
+  env.root.Audio.lastInstance?.emitAsync('ended');
+  await env.flush();
+  env.fireLatest();
+  await env.settle();
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-1' }));
+  assert.equal(status.sentenceIndex, 1);
+  assert.equal(status.phase, 'target');
+});
+
+test('source-first order and an order change apply from the next sentence', async () => {
+  const env = makeEnvironment();
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-2',
+    order: 'sourceFirst',
+    durationMs: 60000,
+    tracks: env.tracks,
+    gapMs: { language: 0, sentence: 0 },
+  });
+  await env.flush();
+  let status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-2' }));
+  assert.equal(status.phase, 'source');
+  await env.call('audioLoopOrder', { sessionId: 'session-2', order: 'targetFirst' });
+  env.root.Audio.lastInstance?.emitAsync('ended');
+  await env.flush();
+  env.fireLatest();
+  await env.settle();
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-2' }));
+  assert.equal(status.sentenceIndex, 0);
+  assert.equal(status.phase, 'target');
+  env.root.Audio.lastInstance?.emitAsync('ended');
+  await env.flush();
+  env.fireLatest();
+  await env.settle();
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-2' }));
+  assert.equal(status.sentenceIndex, 1);
+  assert.equal(status.phase, 'target');
+});
+
+test('fixed deadline remains active during pause and prevents resume after timeout', async () => {
+  const env = makeEnvironment();
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-3',
+    order: 'targetFirst',
+    durationMs: 60000,
+    tracks: env.tracks,
+  });
+  await env.flush();
+  env.timers.now = 101000;
+  await env.call('audioLoopPause', { sessionId: 'session-3' });
+  let status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-3' }));
+  assert.equal(status.state, 'paused');
+  assert.equal(status.remainingMs, 59000);
+  env.timers.now = 170000;
+  await env.call('audioLoopResume', { sessionId: 'session-3' });
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-3' }));
+  assert.equal(status.state, 'ended');
+  assert.equal(status.stopReason, 'timeout');
+});
+
+test('stale session controls cannot affect the active loop', async () => {
+  const env = makeEnvironment();
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest', sessionId: 'old', order: 'targetFirst', durationMs: 60000, tracks: env.tracks,
+  });
+  await env.call('audioLoopStart', {
+    accountId: 'guest', sessionId: 'new', order: 'targetFirst', durationMs: 60000, tracks: env.tracks,
+  });
+  await env.flush();
+  await env.call('audioLoopPause', { sessionId: 'old' });
+  const status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'new' }));
+  assert.equal(status.state, 'playing');
+  assert.equal(status.sessionId, 'new');
+});

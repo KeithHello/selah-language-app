@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <base href="$FLUTTER_BASE_HREF">
+  <meta charset="UTF-8">
+  <meta content="IE=edge" http-equiv="X-UA-Compatible">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="selah-build-id" content="2026-09-10-notes-b1b2-1">
+  <meta name="theme-color" content="#E06B54">
+  <meta name="description" content="Selah：把真實想法變成自然英文，安靜地聽懂、複習並開口。">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Selah">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" href="icons/icon-192.png">
+  <title>Selah · 安靜學英語</title>
+  <style>
+    html, body { height: 100%; margin: 0; background: #FBF8F4; }
+    #selah-loading { position: fixed; inset: 0; display: grid; place-items: center; color: #5B514D; font: 500 16px system-ui, sans-serif; background: #FBF8F4; z-index: 10; }
+    #selah-loading[hidden] { display: none; }
+    #selah-loading .seed { width: 48px; height: 48px; margin-bottom: 16px; color: #5A9E82; }
+    #selah-loading .content { display: grid; justify-items: center; }
+  </style>
+  <!-- The browser boundary must be ready before Flutter's bootstrap runs. -->
+  <script src="selah_bridge.js"></script>
+</head>
+<body>
+  <div id="selah-loading" role="status" aria-live="polite">
+    <div class="content">
+      <svg class="seed" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 39V23M24 28C10 29 7 20 8 11c11-1 17 5 16 17Zm0-5C24 12 31 7 41 8c0 10-5 16-17 15Z" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>正在準備你的學習空間…</span>
+    </div>
+  </div>
+  <script>
+    (function registerSelahServiceWorker() {
+      if (!('serviceWorker' in navigator)) return;
+      window.addEventListener('load', function () {
+        var buildMeta = document.querySelector('meta[name="selah-build-id"]');
+        var buildId = buildMeta && buildMeta.content ? buildMeta.content : 'dev';
+        var workerUrl = new URL('selah_service_worker.js?v=' + encodeURIComponent(buildId), document.baseURI);
+        navigator.serviceWorker.register(workerUrl, { scope: new URL('./', document.baseURI).pathname }).catch(function () {
+          // The app remains usable online when a browser blocks service workers.
+        });
+      });
+    }());
+    window.addEventListener('flutter-first-frame', function () {
+      var loading = document.getElementById('selah-loading');
+      if (loading) loading.hidden = true;
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

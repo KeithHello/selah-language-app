@@ -1,0 +1,185 @@
+{
+  "date": "2026-09-05",
+  "status": "stage1_ten_approved_growth_v2_stages3_to5_superseded",
+  "generator": "built-in image_gen",
+  "verification": "PNG integrity, all unique SHA-256, and source-to-workspace copy hash checks passed; all images visually inspected.",
+  "assets": [
+    {
+      "n": 1,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-c8570ab2-fa4f-4b18-a709-125d94a34be0.png",
+      "file": "seed-c-s1-01-idle-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1331630,
+      "sha256": "1a24ed56dd5ea5f6c3c209b489dd8a30ab5e4b195789f69f3125a2a759ceb30d",
+      "copyMatch": true,
+      "title": "自然待机",
+      "visualReview": "基准站姿、双手双脚完整，小芽叶与短绒身份清晰。"
+    },
+    {
+      "n": 2,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-ff3bd8f8-365d-4026-84e0-a3a90ac0027c.png",
+      "file": "seed-c-s1-02-blink-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1442752,
+      "sha256": "5f39f1ead9930abd2aae5cc371923c86311f9ecbf19b838ebbccb99cf854470d",
+      "copyMatch": true,
+      "title": "害羞眨眼",
+      "visualReview": "双脚朝前坐姿、双手贴脸、闭眼；区别于待机和坐听。"
+    },
+    {
+      "n": 3,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-6e59c005-5f5f-4044-9b7d-4291a2ff9b94.png",
+      "file": "seed-c-s1-03-leaf-sway-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1498726,
+      "sha256": "9bdb17f8ecce4d55ba7215c39f58f7d65136501b5b7d93b7094989aeed258e96",
+      "copyMatch": true,
+      "title": "舒展叶摆",
+      "visualReview": "斜向伸展、单脚支撑、另一脚抬起；区别于双脚腾空。"
+    },
+    {
+      "n": 4,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-b573cfe2-5584-4cbd-bfe9-f7b8509d9097.png",
+      "file": "seed-c-s1-04-listen-enter-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1421316,
+      "sha256": "340a25f714f8569a80bbe34ba2737d125ec2f4e8960dc44459249fde8197bbca",
+      "copyMatch": true,
+      "title": "侧耳准备听",
+      "visualReview": "侧倾与一手贴脸侧，双脚仍着地；没有新增耳朵。"
+    },
+    {
+      "n": 5,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-74dc7c37-ca79-4bc1-8fec-c88076c2485b.png",
+      "file": "seed-c-s1-05-listen-playing-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1495166,
+      "sha256": "012e470475fcc430640ec3beb304f56fdf852dc6195aa8e226fe9c11e8ed2881",
+      "copyMatch": true,
+      "title": "坐稳认真听",
+      "visualReview": "双脚朝前坐稳、手置膝前、眼睛睁开；区别于蜷坐眨眼。"
+    },
+    {
+      "n": 6,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-e3ab6362-b3ee-49c2-b973-3e7b201e3605.png",
+      "file": "seed-c-s1-06-listen-complete-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1417599,
+      "sha256": "7a3ceb68dc615a79d48fea5a5944bd88442e2bbee5cf2ffd5fb253068405cbfd",
+      "copyMatch": true,
+      "title": "点头致意",
+      "visualReview": "前倾致意、手在腹前、双眼弯笑；区别于高位拍手。"
+    },
+    {
+      "n": 7,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-3b683811-66ab-410e-83e8-a6686ca385bb.png",
+      "file": "seed-c-s1-07-rec-recording-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1452155,
+      "sha256": "4b98777d612dfe45710a5d6acc4fef54106af3b18dfb22d30e5e73e39590e096",
+      "copyMatch": true,
+      "title": "陪你开口",
+      "visualReview": "双手靠近嘴侧、圆口、睁眼；没有设备或悬浮图标。"
+    },
+    {
+      "n": 8,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-41d72701-96f6-47aa-9f0e-cb7f636b55a0.png",
+      "file": "seed-c-s1-08-rec-done-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1452939,
+      "sha256": "726df06025c07025ed5c334bbbc1b01b127dd8507b0c1c18f7a7983fe96ea62a",
+      "copyMatch": true,
+      "title": "轻轻拍手",
+      "visualReview": "站姿胸前拍手、睁眼笑；区别于弯眼鞠躬和腾空庆祝。"
+    },
+    {
+      "n": 9,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-4caafd96-2b66-4fae-a1ed-41be1cb5b2ab.png",
+      "file": "seed-c-s1-09-quiz-good-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1433407,
+      "sha256": "128275dc958c1d041ba23d7c57e1db3cb74b02949062530c99c52c3e26276685",
+      "copyMatch": true,
+      "title": "开心小跳",
+      "visualReview": "两脚离地、双臂向上、开心笑，落影与身体分离。"
+    },
+    {
+      "n": 10,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-d0692483-ec88-41c1-8853-d609722125bb.png",
+      "file": "seed-c-s1-10-quiz-retry-v2.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1247748,
+      "sha256": "eec8c013565ce314d4c44b85673ef2aa5a0d570184e44854eb3192126fb797ce",
+      "copyMatch": true,
+      "title": "伸手再试一次",
+      "visualReview": "低重心邀请、手贴胸；局部修订后去除额外拇指和弯手形。"
+    },
+    {
+      "n": "growth",
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-610e3b71-0093-4815-bbff-19626d712f7d.png",
+      "file": "seed-c-growth-v2.png",
+      "size": [
+        1672,
+        941
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1622459,
+      "sha256": "bb0285eb824f33be0d76383ae0a643bc550b33f0893767c11a463553d87ff246",
+      "copyMatch": true,
+      "title": "五阶段外形提案",
+      "visualReview": "五个阶段标注正确；单芽、双叶、叶冠、闭苞、五瓣开花有明确剪影差异。"
+    }
+  ],
+  "excludedInitialRetry": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-6ee66328-4411-43b6-b127-8e4d75a9b9a4.png"
+}

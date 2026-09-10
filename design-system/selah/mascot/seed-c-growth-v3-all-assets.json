@@ -1,0 +1,102 @@
+{
+  "date": "2026-09-06",
+  "status": "five_stage_set_review_pending",
+  "generator": "built-in image_gen",
+  "newStages": [
+    1,
+    2
+  ],
+  "retainedStages": [
+    3,
+    4,
+    5
+  ],
+  "verification": "All five PNG files decode via System.Drawing.Bitmap; signatures, dimensions and color types checked. Five unique SHA-256 values and source-to-workspace copy hashes match. Stage 3-5 and the approved first-stage ten action images are unchanged.",
+  "assets": [
+    {
+      "stage": 1,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-3efba138-a330-46bb-9dd7-3511e7046830.png",
+      "target": "E:/develop/self-dev/workbuddy/language-study/design-system/selah/mascot/seed-c-s1-first-sprout-v3.png",
+      "file": "seed-c-s1-first-sprout-v3.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1296720,
+      "sha256": "97b07cf73923805a824e5d3a44a8f628aeaad1f25c6c055c7173af72f110c0b2",
+      "copyMatch": true,
+      "title": "初见",
+      "visualReview": "一枚向内折拢的小芽，身体略小、圆润；绒面、五官和椭圆手脚沿用第三阶段风格。"
+    },
+    {
+      "stage": 2,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-9e949365-d1f8-412a-bda8-fc7de6571025.png",
+      "target": "E:/develop/self-dev/workbuddy/language-study/design-system/selah/mascot/seed-c-s2-paired-leaves-v3.png",
+      "file": "seed-c-s2-paired-leaves-v3.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1543851,
+      "sha256": "dcc93b0120e1e122acc23b7a760725feb4d11cd29c436bdc88de469fe7377e9e",
+      "copyMatch": true,
+      "title": "萌芽",
+      "visualReview": "两片宽短叶横向展开，叶根紧贴头顶；叶形比第三阶段更简单，身体介于第一与第三阶段之间。"
+    },
+    {
+      "stage": 3,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-9ce76e02-b4e0-4e17-9798-64471d6bc74f.png",
+      "target": "E:/develop/self-dev/workbuddy/language-study/design-system/selah/mascot/seed-c-s3-leaves-v3.png",
+      "file": "seed-c-s3-leaves-v3.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1434829,
+      "sha256": "1fae14ff83a5bbf186c9debc1a93d5c0ba7a9f1b60975a722d62491a76beecae",
+      "copyMatch": true,
+      "title": "绿叶",
+      "visualReview": "低矮的三叶簇向侧后展开，保留此前认可原图。"
+    },
+    {
+      "stage": 4,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-611a60c0-becd-48ac-8265-6307d12901b8.png",
+      "target": "E:/develop/self-dev/workbuddy/language-study/design-system/selah/mascot/seed-c-s4-bud-v3.png",
+      "file": "seed-c-s4-bud-v3.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1599663,
+      "sha256": "ebca01dc4dc5127e2200a97e63994434e89b4658a47ba72ced16d47d7f1cd758",
+      "copyMatch": true,
+      "title": "花苞",
+      "visualReview": "杏粉闭合花苞由叶片承托，保留此前认可原图。"
+    },
+    {
+      "stage": 5,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-7079f3c3-30b9-484d-92e5-64cc3a621ab7.png",
+      "target": "E:/develop/self-dev/workbuddy/language-study/design-system/selah/mascot/seed-c-s5-bloom-v3.png",
+      "file": "seed-c-s5-bloom-v3.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1411397,
+      "sha256": "a06cc8162b337d34b6d5d6f6bd94f44ffdaca611fd430eb945b1f6cafbe805d5",
+      "copyMatch": true,
+      "title": "开花",
+      "visualReview": "五瓣立体布花斜向开放，保留此前认可原图。"
+    }
+  ]
+}

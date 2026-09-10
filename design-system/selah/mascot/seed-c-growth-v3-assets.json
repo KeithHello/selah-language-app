@@ -1,0 +1,59 @@
+{
+  "date": "2026-09-05",
+  "status": "stages3_to5_visual_direction_approved_retained_in_five_stage_set",
+  "generator": "built-in image_gen",
+  "verification": "All three outputs visually inspected. PNG integrity, unique SHA-256 values and source-to-workspace copy hashes passed. Approved first-stage ten images retain their recorded hashes.",
+  "assets": [
+    {
+      "stage": 3,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-9ce76e02-b4e0-4e17-9798-64471d6bc74f.png",
+      "target": "E:/develop/self-dev/workbuddy/language-study/design-system/selah/mascot/seed-c-s3-leaves-v3.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1434829,
+      "sha256": "1fae14ff83a5bbf186c9debc1a93d5c0ba7a9f1b60975a722d62491a76beecae",
+      "copyMatch": true,
+      "file": "seed-c-s3-leaves-v3.png",
+      "title": "绿叶",
+      "visualReview": "三片宽短叶形成横向叶簇，后方叶片略立起；无垂肩结构，额头与脸完整可见，双手双脚正常。"
+    },
+    {
+      "stage": 4,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-611a60c0-becd-48ac-8265-6307d12901b8.png",
+      "target": "E:/develop/self-dev/workbuddy/language-study/design-system/selah/mascot/seed-c-s4-bud-v3.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1599663,
+      "sha256": "ebca01dc4dc5127e2200a97e63994434e89b4658a47ba72ced16d47d7f1cd758",
+      "copyMatch": true,
+      "file": "seed-c-s4-bud-v3.png",
+      "title": "花苞",
+      "visualReview": "杏粉色圆润闭合花苞偏向右侧，根部由小叶和低叶簇承托；没有长茎，身体、五官与站姿延续第三阶段。"
+    },
+    {
+      "stage": 5,
+      "source": "C:/Users/lhjjj/.codex/generated_images/01a06f03-2e69-7491-9670-1df1969f94ff/exec-7079f3c3-30b9-484d-92e5-64cc3a621ab7.png",
+      "target": "E:/develop/self-dev/workbuddy/language-study/design-system/selah/mascot/seed-c-s5-bloom-v3.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "mode": "RGB",
+      "format": "PNG",
+      "bytes": 1411397,
+      "sha256": "a06cc8162b337d34b6d5d6f6bd94f44ffdaca611fd430eb945b1f6cafbe805d5",
+      "copyMatch": true,
+      "file": "seed-c-s5-bloom-v3.png",
+      "title": "开花",
+      "visualReview": "五瓣奶油杏色布花斜向上展开，卷边与前后层次清晰，花心由小颗粒组成；完整开花且露出整张脸，未变成平面大花盘。"
+    }
+  ]
+}
