@@ -10,7 +10,10 @@ class _LoopPlatform implements LearningPlatform {
   Map<String, dynamic> loop = {'state': 'idle'};
 
   @override
-  Future<Object?> invoke(String action, [Map<String, Object?> payload = const {}]) async {
+  Future<Object?> invoke(
+    String action, [
+    Map<String, Object?> payload = const {},
+  ]) async {
     if (action == 'platformInfo') return {'online': true};
     if (action == 'contentHash') return 'a' * 64;
     if (action == 'audioCached') return true;
@@ -39,11 +42,17 @@ class _Gateway extends UnconfiguredGateway {
   @override
   Future<LearningSnapshot> synchronize(LearningSnapshot local) async => local;
   @override
-  Future<Map<String, dynamic>> invoke(String function, Map<String, dynamic> body, {bool get = false}) async => {};
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async => {};
 }
 
 void main() {
-  testWidgets('listen page exposes loop setup and starts a bilingual loop', (tester) async {
+  testWidgets('listen page exposes loop setup and starts a bilingual loop', (
+    tester,
+  ) async {
     final platform = _LoopPlatform();
     final controller = LearningController(
       gateway: _Gateway(),
@@ -52,12 +61,18 @@ void main() {
       seeds: const [],
     );
     controller.state.sentences.add(
-      LearnSentence(id: 's1', source: '我们一步一步来。', target: 'One step at a time.'),
+      LearnSentence(
+        id: '00000000-0000-4000-8000-000000000001',
+        source: '我们一步一步来。',
+        target: 'One step at a time.',
+      ),
     );
     controller.state.preferences.onboarded = true;
     controller.initialized = true;
 
-    await tester.pumpWidget(MaterialApp(home: WebLearningApp(controller: controller)));
+    await tester.pumpWidget(
+      MaterialApp(home: WebLearningApp(controller: controller)),
+    );
     controller.navigate(1);
     await tester.pump();
     await tester.tap(find.text('循環聽'));
@@ -65,16 +80,70 @@ void main() {
 
     expect(find.text('英語 → 中文'), findsOneWidget);
     expect(find.text('30 分鐘'), findsWidgets);
-    expect(find.text('開始循環聽'), findsOneWidget);
+    expect(find.text('準備循環聽'), findsOneWidget);
 
-    final startButton = find.text('開始循環聽');
-    await tester.ensureVisible(startButton);
+    final prepareButton = find.text('準備循環聽');
+    await tester.ensureVisible(prepareButton);
     await tester.tap(
-      find.ancestor(of: startButton, matching: find.byType(FilledButton)),
+      find.ancestor(of: prepareButton, matching: find.byType(FilledButton)),
     );
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('開始循環聽'), findsOneWidget);
+    await tester.tap(find.text('開始循環聽'));
     await tester.pump();
     await tester.pump();
     expect(find.text('正在播放英語'), findsOneWidget);
     expect(find.textContaining('30:00'), findsWidgets);
+  });
+
+  testWidgets('custom duration keeps the chip visible and saves free input', (
+    tester,
+  ) async {
+    final platform = _LoopPlatform();
+    final controller = LearningController(
+      gateway: _Gateway(),
+      platform: platform,
+      polling: false,
+      seeds: const [],
+    );
+    addTearDown(controller.dispose);
+    controller.state.sentences.add(
+      LearnSentence(
+        id: '00000000-0000-4000-8000-000000000002',
+        source: '我们一步一步来。',
+        target: 'One step at a time.',
+      ),
+    );
+    controller.state.preferences.onboarded = true;
+    controller.initialized = true;
+
+    await tester.pumpWidget(
+      MaterialApp(home: WebLearningApp(controller: controller)),
+    );
+    controller.navigate(1);
+    await tester.pump();
+    await tester.tap(find.text('循環聽'));
+    await tester.pump();
+
+    expect(find.text('自訂'), findsOneWidget);
+    await tester.tap(find.text('自訂'));
+    await tester.pump();
+    expect(find.byType(TextField), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField)).controller!.text,
+      '30',
+    );
+    await tester.enterText(find.byType(TextField), '45');
+    await tester.tap(find.text('確認'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // The save is asynchronous; one extra frame lets the controller's
+    // notification close the dialog after the write completes.
+    await tester.pump();
+    expect(find.byType(AlertDialog), findsNothing);
+    expect(find.text('自訂 · 45 分鐘'), findsOneWidget);
+    expect(controller.state.preferences.loopOptions.durationMinutes, 45);
   });
 }

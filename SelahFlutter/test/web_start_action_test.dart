@@ -40,14 +40,14 @@ void main() {
     );
   });
 
-  testWidgets('at least five selected sentences and a name enable one tap', (
+  testWidgets('at least three selected sentences and a name enable one tap', (
     tester,
   ) async {
     var starts = 0;
     await tester.pumpWidget(
       _host(
         WebStartAction(
-          selectedCount: 5,
+          selectedCount: 3,
           hasName: true,
           busy: false,
           onStart: () => starts += 1,
@@ -66,11 +66,11 @@ void main() {
   });
 
   testWidgets(
-    'counts below five stay disabled while larger selections stay enabled',
+    'counts below three stay disabled while larger selections stay enabled',
     (tester) async {
       final handle = tester.ensureSemantics();
       try {
-        for (final count in [0, 2, 4, 5, 6, 30]) {
+        for (final count in [0, 2, 3, 4, 6, 30]) {
           await tester.pumpWidget(
             _host(
               WebStartAction(
@@ -85,7 +85,7 @@ void main() {
           expect(
             tester.widget<FilledButton>(find.byType(FilledButton)).onPressed !=
                 null,
-            count >= 5,
+            count >= 3,
           );
         }
       } finally {
@@ -101,7 +101,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         WebStartAction(
-          selectedCount: 5,
+          selectedCount: 3,
           hasName: true,
           busy: false,
           onStart: () => starts += 1,
@@ -127,7 +127,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         const WebStartAction(
-          selectedCount: 5,
+          selectedCount: 3,
           hasName: true,
           busy: true,
           onStart: _noop,
@@ -152,7 +152,7 @@ void main() {
     await tester.pumpWidget(
       _host(
         const WebStartAction(
-          selectedCount: 5,
+          selectedCount: 3,
           hasName: true,
           busy: false,
           onStart: _noop,

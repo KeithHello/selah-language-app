@@ -19,6 +19,9 @@ import {
 const FUNCTION_SOURCE = await Deno.readTextFile(
   "supabase/functions/sentences-generate/index.ts",
 );
+const COMPLETION_SOURCE = await Deno.readTextFile(
+  "supabase/functions/_shared/personal_generation_completion.ts",
+);
 
 // ============================================================
 // System Prompt Validation
@@ -47,6 +50,15 @@ Deno.test("System prompt defines JSON output format", () => {
 
 Deno.test("System prompt skips basic function words", () => {
   assertStringIncludes(FUNCTION_SOURCE, "Skip basic function words");
+});
+
+Deno.test("System prompt follows the requested source language", () => {
+  assertStringIncludes(FUNCTION_SOURCE, "never assume that the source is Chinese");
+  assertStringIncludes(FUNCTION_SOURCE, "Source language: ${sourceName}");
+  assertStringIncludes(
+    FUNCTION_SOURCE,
+    "Write all explanations in the source language",
+  );
 });
 
 Deno.test("System prompt limits to 3 vocab candidates", () => {
@@ -127,7 +139,13 @@ Deno.test("Returns the normalized clientRequestId", () => {
     sourceText: "今天好累",
     clientRequestId,
   });
-  assertEquals(result, { ok: true, sourceText: "今天好累", clientRequestId });
+  assertEquals(result, {
+    ok: true,
+    sourceText: "今天好累",
+    sourceLanguage: "zh-Hant",
+    targetLanguage: "en",
+    clientRequestId,
+  });
 });
 
 Deno.test("Returns 502 for translation failed", () => {
@@ -142,6 +160,8 @@ Deno.test("Builds request with normalized source text", () => {
   assertEquals(result, {
     ok: true,
     sourceText: "今天好累",
+    sourceLanguage: "zh-Hant",
+    targetLanguage: "en",
     clientRequestId: "8d42c8e5-4f0e-4a37-b63d-51c4ab25d1f0",
   });
   if (!result.ok) return;
@@ -152,6 +172,7 @@ Deno.test("Builds request with normalized source text", () => {
       { role: "user", content: "今天好累" },
     ],
     temperature: 0.7,
+    max_tokens: 2048,
     response_format: { type: "json_object" },
   });
 });
@@ -178,6 +199,12 @@ Deno.test("Claims capacity before calling the translation provider", () => {
 });
 
 Deno.test("Completes or fails the request ledger", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "complete_generation_request");
+  assertStringIncludes(COMPLETION_SOURCE, "complete_personal_generation");
   assertStringIncludes(FUNCTION_SOURCE, "fail_generation_request");
+});
+
+Deno.test("Uses the atomic personal completion path for trial activation", () => {
+  assertStringIncludes(FUNCTION_SOURCE, "completePersonalGeneration");
+  assertStringIncludes(FUNCTION_SOURCE, "reservationId: admission.reservationId ?? null");
+  assertEquals(FUNCTION_SOURCE.includes("activate_trial_with_result"), false);
 });

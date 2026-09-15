@@ -1,4 +1,7 @@
 import {
+  GENERATION_SOURCE_LANGUAGE,
+  GENERATION_TARGET_LANGUAGE,
+  OUTPUT_TOKEN_BUDGET,
   TRANSLATION_MODEL,
   TRANSLATION_TEMPERATURE,
 } from "./sentence_contract.ts";
@@ -23,6 +26,10 @@ export interface BatchTranslationInput {
   categoryHint?: string;
   clientRequestId?: string;
 }
+
+export type PreparationSegmentsValidation =
+  | { ok: true; segments: Array<Record<string, unknown>> }
+  | { ok: false; code: string };
 
 export type CaptureInputValidation =
   | {
@@ -70,11 +77,25 @@ export function validateCapturePreparationInput(
       "clientRequestId must be a UUID",
     );
   }
+  const sourceLanguage = normalizedLanguage(
+    body.sourceLanguage,
+    GENERATION_SOURCE_LANGUAGE,
+  );
+  const targetLanguage = normalizedLanguage(
+    body.targetLanguage,
+    GENERATION_TARGET_LANGUAGE,
+  );
+  if (sourceLanguage == null || targetLanguage == null) {
+    return invalid(
+      "invalid_language",
+      "sourceLanguage and targetLanguage are invalid",
+    );
+  }
   return {
     ok: true,
     rawTranscript,
-    sourceLanguage: body.sourceLanguage?.trim() || "zh-Hant",
-    targetLanguage: body.targetLanguage?.trim() || "en",
+    sourceLanguage,
+    targetLanguage,
     clientRequestId,
   };
 }
@@ -119,11 +140,25 @@ export function validateBatchTranslationInput(
       "clientRequestId must be a UUID",
     );
   }
+  const sourceLanguage = normalizedLanguage(
+    body.sourceLanguage,
+    GENERATION_SOURCE_LANGUAGE,
+  );
+  const targetLanguage = normalizedLanguage(
+    body.targetLanguage,
+    GENERATION_TARGET_LANGUAGE,
+  );
+  if (sourceLanguage == null || targetLanguage == null) {
+    return invalid(
+      "invalid_language",
+      "sourceLanguage and targetLanguage are invalid",
+    );
+  }
   return {
     ok: true,
     segments: normalized,
-    sourceLanguage: body.sourceLanguage?.trim() || "zh-Hant",
-    targetLanguage: body.targetLanguage?.trim() || "en",
+    sourceLanguage,
+    targetLanguage,
     categoryHint: body.categoryHint?.trim() || undefined,
     clientRequestId,
   };
@@ -152,6 +187,7 @@ export function buildCapturePreparationRequest(
       { role: "user", content: rawTranscript },
     ],
     temperature: TRANSLATION_TEMPERATURE,
+    max_tokens: OUTPUT_TOKEN_BUDGET.preparation,
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -194,6 +230,85 @@ export function buildCapturePreparationRequest(
   };
 }
 
+/**
+ * Validate the provider's preparation response without truncating or silently
+ * dropping entries. The provider's non-empty IDs are used for completeness
+ * and duplicate checks; the client-facing IDs are minted as UUIDs because the
+ * provider schema only promises a string and cannot reliably emit UUIDs.
+ */
+export function normalizePreparationSegments(
+  value: unknown,
+): PreparationSegmentsValidation {
+  if (!Array.isArray(value) || value.length === 0) {
+    return { ok: false, code: "invalid_segments" };
+  }
+  if (value.length > 20) return { ok: false, code: "too_many_segments" };
+  const ids = new Set<string>();
+  const orders = new Set<number>();
+  const segments: Array<Record<string, unknown>> = [];
+  for (const candidate of value) {
+    if (!candidate || typeof candidate !== "object") {
+      return { ok: false, code: "invalid_segment" };
+    }
+    const item = candidate as Record<string, unknown>;
+    const providerSegmentId = typeof item.segmentId === "string"
+      ? item.segmentId.trim().toLowerCase()
+      : "";
+    const orderIndex = item.orderIndex;
+    const originalText = typeof item.originalText === "string"
+      ? item.originalText.trim()
+      : "";
+    const sourceText = typeof item.sourceText === "string"
+      ? item.sourceText.trim()
+      : "";
+    if (
+      !providerSegmentId || providerSegmentId.length > 100 ||
+      ids.has(providerSegmentId)
+    ) {
+      return {
+        ok: false,
+        code: ids.has(providerSegmentId)
+          ? "duplicate_segment_id"
+          : "invalid_segment",
+      };
+    }
+    if (!Number.isInteger(orderIndex) || orders.has(orderIndex as number)) {
+      return {
+        ok: false,
+        code: orders.has(orderIndex as number)
+          ? "duplicate_order_index"
+          : "invalid_segment",
+      };
+    }
+    if (
+      !originalText || originalText.length > 500 || !sourceText ||
+      sourceText.length > 500
+    ) {
+      return { ok: false, code: "invalid_segment" };
+    }
+    if (
+      !Array.isArray(item.removedText) ||
+      !item.removedText.every((removed) => typeof removed === "string")
+    ) {
+      return { ok: false, code: "invalid_segment" };
+    }
+    if (typeof item.selected !== "boolean") {
+      return { ok: false, code: "invalid_segment" };
+    }
+    ids.add(providerSegmentId);
+    orders.add(orderIndex as number);
+    segments.push({
+      segmentId: crypto.randomUUID(),
+      orderIndex,
+      originalText,
+      sourceText,
+      removedText: item.removedText,
+      selected: item.selected,
+    });
+  }
+  return { ok: true, segments };
+}
+
 export function buildBatchTranslationRequest(
   segments: Array<{ segmentId: string; sourceText: string }>,
   sourceLanguage: string,
@@ -208,6 +323,7 @@ export function buildBatchTranslationRequest(
         content: [
           "You are a teaching-oriented spoken translation engine.",
           "Translate each source segment independently while preserving meaning and tone.",
+          "Write vocabulary and deconstruction explanations in the source language.",
           "Return exactly one item for every segmentId, with no extra items.",
           `Source language: ${sourceLanguage}. Target language: ${targetLanguage}.`,
           categoryHint ? `Category hint: ${categoryHint}.` : "",
@@ -216,6 +332,7 @@ export function buildBatchTranslationRequest(
       { role: "user", content: JSON.stringify(segments) },
     ],
     temperature: TRANSLATION_TEMPERATURE,
+    max_tokens: Math.min(segments.length * 2048, OUTPUT_TOKEN_BUDGET.batch),
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -289,4 +406,12 @@ function invalid(
   message: string,
 ): { ok: false; status: number; code: string; message: string } {
   return { ok: false, status: 400, code, message };
+}
+
+function normalizedLanguage(value: unknown, fallback: string): string | null {
+  if (value == null) return fallback;
+  if (typeof value !== "string") return null;
+  const normalized = value.trim();
+  if (!normalized || normalized.length > 20) return null;
+  return normalized;
 }

@@ -84,6 +84,12 @@ const currentGenerationModel = 'gpt-4o-mini';
 const currentGenerationPromptVersion = 'v8.0';
 const currentSourceLanguage = 'zh-Hant';
 const currentTargetLanguage = 'en';
+const minOnboardingSeedCount = 3;
+const recommendedOnboardingSeedIds = <String>[
+  'seed-001',
+  'seed-006',
+  'seed-012',
+];
 const maxVocabularyItems = 3;
 final _uuid = RegExp(
   r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
@@ -220,6 +226,7 @@ class LearnSentence {
     this.category = 'daily_life',
     this.origin = 'user_recording',
     this.seedId,
+    this.jaText,
     String? generationModel,
     String? model,
     this.promptVersion,
@@ -249,6 +256,10 @@ class LearnSentence {
   final String category;
   final String origin;
   final String? seedId;
+  /// Optional Japanese source text carried by bundled seeds.  It is kept on
+  /// the model so changing the native-language preference can rebuild the
+  /// visible seed without losing the original bilingual content.
+  final String? jaText;
   final String? generationModel;
   final String? promptVersion;
   final String? sourceLanguage;
@@ -317,8 +328,22 @@ class LearnSentence {
       id: id,
       seedId: seed,
       origin: 'system_seed',
-      source: requiredText(j['zh_text'], '中文'),
+      jaText: optionalKnownText(j['ja_text'], max: 1000),
+      source: requiredText(
+        j['source'] ?? j['zh_text'],
+        '母语句子',
+      ),
       target: requiredText(j['en_translation'], '英文'),
+      sourceLanguage: optionalKnownText(
+        j['sourceLanguage'],
+        max: 20,
+      ) ??
+          currentSourceLanguage,
+      targetLanguage: optionalKnownText(
+        j['targetLanguage'],
+        max: 20,
+      ) ??
+          currentTargetLanguage,
       category: _choice(j['category'], categories.keys, 'daily_life'),
       breakdown: mapList(j['deconstruction'], max: 50),
       vocabulary: mapList(j['vocab_candidates'], max: 50)
@@ -350,6 +375,7 @@ class LearnSentence {
     'category': category,
     'origin': origin,
     'seedId': seedId,
+    'ja_text': jaText,
     'generationModel': generationModel,
     'promptVersion': promptVersion,
     'sourceLanguage': sourceLanguage,
@@ -393,6 +419,7 @@ class LearnSentence {
         'user_recording',
       ], 'user_recording'),
       seedId: seedId,
+      jaText: optionalKnownText(j['ja_text'], max: 1000),
       generationModel: optionalKnownText(
         j['generationModel'] ?? j['model'],
         max: 100,
@@ -432,6 +459,7 @@ class LearnPreferences {
     this.name = '小豆',
     this.voice = 'gentle-natural',
     this.speed = .85,
+    this.companionRailVisible = false,
     this.onboarded = false,
     this.reminderEnabled = false,
     this.reminderTime = '20:00',
@@ -445,6 +473,9 @@ class LearnPreferences {
   String name;
   String voice;
   double speed;
+  /// Device-only presentation preference. It is intentionally not mapped to
+  /// Supabase user_profiles and is preserved across cloud snapshot merges.
+  bool companionRailVisible;
   bool onboarded;
   bool reminderEnabled;
   String reminderTime;
@@ -472,6 +503,7 @@ class LearnPreferences {
     'name': name,
     'voice': voice,
     'speed': speed,
+    'companionRailVisible': companionRailVisible,
     'onboarded': onboarded,
     'reminderEnabled': reminderEnabled,
     'reminderTime': reminderTime,
@@ -492,6 +524,7 @@ class LearnPreferences {
       name: requiredText(j['name'] ?? '小豆', '精灵名字', max: 24),
       voice: _choice(j['voice'], voices.keys, 'gentle-natural'),
       speed: speed.toDouble(),
+      companionRailVisible: j['companionRailVisible'] == true,
       onboarded: j['onboarded'] == true,
       reminderEnabled: j['reminderEnabled'] == true,
       reminderTime: reminder,
@@ -539,6 +572,10 @@ class LearnEvent {
       'preview_completed',
       'memory_unlocked',
       'activity_heartbeat',
+      'feedback_invite_shown',
+      'feedback_invite_dismissed',
+      'feedback_submitted',
+      'feedback_plan_viewed',
     ], 'sentence_created');
     final allowed = <String, List<String>>{
       'sentence_created': ['category', 'origin'],
@@ -553,6 +590,28 @@ class LearnEvent {
         'audio_playing',
       ],
       'memory_unlocked': ['memory_key'],
+      'feedback_invite_shown': ['survey_version', 'stage', 'display_locale'],
+      'feedback_invite_dismissed': [
+        'survey_version',
+        'stage',
+        'display_locale',
+      ],
+      'feedback_submitted': [
+        'survey_version',
+        'stage',
+        'display_locale',
+        'satisfaction',
+        'scenario',
+        'improvement',
+        'purchase_intent',
+        'plan_interest',
+      ],
+      'feedback_plan_viewed': [
+        'survey_version',
+        'stage',
+        'display_locale',
+        'plan_id',
+      ],
     };
     final metadata = objectMap(j['metadata'] ?? {});
     metadata.removeWhere(
@@ -974,6 +1033,7 @@ class LearningSnapshot {
     final localNativeLanguage = normalizeNativeLanguage(
       preferences.nativeLanguage,
     );
+    final localCompanionRailVisible = preferences.companionRailVisible;
     final byId = {for (final s in result.sentences) s.id: s};
     for (final incoming in other.sentences) {
       final current = byId[incoming.id];
@@ -1030,6 +1090,7 @@ class LearningSnapshot {
       );
     }
     result.preferences.nativeLanguage = localNativeLanguage;
+    result.preferences.companionRailVisible = localCompanionRailVisible;
     for (final entry in other.memories.entries) {
       result.memories.update(
         entry.key,

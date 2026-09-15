@@ -14,6 +14,9 @@ import '../domain/learning_engine.dart';
 import '../domain/learning_models.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
+import 'membership_widgets.dart';
+import 'research_profile_widgets.dart';
+import 'feedback_survey_widgets.dart';
 import 'admin_dashboard_page.dart';
 import 'loop_listening_panel.dart';
 import 'plush_companion.dart';
@@ -80,12 +83,15 @@ class WebLearningApp extends StatefulWidget {
 
 class _WebLearningAppState extends State<WebLearningApp> {
   bool _initializing = false;
+  bool _deepLinkApplied = false;
 
   @override
   void initState() {
     super.initState();
     if (!widget.controller.initialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
+    } else {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _applyDeepLink());
     }
   }
 
@@ -94,8 +100,18 @@ class _WebLearningAppState extends State<WebLearningApp> {
     _initializing = true;
     try {
       await widget.controller.initialize();
+      _applyDeepLink();
     } finally {
       _initializing = false;
+    }
+  }
+
+  void _applyDeepLink() {
+    if (_deepLinkApplied || !mounted || !widget.controller.initialized) return;
+    if (Uri.base.fragment == '/admin' &&
+        widget.controller.state.preferences.onboarded) {
+      _deepLinkApplied = true;
+      widget.controller.navigate(5);
     }
   }
 
@@ -252,7 +268,9 @@ class _WebShell extends StatelessWidget {
                 ],
               ),
             ),
-            if (showCompanion && controller.tab != 0)
+            if (showCompanion &&
+                controller.state.preferences.companionRailVisible &&
+                controller.tab != 0)
               _CompanionRail(controller: controller),
           ],
         ),
@@ -464,6 +482,9 @@ class _TopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final index = controller.tab.clamp(0, tabs.length - 1);
+    final title = controller.tab == 5
+        ? SelahStrings.of(controller.uiLocale).text('admin.title')
+        : tabs[index].label;
     return Container(
       height: 78,
       padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -472,7 +493,7 @@ class _TopBar extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Text(tabs[index].label, style: SelahTypography.headlineLarge()),
+          Text(title, style: SelahTypography.headlineLarge()),
           const Spacer(),
           if (controller.busy || controller.syncing)
             const Padding(
@@ -498,13 +519,16 @@ class _MobileTopBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final index = controller.tab.clamp(0, tabs.length - 1);
+    final title = controller.tab == 5
+        ? SelahStrings.of(controller.uiLocale).text('admin.title')
+        : tabs[index].label;
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 18, 16, 10),
       child: Row(
         children: [
           const _BrandMark(size: 28),
           const SizedBox(width: 10),
-          Text(tabs[index].label, style: SelahTypography.headlineLarge()),
+          Text(title, style: SelahTypography.headlineLarge()),
           const Spacer(),
           if (controller.busy || controller.syncing)
             const SizedBox(
@@ -546,11 +570,25 @@ class _CompanionRail extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    strings.translateLegacy('陪伴角落'),
-                    style: SelahTypography.labelSmall(
-                      color: SelahColors.textTertiary,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          strings.translateLegacy('陪伴角落'),
+                          style: SelahTypography.labelSmall(
+                            color: SelahColors.textTertiary,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: strings.text('settings.companion.hide'),
+                        visualDensity: VisualDensity.compact,
+                        onPressed: () => controller.updatePreferences(
+                          companionRailVisible: false,
+                        ),
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 8),
                   Text(
@@ -680,8 +718,32 @@ class _Content extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final showFeedbackInvite =
+        controller.tab != 4 && controller.feedbackSurvey.canShowInvite;
+    final showProfileInvite =
+        controller.tab != 4 &&
+        !controller.feedbackSurvey.blocksOtherInvites &&
+        controller.researchProfile.canShowInvite;
     return Column(
       children: [
+        if (showFeedbackInvite)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: FeedbackSurveyInvite(
+              controller: controller.feedbackSurvey,
+              uiLocale: controller.uiLocale,
+              onOpen: () => _showFeedbackSurvey(context, controller),
+            ),
+          ),
+        if (showProfileInvite)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+            child: ResearchProfileInvite(
+              controller: controller.researchProfile,
+              uiLocale: controller.uiLocale,
+              onOpen: () => controller.navigate(4),
+            ),
+          ),
         if (controller.error != null || controller.notice != null)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
@@ -714,6 +776,8 @@ class _Content extends StatelessWidget {
                 AdminDashboardPage(
                   controller: controller.admin,
                   uiLocale: controller.uiLocale,
+                  onBack: () => controller.navigate(4),
+                  onLogin: () => _showAuth(context, controller),
                   key: const ValueKey('admin'),
                 ),
             ],
@@ -1104,6 +1168,8 @@ class _TodayPageState extends State<_TodayPage> {
             onClear: _input.text.isEmpty ? null : _input.clear,
             textLength: textLength,
           ),
+          const SizedBox(height: 8),
+          _ModelDisclosure(strings: strings),
           if (_segments.isNotEmpty) ...[
             const SizedBox(height: 18),
             _SegmentEditor(
@@ -1386,6 +1452,40 @@ class _ExpressionComposer extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ModelDisclosure extends StatelessWidget {
+  const _ModelDisclosure({required this.strings});
+
+  final SelahStrings strings;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = switch (strings.locale) {
+      'ja' => 'OpenAI GPT モデルで学習内容を生成・整理します。音声は AI 合成です。',
+      'zh-Hant' => '使用 OpenAI GPT 模型產生與整理學習內容，語音由 AI 合成。',
+      _ => '使用 OpenAI GPT 模型生成和整理学习内容，语音由 AI 合成。',
+    };
+    return Semantics(
+      label: text,
+      child: Row(
+        children: [
+          const Icon(
+            Icons.auto_awesome_outlined,
+            size: 16,
+            color: SelahColors.coral,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: SelahTypography.bodySmall(color: SelahColors.textTertiary),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1779,6 +1879,7 @@ class _ListenPageState extends State<_ListenPage> {
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
+    final loopMode = _loopMode || c.loopActive;
     final sentences = c.state.sentences
         .where((sentence) => !sentence.archived)
         .toList();
@@ -1806,14 +1907,14 @@ class _ListenPageState extends State<_ListenPage> {
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                if (_loopMode) {
+                if (loopMode) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _ListenHeader(controller: c, count: sentences.length),
                       const SizedBox(height: 14),
                       _ListenModeSwitch(
-                        loopMode: _loopMode,
+                        loopMode: loopMode,
                         uiLocale: c.uiLocale,
                         onChanged: (value) => setState(() => _loopMode = value),
                       ),
@@ -1830,7 +1931,7 @@ class _ListenPageState extends State<_ListenPage> {
                       _ListenHeader(controller: c, count: sentences.length),
                       const SizedBox(height: 14),
                       _ListenModeSwitch(
-                        loopMode: _loopMode,
+                        loopMode: loopMode,
                         uiLocale: c.uiLocale,
                         onChanged: (value) => setState(() => _loopMode = value),
                       ),
@@ -1864,7 +1965,7 @@ class _ListenPageState extends State<_ListenPage> {
                     _ListenHeader(controller: c, count: sentences.length),
                     const SizedBox(height: 16),
                     _ListenModeSwitch(
-                      loopMode: _loopMode,
+                      loopMode: loopMode,
                       uiLocale: c.uiLocale,
                       onChanged: (value) => setState(() => _loopMode = value),
                     ),
@@ -3618,6 +3719,21 @@ class _SettingsPageState extends State<_SettingsPage> {
                 ],
               ),
               const SizedBox(height: 14),
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                title: Text(s.text('settings.companion.rail')),
+                subtitle: Text(
+                  s.text('settings.companion.railDetail'),
+                  style: SelahTypography.bodySmall(),
+                ),
+                value: p.companionRailVisible,
+                onChanged: c.busy
+                    ? null
+                    : (value) => c.updatePreferences(
+                          companionRailVisible: value,
+                        ),
+              ),
+              const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 key: ValueKey(p.voice),
                 initialValue: voices.containsKey(p.voice)
@@ -3773,20 +3889,32 @@ class _SettingsPageState extends State<_SettingsPage> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
-          _SettingsSection(
-            title: s.text('settings.admin'),
-            icon: Icons.insights_outlined,
-            children: [
-              Text(s.translateLegacy('仅管理员账号可查看全站学习与 API 费用统计。')),
-              const SizedBox(height: 11),
-              OutlinedButton.icon(
-                onPressed: () => c.navigate(5),
-                icon: const Icon(Icons.dashboard_outlined, size: 18),
-                label: Text(s.translateLegacy('打开管理台')),
-              ),
-            ],
-          ),
+          if (c.membership.membershipModeEnabled) ...[
+            const SizedBox(height: 14),
+            _SettingsSection(
+              title: s.translateLegacy('会员与方案'),
+              icon: Icons.workspace_premium_outlined,
+              children: [
+                MembershipCenter(
+                  controller: c.membership,
+                  uiLocale: c.uiLocale,
+                ),
+              ],
+            ),
+          ],
+          if (c.hasSession) ...[
+            const SizedBox(height: 14),
+            _SettingsSection(
+              title: s.translateLegacy('关于你的学习'),
+              icon: Icons.person_outline_rounded,
+              children: [
+                ResearchProfileEntry(
+                  controller: c.researchProfile,
+                  uiLocale: c.uiLocale,
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           _SettingsSection(
             title: s.text('settings.backup'),
@@ -4009,7 +4137,9 @@ class _OnboardingPageState extends State<_OnboardingPage> {
 
   Future<void> _complete() async {
     final name = _name.text.trim();
-    if (c.busy || name.isEmpty || _selected.length < 5) return;
+    if (c.busy || name.isEmpty || _selected.length < minOnboardingSeedCount) {
+      return;
+    }
     FocusScope.of(context).unfocus();
     c.clearMessage();
     await c.onboard(name, _selected.toList());
@@ -4115,7 +4245,8 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                           ),
                         ),
                         TextButton(
-                          onPressed: c.busy || c.seeds.length < 5
+                          onPressed: c.busy ||
+                                  c.seeds.length < minOnboardingSeedCount
                               ? null
                               : () => setState(() {
                                   _selected
@@ -4124,21 +4255,18 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                                       c.seeds
                                           .where(
                                             (seed) =>
-                                                seed.seedId == 'seed-001' ||
-                                                seed.seedId == 'seed-003' ||
-                                                seed.seedId == 'seed-005' ||
-                                                seed.seedId == 'seed-007' ||
-                                                seed.seedId == 'seed-009',
+                                                recommendedOnboardingSeedIds
+                                                    .contains(seed.seedId),
                                           )
-                                          .take(5)
+                                          .take(minOnboardingSeedCount)
                                           .map((seed) => seed.seedId!),
                                     );
-                                  if (_selected.length < 5) {
+                                  if (_selected.length < minOnboardingSeedCount) {
                                     _selected
                                       ..clear()
                                       ..addAll(
                                         c.seeds
-                                            .take(5)
+                                            .take(minOnboardingSeedCount)
                                             .map((seed) => seed.seedId!),
                                       );
                                   }
@@ -4150,7 +4278,7 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                             'count': '${_selected.length}',
                           }),
                           style: SelahTypography.labelLarge(
-                            color: _selected.length >= 5
+                            color: _selected.length >= minOnboardingSeedCount
                                 ? SelahColors.sage
                                 : SelahColors.textTertiary,
                           ),
@@ -4953,6 +5081,21 @@ void _showAuth(BuildContext context, LearningController controller) {
   showDialog<void>(
     context: context,
     builder: (_) => _AuthDialog(controller: controller),
+  );
+}
+
+void _showFeedbackSurvey(BuildContext context, LearningController controller) {
+  showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    builder: (sheetContext) => FeedbackSurveySheet(
+      controller: controller.feedbackSurvey,
+      uiLocale: controller.uiLocale,
+      onViewPlans: () {
+        controller.navigate(4);
+      },
+    ),
   );
 }
 

@@ -5,6 +5,7 @@ import {
 import {
   buildBatchTranslationRequest,
   buildCapturePreparationRequest,
+  normalizePreparationSegments,
   validateBatchTranslationInput,
   validateCapturePreparationInput,
 } from "../functions/_shared/capture_contract.ts";
@@ -28,6 +29,30 @@ Deno.test("capture preparation validates bounded transcript and UUID", () => {
       clientRequestId: id,
     },
   );
+});
+
+Deno.test("capture preparation preserves Japanese source language", () => {
+  const result = validateCapturePreparationInput({
+    rawTranscript: "今日はいい天気です。",
+    sourceLanguage: "ja",
+    targetLanguage: "en",
+    clientRequestId: id,
+  });
+  assertEquals(result, {
+    ok: true,
+    rawTranscript: "今日はいい天気です。",
+    sourceLanguage: "ja",
+    targetLanguage: "en",
+    clientRequestId: id,
+  });
+  if (result.ok) {
+    const request = buildCapturePreparationRequest(
+      result.rawTranscript,
+      result.sourceLanguage,
+      result.targetLanguage,
+    );
+    assertStringIncludes(JSON.stringify(request), "Source language: ja");
+  }
 });
 
 Deno.test("batch translation validates at most five unique segments", () => {
@@ -62,6 +87,19 @@ Deno.test("batch request carries stable segment IDs", () => {
   assertStringIncludes(
     JSON.stringify(request),
     '"name":"batch_sentence_generation"',
+  );
+});
+
+Deno.test("batch request carries Japanese source language", () => {
+  const request = buildBatchTranslationRequest(
+    [{ segmentId: id, sourceText: "今日はいい天気です。" }],
+    "ja",
+    "en",
+  );
+  assertStringIncludes(JSON.stringify(request), "Source language: ja");
+  assertStringIncludes(
+    JSON.stringify(request),
+    "explanations in the source language",
   );
 });
 
@@ -101,4 +139,51 @@ Deno.test("preparation completes and fails its request ledger", () => {
     PREPARATION_FUNCTION_SOURCE,
     "fail_generation_request",
   );
+});
+
+Deno.test("preparation response carries generation provenance", () => {
+  assertStringIncludes(PREPARATION_FUNCTION_SOURCE, "model: TRANSLATION_MODEL");
+  assertStringIncludes(
+    PREPARATION_FUNCTION_SOURCE,
+    "promptVersion: GENERATION_PROMPT_VERSION",
+  );
+  assertStringIncludes(
+    PREPARATION_FUNCTION_SOURCE,
+    "sourceLanguage: validation.sourceLanguage",
+  );
+  assertStringIncludes(
+    PREPARATION_FUNCTION_SOURCE,
+    "targetLanguage: validation.targetLanguage",
+  );
+});
+
+Deno.test("preparation treats truncation and malformed completeness as failures", () => {
+  assertStringIncludes(PREPARATION_FUNCTION_SOURCE, "isTruncatedCompletion");
+  assertStringIncludes(
+    PREPARATION_FUNCTION_SOURCE,
+    "normalizePreparationSegments",
+  );
+  assertStringIncludes(PREPARATION_FUNCTION_SOURCE, "preparation_incomplete");
+});
+
+Deno.test("preparation rejects provider output beyond twenty segments", () => {
+  const result = normalizePreparationSegments(
+    Array.from({ length: 21 }, (_, index) => ({
+      originalText: `第 ${index + 1} 段`,
+      sourceText: `第 ${index + 1} 段`,
+      removedText: [],
+      selected: true,
+    })),
+  );
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.code, "too_many_segments");
+});
+
+Deno.test("preparation rejects malformed provider segments instead of dropping them", () => {
+  const result = normalizePreparationSegments([
+    { originalText: "第一段", sourceText: "第一段", removedText: [] },
+    { originalText: "", sourceText: "", removedText: [] },
+  ]);
+  assertEquals(result.ok, false);
+  if (!result.ok) assertEquals(result.code, "invalid_segment");
 });

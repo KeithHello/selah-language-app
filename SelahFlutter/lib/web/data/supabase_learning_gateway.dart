@@ -94,8 +94,70 @@ class SupabaseLearningGateway implements LearningGateway {
   }
 
   static LearningFailure functionFailure(int status, Object? details) {
-    final code = details is Map ? details['error']?.toString() ?? '' : '';
-    if (status == 401 || status == 403) {
+    final payload = details is Map
+        ? Map<String, dynamic>.from(details)
+        : const <String, dynamic>{};
+    final code =
+        payload['error']?.toString() ?? payload['code']?.toString() ?? '';
+    final feature = payload['feature']?.toString();
+    final resetsAt = payload['resetsAt'] is String
+        ? DateTime.tryParse(payload['resetsAt'] as String)
+        : null;
+    final currentPeriodEndsAt = payload['currentPeriodEndsAt'] is String
+        ? DateTime.tryParse(payload['currentPeriodEndsAt'] as String)
+        : null;
+    final retryAfterSeconds = payload['retryAfterSeconds'] is num
+        ? (payload['retryAfterSeconds'] as num).toInt()
+        : null;
+    final requestId = payload['requestId']?.toString();
+    LearningFailure membershipFailure(String message) => LearningFailure(
+      message,
+      code: code,
+      feature: feature,
+      resetsAt: resetsAt,
+      currentPeriodEndsAt: currentPeriodEndsAt,
+      renewalRequired: payload['renewalRequired'] == true,
+      retryAfterSeconds: retryAfterSeconds,
+      requestId: requestId,
+    );
+    switch (code) {
+      case 'trial_expired':
+        return membershipFailure('试用已结束，已有内容仍可学习；开通会员后可继续生成。');
+      case 'membership_required':
+        return membershipFailure('这项功能需要有效会员，已有内容仍可学习。');
+      case 'feature_limit_reached':
+        return membershipFailure('这类生成额度已达到当前方案上限，已有内容仍可学习。');
+      case 'request_exceeds_feature_limit':
+        return membershipFailure('这次请求超过当前方案单次上限，请缩短内容后重试。');
+      case 'service_budget_protected':
+        return membershipFailure('系统正在保护服务预算，暂时不能新增生成；草稿已保留。');
+      case 'request_conflict':
+        return membershipFailure('同一个请求的内容发生变化，请保留当前草稿并重新提交。');
+      case 'generation_in_progress':
+      case 'request_in_progress':
+        return membershipFailure('内容正在准备，请稍后刷新结果。');
+      case 'service_paused':
+        return membershipFailure('新增生成暂时暂停，已有内容仍可学习。');
+      case 'membership_sales_disabled':
+        return membershipFailure('会员购买暂未开放，请稍后再试。');
+      case 'payment_provider_unavailable':
+        return membershipFailure('支付渠道尚未配置，暂未开放。');
+      case 'profile_consent_required':
+        return membershipFailure('请先确认研究资料用途说明，或选择跳过。');
+      case 'profile_notice_changed':
+        return membershipFailure('研究资料说明已更新，请重新阅读后再提交。');
+      case 'profile_age_policy_required':
+        return membershipFailure('当前年龄段暂不能收集研究资料。');
+      case 'profile_conflict':
+        return membershipFailure('研究资料已在其他设备更新，请刷新后再编辑。');
+      case 'profile_invalid_input':
+        return membershipFailure('研究资料格式无效，请检查后重试。');
+      case 'profile_unavailable':
+        return membershipFailure('研究资料暂时不可用，学习不受影响。');
+      case 'quota_exceeded':
+        return membershipFailure('当前生成额度已达到上限，已有内容仍可学习。');
+    }
+    if (status == 401 || (status == 403 && code.isEmpty)) {
       return const LearningFailure('登录已失效，请重新登录。', code: 'unauthorized');
     }
     if (status == 0) {
@@ -134,9 +196,20 @@ class SupabaseLearningGateway implements LearningGateway {
         code: 'service_missing',
       );
     }
+    final message =
+        payload['message'] is String &&
+            (payload['message'] as String).trim().isNotEmpty
+        ? (payload['message'] as String).trim()
+        : '在线服务暂时不可用，内容已保留，请稍后重试。';
     return LearningFailure(
-      '在线服务暂时不可用，内容已保留，请稍后重试。',
+      message,
       code: code.isEmpty ? 'provider_unavailable' : code,
+      feature: feature,
+      resetsAt: resetsAt,
+      currentPeriodEndsAt: currentPeriodEndsAt,
+      renewalRequired: payload['renewalRequired'] == true,
+      retryAfterSeconds: retryAfterSeconds,
+      requestId: requestId,
     );
   }
 
@@ -836,6 +909,11 @@ class SupabaseLearningGateway implements LearningGateway {
           'practice_rated',
           'preview_completed',
           'memory_unlocked',
+          'activity_heartbeat',
+          'feedback_invite_shown',
+          'feedback_invite_dismissed',
+          'feedback_submitted',
+          'feedback_plan_viewed',
         ].contains(row['event_type'])) {
           continue;
         }

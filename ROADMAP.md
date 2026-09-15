@@ -1,6 +1,6 @@
 # Selah 开发路线图
 
-> 最后更新：2026-09-11
+> 最后更新：2026-09-15
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
@@ -8,14 +8,124 @@
 
 ## 当前阶段
 
-### 2026-09-11 剩余 47 个 GIF 动作设计（设计完成，待审阅）
+### 2026-09-16 Web 循环听游客闭环、自定义时长与三句引导（本地实现完成）
+
+- [x] 初始引导从至少选择 5 句改为至少 3 句，默认推荐 `seed-001`、`seed-006`、`seed-012`；名称、按钮禁用条件、三语文案与控制器校验同步更新。
+- [x] 循环听不再要求登录：游客可直接使用随包种子的英文与母语音频循环播放；个人句子缺少云端音频时明确提示登录补齐，不发起匿名云端请求。
+- [x] 点击「自定义」始终允许自由输入 1～720 分钟整数，回填当前时长，保存成功后关闭；非法输入保留弹窗并显示三语校验文案。
+- [x] 循环听拆分为「准备循环听」和「开始循环听」两步，先校验／缓存双语轨道，再由用户显式开始；声音、句子或偏好变化后会要求重新准备。
+- [x] 浏览器循环内核使用绝对截止定时器，暂停期间继续占用总时长且无需轮询即可到点结束；暂停中切换顺序从下一语言阶段或下一句生效，避免打断当前播放。
+- [x] `audio-download-url` 改为 POST 调用；音频下载地址允许远端 HTTPS 与本机 `localhost`／`127.0.0.1`，已知浏览器音频错误显示具体原因。
+- [x] 最近验证：Flutter 全量 229 项通过；Node 浏览器桥与资源测试 35 项通过；标准 `tool/web.ps1 -Action build` Release 构建成功并确认编入公开 Supabase 配置。`flutter analyze` 被本机 Flutter SDK 内损坏的 `dev/benchmarks/macrobenchmarks/macos/Runner` 目录阻断，新增代码已用 `dart analyze` 检查通过。未部署远端、未修改数据库、密钥或支付配置。
+
+
+### 2026-09-15 十句 starter 双语种子与本地母语音频（本地完成；远端未导入）
+
+- [x] 首批种子已从 30 句收敛为 10 句，固定顺序为 `seed-001`、`seed-006`、`seed-027`、`seed-012`、`seed-016`、`seed-021`、`seed-004`、`seed-010`、`seed-030`、`seed-020`；覆盖工作、朋友、生活日常、吐槽、心里话和想法六类。
+- [x] `SeedContent/seed-sentences.json` 与 Web 资源清单保持一致；每句都有 `zh_text`、`ja_text`、`en_translation`，并标注 `sourceLanguage: zh-Hant`、`targetLanguage: en`。
+- [x] 本地音频清单为 60 条：10 句 × 4 种英文声线，加 10 条中文母语和 10 条日文母语 MP3；每条文件的 SHA-256、字节数和 MP3 头均已核对。
+- [x] 循环听种子接线支持 `seed-xxx:source:zh-Hant` 与 `seed-xxx:source:ja`；日语母语偏好会显示对应 `ja_text`，不会静默回退为中文；内置 URL 已匹配 Flutter Web 的 `assets/assets/audio/...` 资源入口。
+- [x] 回归证据：种子／循环音轨 Flutter 测试 5 项通过；相关 `dart analyze` 无 issue；打包器 Python 测试 6 项通过；本地 Web Release 构建 Build ID 为 `3c5e4fd11eb124c6`，HTTP 资源核对为 10 句、60 条清单、20 个母语文件。
+- [ ] 本轮未执行远端 Supabase seed 导入、schema／migration、真实账户同步或 Cloudflare Pages；远端仍需单独确认后才能视为同步完成。
+- [ ] `SelahFlutter/assets/audio/` 中未被当前清单引用的旧英文 MP3 暂不删除；循环听修正规划中的自定义时长、准备／开始分离、暂停改序和独立截止也未包含在本轮。
+
+
+### 2026-09-15 循环听完整修正最终开发方案（仅文档，未改产品代码）
+
+- [x] 已重新衡量 2026-09-11 方案与当前代码：嵌套 `_run()` 启动拦截已不再是主缺陷；仍未修好自定义时长、准备／开始混在一起、循环听 `GET` 刷新音频、暂停改序重复语言、播放中无独立截止计时器。
+- [x] 最终实施入口为 [循环听完整修正计划](docs/superpowers/plans/2026-09-15-loop-listening-fix-plan.md) 。旧稿 [2026-09-10 循环听整体开发计划](docs/superpowers/plans/2026-09-10-loop-listening-plan.md) 只作历史参考，不再按从零重建执行。
+- [x] 本轮范围是 T1 自定义四选一、T2 先准备再开始、T3 POST 下载与明确错误、T4 下一句改序与独立截止、T5 种子母语库存核对、T6 本地回归。付费母语预制、真实账户 AI／TTS、锁屏 60 分钟和 Cloudflare Pages 仍需单独确认。
+- [ ] 尚未授权改产品代码、测试实现、本地重建或公开部署；文档存在不代表循环听已可上线。
+
+### 2026-09-15 50 个吉祥物固定轮廓 GIF 重制与网站资源替换（已完成）
+
+- [x] 主人确认 5 个取景样品方向后，已将全部 50 个吉祥物动作改为「固定各自主姿态＋整只角色小幅刚体运动」，不再在不同动作姿态之间硬切。
+- [x] 新增可复用脚本 `skills/mascot-to-gif/scripts/build_fixed_pose_gifs.py`，从 `SelahFlutter/assets/sprites_backup_png/` 的 RGBA 母版生成 800 张透明帧和 50 个 768×768、16 帧、`loop=0` 的 GIF。
+- [x] 输出目录为 `output/mascot-gif-fixed-pose-20260915-v1/`，包含独立 GIF、逐帧 PNG、五阶段联系表、验收清单与旧运行资源留档；未修改 RGBA 备份母版。
+- [x] 已将同一 GIF 字节同时写入源码资源和当前本地构建资源的 `.png`／`.gif` 路径：`SelahFlutter/assets/sprites/` 与 `SelahFlutter/build/web/assets/assets/sprites/`。Flutter 继续按原 `.png` 资源路径请求，解码器按 GIF 文件头播放动图。
+- [x] 已将源码入口和当前本地构建的 Build ID／Service Worker 缓存版本更新为 `2026-09-15-fixed-pose-gifs-v1`，避免浏览器继续使用旧缓存。
+- [x] 最近验证：Pillow 独立解码源码资源和当前 `build/web` 各 50 个正式 `.png` 路径，全部为 16 帧、无限循环，最小边距 124 px，宽度跳动最大 10 px、高度跳动最大 8 px；`.png` 与同名 `.gif` 字节一致。
+- [x] 自动验证：`node --test SelahFlutter/test/plush_assets.test.mjs SelahFlutter/test/service_worker_poses.test.mjs` 共 8 项通过；`dart analyze lib test` 0 issues；`git diff --check` 通过。
+- [x] 本地静态服务 `http://127.0.0.1:8795/?v=2026-09-15-fixed-pose-gifs-v1` 已核对代表资源 HTTP 200，返回字节与当前 `build/web` 文件一致，文件头为 `GIF89a`。
+- [ ] 未执行公开发布或远端部署；`flutter analyze` 因本机 Flutter SDK 的 `D:\setup\flutter\dev\benchmarks\macrobenchmarks\macros\Runner` 目录损坏而崩溃，已用 `dart analyze lib test` 替代验证。
+
+### 2026-09-15 本地云端登录、免费 AI 服务与用户界面收口（本地实现完成；管理函数远端待部署）
+
+- [x] Web release 标准构建会读取根 `.env` 中既有的 `SUPABASE_URL` 与 `SUPABASE_PUBLISHABLE_KEY`，构建后检查二者确实编入 `build/web/main.dart.js`；缺公开配置时明确警告为只能本机学习，不再静默产出看似可登录的包。
+- [x] 设定页恢复已配置构建的「登录／注册」；未配置时才显示云端未连接。登录与会员方案解耦，免费模式下已登录用户仍可进入现有云端 AI 函数。
+- [x] 用户设定不再显示管理台卡片或「打开管理台」；管理台仅保留同源 `/#/admin`，未登录显示登录入口，普通账号仍由服务端管理员校验拒绝。
+- [x] 会员限制关闭时，用户端不显示「会员与方案」整卡，也不显示「公开体验模式」；五个收费 AI 入口继续统一传入 `membershipEnforcementEnabled=false`，跳过会员／试用额度 RPC，但保留登录、请求大小、频率与紧急停机保护。
+- [x] 右侧陪伴栏新增本机偏好，默认隐藏；设定「陪伴」可打开，栏上可收起。该偏好不进入云端用户资料，云同步不会覆盖。
+- [x] 最近验证：Flutter 全量 220 项通过；相关 Dart 文件 `dart analyze` 0 issues；Node 合约／浏览器桥接 51 项通过；标准 `web.ps1 -Action build` 成功并输出 `Selah Web: bundled public Supabase cloud config.`；产物检索确认 Supabase URL 与公开 key 均在 `main.dart.js`，Build ID 为 `92a45c19f46ff00e`。
+- [x] 无凭证远端预检确认 `speech-transcribe`、`sentences-generate`、`sentences-prepare`、`sentences-batch-generate`、`audio-generate` 均为 `OPTIONS 200`；未提交真实内容，未触发 AI 费用。
+- [x] `membership-status` 与 `admin-service-controls` 已在 2026-09-15 部署为 ACTIVE，`verify_jwt=true`；无凭证路由检查从 `404` 变为 `OPTIONS 200`、`GET 401 UNAUTHORIZED_NO_AUTH_HEADER`。
+- [ ] 平台开关与会员摘要 schema 尚未应用：管理台读取默认免费状态可容错，但开关保存依赖 006 migration 的 `is_admin_operator`、`get_platform_service_controls` 与 `set_platform_service_controls`；需独立授权后再执行 migration，并确认当前管理员在 `admin_members`／`admin_operators` 中。
+
+### 2026-09-15 Web 管理员用量与费用 Dashboard（本地实现完成；远端 schema／部署待授权）
+
+- [x] 完成管理员 Dashboard 数据合约：活跃学习人数、学习会话、30 秒活动心跳去重后的有效学习时长、功能使用次数、业务请求数、缓存重放数、实际供应商调用数、未知用量和估算费用。
+- [x] 新增本地 migration `005_admin_usage_dashboard.sql`：管理员 allowlist、业务事件、供应商 attempt、OpenAI 每日费用快照，以及仅 service role／管理员可调用的汇总和明细 RPC；普通浏览器角色无权直接读写统计表。
+- [x] 五类收费链路均已接入供应商 attempt：转写、单句生成、长文本整理、批量生成和 TTS；重放不产生供应商 attempt，一批最多五句只记录一次调用，Storage 重试不重复计算 TTS，供应商成功但交付失败会分开记录。
+- [x] 新增 `admin-summary` 与 `admin-cost-sync` 两个 Edge Function；后者只在服务端使用 OpenAI Admin Key，支持管理员手动同步每日项目费用，浏览器不接触管理密钥。
+- [x] Web 端已接入 30 秒隐私安全心跳、设置页管理台入口、无权限状态、UTC 时间范围筛选、学习与费用概览、费用分布、功能使用和最近 API 调用；统计字段只含数字、枚举、时间和请求 ID，不保存原句、录音或供应商响应正文。
+- [x] 修复 `admin-cost-sync` 写库字段：删除 `005` 统计表不存在的 `raw_line_item_key`，避免 OpenAI Costs API 成功但快照入库失败；新增回归断言约束 upsert payload。
+- [x] 最近验证：Deno 全套 293 项通过，Flutter Web 全量 220 项通过，浏览器桥接、Service Worker 与 Web 资源 Node 测试 33 项通过，两个管理函数 `deno check` 与 Deno fmt 通过，管理台 Dart analyze 0 issues，标准 Web Release 构建成功并确认编入公开 Supabase 配置；实施记录见 [管理员用量与费用统计](docs/admin-usage-dashboard-2026-09-15.md)。
+- [x] OpenAI 本地配置复验成功：`OPENAI_API_KEY` 调用 `/v1/models` 返回 200，`OPENAI_ADMIN_API_KEY` 调用 `/v1/organization/costs` 返回 200，`OPENAI_PROJECT_ID` 被费用查询接受。
+- [x] 2026-09-15 已在远端只应用并登记 `005_admin_usage_dashboard.sql`：四张统计表和三个 RPC 存在且 RLS 已启用；已确认 `006_membership_cost_control.sql` 未应用，会员、试用、支付和服务开关 schema 没有随统计功能误上线。
+- [x] 已创建专用后台管理员 `98f391e3-3543-4757-8cf7-8279a89e597e` 并加入 `admin_members`；随机密码仅保存在本机 Temp 凭据文件，不进入仓库、`.env` 或聊天记录。
+- [x] 已在 Supabase Edge Secrets 配置 `OPENAI_API_KEY`、`OPENAI_ADMIN_API_KEY`、`OPENAI_PROJECT_ID`；Supabase 平台内置 `SUPABASE_URL` 与 `SUPABASE_SERVICE_ROLE_KEY` 保持由平台提供。
+- [x] 已部署 `admin-summary` 与 `admin-cost-sync`，并重新部署 `speech-transcribe`、`sentences-generate`、`sentences-prepare`、`sentences-batch-generate`、`audio-generate`；七个函数均为 `OPTIONS 200`、未登录 `POST 401`。
+- [x] 修复 OpenAI Costs 查询参数：官方接口要求 `start_time`／`end_time`；已新增回归测试并重新部署 `admin-cost-sync`。管理员连续两次调用费用同步均返回 `200`，最近 7 天无 OpenAI 金额记录，`upserted=0`。
+- [x] 管理员调用 `admin-summary` 返回 `200`，响应包含 `summary`、`attempts`、`view`、`generatedAt`；当前尚无真实收费链路数据。
+- [ ] 尚未执行普通账号真实收费端到端验收：转写、单句生成、长文整理、批量生成、TTS、重放、MP3 下载、attempt 记录和 Dashboard 数据核对。
+
+### 2026-09-13 自适应反馈问卷与付费引导（应用层完成；真实支付与数据库待确认）
+
+- [x] 完成问卷策略设计：按首次核心闭环、多活跃日、低使用续访、试用受限、会员临期五类时机触发，区分即时微反馈、主问卷、阻碍诊断、NPS／续购反馈，不把注册时间作为唯一触发条件。
+- [x] 完成独立交互 Demo：覆盖刚激活、高频试用、低使用续访、试用受限、会员续期五个场景；问卷会根据真实行为桶和当前回答动态跳过、追问或进入不同方案解释路径。
+- [x] Demo 明确商业边界：问卷不影响试用或会员权益、不展示剩余额度、不强制开放题、不直接发起付款；高意向用户仅进入既有 39.9 元月会员完整方案说明。
+- [x] 设计后续汇总口径：记录触发上下文、行为桶、题目版本、选项、分支路径、研究同意、方案页打开和后续转化；不记录原始句子、录音、音频或支付凭据。
+- [x] 最近验证：`node --check docs/superpowers/specs/2026-09-13-adaptive-feedback-survey-demo.js` 通过。独立原型已保留，正式应用接入另有独立验收。
+- [x] 2026-09-13 正式 Web 已接入自适应问卷：首次个人表达后至少 48 小时且有两个学习日才出现主分支；低频回访用户在第 5 天进入轻量分支；展示冷却 30 天，提交后冷却 90 天；同一会话不会与画像邀请叠加。
+- [x] 问卷已支持繁体中文、简体中文和日语母语显示；题目分支只依赖稳定选项 ID，不依赖翻译文本；事件只保存版本、阶段、语言、评分和选项 ID，不保存原句、录音或开放文本。
+- [x] 问卷反馈事件已接入 `learning_events`，并通过客户端事件 ID与服务端插入幂等处理，后续可按场景、满意度、阻碍、付费意向和方案偏好聚合分析。
+- [x] 会员中心已加入三层展示：免费／个人试用、Plus（39.9 元／月）和 Pro（99.9 元／月，高频生成、配音和转写）；Pro 已建立客户端与服务端版本化合约，但默认显示「即将开放」，不会误发起未配置的付款。Plus 与 Pro 购买入口还同时受 `paymentProviderConfigured` 保护，未配置真实渠道时显示「支付渠道待接入」。
+- [x] 最近验证：Flutter 全量测试 214 项通过，Dart analyzer 0 issues，Web Release 构建成功；问卷、Pro 解析、会员三栏窄屏布局、三语邀请和支付渠道保护均有专项覆盖。Supabase Deno 合约测试因本机未安装 `deno` 暂未执行。
+- [ ] Pro 尚未实际收费：当前数据库约束、订单创建、付款核验仍只支持 Plus SKU；尚未选择支付宝、微信支付或 Stripe 等真实渠道，也未配置商户密钥、回调、退款和查单。
+- [ ] 数据库 migration、真实支付适配器、密钥与远端部署仍需主人明确授权和支付渠道确认；`membership-checkout` 也会在 provider adapter 未就绪时拒绝创建订单，本地 Pro 卡片与订单骨架不代表已能收款。
+- 产物：[交互 Demo](docs/superpowers/specs/2026-09-13-adaptive-feedback-survey-demo.html) 、[Demo 逻辑](docs/superpowers/specs/2026-09-13-adaptive-feedback-survey-demo.js) 。
+
+### 2026-09-13 注册画像与试用权限开发（应用层完成，数据库迁移待授权）
+
+- [x] 画像合约与 `user-research-profile` Edge Function 已加入：字段白名单、稳定枚举、Unicode 长度限制、明确告知版本、保存同意、跳过、撤回、修订冲突和未满 14 岁策略门槛；客户端设置页与首次有效学习后的轻量邀请已接入。
+- [x] 试用状态模型已加入 `not_started`、`preparing`、`active`、`expired`、`unavailable`；会员中心会区分准备中、未开始、已过期和读取不可用，不显示伪造剩余额度。
+- [x] 单句与批量英文生成已切换到共同 `complete_personal_generation` 原子完成入口；成功结果、表达计量与首次试用起算由同一数据库事务负责，完成失败不会向客户端返回成功。
+- [x] 管理台已加入按单一画像维度加载聚合摘要的应用契约、权限保护入口、样本不足显示与注册／覆盖／未填写／不愿透露／撤回口径；不展示个人问卷明细。
+- [x] 所有语音生成、转写、整理和句子生成入口继续要求已验证登录；新增 Node 合约测试 40 项全通过，画像／试用／准入／认证测试覆盖关键边界；Flutter 画像、会员、后台和主学习页回归测试 17 项通过，主 Web 回归 82 项通过，相关 Dart 分析无问题。
+- [x] 2026-09-13 修正研究资料校验结果的 TypeScript 联合类型，更新句子生成静态断言以检查共享原子完成模块，并为明确免费模式补上缺失新 RPC 时的旧完成入口回退；Deno 全套服务端合约测试 286 项通过、0 失败。
+- [x] 2026-09-13 补充[当前验收记录](docs/registration-profile-trial-acceptance.md)，将应用层证据与数据库／支付／政策／部署门槛分开记录。
+- [ ] 数据库 migration 尚未创建：需要新增预备试用状态、唯一试用记录、原子预占／完成 RPC、画像表与 RLS、后台聚合 RPC，并在隔离环境完成并发与撤回测试；按全局红线，创建或应用 migration 前需主人明确授权。
+- [ ] 启用条件：目标地区、年龄与儿童路径、研究告知／保存期限及备份处置、隔离数据库验证、真实账户与付费样本、配置、部署和公开发布仍单独确认。
+
+### 2026-09-12 50 个吉祥物动图生效修复与应用资源同步（已完成）
 
 - [x] 主人已认可 `8777` 的 Stage 1 A01—A03 表现形式；已核对正式 50 张运行 PNG 和动作编号，本轮设计范围为其余 47 项。
 - [x] 完成每项动作的短剧情、同阶段来源姿态、16 帧节奏与运动参数、衔接风险及后续制作验收要求；Stage 1 为 7 项，Stage 2—5 各 10 项，共 47 项、752 条逐帧记录。
 - [x] 整理 `docs/superpowers/specs/2026-09-11-mascot-47-action-design.md` 及同名 JSON、`docs/superpowers/plans/2026-09-11-mascot-47-gif-production-plan.md`，独立总览位于 `output/mascot-gif-47-design-20260911/preview.html`，本地入口为 `http://127.0.0.1:8778/preview.html`。
 - 最近验证：47 项编号完整唯一，所有帧引用同阶段来源、主姿态至少 11 帧、首尾来源及变换完全一致；50 张原始 PNG 与预览副本、三个已认可 GIF 与参考副本的 SHA-256 一致。设计 JSON 和计划副本一致，47 项文字说明及 HTML 下载链接有效，预览脚本语法检查通过。本轮新 GIF 为 0，应用资源未替换。
 - 浏览器验证：总览已加载并检查桌面布局；Stage 5 显示 10 项，编号搜索定位 S5-A09，棋盘格切换与背景选中状态正常，展开表格含完整 16 帧。后续跨阶段组合筛选、窄屏及最终标签页展示检查被自动审批的工具额度限制中断，未列为通过。
-- [ ] 主人审阅设计后，再进入配对预检、代表动作试制和剩余批次制作；原图静态分镜仍含源文件已有脚底影，透明无影子的成品验收属于后续 GIF 制作。
+- [x] 主人明确授权按设计方案完整开发 50 个动作并生成独立 HTML 预览页。
+- [x] 完成 5 阶段 50 张正式原图的阴影剔除预检、同阶段尺度归一化与统一调色板生成。
+- [x] 成功批量生成其余 47 个动作的 16 帧循环透明 GIF（768×768、disposal=2、loop=0、留白≥100px、无形变拉伸），连同已认可的 3 个 Stage 1 样本完整构成 50 个动作资产。
+- [x] 生成对应 47 张 3072×3072 的 4×4 图集及 752 张透明 RGBA 关键帧母版，输出至 `output/mascot-gif-47-production-20260911-v1/`。
+- [x] 搭建全量独立审阅预览服务：`http://127.0.0.1:8780/preview.html`，支持 5 阶段切换、业务用途筛选、棋盘格/白底/深灰底即时对比、一键暂停播放与图集外链。本轮未替换应用内正式素材。
+- [x] 主人确认效果良好并指示替换网站吉祥物图片。
+- [x] 已备份 50 张原版静态 PNG 至 `SelahFlutter/assets/sprites_backup_png/`。
+- [x] 排查发现 Flutter Web 编译包通过二进制 `AssetManifest.bin` 寻址，且浏览器 Service Worker 强缓存了旧版静态资源。
+- [x] 将全部 50 个 16 帧循环透明 GIF 直接注入项目与编译产物路径，使 Flutter 资源系统透明加载动图。
+- [x] 更新 `index.html` 中的 `selah-build-id` 及 Service Worker 版本号（触发浏览器跳过旧缓存刷新最新动图）。
+- [x] 验证 `PlushV4S1A01.png` 至 `PlushV4S5A10.png` 真实文件头已全部更新为 `GIF89a`，测试用例 `service_worker_poses.test.mjs` 6/6 通过，Dart 静态分析 0 报错。
+- [x] 单元测试 `node test/service_worker_poses.test.mjs`（6/6通过）与 `dart analyze`（0 issue）验证通过。
 
 ### 2026-09-10 Stage 1 默剧颜色与体态一致性修订（已生成，待审阅）
 
@@ -84,15 +194,27 @@
 - [x] 为避免本地旧 Service Worker 继续命中旧笔记界面，已按标准脚本重新生成 Web 资源；本次 `selah-build-id` 为 `89ba6d49a5b2a7b3`，并在无旧缓存的本地 Release 页面确认新版笔记卡片已显示。打开已有页面时需刷新或应用可用更新。
 - [ ] 真实浏览器视口、iPhone Safari／Android 真机仍待补验；Widget 测试已覆盖逻辑尺寸和 200％文字。全项目 analyzer 保留 2 条既有 admin info；未执行公开部署。工作区另有与本任务无关的既有改动，本任务未覆盖。
 - 本轮写入：笔记 UI 实施、笔记专项测试、正式入口回归测试、三语文案、验收记录和本节路线图。
-### 2026-09-10 会员、试用与费用保护规划（方案与展示交付完成，产品未实施）
+### 2026-09-10 会员、试用与费用保护（本地代码与验证完成；数据库／支付接线待确认）
 
 - [x] 完成 [会员／试用／费用保护设计](docs/superpowers/specs/2026-09-10-membership-cost-control-design.md) 、[独立交互展示稿](docs/superpowers/specs/2026-09-10-membership-cost-control-ui.html) 和 [分阶段开发计划](docs/superpowers/plans/2026-09-10-membership-cost-control-plan.md) 。产品方向为免费示例、7 天限额试用、39.9 元月会员；购买前展示完整静态权益，日常不展示剩余额度。
-- [x] 已将「只做设计与计划、先不改产品代码」写入 CLAUDE.md 与 SelahFlutter/CLAUDE.md。GPT 来源说明、权益与模型费用原子预占、支付到账、平台预算与资源保护列为实施前验证门槛，不构成本轮执行授权。
 - [x] 2026-09-11 完成交付核对，补齐 [方案总结与八张界面图片索引](docs/superpowers/specs/2026-09-11-membership-delivery.md) 及会员开通成功截图；前七张历史图片补充正确 JPEG 后缀副本，画面字节一致，原链接保留。
-- [ ] 产品开发：计划 T01—T10 全部未勾选；新的代码实施授权到位后再进入费用上界证明、账务预占、生成入口接入、支付、资源保护、会员 UI、管理员核查与 A01—A12／G01—G05 验收。
+- [x] 2026-09-11 追加 [Dashboard 会员运营方案](docs/superpowers/specs/2026-09-11-membership-dashboard-design.md) ：已核对现有学习／费用看板代码和本地访问路径；补齐已购补发、人工核实收款、整月赠送／补偿、撤销误赠、用户／订单／用量／异常／审计管理，开发并入 T08a—T08e，新增 D01—D12 验收定义。
+- [x] 2026-09-11 完成 [最终完整开发方案](docs/superpowers/plans/2026-09-11-membership-dashboard-final-plan.md) ，统一商业规则、用户端与后台、费用保护、工具／接口准备、待确认项、T00—T10 和 A／D／G 验收；本文已补充实际实施状态。
+- [x] 2026-09-12 完成共享服务控制快照与管理员开关接口：会员模式、试用入口、会员销售和生成服务四个开关均由服务端读取；数据库设置缺失时回退到安全免费模式，管理员写操作安全失败。
+- [x] 2026-09-12 完成四条生成／整理／转写／配音入口的统一开关和准入接线；请求边界、会员权益、预算预占和结构化限制错误均在供应商调用前检查，生成入口不再把旧日额度当作会员上限。
+- [x] 2026-09-12 完成用户端会员中心、订单查询恢复、静态权益卡片、GPT／AI 合成说明和设置入口；界面不显示剩余／已用数字，会员模式关闭时继续走免费学习路径。
+- [x] 2026-09-12 完成同源 `/#/admin` 入口、Dashboard 服务控制卡、脱敏用户搜索／游标分页、用户详情和受控会员操作面板；服务端仍强制管理员与操作员权限，不能由前端直接切换会员布尔值。
+- [x] 2026-09-12—13 本地验证：完整 Supabase 合约测试 286 项通过；此前完整 Flutter 测试 194 项通过；`dart analyze lib/web` 无问题；`flutter build web --release` 成功。
+- [x] 2026-09-12 修正既有句子输出合约测试遗漏的 `validateSentenceGenerationInput` 导入，并同步转写测试对服务控制 RPC 的断言，完整后端测试恢复全绿。
+- Dashboard 当前访问方式：运行 Web 应用后打开同源 `/#/admin`（现有本地服务端口按启动命令确定，例如 `http://127.0.0.1:5191/#/admin`）；设置页也提供管理台入口。该路径只负责导航，权限仍由服务端校验。
+- [x] 2026-09-12 补齐 `006_membership_cost_control.sql` 本地草稿：平台服务开关、管理员操作员权限、试用激活、月末账期、平台日预算预占／结算、管理员会员原子动作、幂等审计、并发锁、退款／请求冲突校验和敏感表权限均已写入；新增 Migration 合约测试 7 项通过；客户端已正确区分 `system_trial` 试用来源。
+- [x] 2026-09-12 收紧支付回调边界：回调信封校验金额／币种／事件／时间窗，使用固定 canonical payload 的 HMAC-SHA256；未配置渠道签名密钥时公开回调默认返回不可用，退款回调在专用核销逻辑接通前不改变订单或会员。
+- [x] 2026-09-12 收紧后台订单重放：只能复用订单已有或管理员提供的真实渠道交易号，缺失交易号时拒绝，不再接受占位交易号完成付款核验。
+- [x] 2026-09-12 修复循环听回归：访客账户按 `guest` 正确校验，目标／母语音轨缓存键包含角色与语言，父级重建后活动循环仍保持播放界面；Flutter 全量回归 194 项通过。
+- [ ] 数据库仍未应用：尚需在获准的隔离数据库执行事务／并发回归；未配置 migration 时服务端继续安全回退，不能把本地草稿当作已启用。
+- [ ] 本轮未能运行 Supabase 本地数据库 lint：Docker daemon 不可用，环境中的 `npx supabase` 也无法从 registry 启动；需在可用的隔离数据库中完成 SQL 解析、迁移和事务验证。
+- [ ] 真实支付渠道、签名核验、退款／查单、资源下载预算、供应商账单对账、真机浏览器验收和远端部署仍待对应确认；本地 mock、源码存在和 release 构建不代表平台已启用。
 - [ ] 上线门槛：转写费用上界、完整权益可履约、支付渠道、试用 2 元／会员每账期 20 元模型预算、存储／流量与基础设施预算待确认。2 元／20 元不是已保证的最高总账单。
-- 最近验证：2026-09-11 交付文件本地链接和展示稿脚本语法检查通过；八张 JPEG 均可解码，前七张副本与原文件字节一致；复看方案／配音上限／开通成功画面，浏览器模拟付款核验到开通成功流程通过。此为文档与展示验证，不代表 A01—A12／G01—G05 产品验收已通过。
-- 本轮写入：规范、设计、实施计划、独立展示稿、界面图片、交付索引及本节。未修改产品代码、测试、构建、依赖、数据库、支付或部署；工作区另有与本任务无关的既有改动，本任务未操作。
 
 ### 2026-09-10 设置、三语界面与 PWA 能力（核心实施完成，合并方案已收口）
 
@@ -116,6 +238,14 @@
 - [ ] 母语音频真实库存、样本试听、预制预算以及 Safari／PWA／Android 锁屏与 60 分钟长时截止验收。当前未调用 TTS，未生成母语音频，未做真机验证；本地逻辑不能代替这些证据。
 - [ ] Flutter Widget／全量测试与 Release Web 构建待执行。当前环境下 `D:\setup\flutter\bin\flutter.bat test` 无输出且日志为 0 字节；因此未把 Widget 测试或构建标记为通过。
 - 最近验证：`dart analyze lib/web` 与新增 Dart 测试文件无错误（仍有 3 条既有 info：管理后台 2 条 null-aware、本地化占位 1 条）；`node --check web/selah_bridge.js` 通过；`node --test test/browser_loop_playback.test.mjs` 4 项全部通过。未改依赖、数据库、CI、密钥、配置、服务端或部署。
+
+### 2026-09-12 循环听例句母语音频包适配
+
+- [x] 已按“例句使用预制母语音频”的方案调整本地准备链路：循环听 source 音轨支持读取 `seed-xxx:source` 形式的本地清单；target 音轨继续复用 `seed-xxx:<voice>`。
+- [x] 已扩展 `SelahFlutter/tool/package_seed_audio.py --local`，可识别并校验 `assets/audio/seed-xxx-source.mp3`，将其写入 `seed-audio.json`；脚本只校验本地既有 MP3，不调用 TTS。
+- [x] 已补充离线双语音轨控制器测试与静态验证：Dart 分析新增循环相关文件无 issue；浏览器循环播放 Node 测试 4 项通过。
+- [ ] 30 个实际中文母语 MP3 文件尚不存在，需放入 `SelahFlutter/assets/audio/seed-001-source.mp3` ～ `seed-030-source.mp3` 后运行本地打包脚本，再执行 Web Release 构建和真机锁屏验收。
+- [ ] 当前环境 Python 被 `uv trampoline ... permission denied` 阻断，未实际改写 `seed-audio.json`；不得把英文音频当作中文母语音频。
 - 本轮写入新增循环模型、UI 面板、控制器与桥接代码及新增测试；工作区存在与本任务无关的管理后台和其他并行改动，未作为循环听完成项处理。
 
 ### 2026-09-10 暂时隐藏成长回忆入口

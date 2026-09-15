@@ -22,8 +22,9 @@ export function errorResponse(
   message: string,
   status = 400,
   code?: string,
+  details?: Record<string, unknown>,
 ): Response {
-  return json({ error: code ?? message, message }, status);
+  return json({ error: code ?? message, message, ...details }, status);
 }
 
 export function handleOptions(): Response {

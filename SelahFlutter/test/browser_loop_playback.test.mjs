@@ -192,6 +192,70 @@ test('fixed deadline remains active during pause and prevents resume after timeo
   assert.equal(status.stopReason, 'timeout');
 });
 
+test('absolute deadline timer ends playback without a status poll', async () => {
+  const env = makeEnvironment();
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-deadline',
+    order: 'targetFirst',
+    durationMs: 60000,
+    tracks: env.tracks,
+  });
+  await env.flush();
+
+  assert.equal(env.timers.timeouts.filter((timer) => !timer.fired).length, 1);
+  env.timers.now += 60000;
+  assert.equal(env.fireLatest(), true);
+  await env.flush();
+
+  const status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-deadline' }));
+  assert.equal(status.state, 'ended');
+  assert.equal(status.stopReason, 'timeout');
+});
+
+test('an order change while paused applies after the current sentence', async () => {
+  const env = makeEnvironment();
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-paused-order',
+    order: 'targetFirst',
+    durationMs: 60000,
+    tracks: env.tracks,
+    gapMs: { language: 0, sentence: 0 },
+  });
+  await env.flush();
+  await env.call('audioLoopPause', { sessionId: 'session-paused-order' });
+  await env.call('audioLoopOrder', { sessionId: 'session-paused-order', order: 'sourceFirst' });
+  let status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-paused-order' }));
+  assert.equal(status.order, 'targetFirst');
+
+  await env.call('audioLoopResume', { sessionId: 'session-paused-order' });
+  await env.flush();
+  env.root.Audio.lastInstance?.emitAsync('ended');
+  await env.flush();
+  env.fireLatest();
+  await env.settle();
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-paused-order' }));
+  assert.equal(status.sentenceIndex, 0);
+  assert.equal(status.phase, 'source');
+  assert.equal(status.order, 'targetFirst');
+
+  env.root.Audio.lastInstance?.emitAsync('ended');
+  await env.flush();
+  env.fireLatest();
+  await env.settle();
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-paused-order' }));
+  assert.equal(status.sentenceIndex, 1);
+  assert.equal(status.phase, 'source');
+  assert.equal(status.order, 'sourceFirst');
+});
+
 test('stale session controls cannot affect the active loop', async () => {
   const env = makeEnvironment();
   for (const track of env.tracks) {

@@ -10,6 +10,30 @@ import {
   buildBatchTranslationRequest,
   validateBatchTranslationInput,
 } from "../_shared/capture_contract.ts";
+import {
+  GENERATION_PROMPT_VERSION,
+  isTruncatedCompletion,
+  normalizeTeachingOutput,
+  TRANSLATION_MODEL,
+} from "../_shared/sentence_contract.ts";
+import {
+  createGenerationUsageTable,
+  extractChatUsage,
+  recordBusinessEvent,
+  recordGenerationAttempt,
+  type SupabaseLikeClient,
+} from "../_shared/generation_usage_contract.ts";
+import {
+  admissionErrorDetails,
+  requestGenerationAdmission,
+  settleGenerationAdmission,
+} from "../_shared/generation_admission.ts";
+import {
+  environmentFallback,
+  readServiceControls,
+  type ServiceControlsClient,
+} from "../_shared/service_controls.ts";
+import { completePersonalGeneration } from "../_shared/personal_generation_completion.ts";
 
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
@@ -77,6 +101,17 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const controls = await readServiceControls(
+    supabase as unknown as ServiceControlsClient,
+    environmentFallback(),
+  );
+  if (!controls.generationEnabled) {
+    return errorResponse(
+      "Generation is temporarily paused",
+      503,
+      "service_paused",
+    );
+  }
   const replayed: BatchItem[] = [];
   const claimedIDs: string[] = [];
   for (const segment of validation.segments) {
@@ -87,7 +122,7 @@ Deno.serve(async (req: Request) => {
         p_operation_type: "sentence_generation",
         p_client_request_id: segment.segmentId,
         p_minute_limit: MINUTE_LIMIT,
-        p_daily_limit: DAILY_LIMIT,
+        p_daily_limit: 1000000,
       },
     );
     if (error || !raw) {
@@ -142,10 +177,60 @@ Deno.serve(async (req: Request) => {
     claimedIDs.includes(segment.segmentId)
   );
   if (pending.length === 0) {
+    await recordBusinessEvent(
+      supabase as unknown as Parameters<typeof recordBusinessEvent>[0],
+      {
+        userId: authResult,
+        feature: "batch",
+        clientRequestId: validation.clientRequestId,
+        outcome: "reused",
+        itemCount: replayed.length,
+      },
+    );
     return json({ items: replayed.sort(sortBySegment) });
   }
 
+  const admission = await requestGenerationAdmission(
+    supabase as unknown as Parameters<typeof requestGenerationAdmission>[0],
+    {
+      userId: authResult,
+      clientRequestId: validation.clientRequestId,
+      feature: "batch",
+      units: { itemCount: pending.length },
+      payloadHash: JSON.stringify(pending),
+      enforcementEnabled: controls.membershipEnforcementEnabled,
+    },
+  );
+  if (!admission.allowed) {
+    await failClaims(
+      supabase as unknown as RPCClient,
+      authResult,
+      claimedIDs,
+    );
+    return errorResponse(
+      admission.errorMessage ?? "Feature limit reached",
+      admission.errorCode === "rate_limited" ? 429 : 403,
+      admission.errorCode ?? "service_budget_protected",
+      admissionErrorDetails(admission, {
+        feature: "batch",
+        clientRequestId: validation.segments[0]?.segmentId ?? "batch",
+      }),
+    );
+  }
+
   try {
+    const usageRecorder = await recordGenerationAttempt(
+      createGenerationUsageTable(
+        supabase as unknown as SupabaseLikeClient,
+      ),
+      {
+        userId: authResult,
+        clientRequestId: validation.clientRequestId,
+        feature: "batch",
+        model: TRANSLATION_MODEL,
+        itemCount: pending.length,
+      },
+    );
     const providerResponse = await fetch(
       "https://api.openai.com/v1/chat/completions",
       {
@@ -165,31 +250,133 @@ Deno.serve(async (req: Request) => {
         )),
       },
     );
-    if (!providerResponse.ok) throw new Error("provider_failed");
+    if (!providerResponse.ok) {
+      await usageRecorder.fail({
+        deliveryStatus: "failed",
+        httpStatus: providerResponse.status,
+        errorCode: "provider_failed",
+        providerRequestId: providerResponse.headers.get("x-request-id"),
+      });
+      throw new Error("provider_failed");
+    }
     const data = await providerResponse.json();
+    const providerUsage = extractChatUsage(data);
+    if (isTruncatedCompletion(data)) {
+      await usageRecorder.fail({
+        deliveryStatus: "failed",
+        httpStatus: 200,
+        errorCode: "provider_response_truncated",
+        providerRequestId: providerResponse.headers.get("x-request-id"),
+        usage: providerUsage,
+      });
+      throw new Error("provider_response_truncated");
+    }
     const content = data.choices?.[0]?.message?.content;
-    const parsed = typeof content === "string"
-      ? JSON.parse(content) as { items?: unknown }
-      : {};
+    let parsed: { items?: unknown };
+    try {
+      parsed = typeof content === "string"
+        ? JSON.parse(content) as { items?: unknown }
+        : {};
+    } catch {
+      await usageRecorder.fail({
+        deliveryStatus: "failed",
+        httpStatus: 200,
+        errorCode: "provider_invalid_json",
+        providerRequestId: providerResponse.headers.get("x-request-id"),
+        usage: providerUsage,
+      });
+      throw new Error("provider_invalid_json");
+    }
     const items = normalizeItems(
       parsed.items,
       new Set(pending.map((segment) => segment.segmentId)),
     );
     if (items.length !== pending.length) {
+      await usageRecorder.fail({
+        deliveryStatus: "failed",
+        httpStatus: 200,
+        errorCode: "provider_items_mismatch",
+        providerRequestId: providerResponse.headers.get("x-request-id"),
+        usage: providerUsage,
+      });
       throw new Error("provider_items_mismatch");
     }
 
-    for (const item of items) {
-      const { error } = await supabase.rpc("complete_generation_request", {
-        p_user_id: authResult,
-        p_operation_type: "sentence_generation",
-        p_client_request_id: item.segmentId,
-        p_response_payload: item,
+    const enrichedItems = items.map((item) => ({
+      ...item,
+      model: TRANSLATION_MODEL,
+      promptVersion: GENERATION_PROMPT_VERSION,
+      sourceLanguage: validation.sourceLanguage,
+      targetLanguage: validation.targetLanguage,
+    }));
+    let completionResult: Awaited<ReturnType<typeof completePersonalGeneration>>;
+    try {
+      completionResult = await completePersonalGeneration(
+        supabase as unknown as Parameters<typeof completePersonalGeneration>[0],
+        {
+          userId: authResult,
+          parentRequestId: validation.clientRequestId,
+          reservationId: admission.reservationId ?? null,
+          enforcementEnabled: controls.membershipEnforcementEnabled,
+          items: enrichedItems.map((item) => ({
+            requestId: item.segmentId,
+            responsePayload: item,
+          })),
+        },
+      );
+    } catch {
+      await usageRecorder.fail({
+        deliveryStatus: "failed",
+        httpStatus: 503,
+        errorCode: "generation_completion_unavailable",
+        providerRequestId: providerResponse.headers.get("x-request-id"),
+        usage: providerUsage,
       });
-      if (error) throw new Error("completion_failed");
+      throw new Error("completion_failed");
     }
-    return json({ items: [...replayed, ...items].sort(sortBySegment) });
+    await usageRecorder.succeed({
+      deliveryStatus: "succeeded",
+      httpStatus: 200,
+      providerRequestId: providerResponse.headers.get("x-request-id"),
+      usage: providerUsage,
+    });
+    await recordBusinessEvent(
+      supabase as unknown as Parameters<typeof recordBusinessEvent>[0],
+      {
+        userId: authResult,
+        feature: "batch",
+        clientRequestId: validation.clientRequestId,
+      outcome: "completed",
+      itemCount: pending.length,
+    },
+  );
+   if (admission.reservationId) {
+     await settleGenerationAdmission(
+       supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
+       admission.reservationId,
+       "settled",
+     );
+   }
+   return json({
+     items: [...replayed, ...enrichedItems].sort(sortBySegment),
+     ...(completionResult.trialState !== undefined
+       ? { trialState: completionResult.trialState }
+       : {}),
+     ...(completionResult.trialStartedAt !== undefined
+       ? { trialStartedAt: completionResult.trialStartedAt }
+       : {}),
+     ...(completionResult.trialExpiresAt !== undefined
+       ? { trialExpiresAt: completionResult.trialExpiresAt }
+       : {}),
+   });
   } catch {
+    if (admission.reservationId) {
+      await settleGenerationAdmission(
+        supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
+        admission.reservationId,
+        "unknown",
+      );
+    }
     await failClaims(supabase as unknown as RPCClient, authResult, claimedIDs);
     console.error("Batch sentence generation failed");
     return errorResponse("Batch generation failed", 502, "generation_failed");
@@ -205,40 +392,25 @@ function normalizeItems(value: unknown, expectedIDs: Set<string>): BatchItem[] {
     const segmentId = typeof candidate.segmentId === "string"
       ? candidate.segmentId.toLowerCase()
       : "";
-    const targetText = typeof candidate.targetText === "string"
-      ? candidate.targetText.trim()
-      : "";
     if (
-      !expectedIDs.has(segmentId) || seen.has(segmentId) || !targetText ||
-      targetText.length > 1000
+      !expectedIDs.has(segmentId) || seen.has(segmentId)
     ) return [];
+    const teaching = normalizeTeachingOutput({
+      targetText: candidate.targetText,
+      category: candidate.category,
+      vocabulary: candidate.vocabulary,
+      deconstruction: candidate.deconstruction,
+    });
+    if (!teaching.ok) return [];
     seen.add(segmentId);
     return [{
       segmentId,
-      targetText,
-      category: normalizeCategory(candidate.category),
-      vocabulary: Array.isArray(candidate.vocabulary)
-        ? candidate.vocabulary
-        : [],
-      deconstruction: Array.isArray(candidate.deconstruction)
-        ? candidate.deconstruction
-        : [],
+      targetText: teaching.value.targetText,
+      category: teaching.value.category,
+      vocabulary: teaching.value.vocabulary,
+      deconstruction: teaching.value.deconstruction,
     }];
   });
-}
-
-function normalizeCategory(value: unknown): string {
-  const categories = new Set([
-    "work",
-    "friends",
-    "vent",
-    "heartfelt",
-    "debate",
-    "daily_life",
-  ]);
-  return typeof value === "string" && categories.has(value)
-    ? value
-    : "daily_life";
 }
 
 function sortBySegment(a: BatchItem, b: BatchItem): number {

@@ -18,10 +18,7 @@ class LoopListeningPanel extends StatefulWidget {
 }
 
 class _LoopListeningPanelState extends State<LoopListeningPanel> {
-  bool _customOpen = false;
-  final TextEditingController _customMinutes = TextEditingController(
-    text: '45',
-  );
+  final TextEditingController _customMinutes = TextEditingController();
   String? _customError;
 
   @override
@@ -116,30 +113,18 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
           style: SelahTypography.labelLarge(),
         ),
         const SizedBox(height: 10),
-        if (_customOpen)
-          OutlinedButton.icon(
-            onPressed: _openCustomDuration,
-            icon: const Icon(Icons.edit_calendar_outlined),
-            label: Text(_formatCustomLabel(options.durationMinutes, strings)),
-          )
-        else
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children:
-                [
-                    15,
-                    30,
-                    60,
-                  ].map((minutes) => _durationChip(minutes, strings)).toList()
-                  ..add(
-                    _durationChip(
-                      options.durationMinutes,
-                      strings,
-                      custom: true,
-                    ),
-                  ),
-          ),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children:
+              [
+                15,
+                30,
+                60,
+              ].map((minutes) => _durationChip(minutes, strings)).toList()..add(
+                _durationChip(options.durationMinutes, strings, custom: true),
+              ),
+        ),
         const SizedBox(height: 12),
         Text(
           strings.text('loop.afterStart'),
@@ -159,7 +144,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
                     'done': '${c.loopPreparedTracks}',
                     'total': '${c.loopTotalTracks}',
                   })
-                : strings.text('loop.start'),
+                : strings.text(c.loopReady ? 'loop.start' : 'loop.prepare'),
           ),
         ),
         const SizedBox(height: 12),
@@ -198,9 +183,13 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
     SelahStrings strings, {
     bool custom = false,
   }) {
-    final selected = c.state.preferences.loopOptions.durationMinutes == minutes;
-    final label = custom && ![15, 30, 60].contains(minutes)
-        ? strings.message('loop.customMinutes', {'minutes': '$minutes'})
+    final isPreset = const [15, 30, 60].contains(minutes);
+    final selected = custom
+        ? !isPreset &&
+              c.state.preferences.loopOptions.durationMinutes == minutes
+        : c.state.preferences.loopOptions.durationMinutes == minutes;
+    final label = custom && !isPreset
+        ? _formatCustomLabel(minutes, strings)
         : custom
         ? strings.text('loop.custom')
         : strings.message('loop.customMinutes', {'minutes': '$minutes'});
@@ -208,9 +197,13 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
       label: Text(label),
       selected: selected,
       onSelected: (_) {
-        if (custom && !selected) {
-          _openCustomDuration(minutes);
-        } else if (!custom) {
+        if (custom) {
+          _openCustomDuration(
+            !isPreset
+                ? minutes
+                : c.state.preferences.loopOptions.durationMinutes,
+          );
+        } else {
           c.updateLoopPreferences(durationMinutes: minutes);
         }
       },
@@ -218,15 +211,11 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
   }
 
   String _formatCustomLabel(int minutes, SelahStrings strings) =>
-      [15, 30, 60].contains(minutes)
-      ? strings.text('loop.custom')
-      : '${strings.text('loop.custom')} · ${strings.message('loop.customMinutes', {'minutes': '$minutes'})}';
+      '${strings.text('loop.custom')} · ${strings.message('loop.customMinutes', {'minutes': '$minutes'})}';
 
   Future<void> _openCustomDuration([int? currentMinutes]) async {
     _customMinutes.text =
-        currentMinutes == null || [15, 30, 60].contains(currentMinutes)
-        ? '45'
-        : '$currentMinutes';
+        '${currentMinutes ?? c.state.preferences.loopOptions.durationMinutes}';
     _customError = null;
     await showDialog<void>(
       context: context,
@@ -286,12 +275,15 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
       );
       return;
     }
-    setDialogState(() {
-      _customError = null;
-      _customOpen = false;
-    });
-    Navigator.of(dialogContext).pop();
+    setDialogState(() => _customError = null);
+    c.clearMessage();
     await c.updateLoopPreferences(durationMinutes: minutes);
+    if (!mounted) return;
+    if (c.error != null) {
+      setDialogState(() => _customError = c.error);
+      return;
+    }
+    if (dialogContext.mounted) Navigator.of(dialogContext).pop();
   }
 
   Widget _playingUi(int count, SelahStrings strings) {

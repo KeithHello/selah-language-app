@@ -16,6 +16,8 @@ ROOT = Path(__file__).resolve().parents[2]
 ASSETS = ROOT / 'SelahFlutter' / 'assets'
 DEFAULT_VOICE = 'gentle-natural'
 VOICES = ('gentle-natural', 'clear-slow', 'daily-bright', 'elegant-british')
+SOURCE_VOICE = 'source'
+NATIVE_LANGUAGES = ('zh-Hant', 'ja')
 
 
 def valid_audio(body, checksum, byte_size):
@@ -75,6 +77,29 @@ def package_default_audio(rows, seeds, audio_dir, read, existing):
     return dict(sorted(entries.items()))
 
 
+def package_local_native_audio(seeds, audio_dir, existing):
+    """Package optional local native MP3s for offline seed loop listening."""
+    entries = dict(existing)
+    missing = []
+    for seed in seeds:
+        seed_id = seed['id']
+        for language in NATIVE_LANGUAGES:
+            filename = f'{seed_id}-{SOURCE_VOICE}-{language}.mp3'
+            target = audio_dir / filename
+            if not target.exists():
+                missing.append(filename)
+                continue
+            body = target.read_bytes()
+            if not (body.startswith(b'ID3') or body[:1] == b'\xff'):
+                raise RuntimeError(f'Invalid native MP3: {filename}')
+            entries[f'{seed_id}:{SOURCE_VOICE}:{language}'] = {
+                'path': f'assets/audio/{filename}',
+                'sha256': hashlib.sha256(body).hexdigest(),
+                'byteSize': len(body),
+            }
+    return dict(sorted(entries.items())), missing
+
+
 def configuration():
     values = dict(os.environ)
     config_file = ROOT / '.env'
@@ -96,6 +121,11 @@ def main():
         audio_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = ASSETS / 'content' / 'seed-audio.json'
         entries = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.exists() else {}
+        seed_path = ROOT / 'SeedContent' / 'seed-sentences.json'
+        if not seed_path.exists():
+            seed_path = ROOT / 'SelahFlutter' / 'assets' / 'content' / 'seed-sentences.json'
+        seeds = json.loads(seed_path.read_text(encoding='utf-8'))['sentences']
+        entries, missing_native = package_local_native_audio(seeds, audio_dir, entries)
         for item in sorted(source.glob('seed-*.mp3')):
             body = item.read_bytes()
             if not (body.startswith(b'ID3') or body[:1] == b'\xff'):
@@ -107,7 +137,12 @@ def main():
         if not entries:
             raise RuntimeError('No existing local seed MP3 files found.')
         (ASSETS / 'content' / 'seed-audio.json').write_text(json.dumps(entries, indent=2), encoding='utf-8')
-        print(f'Packaged {len(entries)} existing local seed MP3s with content hashes; remote manifest comparison not performed.')
+        print(
+            f'Packaged {len(entries)} existing local seed MP3s with content hashes; '
+            f'remote manifest comparison not performed. Missing native MP3s: {len(missing_native)}'
+        )
+        if missing_native:
+            print('Missing native files: ' + ', '.join(missing_native))
         return
     values = configuration()
     base = values.get('SUPABASE_URL', '').rstrip('/')

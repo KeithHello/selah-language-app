@@ -1,9 +1,24 @@
 import '../domain/learning_models.dart';
 
 class LearningFailure implements Exception {
-  const LearningFailure(this.message, {this.code = 'unavailable'});
+  const LearningFailure(
+    this.message, {
+    this.code = 'unavailable',
+    this.feature,
+    this.resetsAt,
+    this.currentPeriodEndsAt,
+    this.renewalRequired = false,
+    this.retryAfterSeconds,
+    this.requestId,
+  });
   final String message;
   final String code;
+  final String? feature;
+  final DateTime? resetsAt;
+  final DateTime? currentPeriodEndsAt;
+  final bool renewalRequired;
+  final int? retryAfterSeconds;
+  final String? requestId;
   @override
   String toString() => message;
 }

@@ -9,74 +9,32 @@
       "category": "work",
       "difficulty": "intermediate",
       "deconstruction": [
-        { "surfaceText": "pulled another all-nighter", "meaning": "又加班到半夜、又熬夜", "type": "phrase" },
-        { "surfaceText": "I literally can't even", "meaning": "我真的會謝、我真的不行了", "type": "pattern" }
+        {
+          "surfaceText": "pulled another all-nighter",
+          "meaning": "又加班到半夜、又熬夜",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "I literally can't even",
+          "meaning": "我真的會謝、我真的不行了",
+          "type": "pattern"
+        }
       ],
       "vocab_candidates": [
-        { "surfaceText": "all-nighter", "meaningInContext": "通宵、熬夜加班", "suggestedHelpState": "learning" },
-        { "surfaceText": "can't even", "meaningInContext": "受不了了、會謝（口語）", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-002",
-      "zh_text": "老闆又在畫大餅了，說好的升職加薪呢",
-      "en_translation": "Boss is making empty promises again. Whatever happened to that promotion?",
-      "category": "work",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "empty promises", "meaning": "畫大餅、空頭支票", "type": "phrase" },
-        { "surfaceText": "Whatever happened to", "meaning": "說好的……呢？", "type": "pattern" }
+        {
+          "surfaceText": "all-nighter",
+          "meaningInContext": "通宵、熬夜加班",
+          "suggestedHelpState": "learning"
+        },
+        {
+          "surfaceText": "can't even",
+          "meaningInContext": "受不了了、會謝（口語）",
+          "suggestedHelpState": "new"
+        }
       ],
-      "vocab_candidates": [
-        { "surfaceText": "empty promises", "meaningInContext": "畫大餅", "suggestedHelpState": "learning" },
-        { "surfaceText": "promotion", "meaningInContext": "升職", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-003",
-      "zh_text": "同事在群裡發了八個 60 秒語音，我人都麻了",
-      "en_translation": "My coworker just sent eight 60-second voice messages in the group chat. I'm completely numb.",
-      "category": "work",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "voice messages", "meaning": "語音訊息", "type": "phrase" },
-        { "surfaceText": "completely numb", "meaning": "人都麻了、完全麻木了", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "group chat", "meaningInContext": "群組聊天", "suggestedHelpState": "new" },
-        { "surfaceText": "numb", "meaningInContext": "麻了、沒感覺了", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-004",
-      "zh_text": "今天摸了一整天的魚，什麼都沒幹",
-      "en_translation": "I pretty much slacked off the entire day and got nothing done.",
-      "category": "work",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "slacked off", "meaning": "摸魚、偷懶", "type": "phrase" },
-        { "surfaceText": "got nothing done", "meaning": "什麼都沒做", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "slacked off", "meaningInContext": "摸魚", "suggestedHelpState": "learning" },
-        { "surfaceText": "got nothing done", "meaningInContext": "什麼都沒完成", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-005",
-      "zh_text": "離職的念頭每天準時打卡，比上班還積極",
-      "en_translation": "The urge to quit clocks in on time every day. It's more consistent than my actual work attendance.",
-      "category": "work",
-      "difficulty": "advanced",
-      "deconstruction": [
-        { "surfaceText": "urge to quit", "meaning": "離職的念頭", "type": "phrase" },
-        { "surfaceText": "clocks in", "meaning": "打卡上班", "type": "phrase" },
-        { "surfaceText": "more consistent than", "meaning": "比……還更規律/積極", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "urge", "meaningInContext": "念頭、衝動", "suggestedHelpState": "learning" },
-        { "surfaceText": "clocks in", "meaningInContext": "打卡、報到", "suggestedHelpState": "new" }
-      ]
+      "ja_text": "また徹夜で仕事だよ。もう無理、ほんとに。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
     },
     {
       "id": "seed-006",
@@ -85,317 +43,32 @@
       "category": "friends",
       "difficulty": "intermediate",
       "deconstruction": [
-        { "surfaceText": "is fire", "meaning": "絕了、太厲害了", "type": "phrase" },
-        { "surfaceText": "Drop the link", "meaning": "求連結、給連結", "type": "pattern" }
+        {
+          "surfaceText": "is fire",
+          "meaning": "絕了、太厲害了",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "Drop the link",
+          "meaning": "求連結、給連結",
+          "type": "pattern"
+        }
       ],
       "vocab_candidates": [
-        { "surfaceText": "fire", "meaningInContext": "很讚、絕了（俚語）", "suggestedHelpState": "learning" },
-        { "surfaceText": "Drop the link", "meaningInContext": "求連結", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-007",
-      "zh_text": "笑死，你說的這個瓜我吃過，後續更離譜",
-      "en_translation": "LMAO, I already know that tea. The follow-up was even more insane.",
-      "category": "friends",
-      "difficulty": "advanced",
-      "deconstruction": [
-        { "surfaceText": "LMAO", "meaning": "笑死（網路用語）", "type": "phrase" },
-        { "surfaceText": "know that tea", "meaning": "吃過這個瓜、知道這個八卦", "type": "phrase" },
-        { "surfaceText": "follow-up", "meaning": "後續、後續發展", "type": "phrase" }
+        {
+          "surfaceText": "fire",
+          "meaningInContext": "很讚、絕了（俚語）",
+          "suggestedHelpState": "learning"
+        },
+        {
+          "surfaceText": "Drop the link",
+          "meaningInContext": "求連結",
+          "suggestedHelpState": "new"
+        }
       ],
-      "vocab_candidates": [
-        { "surfaceText": "LMAO", "meaningInContext": "笑死", "suggestedHelpState": "new" },
-        { "surfaceText": "tea", "meaningInContext": "瓜、八卦", "suggestedHelpState": "learning" },
-        { "surfaceText": "insane", "meaningInContext": "離譜、太扯了", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-008",
-      "zh_text": "姐妹你也太捲了吧，凌晨兩點還在學習",
-      "en_translation": "Girl, you are grinding way too hard. It's 2 a.m. and you're still studying?",
-      "category": "friends",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "grinding way too hard", "meaning": "太捲了、太拚了", "type": "phrase" },
-        { "surfaceText": "It's 2 a.m. and", "meaning": "都幾點了還在……", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "grinding", "meaningInContext": "捲、拼命努力", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-009",
-      "zh_text": "拜託你清醒一點，那個人根本不值得",
-      "en_translation": "Please get a grip. That person is so not worth it.",
-      "category": "friends",
-      "difficulty": "basic",
-      "deconstruction": [
-        { "surfaceText": "get a grip", "meaning": "清醒一點、振作", "type": "phrase" },
-        { "surfaceText": "so not worth it", "meaning": "根本不值得", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "get a grip", "meaningInContext": "清醒一點", "suggestedHelpState": "learning" },
-        { "surfaceText": "not worth it", "meaningInContext": "不值得", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-010",
-      "zh_text": "週末約飯不？有一家新開的店聽說超好吃",
-      "en_translation": "Wanna grab food this weekend? Heard about this new place that's supposed to be amazing.",
-      "category": "friends",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "Wanna grab food", "meaning": "約飯不、要不要去吃", "type": "pattern" },
-        { "surfaceText": "supposed to be", "meaning": "聽說、據說是", "type": "pattern" },
-        { "surfaceText": "amazing", "meaning": "超好吃、超棒", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "grab food", "meaningInContext": "約吃飯", "suggestedHelpState": "learning" },
-        { "surfaceText": "supposed to be", "meaningInContext": "據說、聽說", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-011",
-      "zh_text": "又雙叒叕堵車了，我已經麻到沒有任何的感覺了",
-      "en_translation": "Stuck in traffic yet again. I've gone past numbness into a void.",
-      "category": "vent",
-      "difficulty": "advanced",
-      "deconstruction": [
-        { "surfaceText": "yet again", "meaning": "又雙叒叕、又一次", "type": "phrase" },
-        { "surfaceText": "gone past numbness", "meaning": "麻到沒感覺、超越麻木", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "yet again", "meaningInContext": "又再一次了", "suggestedHelpState": "learning" },
-        { "surfaceText": "numbness", "meaningInContext": "麻木", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-012",
-      "zh_text": "捷運上有人外放抖音，我的沉默震耳欲聾",
-      "en_translation": "Someone's blasting TikTok on the subway. My silence is deafening.",
-      "category": "vent",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "blasting", "meaning": "外放、大聲播", "type": "phrase" },
-        { "surfaceText": "My silence is deafening", "meaning": "我的沉默震耳欲聾", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "blasting", "meaningInContext": "大聲外放", "suggestedHelpState": "new" },
-        { "surfaceText": "deafening", "meaningInContext": "震耳欲聾", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-013",
-      "zh_text": "這個 App 又在殺熟了，老用戶不如狗",
-      "en_translation": "This app's price-gouging regulars again. Loyalty literally means nothing.",
-      "category": "vent",
-      "difficulty": "advanced",
-      "deconstruction": [
-        { "surfaceText": "price-gouging", "meaning": "殺熟、對老用戶加價", "type": "phrase" },
-        { "surfaceText": "literally means nothing", "meaning": "什麼都不是、不如狗", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "price-gouging", "meaningInContext": "殺熟（商業行為）", "suggestedHelpState": "learning" },
-        { "surfaceText": "regulars", "meaningInContext": "老客戶、常客", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-014",
-      "zh_text": "出門五分鐘流汗兩小時，這個夏天是來索命的吧",
-      "en_translation": "Five minutes outside, two hours of sweat. This summer is out to get me.",
-      "category": "vent",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "two hours of sweat", "meaning": "流汗兩小時", "type": "phrase" },
-        { "surfaceText": "out to get me", "meaning": "來索命的、來搞我的", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "out to get me", "meaningInContext": "衝著我來的、索命", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-015",
-      "zh_text": "週一永遠來得比週五快，這不科學",
-      "en_translation": "Monday always comes faster than Friday. This defies all laws of physics.",
-      "category": "vent",
-      "difficulty": "basic",
-      "deconstruction": [
-        { "surfaceText": "comes faster than", "meaning": "來得比……快", "type": "pattern" },
-        { "surfaceText": "defies all laws of", "meaning": "違反了所有……法則", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "comes faster", "meaningInContext": "來得更快", "suggestedHelpState": "new" },
-        { "surfaceText": "defies", "meaningInContext": "違反、蔑視", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-016",
-      "zh_text": "其實我很怕自己不夠好，但從來沒有跟任何人說過",
-      "en_translation": "Honestly, I'm scared I'm not good enough. But I've never told anyone that.",
-      "category": "heartfelt",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "Honestly", "meaning": "其實、說實話", "type": "phrase" },
-        { "surfaceText": "good enough", "meaning": "足夠好", "type": "phrase" },
-        { "surfaceText": "I've never told anyone", "meaning": "從來沒跟任何人說過", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "honestly", "meaningInContext": "老實說、其實", "suggestedHelpState": "new" },
-        { "surfaceText": "good enough", "meaningInContext": "夠好", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-017",
-      "zh_text": "看起來每天都笑嘻嘻的人，可能只是比較會藏",
-      "en_translation": "The person who smiles every day might just be better at hiding things.",
-      "category": "heartfelt",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "smiles every day", "meaning": "每天都笑嘻嘻", "type": "phrase" },
-        { "surfaceText": "better at hiding things", "meaning": "比較會藏", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "hiding things", "meaningInContext": "藏心事、隱藏", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-018",
-      "zh_text": "有時候翻到以前的照片，覺得那個自己好陌生",
-      "en_translation": "Sometimes I see old photos of myself and that person feels like a complete stranger.",
-      "category": "heartfelt",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "old photos", "meaning": "以前的照片", "type": "phrase" },
-        { "surfaceText": "a complete stranger", "meaning": "好陌生、完全陌生的人", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "complete stranger", "meaningInContext": "徹底陌生的人", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-019",
-      "zh_text": "我想辭職去環遊世界，但我連辭職信都不敢遞",
-      "en_translation": "I want to quit and travel the world, but I can't even bring myself to hand in the resignation letter.",
-      "category": "heartfelt",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "quit and travel the world", "meaning": "辭職去環遊世界", "type": "phrase" },
-        { "surfaceText": "can't even bring myself to", "meaning": "連……都不敢做", "type": "pattern" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "bring myself to", "meaningInContext": "鼓起勇氣去做……", "suggestedHelpState": "learning" },
-        { "surfaceText": "resignation letter", "meaningInContext": "辭職信", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-020",
-      "zh_text": "希望十年後的自己會感謝現在這個還沒放棄的我",
-      "en_translation": "I hope the me ten years from now will look back and thank the me who hasn't given up yet.",
-      "category": "heartfelt",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "ten years from now", "meaning": "十年後", "type": "phrase" },
-        { "surfaceText": "look back and thank", "meaning": "回頭感謝", "type": "phrase" },
-        { "surfaceText": "hasn't given up yet", "meaning": "還沒放棄", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "look back", "meaningInContext": "回頭看、回想", "suggestedHelpState": "learning" },
-        { "surfaceText": "given up", "meaningInContext": "放棄了", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-021",
-      "zh_text": "你可以不認同我，但至少聽完再反駁",
-      "en_translation": "You don't have to agree with me, but at least hear me out before you push back.",
-      "category": "debate",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "hear me out", "meaning": "聽我說完", "type": "phrase" },
-        { "surfaceText": "push back", "meaning": "反駁、反對", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "hear me out", "meaningInContext": "至少先聽我說完", "suggestedHelpState": "learning" },
-        { "surfaceText": "push back", "meaningInContext": "反駁", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-022",
-      "zh_text": "搞錢才是硬道理，其他都是浮雲",
-      "en_translation": "Making money is the only thing that actually matters. Everything else is just noise.",
-      "category": "debate",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "the only thing that actually matters", "meaning": "唯一的硬道理", "type": "pattern" },
-        { "surfaceText": "just noise", "meaning": "浮雲、噪音", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "actually matters", "meaningInContext": "真正重要", "suggestedHelpState": "new" },
-        { "surfaceText": "just noise", "meaningInContext": "浮雲、不重要的事", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-023",
-      "zh_text": "AI 寫得再快也寫不出人的那種笨拙和真心",
-      "en_translation": "No matter how fast AI writes, it can never replicate that human awkwardness and real heart.",
-      "category": "debate",
-      "difficulty": "advanced",
-      "deconstruction": [
-        { "surfaceText": "No matter how", "meaning": "再怎麼……也……", "type": "pattern" },
-        { "surfaceText": "replicate", "meaning": "複製、重現", "type": "phrase" },
-        { "surfaceText": "awkwardness and real heart", "meaning": "笨拙和真心", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "replicate", "meaningInContext": "複製、模仿出來", "suggestedHelpState": "learning" },
-        { "surfaceText": "awkwardness", "meaningInContext": "笨拙、不完美", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-024",
-      "zh_text": "別拿你的標準來綁架我，我們看重的東西本來就不一樣",
-      "en_translation": "Don't force your standards on me. We simply value different things.",
-      "category": "debate",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "Don't force your standards on me", "meaning": "別拿標準綁架我", "type": "pattern" },
-        { "surfaceText": "value different things", "meaning": "看重的東西不一樣", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "standards", "meaningInContext": "標準", "suggestedHelpState": "new" },
-        { "surfaceText": "value", "meaningInContext": "重視、看重", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-025",
-      "zh_text": "躺平從來都不是放棄，是拒絕用別人的節奏活",
-      "en_translation": "Lying flat isn't giving up. It's refusing to live at someone else's pace.",
-      "category": "debate",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "Lying flat", "meaning": "躺平（中國網絡流行語）", "type": "phrase" },
-        { "surfaceText": "refusing to live at", "meaning": "拒絕用……來活", "type": "pattern" },
-        { "surfaceText": "someone else's pace", "meaning": "別人的節奏", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "lying flat", "meaningInContext": "躺平", "suggestedHelpState": "new" },
-        { "surfaceText": "at someone else's pace", "meaningInContext": "按照別人的節奏", "suggestedHelpState": "learning" }
-      ]
-    },
-    {
-      "id": "seed-026",
-      "zh_text": "這個珍奶店的新品絕絕子，我原地封神",
-      "en_translation": "This new bubble tea is absolutely next level. I'm literally ascending.",
-      "category": "daily_life",
-      "difficulty": "intermediate",
-      "deconstruction": [
-        { "surfaceText": "bubble tea", "meaning": "珍奶、珍珠奶茶", "type": "phrase" },
-        { "surfaceText": "next level", "meaning": "絕絕子、超強", "type": "phrase" },
-        { "surfaceText": "literally ascending", "meaning": "原地封神、升天了", "type": "phrase" }
-      ],
-      "vocab_candidates": [
-        { "surfaceText": "next level", "meaningInContext": "絕絕子、層次不同", "suggestedHelpState": "learning" },
-        { "surfaceText": "ascending", "meaningInContext": "升天、封神", "suggestedHelpState": "new" }
-      ]
+      "ja_text": "その服めっちゃいいね、リンク教えて。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
     },
     {
       "id": "seed-027",
@@ -404,44 +77,212 @@
       "category": "daily_life",
       "difficulty": "basic",
       "deconstruction": [
-        { "surfaceText": "Who else gets that", "meaning": "誰懂啊、誰能體會", "type": "pattern" },
-        { "surfaceText": "no alarm tomorrow", "meaning": "明天不用鬧鐘、睡到自然醒", "type": "phrase" }
+        {
+          "surfaceText": "Who else gets that",
+          "meaning": "誰懂啊、誰能體會",
+          "type": "pattern"
+        },
+        {
+          "surfaceText": "no alarm tomorrow",
+          "meaning": "明天不用鬧鐘、睡到自然醒",
+          "type": "phrase"
+        }
       ],
       "vocab_candidates": [
-        { "surfaceText": "gets that", "meaningInContext": "懂那種感覺", "suggestedHelpState": "learning" },
-        { "surfaceText": "no alarm", "meaningInContext": "不用鬧鐘", "suggestedHelpState": "new" }
-      ]
-    },
-    {
-      "id": "seed-028",
-      "zh_text": "雙十一我的購物車已經滿了，錢包已經在哭了",
-      "en_translation": "My cart is full for Singles' Day and my wallet is already sobbing.",
-      "category": "daily_life",
-      "difficulty": "basic",
-      "deconstruction": [
-        { "surfaceText": "Singles' Day", "meaning": "雙十一", "type": "phrase" },
-        { "surfaceText": "my wallet is already sobbing", "meaning": "錢包已經在哭了", "type": "pattern" }
+        {
+          "surfaceText": "gets that",
+          "meaningInContext": "懂那種感覺",
+          "suggestedHelpState": "learning"
+        },
+        {
+          "surfaceText": "no alarm",
+          "meaningInContext": "不用鬧鐘",
+          "suggestedHelpState": "new"
+        }
       ],
-      "vocab_candidates": [
-        { "surfaceText": "Singles' Day", "meaningInContext": "雙十一購物節", "suggestedHelpState": "new" },
-        { "surfaceText": "sobbing", "meaningInContext": "在哭、哭泣", "suggestedHelpState": "learning" }
-      ]
+      "ja_text": "金曜日の夜のあの幸せ、わかる人いる？やっと明日はゆっくり寝られる。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
     },
     {
-      "id": "seed-029",
-      "zh_text": "減肥第三天，深夜打開外送軟體的手微微顫抖",
-      "en_translation": "Day three of this diet. My hand trembles as I open the food delivery app past midnight.",
-      "category": "daily_life",
+      "id": "seed-012",
+      "zh_text": "捷運上有人外放抖音，我的沉默震耳欲聾",
+      "en_translation": "Someone's blasting TikTok on the subway. My silence is deafening.",
+      "category": "vent",
       "difficulty": "intermediate",
       "deconstruction": [
-        { "surfaceText": "Day three of", "meaning": "第幾天了", "type": "pattern" },
-        { "surfaceText": "trembles", "meaning": "顫抖", "type": "phrase" },
-        { "surfaceText": "past midnight", "meaning": "深夜、過了午夜", "type": "phrase" }
+        {
+          "surfaceText": "blasting",
+          "meaning": "外放、大聲播",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "My silence is deafening",
+          "meaning": "我的沉默震耳欲聾",
+          "type": "pattern"
+        }
       ],
       "vocab_candidates": [
-        { "surfaceText": "trembles", "meaningInContext": "微微顫抖", "suggestedHelpState": "learning" },
-        { "surfaceText": "past midnight", "meaningInContext": "深夜、半夜", "suggestedHelpState": "new" }
-      ]
+        {
+          "surfaceText": "blasting",
+          "meaningInContext": "大聲外放",
+          "suggestedHelpState": "new"
+        },
+        {
+          "surfaceText": "deafening",
+          "meaningInContext": "震耳欲聾",
+          "suggestedHelpState": "learning"
+        }
+      ],
+      "ja_text": "電車の中でTikTokを大音量で流してる人がいる。私の沈黙は耳が痛いほどだ。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
+    },
+    {
+      "id": "seed-016",
+      "zh_text": "其實我很怕自己不夠好，但從來沒有跟任何人說過",
+      "en_translation": "Honestly, I'm scared I'm not good enough. But I've never told anyone that.",
+      "category": "heartfelt",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        {
+          "surfaceText": "Honestly",
+          "meaning": "其實、說實話",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "good enough",
+          "meaning": "足夠好",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "I've never told anyone",
+          "meaning": "從來沒跟任何人說過",
+          "type": "pattern"
+        }
+      ],
+      "vocab_candidates": [
+        {
+          "surfaceText": "honestly",
+          "meaningInContext": "老實說、其實",
+          "suggestedHelpState": "new"
+        },
+        {
+          "surfaceText": "good enough",
+          "meaningInContext": "夠好",
+          "suggestedHelpState": "learning"
+        }
+      ],
+      "ja_text": "本当は自分が足りないんじゃないかって怖い。でも、誰にも言ったことがない。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
+    },
+    {
+      "id": "seed-021",
+      "zh_text": "你可以不認同我，但至少聽完再反駁",
+      "en_translation": "You don't have to agree with me, but at least hear me out before you push back.",
+      "category": "debate",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        {
+          "surfaceText": "hear me out",
+          "meaning": "聽我說完",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "push back",
+          "meaning": "反駁、反對",
+          "type": "phrase"
+        }
+      ],
+      "vocab_candidates": [
+        {
+          "surfaceText": "hear me out",
+          "meaningInContext": "至少先聽我說完",
+          "suggestedHelpState": "learning"
+        },
+        {
+          "surfaceText": "push back",
+          "meaningInContext": "反駁",
+          "suggestedHelpState": "new"
+        }
+      ],
+      "ja_text": "私に賛同しなくてもいいけど、最後まで聞いてから反論して。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
+    },
+    {
+      "id": "seed-004",
+      "zh_text": "今天摸了一整天的魚，什麼都沒幹",
+      "en_translation": "I pretty much slacked off the entire day and got nothing done.",
+      "category": "work",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        {
+          "surfaceText": "slacked off",
+          "meaning": "摸魚、偷懶",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "got nothing done",
+          "meaning": "什麼都沒做",
+          "type": "phrase"
+        }
+      ],
+      "vocab_candidates": [
+        {
+          "surfaceText": "slacked off",
+          "meaningInContext": "摸魚",
+          "suggestedHelpState": "learning"
+        },
+        {
+          "surfaceText": "got nothing done",
+          "meaningInContext": "什麼都沒完成",
+          "suggestedHelpState": "new"
+        }
+      ],
+      "ja_text": "今日は一日サボって、何もできなかった。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
+    },
+    {
+      "id": "seed-010",
+      "zh_text": "週末約飯不？有一家新開的店聽說超好吃",
+      "en_translation": "Wanna grab food this weekend? Heard about this new place that's supposed to be amazing.",
+      "category": "friends",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        {
+          "surfaceText": "Wanna grab food",
+          "meaning": "約飯不、要不要去吃",
+          "type": "pattern"
+        },
+        {
+          "surfaceText": "supposed to be",
+          "meaning": "聽說、據說是",
+          "type": "pattern"
+        },
+        {
+          "surfaceText": "amazing",
+          "meaning": "超好吃、超棒",
+          "type": "phrase"
+        }
+      ],
+      "vocab_candidates": [
+        {
+          "surfaceText": "grab food",
+          "meaningInContext": "約吃飯",
+          "suggestedHelpState": "learning"
+        },
+        {
+          "surfaceText": "supposed to be",
+          "meaningInContext": "據說、聽說",
+          "suggestedHelpState": "new"
+        }
+      ],
+      "ja_text": "週末ごはん行かない？すごくおいしい新しいお店があるらしいよ。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
     },
     {
       "id": "seed-030",
@@ -450,12 +291,71 @@
       "category": "daily_life",
       "difficulty": "basic",
       "deconstruction": [
-        { "surfaceText": "Anyone else", "meaning": "有沒有人跟我一樣", "type": "pattern" },
-        { "surfaceText": "scroll through their phone", "meaning": "滑手機、刷社群", "type": "phrase" }
+        {
+          "surfaceText": "Anyone else",
+          "meaning": "有沒有人跟我一樣",
+          "type": "pattern"
+        },
+        {
+          "surfaceText": "scroll through their phone",
+          "meaning": "滑手機、刷社群",
+          "type": "phrase"
+        }
       ],
       "vocab_candidates": [
-        { "surfaceText": "scroll through", "meaningInContext": "滑、刷", "suggestedHelpState": "learning" }
-      ]
+        {
+          "surfaceText": "scroll through",
+          "meaningInContext": "滑、刷",
+          "suggestedHelpState": "learning"
+        }
+      ],
+      "ja_text": "週末はずっとベッドでSNSを見ていたいの、私だけ？",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
+    },
+    {
+      "id": "seed-020",
+      "zh_text": "希望十年後的自己會感謝現在這個還沒放棄的我",
+      "en_translation": "I hope the me ten years from now will look back and thank the me who hasn't given up yet.",
+      "category": "heartfelt",
+      "difficulty": "intermediate",
+      "deconstruction": [
+        {
+          "surfaceText": "ten years from now",
+          "meaning": "十年後",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "look back and thank",
+          "meaning": "回頭感謝",
+          "type": "phrase"
+        },
+        {
+          "surfaceText": "hasn't given up yet",
+          "meaning": "還沒放棄",
+          "type": "phrase"
+        }
+      ],
+      "vocab_candidates": [
+        {
+          "surfaceText": "look back",
+          "meaningInContext": "回頭看、回想",
+          "suggestedHelpState": "learning"
+        },
+        {
+          "surfaceText": "given up",
+          "meaningInContext": "放棄了",
+          "suggestedHelpState": "new"
+        }
+      ],
+      "ja_text": "10年後の自分が、まだ諦めていない今の自分に感謝していますように。",
+      "sourceLanguage": "zh-Hant",
+      "targetLanguage": "en"
     }
+  ],
+  "starterSet": "v1-ten-sentences-2026-09-15",
+  "starterLanguageSources": [
+    "zh-Hant",
+    "ja"
   ]
 }

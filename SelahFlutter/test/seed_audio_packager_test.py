@@ -73,6 +73,30 @@ class SeedAudioPackagingTest(unittest.TestCase):
         entries = self.package(existing={'legacy:clear-slow': legacy})
         self.assertEqual(entries['legacy:clear-slow'], legacy)
 
+    def test_packages_existing_chinese_and_japanese_native_audio(self):
+        seeds = [{'id': 'seed-001'}, {'id': 'seed-002'}]
+        zh_body = b'\xff\xf3native-zh'
+        ja_body = b'ID3native-ja'
+        (self.audio_dir / 'seed-001-source-zh-Hant.mp3').write_bytes(zh_body)
+        (self.audio_dir / 'seed-001-source-ja.mp3').write_bytes(ja_body)
+
+        entries, missing = packager.package_local_native_audio(
+            seeds, self.audio_dir, {'existing:key': {'path': 'assets/audio/x.mp3'}})
+
+        self.assertEqual(missing, [
+            'seed-002-source-zh-Hant.mp3',
+            'seed-002-source-ja.mp3',
+        ])
+        self.assertEqual(entries['existing:key']['path'], 'assets/audio/x.mp3')
+        self.assertEqual(
+            entries['seed-001:source:zh-Hant']['path'],
+            'assets/audio/seed-001-source-zh-Hant.mp3')
+        self.assertEqual(
+            entries['seed-001:source:ja']['path'],
+            'assets/audio/seed-001-source-ja.mp3')
+        self.assertEqual(entries['seed-001:source:zh-Hant']['byteSize'], len(zh_body))
+        self.assertEqual(entries['seed-001:source:ja']['byteSize'], len(ja_body))
+
     def test_missing_duplicate_and_wrong_content_are_rejected_before_download(self):
         invalid_content = [dict(row) for row in self.rows]
         invalid_content[0]['content_hash'] = '0' * 64

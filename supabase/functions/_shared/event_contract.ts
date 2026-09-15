@@ -9,6 +9,39 @@ export const EVENT_METADATA_KEYS: Record<string, ReadonlySet<string>> = {
   vocab_removed: new Set(["word"]),
   voice_selected: new Set(["voice_profile"]),
   memory_unlocked: new Set(["memory_key"]),
+  activity_heartbeat: new Set([
+    "session_id",
+    "slot_start",
+    "duration_ms",
+    "visible",
+    "audio_playing",
+  ]),
+  feedback_invite_shown: new Set([
+    "survey_version",
+    "stage",
+    "display_locale",
+  ]),
+  feedback_invite_dismissed: new Set([
+    "survey_version",
+    "stage",
+    "display_locale",
+  ]),
+  feedback_submitted: new Set([
+    "survey_version",
+    "stage",
+    "display_locale",
+    "satisfaction",
+    "scenario",
+    "improvement",
+    "purchase_intent",
+    "plan_interest",
+  ]),
+  feedback_plan_viewed: new Set([
+    "survey_version",
+    "stage",
+    "display_locale",
+    "plan_id",
+  ]),
 };
 
 export const ALLOWED_EVENT_TYPES = new Set(Object.keys(EVENT_METADATA_KEYS));

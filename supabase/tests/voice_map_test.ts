@@ -108,10 +108,11 @@ const ALLOWED_EVENT_TYPES = new Set([
   "vocab_removed",
   "voice_selected",
   "memory_unlocked",
+  "activity_heartbeat",
 ]);
 
-Deno.test("event whitelist has 10 types", () => {
-  assertEquals(ALLOWED_EVENT_TYPES.size, 10);
+Deno.test("event whitelist has 11 types", () => {
+  assertEquals(ALLOWED_EVENT_TYPES.size, 11);
 });
 
 Deno.test("sentence_created is allowed", () => {

@@ -73,8 +73,11 @@ supabase functions deploy sentences-prepare
 supabase functions deploy sentences-batch-generate
 supabase functions deploy audio-generate
 supabase functions deploy audio-download-url
+supabase functions deploy speech-transcribe
 supabase functions deploy config-bootstrap
 supabase functions deploy events
+supabase functions deploy admin-summary
+supabase functions deploy admin-cost-sync
 
 # 匯入種子句
 echo ""

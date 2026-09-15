@@ -1,13 +1,17 @@
+import 'admin_audience.dart';
+
 class AdminDashboardData {
   const AdminDashboardData({
     required this.summary,
     required this.attempts,
     required this.generatedAt,
+    this.audience,
   });
 
   final AdminSummary summary;
   final List<AdminAttempt> attempts;
   final DateTime? generatedAt;
+  final AdminAudienceSummary? audience;
 
   factory AdminDashboardData.fromJson(Map<String, dynamic> json) {
     return AdminDashboardData(
@@ -16,6 +20,9 @@ class AdminDashboardData {
         json['attempts'],
       ).map((item) => AdminAttempt.fromJson(objectMap(item))).toList(),
       generatedAt: DateTime.tryParse(stringValue(json['generatedAt'] ?? '')),
+      audience: json['audience'] is Map
+          ? AdminAudienceSummary.fromJson(objectMap(json['audience']))
+          : null,
     );
   }
 }

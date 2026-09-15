@@ -35,6 +35,17 @@ Deno.test("Whitelist includes memory_unlocked", () => {
   assertEquals(ALLOWED_EVENT_TYPES.has("memory_unlocked"), true);
 });
 
+Deno.test("Whitelist includes privacy-safe activity heartbeats", () => {
+  assertEquals(ALLOWED_EVENT_TYPES.has("activity_heartbeat"), true);
+});
+
+Deno.test("Whitelist includes adaptive feedback survey events", () => {
+  assertEquals(ALLOWED_EVENT_TYPES.has("feedback_invite_shown"), true);
+  assertEquals(ALLOWED_EVENT_TYPES.has("feedback_invite_dismissed"), true);
+  assertEquals(ALLOWED_EVENT_TYPES.has("feedback_submitted"), true);
+  assertEquals(ALLOWED_EVENT_TYPES.has("feedback_plan_viewed"), true);
+});
+
 // ============================================================
 // Privacy Protection
 // ============================================================
@@ -69,5 +80,49 @@ Deno.test("Drops metadata keys not whitelisted for the event", () => {
       category: "work",
     }),
     { signal: "clear" },
+  );
+});
+
+Deno.test("Allows only numeric heartbeat slots and safe activity flags", () => {
+  assertEquals(
+    sanitizeEventMetadata("activity_heartbeat", {
+      duration_ms: 30000,
+      slot_start: 1788000000,
+      visible: true,
+      audio_playing: false,
+      raw_text: "private",
+    }),
+    {
+      duration_ms: 30000,
+      slot_start: 1788000000,
+      visible: true,
+      audio_playing: false,
+    },
+  );
+});
+
+Deno.test("Keeps survey analytics to stable IDs and strips free text", () => {
+  assertEquals(
+    sanitizeEventMetadata("feedback_submitted", {
+      survey_version: "2026-09-13-v1",
+      stage: "engaged",
+      display_locale: "ja",
+      satisfaction: 5,
+      scenario: "daily_conversation",
+      improvement: "more_natural_phrasing",
+      purchase_intent: "likely",
+      plan_interest: "plus",
+      comment: "private sentence text",
+    }),
+    {
+      survey_version: "2026-09-13-v1",
+      stage: "engaged",
+      display_locale: "ja",
+      satisfaction: 5,
+      scenario: "daily_conversation",
+      improvement: "more_natural_phrasing",
+      purchase_intent: "likely",
+      plan_interest: "plus",
+    },
   );
 });

@@ -14,6 +14,33 @@ void main() {
     },
   );
 
+  test('companion rail defaults to hidden and survives snapshot backup', () {
+    final preferences = LearnPreferences.fromJson({});
+    expect(preferences.companionRailVisible, isFalse);
+
+    preferences.companionRailVisible = true;
+    final restored = LearnPreferences.fromJson(preferences.toJson());
+    expect(restored.companionRailVisible, isTrue);
+  });
+
+  test(
+    'cloud snapshot merge keeps the device-local companion rail preference',
+    () {
+      final local = LearningSnapshot.empty();
+      local.preferences
+        ..companionRailVisible = true
+        ..updatedAt = DateTime(2026, 9, 10);
+      final cloud = LearningSnapshot.empty();
+      cloud.preferences
+        ..companionRailVisible = false
+        ..updatedAt = DateTime(2026, 9, 11);
+
+      final merged = local.merge(cloud);
+
+      expect(merged.preferences.companionRailVisible, isTrue);
+    },
+  );
+
   test('preferences preserve the three unified native language choices', () {
     final japanese = LearnPreferences.fromJson({'nativeLanguage': 'ja'});
     expect(japanese.uiLocale, 'ja');

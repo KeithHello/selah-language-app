@@ -13,8 +13,11 @@ const EDGE_FUNCTIONS = [
   "sentences-batch-generate",
   "audio-generate",
   "audio-download-url",
+  "speech-transcribe",
   "config-bootstrap",
   "events",
+  "admin-summary",
+  "admin-cost-sync",
 ];
 
 Deno.test("Supabase config registers every Edge Function", () => {

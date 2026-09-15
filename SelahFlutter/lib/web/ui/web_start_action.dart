@@ -33,12 +33,13 @@ class WebStartAction extends StatelessWidget {
 
   SelahStrings get _strings => SelahStrings.of(uiLocale);
 
-  bool get _enabled => hasName && selectedCount >= 5 && !busy;
+  bool get _enabled =>
+      hasName && selectedCount >= minOnboardingSeedCount && !busy;
 
   String get _status {
     if (busy) return _strings.submitLabel(busy: true, long: false);
     if (!hasName) return _strings.text('onboarding.nameRequired');
-    if (selectedCount < 5) {
+    if (selectedCount < minOnboardingSeedCount) {
       return _strings.message('onboarding.selectedCount', {
         'count': '$selectedCount',
       });

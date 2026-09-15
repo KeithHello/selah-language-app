@@ -65,37 +65,37 @@ void main() {
   });
 
   test(
-    'onboarding selection copy states a five-sentence minimum in every locale',
+    'onboarding selection copy states a three-sentence minimum in every locale',
     () {
       expect(
         SelahStrings.of(
           'zh-Hans',
         ).message('onboarding.selectedCount', {'count': '6'}),
-        '已选 6 句（至少 5 句）',
+        '已选 6 句（至少 3 句）',
       );
       expect(
         SelahStrings.of(
           'zh-Hant',
         ).message('onboarding.selectedCount', {'count': '6'}),
-        '已選 6 句（至少 5 句）',
+        '已選 6 句（至少 3 句）',
       );
       expect(
         SelahStrings.of(
           'ja',
         ).message('onboarding.selectedCount', {'count': '6'}),
-        '6文選択済み（最低5文）',
+        '6文選択済み（最低3文）',
       );
       expect(
         SelahStrings.of('zh-Hans').text('onboarding.selectTitle'),
-        contains('五'),
+        contains('三'),
       );
       expect(
         SelahStrings.of('zh-Hant').text('onboarding.selectTitle'),
-        contains('五'),
+        contains('三'),
       );
       expect(
         SelahStrings.of('ja').text('onboarding.selectTitle'),
-        contains('5'),
+        contains('3'),
       );
     },
   );
@@ -104,12 +104,12 @@ void main() {
     'onboarding validation failure is localized from the controller message',
     () {
       expect(
-        SelahStrings.of('zh-Hant').translateLegacy('请选择至少五句想学的表达。'),
-        '請選擇至少五句想學的表達。',
+        SelahStrings.of('zh-Hant').translateLegacy('请选择至少三句想学的表达。'),
+        '請選擇至少三句想學的表達。',
       );
       expect(
-        SelahStrings.of('ja').translateLegacy('请选择至少五句想学的表达。'),
-        '学びたい表現を5文以上選んでください。',
+        SelahStrings.of('ja').translateLegacy('请选择至少三句想学的表达。'),
+        '学びたい表現を3文以上選んでください。',
       );
     },
   );

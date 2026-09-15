@@ -30,10 +30,46 @@ verify_jwt = true
 [functions.audio-download-url]
 verify_jwt = true
 
+[functions.speech-transcribe]
+verify_jwt = true
+
 [functions.config-bootstrap]
 verify_jwt = true
 
 [functions.events]
+verify_jwt = true
+
+[functions.admin-summary]
+verify_jwt = true
+
+[functions.admin-cost-sync]
+verify_jwt = true
+
+[functions.membership-status]
+verify_jwt = true
+
+[functions.user-research-profile]
+verify_jwt = true
+
+[functions.membership-checkout]
+verify_jwt = true
+
+[functions.membership-order-status]
+verify_jwt = true
+
+[functions.membership-payment-webhook]
+verify_jwt = false
+
+[functions.admin-users]
+verify_jwt = true
+
+[functions.admin-membership-actions]
+verify_jwt = true
+
+[functions.admin-service-controls]
+verify_jwt = true
+
+[functions.audio-download]
 verify_jwt = true
 
 [auth]

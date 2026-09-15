@@ -1,5 +1,7 @@
 # Selah 会员与费用保护 Implementation Plan
 
+> 2026-09-11 状态更新：本逐项任务稿已完整并入 [会员、费用保护与 Dashboard 最终开发方案](2026-09-11-membership-dashboard-final-plan.md) 。后续按最终方案的接口、依赖、任务及验收执行并更新进度；本文保留为历史参考，不再单独追踪完成状态。
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking. Follow the session's delegation rules; this plan does not itself authorize parallel agents.
 
 **Goal:** 交付免费示例、7 天限额试用、39.9 元月会员及可证明不越过应用侧模型预算的服务端保护；购买前权益透明，日常不展示用量余额。
@@ -9,6 +11,8 @@
 **Tech Stack:** Flutter／Dart、Deno／TypeScript、Postgres／Supabase、现有 OpenAI 路由。支付渠道与必要的计量依赖待确认，不在本文指定未经确认的 SDK。
 
 **设计依据：** [完整设计与 A01—A12 验收矩阵](../specs/2026-09-10-membership-cost-control-design.md) 、[独立交互展示稿](../specs/2026-09-10-membership-cost-control-ui.html) 、[交付总结与八张界面图片](../specs/2026-09-11-membership-delivery.md) 。
+
+**2026-09-11 补充：** [Dashboard 会员运营设计与 D01—D12 验收](../specs/2026-09-11-membership-dashboard-design.md) 已并入 T08。T02／T05 共用权益来源和顺延规则，T09／T10 包含新增后台验收；所有产品任务仍未实施。
 
 ## Global Constraints
 
@@ -187,23 +191,60 @@ type MembershipError = {
 
 验证：在 `SelahFlutter` 执行 `flutter test test/membership_controller_test.dart test/membership_widgets_test.dart` 与项目要求的 `flutter analyze`。测试业务状态与服务端错误映射，避免只测试常量重复实现。A03、A04、A09、A12 必须通过，浏览器验证再记录具体平台。
 
-## T08．管理员费用核查与人工处置
+## T08．管理员会员运营、费用核查与人工处置
 
-计划修改：`supabase/functions/admin-summary/index.ts`、`SelahFlutter/lib/web/domain/admin_dashboard.dart`、`admin/admin_controller.dart` 及现有管理员 UI；增量 SQL 纳入获批的新 migration，不改写已存在的 005。
+依赖：T02／T03 的订单、权益与原子预算账，T05 的支付核验和账期逻辑，T06 的平台准入与容量控制；可以先制作离线 UI，但写操作不能先于服务端保护接真实账户。
+
+计划修改：`supabase/functions/admin-summary/index.ts`、`SelahFlutter/lib/web/domain/admin_dashboard.dart`、`SelahFlutter/lib/web/admin/admin_controller.dart`、`SelahFlutter/lib/web/ui/admin_dashboard_page.dart`、`SelahFlutter/lib/web/ui/web_learning_app.dart`、`SelahFlutter/lib/web/l10n/selah_strings.dart`。
+
+计划新增：`supabase/functions/admin-users/index.ts`、`supabase/functions/admin-membership-actions/index.ts`、`supabase/functions/_shared/admin_membership_contract.ts`、`SelahFlutter/lib/web/domain/admin_membership.dart`、`SelahFlutter/lib/web/ui/admin_user_detail.dart`。权益来源、赠送承诺、权限和操作日志的增量 SQL 并入 T02 获批的新 migration，不改写 005，也不另建重复会员账。
+
+计划新增测试：`supabase/tests/admin_membership_actions_test.ts`、`supabase/tests/admin_membership_transactions_test.ts`、`SelahFlutter/test/admin_membership_controller_test.dart`、`SelahFlutter/test/admin_membership_widgets_test.dart`；保留现有后台测试。
+
+### T08a．用户查询与权限
+
+- [ ] 基于补充设计 D01／D11，先定义普通用户、只读管理员和可管理后台账户的访问用例；服务端验证已验签身份与写权限，付费会员不能获得后台身份，未配置写权限时默认只读。
+- [ ] 在现有 Dashboard 增加总览、用户与会员、订单与补发、用量与成本、异常与服务控制、操作日志六个区域；用户搜索支持用户 ID／邮箱，返回脱敏摘要，详情通过唯一 ID 查询。
+- [ ] 查询按身份、来源、到期、用户、功能、状态及账期使用适用筛选，页大小不超过 100，采用服务端游标；不能一次下载全站用户，也不能把接口已有参数当 UI 已完成。
+
+### T08b．开通、补发与整月赠送
+
+- [ ] 与 T02／T05 合并权益来源、时间线与交易唯一约束：付费、赠送、补偿分别标记，所有有效月会员购买顺延，试用转立即生效的月会员不重赠试用。
+- [ ] 实现受控动作「补发已购会员」「登记已核实收款」「赠送会员」「客服补偿」「撤销误赠」「暂停／恢复新增生成」，不接受客户端直接写会员布尔值、任意有效期或无限额度。
+- [ ] 赠送支持 1／3／6 个月快捷项和 1—12 整月输入；按月生成权益期间，已有权益默认顺延，当前用量不变。预览返回用户、起止日期、权益版本、费用与容量影响；提交重新检查版本和权限。
+- [ ] 一次预留所有赠送月份的未来预算承诺及赠送池容量；每期权益与每次模型调用仍经过原子保护。承诺与实际费用不重复相加，池缺失或不足时整个事务拒绝。
+- [ ] 补发只能恢复已核验订单的缺失权益，不改成从补发当天重新赠送；人工收款保存经批准渠道、唯一交易编号、原价金额、月数、时间、凭证引用和原因，来源标为人工核实。
+- [ ] 将管理员提交与支付回调置于同一幂等及账户时间线规则下；相同操作 ID 返回原结果，负载变化拒绝；后到支付回调可补充核验来源但不重复记收入或发会员。历史期间冲突进入核对，不覆盖期间。
+
+### T08c．撤销、暂停与审计
+
+- [ ] 撤销只针对选定赠送未使用部分，保留实际费用、在途请求与历史；其他已确认期间不被悄悄移动。暂停／恢复新增生成不改变账期、已用额度、费用预算或已有内容。
+- [ ] 每次写操作在同一事务中追加操作者、目标用户、前后状态、原因、关联记录、预算变化、时间与请求 ID；失败不留下部分权益，审计写入失败则整个变更失败。
+- [ ] 提交前展示实际影响；撤销、暂停和预算调整二次确认，权限被撤销或页面预览过期时重新核对。预算版本不能低于已结算、在途及已承诺责任，不能绕过 G01—G05。
+
+### T08d．费用与经营核查
 
 - [ ] 复用现有 providerAttempts、knownEstimatedCostUsd、providerRecordedCostUsd、unknownUsageAttempts 字段，增加预算、在途预占、守护拒绝原因和账期筛选。
 - [ ] 区分业务请求、供应商 attempt、已交付权益、真实费用、估算与未知；各合计不能重复相加。
 - [ ] 形成挂账对账流程，未知不默认为零；人工补偿／修正必须有证据、原因和审计，不直接修改历史记录。
 - [ ] 平台接近预算仅通知管理员；停止准入在服务端原子判断完成，不能依赖邮件或通知是否送达。
-- [ ] 分析试用平均成本、转付费率、正常会员成本分布、限额触发和投诉。均值不能替代最高费用验收；内部数字不进入终端余额面板。
+- [ ] 区分付费／赠送／补偿会员、渠道核验／人工核实收款、退款与未来赠送承诺，赠送不计入收入或付费转化；按事件口径分析试用平均成本、转化、成本分布及限额反馈，均值不能替代最高费用验收。
+- [ ] 将现有滚动一天筛选准确标为「过去 24 小时」；显示数据更新时间、时区、零费用／无账单／估算的区别；未接入账单采集时不宣称自动对账。
 
-验证：现有管理员授权回归，普通用户不能读取费用数据；同批／重试／未知费用能复核到 attempt；核对 A11。
+### T08e．界面与验收
+
+- [ ] 用户详情采用权益时间线、订单与会员操作面板，管理员专用区可查看详细用量和费用；用户端只同步来源、状态及有效期，不泄露内部预算和余额。
+- [ ] 集中补齐繁体／简体／日语及控制器错误文案，复用现有 `nativeLanguage` 派生界面语言；验证窄屏、键盘、提交中禁重复、失败保留表单和准确成功反馈。
+- [ ] 使用现有 Flutter／浏览器能力提供同源 `/#/admin` 及受控子路径，支持登录后返回、刷新、后退与会话失效；路由不替代服务端鉴权，不增加独立站点或新路由依赖。
+- [ ] 按 D01—D12 执行权限、赠送／补发竞争、月底分期、预算尾额、撤销在途、审计和界面验证；真实事务测试使用隔离数据库，环境未获准或不可用时明确记为未执行。
+
+验证：在仓库根目录执行 `deno test --allow-env --allow-read supabase/tests/admin_summary_test.ts supabase/tests/admin_membership_actions_test.ts`；在经批准的隔离数据库连接配置下另运行事务测试，不用进程内锁代替并发证据。在 `SelahFlutter` 执行 `flutter test --no-pub test/web_admin_models_test.dart test/admin_membership_controller_test.dart test/admin_membership_widgets_test.dart`，并按项目要求分析和构建。接口名称、测试路径与命令在实施时再次核对实际依赖；本轮未新增或执行这些产品测试。覆盖 A11 与 D01—D12。
 
 ## T09．端到端边界与故障验收
 
 计划新增：`supabase/tests/membership_scenarios.md`，记录可重复步骤、预期、实际证据与环境；只使用脱敏标识。
 
-- [ ] 执行设计 A01—A12，逐项填写真实证据；未执行留待验证，不以本地模拟冒充真实供应商或支付验证。
+- [ ] 执行设计 A01—A12 及 Dashboard D01—D12，逐项填写真实证据；未执行留待验证，不以本地模拟冒充真实供应商或支付验证。
 - [ ] 并发 50 请求争一份额度；多账户争平台尾额；正好等于预算和超最小计费单位；检查 ledger 与真实 dispatch 一致。
 - [ ] 覆盖所有崩溃窗口、格式失败、未知计费、存储失败、过期租约、重复 webhook、退款乱序与跨账期重放。
 - [ ] 验证所有合法权益用满与所有允许重试，仍符合 G01／G02；录音分片、长中／日文、母语＋英语双轨必须纳入。
@@ -214,7 +255,7 @@ type MembershipError = {
 
 ## T10．封闭启用、运营验收与发布申请
 
-- [ ] G01—G05 全部通过后，整理变更文件、migration、环境配置、渠道设置、试用／会员准入预算、回退停用开关与验证证据。
+- [ ] G01—G05 及后台 D01—D12 全部通过后，整理变更文件、migration、环境配置、渠道设置、试用／会员／赠送准入预算、回退停用开关与验证证据。
 - [ ] 获批后先在隔离环境启用小范围账户与有限预算，验证真实用量记录、账单对账、支付查单、退款与恢复；收费样本有明确金额授权。
 - [ ] 发现报价与真实计费偏差即关闭相关新增调用，保留学习与草稿；校正费用与权益可履约性后再申请恢复。不能清零未知费用换取继续运行。
 - [ ] 发布前再次核对官方价格、汇率保护和资源计划；明确哪些费用被硬限制，哪些只是预算与监控。
@@ -233,6 +274,6 @@ type MembershipError = {
 | M07 批量与输入边界 | T01、T04、T09 |
 | M08 支付 | T02、T05、T07、T09 |
 | M09 平台与资源 | T01、T06、T09、T10 |
-| M10 管理核查 | T08—T10 |
+| M10 会员运营与费用核查 | T02、T05、T08—T10；补充 D01—D12 |
 
 本轮交付的是上述可执行计划及独立 UI 展示。所有产品任务保持未勾选；实施授权、数据库变更、外部配置、真实收费验证和发布按各自边界推进。

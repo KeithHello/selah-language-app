@@ -8,6 +8,7 @@ import 'package:selah/web/platform/learning_platform.dart';
 import 'package:selah/web/ui/web_learning_app.dart';
 import 'package:selah/web/ui/plush_companion.dart';
 import 'package:selah/web/ui/web_start_action.dart';
+import 'web_controller_test.dart' show FakeGateway;
 
 class _FakePlatform implements LearningPlatform {
   Map<String, dynamic>? saved;
@@ -53,6 +54,11 @@ class _FakePlatform implements LearningPlatform {
         return null;
     }
   }
+}
+
+class _SignedOutConfiguredGateway extends FakeGateway {
+  @override
+  String? get userId => null;
 }
 
 LearnSentence _seed(int index) => LearnSentence.seed({
@@ -118,7 +124,7 @@ void main() {
         .clearAccessibilityFeaturesTestValue();
   });
 
-  testWidgets('onboarding requires a name and at least five seeds', (
+  testWidgets('onboarding requires a name and at least three seeds', (
     tester,
   ) async {
     tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
@@ -129,7 +135,7 @@ void main() {
 
     await tester.pumpWidget(WebLearningApp(controller: controller));
     expect(find.text('先让 Selah 认识你'), findsOneWidget);
-    expect(find.text('已选 0 句（至少 5 句）'), findsOneWidget);
+    expect(find.text('已选 0 句（至少 3 句）'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).first, '小芽');
     for (final sentence in [
@@ -144,7 +150,7 @@ void main() {
       await tester.tap(find.text(sentence));
     }
     await tester.pump();
-    expect(find.text('已选 6 句（至少 5 句）'), findsOneWidget);
+    expect(find.text('已选 6 句（至少 3 句）'), findsOneWidget);
     await tester.tap(
       find.descendant(
         of: find.byType(WebStartAction),
@@ -185,7 +191,7 @@ void main() {
       await tester.binding.setSurfaceSize(const Size(390, 844));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(WebLearningApp(controller: controller));
-      await tester.tap(find.text('推荐 5 句'));
+      await tester.tap(find.text('推荐 3 句'));
       await tester.pumpAndSettle();
       final action = find.descendant(
         of: find.byType(WebStartAction),
@@ -236,7 +242,7 @@ void main() {
     platform.failSave = true;
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.enterText(find.byType(TextField).first, '小芽');
-    await tester.tap(find.text('推荐 5 句'));
+    await tester.tap(find.text('推荐 3 句'));
     await tester.pump();
     await tester.tap(
       find.descendant(
@@ -288,6 +294,110 @@ void main() {
     await tester.tap(find.text('设置'));
     await tester.pumpAndSettle();
     expect(find.text('设置'), findsWidgets);
+  });
+
+  testWidgets(
+    'companion rail is hidden by default and appears only after enabling it',
+    (tester) async {
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.binding.setSurfaceSize(const Size(1440, 912));
+      controller.state.preferences
+        ..onboarded = true
+        ..name = '小芽';
+      controller.navigate(1);
+      await tester.pumpWidget(WebLearningApp(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(find.text('陪伴角落'), findsNothing);
+
+      controller.navigate(4);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('显示陪伴角落'));
+      await tester.tap(find.text('显示陪伴角落'));
+      await tester.runAsync(() async {
+        for (var i = 0; i < 20 && controller.busy; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+      });
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(controller.state.preferences.companionRailVisible, isTrue);
+      expect(find.text('陪伴角落'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'settings hides membership and admin while retaining local account status',
+    (tester) async {
+      controller.state.preferences
+        ..onboarded = true
+        ..uiLocale = 'zh-Hans';
+      controller.navigate(4);
+      await tester.pumpWidget(WebLearningApp(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(find.text('管理台'), findsNothing);
+      expect(find.text('打开管理台'), findsNothing);
+      expect(find.text('会员与方案'), findsNothing);
+      expect(find.text('当前为公开体验模式'), findsNothing);
+      expect(find.text('登录／注册'), findsNothing);
+      expect(find.textContaining('云端配置'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'configured local build keeps login available without membership section',
+    (tester) async {
+      final gateway = _SignedOutConfiguredGateway();
+      final configuredController = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: List.generate(6, (index) => _seed(index + 1)),
+        polling: false,
+      );
+      addTearDown(configuredController.dispose);
+      await configuredController.initialize();
+      configuredController.state.preferences
+        ..onboarded = true
+        ..uiLocale = 'zh-Hans';
+      configuredController.navigate(4);
+
+      await tester.pumpWidget(
+        WebLearningApp(controller: configuredController),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('登录／注册'), findsOneWidget);
+      expect(find.text('管理台'), findsNothing);
+      expect(find.text('会员与方案'), findsNothing);
+      expect(find.text('当前为公开体验模式'), findsNothing);
+    },
+  );
+
+  testWidgets('admin deep link asks for login before loading dashboard', (
+    tester,
+  ) async {
+    final gateway = _SignedOutConfiguredGateway();
+    final configuredController = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(6, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(configuredController.dispose);
+    await configuredController.initialize();
+    configuredController.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    configuredController.navigate(5);
+
+    await tester.pumpWidget(WebLearningApp(controller: configuredController));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Selah 管理台'), findsOneWidget);
+    expect(find.text('请先登录管理员账号。'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, '登录／注册'), findsOneWidget);
   });
 
   testWidgets(
@@ -426,6 +536,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(find.byType(PlushCompanion), findsOneWidget);
+        expect(find.textContaining('OpenAI GPT'), findsOneWidget);
         final contentCenter = tester.getCenter(find.byType(TextField)).dx;
         for (final element in [
           find.byType(PlushCompanion),

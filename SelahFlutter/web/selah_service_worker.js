@@ -2,7 +2,7 @@
 // Bump the build id when publishing a new Web bundle.  The registration also
 // passes this value as a query string, so a new worker gets a new cache name
 // while the old worker can finish any active recording before replacement.
-const BUILD_ID = new URL(self.location.href).searchParams.get('v') || '2026-09-05-1';
+const BUILD_ID = new URL(self.location.href).searchParams.get('v') || '2026-09-15-fixed-pose-gifs-v1';
 const SHELL_CACHE = `selah-shell-${BUILD_ID}`;
 const STATIC_CACHE = `selah-static-${BUILD_ID}`;
 const INITIAL_POSES = [
@@ -88,7 +88,7 @@ async function validSeedAudio(request, response) {
 
 function shouldPrecacheAsset(asset) {
   const path = new URL(asset, self.location.href).pathname;
-  const pose = /\/PlushV4S([1-5])A(0[1-9]|10)\.png$/i.exec(path);
+  const pose = /\/PlushV4S([1-5])A(0[1-9]|10)\.(png|gif)$/i.exec(path);
   return !pose || pose[1] === '1' || pose[2] === '01';
 }
 

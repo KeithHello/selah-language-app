@@ -763,6 +763,7 @@
   function makeLoopAudioController(root, providedCache) {
     var active = null;
     var pendingTimerIds = [];
+    var deadlineTimerId = null;
 
     function nowMs() {
       var DateCtor = root && root.Date ? root.Date : Date;
@@ -783,13 +784,42 @@
       return id;
     }
 
-    function clearTimers() {
+    function clearAdvanceTimers() {
       var clear = root && root.clearTimeout;
       if (typeof clear !== 'function' && typeof clearTimeout === 'function') clear = clearTimeout;
       if (typeof clear === 'function') {
         pendingTimerIds.forEach(function (id) { if (id != null) clear.call(root, id); });
       }
       pendingTimerIds = [];
+    }
+
+    function clearDeadlineTimer() {
+      var clear = root && root.clearTimeout;
+      if (typeof clear !== 'function' && typeof clearTimeout === 'function') clear = clearTimeout;
+      if (deadlineTimerId != null && typeof clear === 'function') clear.call(root, deadlineTimerId);
+      deadlineTimerId = null;
+    }
+
+    function clearTimers() {
+      clearAdvanceTimers();
+      clearDeadlineTimer();
+    }
+
+    function armDeadline(session) {
+      if (!session || session.deadlineAtMs == null || deadlineTimerId != null) return;
+      var remaining = session.deadlineAtMs - nowMs();
+      if (remaining <= 0) {
+        finish('timeout');
+        return;
+      }
+      var set = root && root.setTimeout;
+      if (typeof set !== 'function' && typeof setTimeout === 'function') set = setTimeout;
+      if (typeof set !== 'function') return;
+      deadlineTimerId = set.call(root, function () {
+        deadlineTimerId = null;
+        if (active !== session) return;
+        finish('timeout');
+      }, Math.max(0, remaining));
     }
 
     function cleanupElement(session) {
@@ -957,7 +987,12 @@
           session.element.playbackRate = session.speed;
           addListener(session, 'playing', function () {
             if (active !== session) return;
-            if (session.deadlineAtMs == null) session.deadlineAtMs = nowMs() + session.durationMs;
+            if (session.deadlineAtMs == null) {
+              session.deadlineAtMs = nowMs() + session.durationMs;
+              armDeadline(session);
+            } else {
+              armDeadline(session);
+            }
             session.state = 'playing';
           });
           addListener(session, 'ended', function () {
@@ -1058,7 +1093,7 @@
 
     function pause(payload) {
       if (!active || !isCurrent(payload)) return snapshot();
-      clearTimers();
+      clearAdvanceTimers();
       if (active.deadlineAtMs != null && active.deadlineAtMs <= nowMs()) {
         finish('timeout');
         return snapshot();
@@ -1108,7 +1143,7 @@
         finish('timeout');
         return Promise.resolve(snapshot());
       }
-      clearTimers();
+      clearAdvanceTimers();
       active.trackIndex = 0;
       active.itemIndex = (active.itemIndex + 1) % active.items.length;
       if (active.pendingOrder) {
@@ -1121,7 +1156,14 @@
     function setOrder(payload) {
       if (!active || !isCurrent(payload)) return snapshot();
       var order = payload.order === 'sourceFirst' ? 'sourceFirst' : 'targetFirst';
-      if ((active.trackIndex === 0 && active.state === 'gap') || active.state === 'paused') {
+      if (active.state === 'paused' &&
+          active.gapRemainingMs != null &&
+          active.trackIndex === 0) {
+        active.order = order;
+        active.pendingOrder = null;
+      } else if (active.state === 'paused') {
+        active.pendingOrder = order;
+      } else if (active.trackIndex === 0 && active.state === 'gap') {
         active.order = order;
       } else {
         active.pendingOrder = order;

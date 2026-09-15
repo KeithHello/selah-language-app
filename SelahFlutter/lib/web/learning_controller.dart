@@ -10,25 +10,60 @@ import 'l10n/selah_strings.dart';
 import 'data/learning_gateway.dart';
 import 'data/learning_store.dart';
 import 'admin/admin_controller.dart';
+import 'membership_controller.dart';
+import 'research_profile_controller.dart';
+import 'feedback_survey_controller.dart';
 import 'platform/learning_platform.dart';
 
 class LearningController extends ChangeNotifier {
   LearningController({
     required this.gateway,
     required this.platform,
-    required this.seeds,
+    required List<LearnSentence> seeds,
     this.polling = true,
     this.bundledAudio = const {},
     AdminController? adminController,
-  }) : store = LearningStore(platform),
-       admin =
-           adminController ?? AdminController(gateway: UnconfiguredGateway());
+    MembershipController? membershipController,
+    ResearchProfileController? researchProfileController,
+    FeedbackSurveyController? feedbackSurveyController,
+  }) : _baseSeeds = seeds,
+       store = LearningStore(platform),
+       admin = adminController ?? AdminController(gateway: gateway),
+       membership =
+           membershipController ?? MembershipController(gateway: gateway),
+       researchProfile =
+           researchProfileController ??
+           ResearchProfileController(gateway: gateway) {
+    feedbackSurvey =
+        feedbackSurveyController ??
+        FeedbackSurveyController(
+          gateway: gateway,
+          recordEvent: _recordFeedbackEvent,
+        );
+  }
   final Map<String, dynamic> bundledAudio;
+  final List<LearnSentence> _baseSeeds;
   final LearningGateway gateway;
   final LearningPlatform platform;
   final LearningStore store;
   final AdminController admin;
-  final List<LearnSentence> seeds;
+  final MembershipController membership;
+  final ResearchProfileController researchProfile;
+  late final FeedbackSurveyController feedbackSurvey;
+  List<LearnSentence> get seeds {
+    if (nativeLanguage != 'ja') return _baseSeeds;
+    return _baseSeeds.map((seed) {
+      final japaneseText = seed.jaText;
+      if (japaneseText == null) return seed;
+      final json = seed.toJson();
+      return LearnSentence.fromJson({
+        ...json,
+        'source': japaneseText,
+        'sourceLanguage': 'ja',
+      });
+    }).toList();
+  }
+
   final bool polling;
   LearningSnapshot state = LearningSnapshot.empty();
   bool initialized = false;
@@ -63,6 +98,7 @@ class LearningController extends ChangeNotifier {
     'stopReason': null,
   };
   bool loopPreparing = false;
+  bool loopReady = false;
   int loopPreparedTracks = 0;
   int loopTotalTracks = 0;
   List<Map<String, Object?>> _loopTracks = [];
@@ -187,12 +223,16 @@ class LearningController extends ChangeNotifier {
     notice = '循环听设置已保存。';
   });
 
-  Future<String> _loopAudioKey(String text) async {
+  Future<String> _loopAudioKey(
+    String text,
+    LoopTrackRole role,
+    String language,
+  ) async {
     final hash = await platform.invoke('contentHash', {'text': text});
     if (hash is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)) {
       throw const LearningFailure('浏览器无法校验音频内容。');
     }
-    return 'loop:${state.preferences.voice}:$hash';
+    return 'loop:${state.preferences.voice}:${role.name}:$language:$hash';
   }
 
   Future<Map<String, Object?>> _loopTrackReference(
@@ -202,130 +242,200 @@ class LearningController extends ChangeNotifier {
     final text = role == LoopTrackRole.target
         ? sentence.target.trim()
         : sentence.source.trim();
-    final key = await _loopAudioKey(text);
+    final language = role == LoopTrackRole.target
+        ? (sentence.targetLanguage ?? currentTargetLanguage)
+        : (sentence.sourceLanguage ?? currentSourceLanguage);
+    final key = await _loopAudioKey(text, role, language);
     return {
       'sentenceId': sentence.id,
       'role': role.name,
-      'language': role == LoopTrackRole.target
-          ? (sentence.targetLanguage ?? currentTargetLanguage)
-          : (sentence.sourceLanguage ?? currentSourceLanguage),
+      'language': language,
       'key': key,
       'text': text,
     };
   }
 
-  Future<void> prepareLoop() => _run((generation) async {
+  Map<String, dynamic>? _bundledLoopAudio(
+    LearnSentence sentence,
+    LoopTrackRole role,
+    String voice,
+    String language,
+  ) {
+    final seedId = sentence.seedId;
+    if (seedId == null) return null;
+    final key = role == LoopTrackRole.target
+        ? '$seedId:$voice'
+        : '$seedId:source:$language';
+    final entry = bundledAudio[key];
+    if (role == LoopTrackRole.source &&
+        entry == null &&
+        language == currentSourceLanguage) {
+      final legacy = bundledAudio['$seedId:source'];
+      return legacy is Map ? Map<String, dynamic>.from(legacy) : null;
+    }
+    return entry is Map ? Map<String, dynamic>.from(entry) : null;
+  }
+
+  Future<bool> _ensureBundledLoopAudio(
+    String account,
+    LearnSentence sentence,
+    Map<String, Object?> reference,
+    String voice,
+    String language,
+  ) async {
+    final role = reference['role'] == LoopTrackRole.source.name
+        ? LoopTrackRole.source
+        : LoopTrackRole.target;
+    final bundled = _bundledLoopAudio(sentence, role, voice, language);
+    if (bundled == null) return false;
+    final relative = bundled['path'];
+    final checksum = bundled['sha256'];
+    if (relative is! String ||
+        !relative.startsWith('assets/audio/') ||
+        relative.contains('..') ||
+        checksum is! String ||
+        !RegExp(r'^[a-f0-9]{64}$').hasMatch(checksum)) {
+      throw const LearningFailure('本地循环音频清单无效。');
+    }
+    await platform.invoke('audioEnsure', {
+      'accountId': account,
+      'key': reference['key'],
+      'url': Uri.base.resolve('assets/$relative').toString(),
+      'sha256': checksum,
+    });
+    return true;
+  }
+
+  Future<void> prepareLoop() => _run((generation) => _prepareLoop(generation));
+
+  Future<void> _prepareLoop(int generation) async {
     final items = buildLoopQueue(
       state.sentences.where((sentence) => !sentence.archived).toList(),
     );
     if (items.isEmpty) throw const LearningFailure('还没有可循环播放的句子。');
+    loopReady = false;
     loopPreparing = true;
     loopPreparedTracks = 0;
     _loopTracks = [];
     notifyListeners();
-    final account = _accountId;
-    final voice = state.preferences.voice;
-    final references = <Map<String, Object?>>[];
-    for (final item in items) {
-      final sentence = state.sentences.firstWhere(
-        (candidate) => candidate.id == item.sentenceId,
-      );
-      references
-        ..add(await _loopTrackReference(sentence, LoopTrackRole.target))
-        ..add(await _loopTrackReference(sentence, LoopTrackRole.source));
-    }
-    _ensureCurrent(generation);
-    loopTotalTracks = references.length;
-    for (final reference in references) {
-      final key = reference['key']! as String;
-      final text = reference['text']! as String;
-      final sentenceId = reference['sentenceId']! as String;
-      final role = reference['role']! as String;
-      final cached =
-          await platform.invoke('audioCached', {
-            'accountId': account,
-            'key': key,
-          }) ==
-          true;
-      if (!cached) {
+    try {
+      final account = _accountId;
+      final voice = state.preferences.voice;
+      final references = <Map<String, Object?>>[];
+      for (final item in items) {
+        final sentence = state.sentences.firstWhere(
+          (candidate) => candidate.id == item.sentenceId,
+        );
+        references
+          ..add(await _loopTrackReference(sentence, LoopTrackRole.target))
+          ..add(await _loopTrackReference(sentence, LoopTrackRole.source));
+      }
+      _ensureCurrent(generation);
+      loopTotalTracks = references.length;
+      for (final reference in references) {
+        final key = reference['key']! as String;
+        final text = reference['text']! as String;
+        final sentenceId = reference['sentenceId']! as String;
         final sentence = state.sentences
             .where((candidate) => candidate.id == sentenceId)
             .firstOrNull;
-        final bundled = role == LoopTrackRole.target.name
-            ? bundledAudio['${sentence?.seedId}:$voice']
-            : null;
-        if (bundled is Map &&
-            bundled['path'] is String &&
-            (bundled['path'] as String).startsWith('assets/audio/') &&
-            !(bundled['path'] as String).contains('..') &&
-            bundled['sha256'] is String) {
-          await platform.invoke('audioEnsure', {
-            'accountId': account,
-            'key': key,
-            'url': Uri.base.resolve('assets/${bundled['path']}').toString(),
-            'sha256': bundled['sha256'],
-          });
-        }
-      }
-      if (await platform.invoke('audioCached', {
-            'accountId': account,
-            'key': key,
-          }) !=
-          true) {
-        if (!gateway.configured) {
-          throw const LearningFailure('联网补齐音频后即可循环听。');
-        }
-        final manifest = state.audio[key];
-        if (manifest?['manifestId'] != null) {
-          final response = await gateway.invoke('audio-download-url', {
-            'manifestId': manifest!['manifestId'],
-          }, get: true);
-          await _ensureLoopAudio(
+        final cached =
+            await platform.invoke('audioCached', {
+              'accountId': account,
+              'key': key,
+            }) ==
+            true;
+        if (!cached && sentence != null) {
+          final language = requiredText(reference['language'], '循环听语言');
+          await _ensureBundledLoopAudio(
             account,
-            key,
-            requiredText(response['downloadUrl'], '音频地址'),
+            sentence,
+            reference,
+            voice,
+            language,
           );
-        } else {
-          final requestId =
-              state.audio[key]?['requestId'] as String? ?? newId();
-          final response = await gateway.invoke('audio-generate', {
-            'sentenceId': reference['sentenceId'],
-            'targetText': text,
-            'voiceProfile': voice,
-            'reason': 'loop_listening',
-            'clientRequestId': requestId,
-          });
-          if (response['status'] != 'ready' ||
-              response['downloadUrl'] == null) {
-            throw const LearningFailure('音频正在准备，请稍后重试。');
+        }
+        if (await platform.invoke('audioCached', {
+              'accountId': account,
+              'key': key,
+            }) !=
+            true) {
+          final isSeed = sentence?.seedId != null;
+          if (!hasSession) {
+            throw LearningFailure(
+              isSeed ? '例句的母语音频尚未随应用包就绪，请更新包含例句母语音频的版本。' : '登录后即可为自己的句子补齐音频。',
+              code: isSeed ? 'seed_native_audio_missing' : 'login_required',
+            );
           }
-          await _change(
-            (next) {
-              next.audio[key] = Map<String, Object?>.from(response);
-            },
-            sync: false,
-            generation: generation,
-          );
-          await _ensureLoopAudio(
-            account,
-            key,
-            requiredText(response['downloadUrl'], '音频地址'),
-          );
+          if (!gateway.configured) {
+            throw const LearningFailure(
+              '在线服务尚未配置。你可以继续学习已保存的内容。',
+              code: 'not_configured',
+            );
+          }
+          final manifest = state.audio[key];
+          if (manifest?['manifestId'] != null) {
+            final response = await gateway.invoke('audio-download-url', {
+              'manifestId': manifest!['manifestId'],
+            });
+            await _ensureLoopAudio(
+              account,
+              key,
+              requiredText(response['downloadUrl'], '音频地址'),
+            );
+          } else {
+            final requestId =
+                state.audio[key]?['requestId'] as String? ?? newId();
+            final response = await gateway.invoke('audio-generate', {
+              'sentenceId': reference['sentenceId'],
+              'targetText': text,
+              'voiceProfile': voice,
+              'reason': 'loop_listening',
+              'clientRequestId': requestId,
+            });
+            if (response['status'] != 'ready' ||
+                response['downloadUrl'] == null) {
+              throw const LearningFailure('音频正在准备，请稍后重试。');
+            }
+            await _change(
+              (next) {
+                next.audio[key] = Map<String, Object?>.from(response);
+              },
+              sync: false,
+              generation: generation,
+            );
+            await _ensureLoopAudio(
+              account,
+              key,
+              requiredText(response['downloadUrl'], '音频地址'),
+            );
+          }
         }
+        _sameAccount(account);
+        _ensureCurrent(generation);
+        _loopTracks.add(reference);
+        loopPreparedTracks += 1;
+        notifyListeners();
       }
-      _sameAccount(account);
-      _ensureCurrent(generation);
-      _loopTracks.add(reference);
-      loopPreparedTracks += 1;
+      loopPreparing = false;
+      loopReady = true;
+      notice = '双语音频已准备好。';
       notifyListeners();
+    } catch (_) {
+      loopPreparing = false;
+      loopReady = false;
+      notifyListeners();
+      rethrow;
     }
-    loopPreparing = false;
-    notice = '双语音频已准备好。';
-  });
+  }
 
   Future<void> _ensureLoopAudio(String account, String key, String url) async {
     final uri = Uri.tryParse(url);
-    if (uri == null || uri.scheme != 'https') {
+    final isLocalHttp =
+        uri != null &&
+        uri.scheme == 'http' &&
+        const {'localhost', '127.0.0.1'}.contains(uri.host);
+    if (uri == null || (uri.scheme != 'https' && !isLocalHttp)) {
       throw const FormatException('音频地址无效。');
     }
     await platform.invoke('audioEnsure', {
@@ -357,35 +467,45 @@ class LearningController extends ChangeNotifier {
 
   Future<void> startLoop() => _run((generation) async {
     try {
-      await prepareLoop();
+      if (!loopReady || _loopTracks.isEmpty) {
+        await _prepareLoop(generation);
+        _ensureCurrent(generation);
+        // Preparation and playback are separate actions. The first click
+        // validates/downloads every track and leaves an explicit start action.
+        return;
+      }
       _ensureCurrent(generation);
-      _loopSessionId = newId();
-      _loopAccountId = _accountId;
-      final order = state.preferences.loopOptions.order.name;
-      final started = await platform.invoke('audioLoopStart', {
-        'accountId': _accountId,
-        'sessionId': _loopSessionId,
-        'order': order,
-        'durationMs': state.preferences.loopOptions.durationMinutes * 60 * 1000,
-        'speed': state.preferences.speed,
-        'tracks': _loopTracks,
-        'gapMs': {'language': 1000, 'sentence': 2000},
-      });
-      _ensureCurrent(generation);
-      loopPlayback = started is Map
-          ? objectMap(started)
-          : objectMap(
-              await platform.invoke('audioLoopStatus', {
-                'accountId': _accountId,
-                'sessionId': _loopSessionId,
-              }),
-            );
-      notifyListeners();
+      await _beginLoopSession(generation);
     } catch (_) {
       loopPreparing = false;
       rethrow;
     }
   });
+
+  Future<void> _beginLoopSession(int generation) async {
+    _loopSessionId = newId();
+    _loopAccountId = _accountId;
+    final order = state.preferences.loopOptions.order.name;
+    final started = await platform.invoke('audioLoopStart', {
+      'accountId': _accountId,
+      'sessionId': _loopSessionId,
+      'order': order,
+      'durationMs': state.preferences.loopOptions.durationMinutes * 60 * 1000,
+      'speed': state.preferences.speed,
+      'tracks': _loopTracks,
+      'gapMs': {'language': 1000, 'sentence': 2000},
+    });
+    _ensureCurrent(generation);
+    loopPlayback = started is Map
+        ? objectMap(started)
+        : objectMap(
+            await platform.invoke('audioLoopStatus', {
+              'accountId': _accountId,
+              'sessionId': _loopSessionId,
+            }),
+          );
+    notifyListeners();
+  }
 
   Future<void> pauseLoop() => _loopControl('audioLoopPause');
   Future<void> resumeLoop() => _loopControl('audioLoopResume');
@@ -396,21 +516,25 @@ class LearningController extends ChangeNotifier {
   Future<void> setLoopOrder(LoopOrder order) async {
     await updateLoopPreferences(order: order);
     if (_loopSessionId != null) {
-      await platform.invoke('audioLoopOrder', {
+      final status = await platform.invoke('audioLoopOrder', {
         'accountId': _accountId,
         'sessionId': _loopSessionId,
         'order': order.name,
       });
+      if (status is Map) loopPlayback = objectMap(status);
+      notifyListeners();
     }
   }
 
   Future<void> _loopControl(String action) async {
     final sessionId = _loopSessionId;
     if (sessionId == null) return;
-    await platform.invoke(action, {
+    final status = await platform.invoke(action, {
       'accountId': _accountId,
       'sessionId': sessionId,
     });
+    if (status is Map) loopPlayback = objectMap(status);
+    notifyListeners();
   }
 
   Future<void> stopLoop({String reason = 'user'}) async {
@@ -498,6 +622,7 @@ class LearningController extends ChangeNotifier {
     );
     try {
       await gateway.invoke('events', {
+        'id': event.id,
         'eventType': event.type,
         'metadata': event.metadata,
       });
@@ -541,6 +666,7 @@ class LearningController extends ChangeNotifier {
     _loopSessionId = null;
     _loopAccountId = null;
     loopPreparing = false;
+    loopReady = false;
     if (initialized && (_inputDirty || localSaveFailed)) {
       _saveDepartingInput(_accountId, state.copy());
     }
@@ -660,6 +786,8 @@ class LearningController extends ChangeNotifier {
       localSaveFailed = _departingInputs.isNotEmpty;
       syncFailed = false;
       _cloudDirty = false;
+      unawaited(membership.load());
+      unawaited(researchProfile.load());
       if (hasSession) _scheduleSync();
     } catch (e) {
       if (_current(generation)) {
@@ -937,7 +1065,24 @@ class LearningController extends ChangeNotifier {
   String _message(Object e, {String fallback = '暂时无法完成操作，内容已保留，请稍后重试。'}) {
     if (e is LearningFailure) return e.message;
     if (e is FormatException) return e.message;
-    final text = e.toString().toLowerCase();
+    final original = e.toString();
+    final text = original.toLowerCase();
+    const audioMessages = [
+      '音频下载失败',
+      '音频校验失败',
+      '音频缓存失败',
+      '音频地址无效',
+      '音频播放失败',
+      '音频缓存不存在，请先联网获取',
+      '当前浏览器无法载入音频',
+      '当前浏览器不支持音频播放',
+      '循环听时长无效',
+      '循环听缺少音频',
+      '循环听需要中英双语音频',
+    ];
+    for (final message in audioMessages) {
+      if (text.contains(message.toLowerCase())) return message;
+    }
     if (text.contains('invalid login credentials')) return '邮箱或密码不正确，请重新输入。';
     if (text.contains('email not confirmed')) return '请先通过邮件确认账户。';
     if (text.contains('notallowederror') || text.contains('permission')) {
@@ -1042,7 +1187,14 @@ class LearningController extends ChangeNotifier {
     void Function(LearningSnapshot next) change, {
     bool sync = true,
     int? generation,
-  }) => _saveLocal(change, sync: sync, generation: generation);
+  }) {
+    // Any persisted learning or preference change can alter the loop queue or
+    // its voice settings. The preparation button will rebuild the track list
+    // before the next session; writes made while preparing are finalized by
+    // _prepareLoop itself.
+    if (!loopPreparing) loopReady = false;
+    return _saveLocal(change, sync: sync, generation: generation);
+  }
 
   void _scheduleSync() {
     if (!hasSession || platformInfo['online'] == false || _disposed) return;
@@ -1059,18 +1211,58 @@ class LearningController extends ChangeNotifier {
   }
 
   void _sameAccount(String account) {
-    if (account != _accountId || gateway.userId != account) {
+    if (account != _accountId || (gateway.userId ?? 'guest') != account) {
       throw const LearningFailure('账户已切换，本次结果没有写入新账户。');
     }
+  }
+
+  Future<void> _recordFeedbackEvent(
+    String eventType,
+    Map<String, dynamic> metadata,
+  ) async {
+    if (_disposed || !hasSession) return;
+    final event = LearnEvent(
+      id: newId(),
+      type: eventType,
+      metadata: Map<String, dynamic>.from(metadata),
+    );
+    await _change((next) {
+      if (!next.events.any((item) => item.id == event.id)) {
+        next.events.add(event);
+      }
+    });
+    if (platformInfo['online'] == false) return;
+    try {
+      await gateway.invoke('events', {
+        'id': event.id,
+        'eventType': event.type,
+        'metadata': event.metadata,
+      });
+    } catch (_) {
+      // The local event remains queued for the next normal synchronization.
+    }
+  }
+
+  Future<void> _offerAfterLearning() async {
+    if (_disposed || !hasSession || platformInfo['online'] == false) return;
+    final offered = await feedbackSurvey.maybeOfferAfterLearning(
+      events: state.events,
+      uiLocale: uiLocale,
+      blockedByOtherInvite: researchProfile.canShowInvite,
+    );
+    if (!offered && !feedbackSurvey.blocksOtherInvites) {
+      await researchProfile.maybeOfferAfterLearning();
+    }
+    if (!_disposed) notifyListeners();
   }
 
   Future<void> onboard(String name, List<String> seedIds) => _run((
     generation,
   ) async {
     final cleaned = requiredText(name, '精灵名字', max: 24);
-    if (seedIds.toSet().length < 5 ||
+    if (seedIds.toSet().length < minOnboardingSeedCount ||
         seedIds.any((id) => !seeds.any((s) => s.id == id || s.seedId == id))) {
-      throw const LearningFailure('请选择至少五句想学的表达。');
+      throw const LearningFailure('请选择至少三句想学的表达。');
     }
     await _change((next) {
       next.preferences
@@ -1229,6 +1421,9 @@ class LearningController extends ChangeNotifier {
     }, generation: generation);
     _ensureCurrent(generation);
     activeSentence = state.sentences.firstWhere((s) => s.id == sentence.id);
+    if (hasSession && platformInfo['online'] != false) {
+      unawaited(membership.load());
+    }
     notice = '这句英文已保存，准备好就听一听。';
   }
 
@@ -1435,6 +1630,9 @@ class LearningController extends ChangeNotifier {
       }, generation: generation);
       _ensureCurrent(generation);
       generatedCount += sentences.length;
+      if (hasSession && platformInfo['online'] != false) {
+        unawaited(membership.load());
+      }
     }
     notice = state.preparationDraft == null
         ? strings.generatedCount(generatedCount)
@@ -1738,6 +1936,9 @@ class LearningController extends ChangeNotifier {
             _playSession = null;
             if (state.events.any((event) => event.id == eventId)) {
               _showCompanionCue(SpriteActionId.listenComplete);
+              if (platformInfo['online'] != false) {
+                unawaited(_offerAfterLearning());
+              }
             }
           }
         } else if (value['state'] == 'error') {
@@ -1832,6 +2033,9 @@ class LearningController extends ChangeNotifier {
     _showCompanionCue(
       signal == 'clear' ? SpriteActionId.quizGood : SpriteActionId.quizFail,
     );
+    if (platformInfo['online'] != false) {
+      unawaited(_offerAfterLearning());
+    }
     notice = signal == 'clear' ? '记住的表达，会慢慢成为你的语言。' : '已经记下，下次会陪你再练一遍。';
   }
 
@@ -1885,6 +2089,7 @@ class LearningController extends ChangeNotifier {
     String? name,
     String? voice,
     double? speed,
+    bool? companionRailVisible,
     bool? reminderEnabled,
     String? reminderTime,
 
@@ -1893,6 +2098,7 @@ class LearningController extends ChangeNotifier {
     String? uiLocale,
     String? nativeLanguage,
   }) => _run((generation) async {
+    final previousVoice = state.preferences.voice;
     if (reminderEnabled == true) {
       final permission = await platform.invoke('requestNotifications');
       if (permission != 'granted') {
@@ -1904,6 +2110,9 @@ class LearningController extends ChangeNotifier {
       if (name != null) json['name'] = name;
       if (voice != null) json['voice'] = voice;
       if (speed != null) json['speed'] = speed;
+      if (companionRailVisible != null) {
+        json['companionRailVisible'] = companionRailVisible;
+      }
       if (reminderEnabled != null) json['reminderEnabled'] = reminderEnabled;
       if (reminderTime != null) json['reminderTime'] = reminderTime;
       final languageChoice = nativeLanguage ?? uiLocale;
@@ -1919,7 +2128,9 @@ class LearningController extends ChangeNotifier {
       _playSession = null;
       await platform.invoke('audioStop');
       playback['state'] = 'idle';
-      if (voice != state.preferences.voice) {
+      if (voice != previousVoice) {
+        loopReady = false;
+        _loopTracks = [];
         await stopLoop(reason: 'voiceChanged');
       }
     }
@@ -2296,6 +2507,9 @@ class LearningController extends ChangeNotifier {
     _syncTimer?.cancel();
     _companionTimer?.cancel();
     _auth?.cancel();
+    membership.dispose();
+    researchProfile.dispose();
+    feedbackSurvey.dispose();
     unawaited(platform.invoke('audioStop').catchError((Object _) => null));
     unawaited(platform.invoke('recordCancel').catchError((Object _) => null));
     super.dispose();

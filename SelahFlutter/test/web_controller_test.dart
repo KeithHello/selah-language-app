@@ -991,7 +991,7 @@ void main() {
     expect(c.state.sentences.first.id, isNot(c.seeds.first.id));
   });
 
-  test('onboard rejects fewer than five unique seeds', () async {
+  test('onboard rejects fewer than three unique seeds', () async {
     final c = LearningController(
       gateway: UnconfiguredGateway(),
       platform: MemoryPlatform(),
@@ -1001,14 +1001,14 @@ void main() {
     addTearDown(c.dispose);
     await c.initialize();
 
-    await c.onboard('小豆', c.seeds.take(4).map((s) => s.id).toList());
+    await c.onboard('小豆', c.seeds.take(2).map((s) => s.id).toList());
 
     expect(c.state.preferences.onboarded, false);
     expect(c.state.sentences, isEmpty);
-    expect(c.error, '请选择至少五句想学的表达。');
+    expect(c.error, '请选择至少三句想学的表达。');
   });
 
-  test('onboard accepts five or more seeds without an upper limit', () async {
+  test('onboard accepts three or more seeds without an upper limit', () async {
     final c = LearningController(
       gateway: UnconfiguredGateway(),
       platform: MemoryPlatform(),
@@ -1018,10 +1018,10 @@ void main() {
     addTearDown(c.dispose);
     await c.initialize();
 
-    await c.onboard('小豆', c.seeds.map((s) => s.id).toList());
+    await c.onboard('小豆', c.seeds.take(3).map((s) => s.id).toList());
 
     expect(c.state.preferences.onboarded, true);
-    expect(c.state.sentences, hasLength(6));
+    expect(c.state.sentences, hasLength(3));
   });
   test(
     'adding a seed saves a user-owned learning record and is idempotent',

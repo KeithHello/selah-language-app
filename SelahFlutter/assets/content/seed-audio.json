@@ -19,45 +19,15 @@
     "sha256": "7ed87b8a203c06f7fd7f5ec9e5622dcd1cb07e0bbbb95c52046824405356a8b0",
     "byteSize": 80160
   },
-  "seed-002:clear-slow": {
-    "path": "assets/audio/seed-002-clear-slow.mp3",
-    "sha256": "cc94bdd50dcae939580bd6cfe71d426910ece227ac7e1404d13e41870e7edf69",
-    "byteSize": 87840
+  "seed-001:source:ja": {
+    "path": "assets/audio/seed-001-source-ja.mp3",
+    "sha256": "aeb75da400492be91a7275aa8ec293491c9e15f98a887ff616c45637da40501d",
+    "byteSize": 63360
   },
-  "seed-002:daily-bright": {
-    "path": "assets/audio/seed-002-daily-bright.mp3",
-    "sha256": "82e2329d7627bb461b24f8394f39d4be4fa81eba8cd982c42640ae5c31d8e1ff",
-    "byteSize": 103200
-  },
-  "seed-002:elegant-british": {
-    "path": "assets/audio/seed-002-elegant-british.mp3",
-    "sha256": "0e83483ede4ba7f10985ecc083c04b14b2c9bbd394e1901b879bc1b6b6debecf",
-    "byteSize": 108480
-  },
-  "seed-002:gentle-natural": {
-    "path": "assets/audio/seed-002-gentle-natural.mp3",
-    "sha256": "05c7d39d9a1721f4568bab0ef5c75bfbb3adb4e96a1652f777400642a381b92d",
-    "byteSize": 96000
-  },
-  "seed-003:clear-slow": {
-    "path": "assets/audio/seed-003-clear-slow.mp3",
-    "sha256": "90e6ce335b9e7a871276119a54cf12218558cb23e767014714f13b8274f27399",
-    "byteSize": 129600
-  },
-  "seed-003:daily-bright": {
-    "path": "assets/audio/seed-003-daily-bright.mp3",
-    "sha256": "6699d1acf0f7c205a8ae2710526bdaa9b4cc88361b959ad89ba804be35434b95",
-    "byteSize": 140640
-  },
-  "seed-003:elegant-british": {
-    "path": "assets/audio/seed-003-elegant-british.mp3",
-    "sha256": "06ad5144b18d29f9de476947f44a4544cdf745bf159a6fe4a24ef85b39b06325",
-    "byteSize": 143520
-  },
-  "seed-003:gentle-natural": {
-    "path": "assets/audio/seed-003-gentle-natural.mp3",
-    "sha256": "21e379f48816a316645497101ad4b9c378b4f792a288b54f3f73757c695744ea",
-    "byteSize": 140160
+  "seed-001:source:zh-Hant": {
+    "path": "assets/audio/seed-001-source-zh-Hant.mp3",
+    "sha256": "e14f9008d6b4bf1a8f713e77b281a01a1f71a28b9b279942b1506c8664760eaa",
+    "byteSize": 51072
   },
   "seed-004:clear-slow": {
     "path": "assets/audio/seed-004-clear-slow.mp3",
@@ -79,25 +49,15 @@
     "sha256": "f99d4e82cf86a16c68245244bd27a1cf592f65faa62d2cd03ac2ac9a7d9fbb3c",
     "byteSize": 91680
   },
-  "seed-005:clear-slow": {
-    "path": "assets/audio/seed-005-clear-slow.mp3",
-    "sha256": "eae0575e942dc18e1ecfc0fbfbfafec4f1a66d41ba47d6a9d239a6d5b87878b1",
-    "byteSize": 132480
+  "seed-004:source:ja": {
+    "path": "assets/audio/seed-004-source-ja.mp3",
+    "sha256": "044561cef48d5511f4ede1f28da748718457fa3bd1a22300e87eaf706056ee36",
+    "byteSize": 60288
   },
-  "seed-005:daily-bright": {
-    "path": "assets/audio/seed-005-daily-bright.mp3",
-    "sha256": "3331ec921eed322a1508aadb46be21ed881a869fc913caceb66ce86c91017cf1",
-    "byteSize": 136320
-  },
-  "seed-005:elegant-british": {
-    "path": "assets/audio/seed-005-elegant-british.mp3",
-    "sha256": "a43e3568eaa7f61df76e52a08a9c7f8fe7d676f9db1aa6faed1a60d51357ab46",
-    "byteSize": 144960
-  },
-  "seed-005:gentle-natural": {
-    "path": "assets/audio/seed-005-gentle-natural.mp3",
-    "sha256": "4f91f2ab30ad6c1d6c50262d7e8482208e7ba6cf6213ffe1c18c9dabf0ac1105",
-    "byteSize": 140160
+  "seed-004:source:zh-Hant": {
+    "path": "assets/audio/seed-004-source-zh-Hant.mp3",
+    "sha256": "82c9ec5a5bc33f5ddefac4eddd601567a6933e3d802711cf5a5d73c113f9eb25",
+    "byteSize": 47232
   },
   "seed-006:clear-slow": {
     "path": "assets/audio/seed-006-clear-slow.mp3",
@@ -119,65 +79,15 @@
     "sha256": "ad20c4904062cdb5a3f4a38f4962f4b416fb8d01f53f7a5a081dd5910f76caea",
     "byteSize": 57600
   },
-  "seed-007:clear-slow": {
-    "path": "assets/audio/seed-007-clear-slow.mp3",
-    "sha256": "0c2bde3bcb62d33962679bd2ea3bd330b578aabd31b4154ed1da408c7473673c",
-    "byteSize": 88800
+  "seed-006:source:ja": {
+    "path": "assets/audio/seed-006-source-ja.mp3",
+    "sha256": "e1721b95d1e08fed62da548ef387d15a7f688bc470d89683496f22f290871c1e",
+    "byteSize": 46080
   },
-  "seed-007:daily-bright": {
-    "path": "assets/audio/seed-007-daily-bright.mp3",
-    "sha256": "ce60eed87130e722174032cf2cd2d74ac627e716d7ee73f92fcebf5384c3acd2",
-    "byteSize": 93120
-  },
-  "seed-007:elegant-british": {
-    "path": "assets/audio/seed-007-elegant-british.mp3",
-    "sha256": "34f6dffa5debdd1f10dad0291177fa4e25f467c59c4cc74cd1b54aef942e15f8",
-    "byteSize": 94560
-  },
-  "seed-007:gentle-natural": {
-    "path": "assets/audio/seed-007-gentle-natural.mp3",
-    "sha256": "26a658e6bc0c7dfeca20c7a763ef0b24ee791e8fef1224876c6ac38579af6087",
-    "byteSize": 94080
-  },
-  "seed-008:clear-slow": {
-    "path": "assets/audio/seed-008-clear-slow.mp3",
-    "sha256": "0eb2c6c94d98d2bb0177e1e8970e47143625d66bb0d9629e55b7da4bf00c652c",
-    "byteSize": 92640
-  },
-  "seed-008:daily-bright": {
-    "path": "assets/audio/seed-008-daily-bright.mp3",
-    "sha256": "4213ea5f5b5f7c0c867ae12e4e928b0f3064c38cba017d2bda195352763310bb",
-    "byteSize": 106560
-  },
-  "seed-008:elegant-british": {
-    "path": "assets/audio/seed-008-elegant-british.mp3",
-    "sha256": "5abadc5c8e4b6b1804fb881b05b2d2ef0629209870c918c99c97ec5c369093ad",
-    "byteSize": 111360
-  },
-  "seed-008:gentle-natural": {
-    "path": "assets/audio/seed-008-gentle-natural.mp3",
-    "sha256": "b26b67abe22bb2bb937ba21d19ae4b7f1ff9bcb01144c757102f2c8f1bc0441c",
-    "byteSize": 106560
-  },
-  "seed-009:clear-slow": {
-    "path": "assets/audio/seed-009-clear-slow.mp3",
-    "sha256": "ff5f8656da206acfcacb59dfbaf64be3b89de705e32678a925bd4be06eda7d55",
-    "byteSize": 63840
-  },
-  "seed-009:daily-bright": {
-    "path": "assets/audio/seed-009-daily-bright.mp3",
-    "sha256": "9aa132db13db5bbacc5af17555cafea1b30b03ab1e29503ee977cb51aea0a577",
-    "byteSize": 72000
-  },
-  "seed-009:elegant-british": {
-    "path": "assets/audio/seed-009-elegant-british.mp3",
-    "sha256": "173fac095ff4ee456b8241daeb9d391a16ee8ee05681547e6c7e0b559db5d5a4",
-    "byteSize": 71040
-  },
-  "seed-009:gentle-natural": {
-    "path": "assets/audio/seed-009-gentle-natural.mp3",
-    "sha256": "520c2a7a196168a4a096206480307f021366b7e9e6614a59102eb1765dec132e",
-    "byteSize": 70080
+  "seed-006:source:zh-Hant": {
+    "path": "assets/audio/seed-006-source-zh-Hant.mp3",
+    "sha256": "b2a91edca11627cd111a7ba86a98c7acb8e12fd2f458078301d6b2b880b372ea",
+    "byteSize": 35712
   },
   "seed-010:clear-slow": {
     "path": "assets/audio/seed-010-clear-slow.mp3",
@@ -199,25 +109,15 @@
     "sha256": "710d04e44d84cc7a25793342686eb4540aaa64beeb1ac82b36e55459ec675600",
     "byteSize": 104640
   },
-  "seed-011:clear-slow": {
-    "path": "assets/audio/seed-011-clear-slow.mp3",
-    "sha256": "891b24ecd9229d12be5ebbceadfa30d250339594471cee09958aa436c2a3e073",
-    "byteSize": 86400
+  "seed-010:source:ja": {
+    "path": "assets/audio/seed-010-source-ja.mp3",
+    "sha256": "2abaf49287d071e25e07f4390f3406dc068f57a2781cdda3b63c9719e9670566",
+    "byteSize": 88320
   },
-  "seed-011:daily-bright": {
-    "path": "assets/audio/seed-011-daily-bright.mp3",
-    "sha256": "57e14519980ab11aa5146feb7653b1e6435ee48be6db7e7d9dd62e8a8fb4b0f0",
-    "byteSize": 94080
-  },
-  "seed-011:elegant-british": {
-    "path": "assets/audio/seed-011-elegant-british.mp3",
-    "sha256": "cc42fa19f83c945f23dd2fe8b11f2ac8b87e9538fa286b9120d58e1176543ad5",
-    "byteSize": 94560
-  },
-  "seed-011:gentle-natural": {
-    "path": "assets/audio/seed-011-gentle-natural.mp3",
-    "sha256": "a87ff1dc502bbb6abbab94d58d0c461a99ece6bcdde8e5806b11db635b44d255",
-    "byteSize": 90240
+  "seed-010:source:zh-Hant": {
+    "path": "assets/audio/seed-010-source-zh-Hant.mp3",
+    "sha256": "dde7bd1668b0a1e4a3056422169c04c809fbf54151c4235f010267849807e7f6",
+    "byteSize": 72192
   },
   "seed-012:clear-slow": {
     "path": "assets/audio/seed-012-clear-slow.mp3",
@@ -239,65 +139,15 @@
     "sha256": "e85ce36f1102c06e71dbf0a06fc1a378c5b2960399f0b47d8a4e85acd4c57273",
     "byteSize": 95520
   },
-  "seed-013:clear-slow": {
-    "path": "assets/audio/seed-013-clear-slow.mp3",
-    "sha256": "39fbfe5fc3058d3e2df8d9c74e3094e59dda130f375afb23a2f8427ff7e71ae0",
-    "byteSize": 107520
+  "seed-012:source:ja": {
+    "path": "assets/audio/seed-012-source-ja.mp3",
+    "sha256": "8e78814c8dec511a0e95ade0ffd17f7dde969ad6fb9b3726d145fded1425fa79",
+    "byteSize": 118272
   },
-  "seed-013:daily-bright": {
-    "path": "assets/audio/seed-013-daily-bright.mp3",
-    "sha256": "71b5565e25ddf3c0d63e4c534ca16d13b33357ac58bcef5a4407d5ba97143d16",
-    "byteSize": 107520
-  },
-  "seed-013:elegant-british": {
-    "path": "assets/audio/seed-013-elegant-british.mp3",
-    "sha256": "e874716f2de0cca49a09d5609a31f3a5b068b4ee7b27990857913a13d51a1bdb",
-    "byteSize": 107040
-  },
-  "seed-013:gentle-natural": {
-    "path": "assets/audio/seed-013-gentle-natural.mp3",
-    "sha256": "7b54b0a2b2ae896d6561760d66862567b6a6fd7d20374fe2a0d9548c52084f27",
-    "byteSize": 103200
-  },
-  "seed-014:clear-slow": {
-    "path": "assets/audio/seed-014-clear-slow.mp3",
-    "sha256": "fb0c3c9badd7a87a49d76fc42e54d752129ba2d7808405235af39cb94713ce16",
-    "byteSize": 101280
-  },
-  "seed-014:daily-bright": {
-    "path": "assets/audio/seed-014-daily-bright.mp3",
-    "sha256": "ce484663152d2c28517a559bea024e5aa856d4b1712940753612ae0fc4b2d0ab",
-    "byteSize": 98880
-  },
-  "seed-014:elegant-british": {
-    "path": "assets/audio/seed-014-elegant-british.mp3",
-    "sha256": "1e59a6e16a2e2a9ffd3561280e48d0ffc9c33f7079afa8b4463892e59fe5e7a7",
-    "byteSize": 103200
-  },
-  "seed-014:gentle-natural": {
-    "path": "assets/audio/seed-014-gentle-natural.mp3",
-    "sha256": "dc7ade257671f62960251d03095efbe7ec10f2ffa41add92392ab72ca288bf9f",
-    "byteSize": 99360
-  },
-  "seed-015:clear-slow": {
-    "path": "assets/audio/seed-015-clear-slow.mp3",
-    "sha256": "a50288c14a106ae9939ebf6c97cda47f39df8ac69a95c9e7f7c1a0ba8f1d68d7",
-    "byteSize": 96000
-  },
-  "seed-015:daily-bright": {
-    "path": "assets/audio/seed-015-daily-bright.mp3",
-    "sha256": "cbc0e8358f15cb25d8ad8061d587f35d623df515f04d11f59379b2ba3d3f3659",
-    "byteSize": 104160
-  },
-  "seed-015:elegant-british": {
-    "path": "assets/audio/seed-015-elegant-british.mp3",
-    "sha256": "511ae1390a9f66f8b905e3c3dbec285c46a78b268f61cd323c5cad184044ed91",
-    "byteSize": 106080
-  },
-  "seed-015:gentle-natural": {
-    "path": "assets/audio/seed-015-gentle-natural.mp3",
-    "sha256": "691d743594c697d7df41a9a74b66dcfe38c450ccf0d303e2301c1948d83e0b6a",
-    "byteSize": 107520
+  "seed-012:source:zh-Hant": {
+    "path": "assets/audio/seed-012-source-zh-Hant.mp3",
+    "sha256": "34d10f6a20e55a4ddf16d8a0b5a430ee907d39d673527300de1959b59f5529f1",
+    "byteSize": 72192
   },
   "seed-016:clear-slow": {
     "path": "assets/audio/seed-016-clear-slow.mp3",
@@ -319,65 +169,15 @@
     "sha256": "7fb315f206ac7500179a1442b066180bada9717bac1a2c5fb82b05d9cdf9f229",
     "byteSize": 103680
   },
-  "seed-017:clear-slow": {
-    "path": "assets/audio/seed-017-clear-slow.mp3",
-    "sha256": "fa5464250839bafe0ab22bc361ebda1a78b21db7326fd3c470dbff8ceffbd07f",
-    "byteSize": 88320
+  "seed-016:source:ja": {
+    "path": "assets/audio/seed-016-source-ja.mp3",
+    "sha256": "8d612d35ffabacbb15b84717020ede0caa954393881ca1a618c179bcbf068d78",
+    "byteSize": 115584
   },
-  "seed-017:daily-bright": {
-    "path": "assets/audio/seed-017-daily-bright.mp3",
-    "sha256": "8af7474aff4325e423aa89b0ae296ac5d0f56445ba21163ef46618992381051f",
-    "byteSize": 102240
-  },
-  "seed-017:elegant-british": {
-    "path": "assets/audio/seed-017-elegant-british.mp3",
-    "sha256": "4adb338666bc108aa6cfcdad3ee2726dead2161b0a8b3b0fea2321299f58368e",
-    "byteSize": 104160
-  },
-  "seed-017:gentle-natural": {
-    "path": "assets/audio/seed-017-gentle-natural.mp3",
-    "sha256": "c9069e7a54def06cf74bc453bdb367d951f8d96ad4b7c1019686e9ec97c7c9bc",
-    "byteSize": 88320
-  },
-  "seed-018:clear-slow": {
-    "path": "assets/audio/seed-018-clear-slow.mp3",
-    "sha256": "9669c6edd453f936f328163c8f795079e8808e391531b48055de0d1d17267054",
-    "byteSize": 115200
-  },
-  "seed-018:daily-bright": {
-    "path": "assets/audio/seed-018-daily-bright.mp3",
-    "sha256": "764827318ac0eb7e17e902708ef19dcd20d8e346a1eb21da1c81b59f77673cb2",
-    "byteSize": 120000
-  },
-  "seed-018:elegant-british": {
-    "path": "assets/audio/seed-018-elegant-british.mp3",
-    "sha256": "091039d8a30517079d0174edf6c9ce2348a732bdcdc0eb596c5f9a4f89ee6031",
-    "byteSize": 126720
-  },
-  "seed-018:gentle-natural": {
-    "path": "assets/audio/seed-018-gentle-natural.mp3",
-    "sha256": "d6804630ea148717c761e7b91ecc6ad387e714c34f38f443c48e78d4d419c78f",
-    "byteSize": 108480
-  },
-  "seed-019:clear-slow": {
-    "path": "assets/audio/seed-019-clear-slow.mp3",
-    "sha256": "ffe8100db197c13a080ec5fde195317f2a168fab78641860cd129546709ef29e",
-    "byteSize": 138720
-  },
-  "seed-019:daily-bright": {
-    "path": "assets/audio/seed-019-daily-bright.mp3",
-    "sha256": "23c01abdd5eb5a6178514770d5bdb7f631e328c1cc3cec4f18003597cc461916",
-    "byteSize": 135840
-  },
-  "seed-019:elegant-british": {
-    "path": "assets/audio/seed-019-elegant-british.mp3",
-    "sha256": "81031b6dcb6abc298e16ebb81443c11141ab4f46c515e6a2501721a77b7d0abb",
-    "byteSize": 149280
-  },
-  "seed-019:gentle-natural": {
-    "path": "assets/audio/seed-019-gentle-natural.mp3",
-    "sha256": "a14f5de4dc8ff84606346f21235d0290f5fc9fa52ff83266346daa075d05da5d",
-    "byteSize": 134880
+  "seed-016:source:zh-Hant": {
+    "path": "assets/audio/seed-016-source-zh-Hant.mp3",
+    "sha256": "078c6584ab8f38b001467fe20fb97d9ec9ac65c64750cbb99ecbb17f985c72c7",
+    "byteSize": 93696
   },
   "seed-020:clear-slow": {
     "path": "assets/audio/seed-020-clear-slow.mp3",
@@ -399,6 +199,16 @@
     "sha256": "3337c20fbe6bece66a0a5ea6dec981e6fddee91045ab59a061d62a4d02ef352d",
     "byteSize": 119040
   },
+  "seed-020:source:ja": {
+    "path": "assets/audio/seed-020-source-ja.mp3",
+    "sha256": "0c3ef016e218985c0d683fc79f1e63cdda5cef0b352f0362787efad96d5337cb",
+    "byteSize": 114432
+  },
+  "seed-020:source:zh-Hant": {
+    "path": "assets/audio/seed-020-source-zh-Hant.mp3",
+    "sha256": "0340ee512677f6034d688c9b0b780b053c5a26872ccceedbefd69ac2b8835658",
+    "byteSize": 92160
+  },
   "seed-021:clear-slow": {
     "path": "assets/audio/seed-021-clear-slow.mp3",
     "sha256": "332097d32a3b49a6d3e332c337c5589025cc0c39ae33d5b5bab3506155a1e000",
@@ -419,105 +229,15 @@
     "sha256": "3aa516b71c566f489275133e86cc1891a3073c6583f88d5ab788f2123d8699e1",
     "byteSize": 107520
   },
-  "seed-022:clear-slow": {
-    "path": "assets/audio/seed-022-clear-slow.mp3",
-    "sha256": "2caca4e891f186f65213e88c44bc9e4bdeb87dc5f580762a404c7fa7779892a2",
-    "byteSize": 114240
+  "seed-021:source:ja": {
+    "path": "assets/audio/seed-021-source-ja.mp3",
+    "sha256": "7345391bd0ae1d8b32e0d259838837cbff05bac7bdaaef6433b3cf2a9c487b31",
+    "byteSize": 76800
   },
-  "seed-022:daily-bright": {
-    "path": "assets/audio/seed-022-daily-bright.mp3",
-    "sha256": "8852bb6db02d7f812df6705dd2a77ab55d1900eabc2419f926635345864cf1be",
-    "byteSize": 119520
-  },
-  "seed-022:elegant-british": {
-    "path": "assets/audio/seed-022-elegant-british.mp3",
-    "sha256": "38da9b5210c37596c6b22793e02db41125850236c481c9cc6ac3c2b96e33c6cc",
-    "byteSize": 124320
-  },
-  "seed-022:gentle-natural": {
-    "path": "assets/audio/seed-022-gentle-natural.mp3",
-    "sha256": "0b7cd99a5e4ead877550bf2367c6b5c4e8e51fa58153189c73d4d9873eacb894",
-    "byteSize": 114720
-  },
-  "seed-023:clear-slow": {
-    "path": "assets/audio/seed-023-clear-slow.mp3",
-    "sha256": "3c611011748672f25396cf6a52c979d62c0556af89cd27d2c81c6517c3c4d1f5",
-    "byteSize": 120480
-  },
-  "seed-023:daily-bright": {
-    "path": "assets/audio/seed-023-daily-bright.mp3",
-    "sha256": "bf15d28d66ad6c6327c167eba568fcd1c95e170902c3edf2f8cfa0ff75125613",
-    "byteSize": 126240
-  },
-  "seed-023:elegant-british": {
-    "path": "assets/audio/seed-023-elegant-british.mp3",
-    "sha256": "91be0e8be04147247123972a0555f5148b7465c17e345642cc7a963a9da20bd2",
-    "byteSize": 136320
-  },
-  "seed-023:gentle-natural": {
-    "path": "assets/audio/seed-023-gentle-natural.mp3",
-    "sha256": "a297cbe8ab1c66d6f3b8e9f24023463d4c13c8b34e2bf2f0e83c824baad36bc8",
-    "byteSize": 135360
-  },
-  "seed-024:clear-slow": {
-    "path": "assets/audio/seed-024-clear-slow.mp3",
-    "sha256": "6c0dcfd088125bb5d4c0fc3e50542541de1e79bade3ae681290656325e1cff58",
-    "byteSize": 95040
-  },
-  "seed-024:daily-bright": {
-    "path": "assets/audio/seed-024-daily-bright.mp3",
-    "sha256": "a0b0f39f27133a77956fbc692c16ca321012000afddfab3a0eda766a0adc19b8",
-    "byteSize": 96960
-  },
-  "seed-024:elegant-british": {
-    "path": "assets/audio/seed-024-elegant-british.mp3",
-    "sha256": "dbe947bd8228a8269f5745437f101563abeb5cb9a6e7e0bdc91bad56023a886d",
-    "byteSize": 99360
-  },
-  "seed-024:gentle-natural": {
-    "path": "assets/audio/seed-024-gentle-natural.mp3",
-    "sha256": "b01aeb92f4e08c8bff9bcb944b0a9acdebe9f96e4dc0f81832a1478f66423906",
-    "byteSize": 94080
-  },
-  "seed-025:clear-slow": {
-    "path": "assets/audio/seed-025-clear-slow.mp3",
-    "sha256": "9e2c201d96617c258c298801ee8ca46f5fabfe5001bf07c601e27efbe5321aa3",
-    "byteSize": 101760
-  },
-  "seed-025:daily-bright": {
-    "path": "assets/audio/seed-025-daily-bright.mp3",
-    "sha256": "f3eca21229ab02641f60f0b82f5270b06a03f3b8ede8d9b4cda1b9086321b84d",
-    "byteSize": 106560
-  },
-  "seed-025:elegant-british": {
-    "path": "assets/audio/seed-025-elegant-british.mp3",
-    "sha256": "b60c7249b8e99119e75b4089d8306a425b7bc7ee80791c6e719897c8ebe30485",
-    "byteSize": 106560
-  },
-  "seed-025:gentle-natural": {
-    "path": "assets/audio/seed-025-gentle-natural.mp3",
-    "sha256": "34dd8682784702655bdeaa25d0227ac5241a7551f2d0765bd175dff9e7dd5457",
-    "byteSize": 93120
-  },
-  "seed-026:clear-slow": {
-    "path": "assets/audio/seed-026-clear-slow.mp3",
-    "sha256": "ff134269dd5d1c06dc7db26fc2f863ea620971fcd4e7399aaf20aa57a4fb5422",
-    "byteSize": 99840
-  },
-  "seed-026:daily-bright": {
-    "path": "assets/audio/seed-026-daily-bright.mp3",
-    "sha256": "0cd7a51e8545bf1ba417efedae933bd77db4e150ca0cda340e44e82648779272",
-    "byteSize": 96000
-  },
-  "seed-026:elegant-british": {
-    "path": "assets/audio/seed-026-elegant-british.mp3",
-    "sha256": "166145eb016bbfc7ad35889e716d114c609c17318c094891aa2e843d100731ea",
-    "byteSize": 102720
-  },
-  "seed-026:gentle-natural": {
-    "path": "assets/audio/seed-026-gentle-natural.mp3",
-    "sha256": "dc63875cd8797c1e9ba98a3e6cceb761d0aaebc84a39aae36cd4bdb9de358a0c",
-    "byteSize": 103680
+  "seed-021:source:zh-Hant": {
+    "path": "assets/audio/seed-021-source-zh-Hant.mp3",
+    "sha256": "e65f19895bf4929efa8cc9559464097d6d614e20da1beb98616914ec245908a7",
+    "byteSize": 63360
   },
   "seed-027:clear-slow": {
     "path": "assets/audio/seed-027-clear-slow.mp3",
@@ -539,45 +259,15 @@
     "sha256": "ba4ff0fcab9cd078c4481c3d05592aafa7db30d85e4f97fe9a70c7956460d538",
     "byteSize": 90240
   },
-  "seed-028:clear-slow": {
-    "path": "assets/audio/seed-028-clear-slow.mp3",
-    "sha256": "ae5e4a2989d7ec8fa6d7b02d0c146dfe003d9df674c67d784eef79fa8b5910d1",
-    "byteSize": 90240
+  "seed-027:source:ja": {
+    "path": "assets/audio/seed-027-source-ja.mp3",
+    "sha256": "0656fab1612cc55802eab41815cb407462bb1b6fa3e2ce933ac5535358697fae",
+    "byteSize": 110592
   },
-  "seed-028:daily-bright": {
-    "path": "assets/audio/seed-028-daily-bright.mp3",
-    "sha256": "1d72f6e8d3ba8fc0eaf27876d75e1404c39cd67bd8e1974d9f0ed6ddcb5e9af8",
-    "byteSize": 90720
-  },
-  "seed-028:elegant-british": {
-    "path": "assets/audio/seed-028-elegant-british.mp3",
-    "sha256": "bf8163f9c8d48d5e4ab32d70eb3a07bfe9f2229bffe6ea443f7ba24180909f18",
-    "byteSize": 97440
-  },
-  "seed-028:gentle-natural": {
-    "path": "assets/audio/seed-028-gentle-natural.mp3",
-    "sha256": "760ab9e3e0367b7510a69999570315b28f44c8dc82b5a1173281ee8e8a777f21",
-    "byteSize": 85440
-  },
-  "seed-029:clear-slow": {
-    "path": "assets/audio/seed-029-clear-slow.mp3",
-    "sha256": "6f3d8a2bb39ec77c180fc01a81cf9af200893e2bdcd1c4fd97dde58d2abc85af",
-    "byteSize": 128640
-  },
-  "seed-029:daily-bright": {
-    "path": "assets/audio/seed-029-daily-bright.mp3",
-    "sha256": "08182212b8d19afba272541eac60eb0fc2fa76d06ad487f083b1f1f143c7730c",
-    "byteSize": 127200
-  },
-  "seed-029:elegant-british": {
-    "path": "assets/audio/seed-029-elegant-british.mp3",
-    "sha256": "0ba47af6579b819a57480129687a00f4c581756918aeafafe82e815b4882b82d",
-    "byteSize": 129600
-  },
-  "seed-029:gentle-natural": {
-    "path": "assets/audio/seed-029-gentle-natural.mp3",
-    "sha256": "bddc17d509b14da2d29a4cb558d99f828f372a928be64d6e90296a403bb99b79",
-    "byteSize": 128160
+  "seed-027:source:zh-Hant": {
+    "path": "assets/audio/seed-027-source-zh-Hant.mp3",
+    "sha256": "19c8a5cfe06e444cab502de47239f5a17e7d7b804105bf1f9be032ed1c694690",
+    "byteSize": 81408
   },
   "seed-030:clear-slow": {
     "path": "assets/audio/seed-030-clear-slow.mp3",
@@ -598,5 +288,15 @@
     "path": "assets/audio/seed-030-gentle-natural.mp3",
     "sha256": "d80eae06faf1fd81307855f927ca5e3774d57e654e64f17f96f08a3f434422f8",
     "byteSize": 112320
+  },
+  "seed-030:source:ja": {
+    "path": "assets/audio/seed-030-source-ja.mp3",
+    "sha256": "efb7200167c2aa446fb28aee4bf270c7e4525e6907818e73ff709dc457dbb98f",
+    "byteSize": 72960
+  },
+  "seed-030:source:zh-Hant": {
+    "path": "assets/audio/seed-030-source-zh-Hant.mp3",
+    "sha256": "09dc006230e39b5ce675d2db269c2a08c682cf20d112f9be93cb62f20575190c",
+    "byteSize": 87168
   }
 }

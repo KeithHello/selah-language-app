@@ -31,6 +31,19 @@ try {
   & flutter @flutterArgs
   if ($LASTEXITCODE -ne 0) { throw 'Flutter Web build failed.' }
   $bundleRoot = Join-Path $flutterRoot $outputDirectory
+  $mainDartJs = Join-Path $bundleRoot 'main.dart.js'
+  if ($publicConfig.ContainsKey('SUPABASE_URL') -and $publicConfig.ContainsKey('SUPABASE_PUBLISHABLE_KEY')) {
+    $bundleJavaScript = [System.IO.File]::ReadAllText($mainDartJs)
+    if (
+      -not $bundleJavaScript.Contains($publicConfig['SUPABASE_URL']) -or
+      -not $bundleJavaScript.Contains($publicConfig['SUPABASE_PUBLISHABLE_KEY'])
+    ) {
+      throw 'Selah Web build is missing bundled Supabase public config; cloud login and AI services are unavailable.'
+    }
+    Write-Host 'Selah Web: bundled public Supabase cloud config.'
+  } else {
+    Write-Warning 'Selah Web: no public Supabase config was provided; this is a local-only build and cloud login is unavailable.'
+  }
   $indexPath = Join-Path $bundleRoot 'index.html'
   $assetPaths = Get-ChildItem -LiteralPath (Join-Path $bundleRoot 'assets') -File -Recurse |
     ForEach-Object { $_.FullName.Substring($bundleRoot.Length + 1).Replace('\', '/') }

@@ -15,10 +15,13 @@ import {
 } from "../_shared/event_contract.ts";
 
 interface RequestBody {
+  id?: string;
   eventType: string;
   sentenceId?: string;
   metadata?: Record<string, unknown>;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -48,6 +51,11 @@ Deno.serve(async (req: Request) => {
     );
   }
 
+  if (body.id !== undefined &&
+    (typeof body.id !== "string" || !UUID.test(body.id))) {
+    return errorResponse("Invalid event id", 400, "invalid_event_id");
+  }
+
   const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
@@ -60,12 +68,14 @@ Deno.serve(async (req: Request) => {
 
     const safeMetadata = sanitizeEventMetadata(body.eventType, body.metadata);
 
-    const { error } = await supabase.from("learning_events").insert({
+    const eventRow: Record<string, unknown> = {
       user_id: userId,
       sentence_id: body.sentenceId ?? null,
       event_type: body.eventType,
       metadata: safeMetadata,
-    });
+    };
+    if (body.id) eventRow.id = body.id;
+    const { error } = await supabase.from("learning_events").insert(eventRow);
 
     if (error) {
       console.error("Learning event insert failed");

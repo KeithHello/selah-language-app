@@ -6,6 +6,20 @@ const requestedPort = Number(process.env.SELAH_PORT || process.argv[2]);
 const PORT = Number.isInteger(requestedPort) && requestedPort > 0 ? requestedPort : 5191;
 const DIRECTORY = path.join(__dirname, '..', 'build', 'web');
 
+function warnIfCloudLoginIsUnavailable() {
+  const mainDartJs = path.join(DIRECTORY, 'main.dart.js');
+  if (!fs.existsSync(mainDartJs)) {
+    console.warn('WARNING: main.dart.js is missing; cloud login is unavailable.');
+    return;
+  }
+  const bundle = fs.readFileSync(mainDartJs, 'utf8');
+  if (!/https:\/\/[a-z0-9-]+\.supabase\.co/i.test(bundle)) {
+    console.warn(
+      'WARNING: cloud login is unavailable because this release bundle does not include a Supabase project URL. Rebuild with tool/web.ps1 and public SUPABASE_URL/SUPABASE_PUBLISHABLE_KEY.'
+    );
+  }
+}
+
 const MIME_TYPES = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -55,5 +69,6 @@ const server = http.createServer((req, res) => {
 });
 
 server.listen(PORT, '127.0.0.1', () => {
+  warnIfCloudLoginIsUnavailable();
   console.log(`Selah Release Web Server running at http://127.0.0.1:${PORT}/`);
 });
