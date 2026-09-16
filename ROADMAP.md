@@ -17,6 +17,7 @@
 - [x] 浏览器循环内核使用绝对截止定时器，暂停期间继续占用总时长且无需轮询即可到点结束；暂停中切换顺序从下一语言阶段或下一句生效，避免打断当前播放。
 - [x] `audio-download-url` 改为 POST 调用；音频下载地址允许远端 HTTPS 与本机 `localhost`／`127.0.0.1`，已知浏览器音频错误显示具体原因。
 - [x] 最近验证：Flutter 全量 229 项通过；Node 浏览器桥与资源测试 35 项通过；标准 `tool/web.ps1 -Action build` Release 构建成功并确认编入公开 Supabase 配置。`flutter analyze` 被本机 Flutter SDK 内损坏的 `dev/benchmarks/macrobenchmarks/macos/Runner` 目录阻断，新增代码已用 `dart analyze` 检查通过。未部署远端、未修改数据库、密钥或支付配置。
+- [x] 2026-09-16 已创建 Cloudflare Pages 预览项目 `selah-language-app-preview`，并将 Build ID `bac2831a0c01e394` 的 301 个静态文件部署到分支别名 `codex-web-ux-reliability`。预览地址：`https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`。首页、`selah_bridge.js`、`selah-precache.json`、`main.dart.js`、母语音频和 GIF 均为 HTTP 200；Content-Type 分别为 HTML、JavaScript、JSON、JavaScript、`audio/mpeg`、`image/gif`。真实浏览器确认页面加载完成、`flutter-view` 已挂载、加载层隐藏，控制台错误／警告为 0。未绑定自定义域名、未改 DNS、未部署 Edge Functions、未执行数据库 migration 或支付配置变更。
 
 
 ### 2026-09-15 十句 starter 双语种子与本地母语音频（本地完成；远端未导入）
