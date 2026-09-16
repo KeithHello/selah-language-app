@@ -27,10 +27,12 @@ abstract class LearningGateway {
   bool get configured;
   String? get userId;
   String? get email;
+  bool get isAnonymous;
   Stream<String?> get accountChanges;
   Future<void> signIn(String email, String password);
-  Future<void> signUp(String email, String password);
-  Future<void> resetPassword(String email);
+  Future<void> signInAnonymously();
+  Future<void> signUp(String email, String password, {String? emailRedirectTo});
+  Future<void> resetPassword(String email, {String? emailRedirectTo});
   Future<void> signOut();
   Future<Map<String, dynamic>> invoke(
     String function,
@@ -50,6 +52,8 @@ class UnconfiguredGateway implements LearningGateway {
   @override
   String? get email => null;
   @override
+  bool get isAnonymous => false;
+  @override
   Stream<String?> get accountChanges => const Stream.empty();
   Never _missing() => throw const LearningFailure(
     '在线服务尚未配置。你可以继续学习已保存的内容。',
@@ -58,9 +62,11 @@ class UnconfiguredGateway implements LearningGateway {
   @override
   Future<void> signIn(String email, String password) async => _missing();
   @override
-  Future<void> signUp(String email, String password) async => _missing();
+  Future<void> signInAnonymously() async => _missing();
   @override
-  Future<void> resetPassword(String email) async => _missing();
+  Future<void> signUp(String email, String password, {String? emailRedirectTo}) async => _missing();
+  @override
+  Future<void> resetPassword(String email, {String? emailRedirectTo}) async => _missing();
   @override
   Future<void> signOut() async {}
   @override

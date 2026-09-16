@@ -24,8 +24,8 @@ import {
 } from "../functions/_shared/audio_generation_policy.ts";
 import {
   type AudioHandlerDependencies,
-  createAudioGenerateHandler,
   type AudioSupabaseClient,
+  createAudioGenerateHandler,
 } from "../functions/audio-generate/index.ts";
 
 const FUNCTION_SOURCE = await Deno.readTextFile(
@@ -387,8 +387,8 @@ Deno.test("Uses mp3 format", () => {
   assertEquals(AUDIO_FORMAT, "mp3");
 });
 
-Deno.test("Default speed is 0.85", () => {
-  assertEquals(TTS_SPEED, 0.85);
+Deno.test("Default speed is 1", () => {
+  assertEquals(TTS_SPEED, 1);
 });
 
 // ============================================================
@@ -462,7 +462,7 @@ Deno.test("Builds the OpenAI TTS request from validated input", () => {
     input: "Hello world",
     voice: "nova",
     response_format: "mp3",
-    speed: 0.85,
+    speed: 1,
   });
 });
 

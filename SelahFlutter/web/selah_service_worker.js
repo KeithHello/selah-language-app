@@ -63,7 +63,7 @@ async function loadSeedAudioEntries() {
   const manifest = await response.clone().json();
   const entries = new Map();
   for (const entry of Object.values(manifest)) {
-    if (!entry || !/^assets\/audio\/seed-\d{3}-[a-z-]+\.mp3$/.test(entry.path) ||
+    if (!entry || !/^assets\/audio\/seed-\d{3}-[a-zA-Z-]+\.mp3$/.test(entry.path) ||
         !/^[a-f0-9]{64}$/.test(entry.sha256) || !Number.isInteger(entry.byteSize) || entry.byteSize <= 0) continue;
     entries.set(new URL('./assets/' + entry.path, self.location.href).href, entry);
   }

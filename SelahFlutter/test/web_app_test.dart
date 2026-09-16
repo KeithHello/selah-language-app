@@ -57,8 +57,9 @@ class _FakePlatform implements LearningPlatform {
 }
 
 class _SignedOutConfiguredGateway extends FakeGateway {
-  @override
-  String? get userId => null;
+  _SignedOutConfiguredGateway() {
+    user = null;
+  }
 }
 
 LearnSentence _seed(int index) => LearnSentence.seed({
@@ -349,7 +350,7 @@ void main() {
   testWidgets(
     'configured local build keeps login available without membership section',
     (tester) async {
-      final gateway = _SignedOutConfiguredGateway();
+      final gateway = _SignedOutConfiguredGateway()..fail = false;
       final configuredController = LearningController(
         gateway: gateway,
         platform: platform,
@@ -398,6 +399,49 @@ void main() {
     expect(find.text('Selah 管理台'), findsOneWidget);
     expect(find.text('请先登录管理员账号。'), findsOneWidget);
     expect(find.widgetWithText(OutlinedButton, '登录／注册'), findsOneWidget);
+  });
+
+  testWidgets(
+    'unsigned generation starts anonymously without a login banner',
+    (tester) async {
+      final gateway = _SignedOutConfiguredGateway()..fail = false;
+      platform.info['online'] = true;
+      final configuredController = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: List.generate(6, (index) => _seed(index + 1)),
+        polling: false,
+      );
+      addTearDown(configuredController.dispose);
+      await configuredController.initialize();
+      configuredController.state.preferences
+        ..onboarded = true
+        ..uiLocale = 'zh-Hans';
+      await configuredController.generate('今天想早点休息。');
+
+      await tester.pumpWidget(
+        WebLearningApp(controller: configuredController),
+      );
+      await tester.pumpAndSettle();
+
+      expect(configuredController.hasSession, isTrue);
+      expect(find.text('请先登录，便能生成自己的英文和语音。'), findsNothing);
+      await configuredController.sync();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets('settings expose a native voice picker', (tester) async {
+    controller.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    controller.navigate(4);
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('英文声线'), findsOneWidget);
+    expect(find.text('母语声线'), findsOneWidget);
+    expect(find.textContaining('循环听会按这个声线生成母语配音'), findsOneWidget);
   });
 
   testWidgets(

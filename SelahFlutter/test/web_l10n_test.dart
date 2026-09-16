@@ -113,4 +113,20 @@ void main() {
       );
     },
   );
+
+  test('native voice settings copy exists in every supported locale', () {
+    expect(
+      SelahStrings.of('zh-Hans').text('settings.nativeVoice'),
+      '母语声线',
+    );
+    expect(
+      SelahStrings.of('zh-Hant').text('settings.nativeVoice'),
+      '母語聲線',
+    );
+    expect(SelahStrings.of('ja').text('settings.nativeVoice'), '母語の声');
+    expect(
+      SelahStrings.of('zh-Hans').nativeVoiceLabel('native-gentle'),
+      '温柔自然',
+    );
+  });
 }

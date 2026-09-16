@@ -13,14 +13,27 @@ const seedVoices = [
   'daily-bright',
   'elegant-british',
 ];
-const seedAudio = Object.fromEntries(Array.from({ length: 30 }, (_, index) => {
-  const id = 'seed-' + String(index + 1).padStart(3, '0');
-  return seedVoices.map((voice) => [
-    id + ':' + voice,
-    { path: 'assets/audio/' + id + '-' + voice + '.mp3',
-      sha256: seedHash, byteSize: seedBytes.length },
-  ]);
-}).flat());
+const activeSeedIds = ['001', '006', '027', '012', '016', '021', '004', '010', '030', '020'];
+const seedAudio = Object.fromEntries(activeSeedIds.flatMap((number) => {
+  const id = 'seed-' + number;
+  return [
+    ...seedVoices.map((voice) => [
+      id + ':' + voice,
+      { path: 'assets/audio/' + id + '-' + voice + '.mp3',
+        sha256: seedHash, byteSize: seedBytes.length },
+    ]),
+    [
+      id + ':source:zh-Hant',
+      { path: 'assets/audio/' + id + '-source-zh-Hant.mp3',
+        sha256: seedHash, byteSize: seedBytes.length },
+    ],
+    [
+      id + ':source:ja',
+      { path: 'assets/audio/' + id + '-source-ja.mp3',
+        sha256: seedHash, byteSize: seedBytes.length },
+    ],
+  ];
+}));
 const posePaths = [];
 for (let stage = 1; stage <= 5; stage += 1) {
   for (let action = 1; action <= 10; action += 1) {
@@ -143,23 +156,23 @@ test('future-stage poses are cached when requested and remain readable offline',
   assert.equal(app.requests.filter((url) => url.endsWith('PlushV4S5A09.png')).length, 1);
 });
 
-test('all 120 seed audios across four voices are installed and readable offline', async () => {
+test('all 60 active starter audios are installed and readable offline', async () => {
   const app = worker();
   await app.install();
   app.state.offline = true;
   for (const entry of Object.values(seedAudio)) {
     assert.equal((await app.image('assets/' + entry.path)).ok, true);
   }
-  const audioRequests = app.requests.filter((url) => /seed-\d{3}-(?:gentle-natural|clear-slow|daily-bright|elegant-british)\.mp3$/.test(url));
-  assert.equal(new Set(audioRequests).size, 120);
-  assert.equal(audioRequests.length, 120, 'each file is fetched once during install');
+  const audioRequests = app.requests.filter((url) => /seed-\d{3}-(?:gentle-natural|clear-slow|daily-bright|elegant-british|source-zh-Hant|source-ja)\.mp3$/.test(url));
+  assert.equal(new Set(audioRequests).size, 60);
+  assert.equal(audioRequests.length, 60, 'each file is fetched once during install');
 });
 
 test('corrupt seed response is excluded from cache and recovered on the next online request', async () => {
   const app = worker();
   app.state.corruptSeed = true;
   await app.install();
-  const path = 'assets/assets/audio/seed-002-gentle-natural.mp3';
+  const path = 'assets/assets/audio/seed-001-gentle-natural.mp3';
   assert.ok([...app.stores.values()].every((store) => !store.has('https://app.example/' + path)));
   app.state.corruptSeed = false;
   assert.equal((await app.image(path)).ok, true);

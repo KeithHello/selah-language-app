@@ -795,6 +795,12 @@ class _MessageBar extends StatelessWidget {
 
   final LearningController controller;
 
+  bool get _offersLogin {
+    if (controller.hasSession || !controller.configured) return false;
+    final text = '${controller.error ?? ''} ${controller.notice ?? ''}';
+    return text.contains('登录') || text.contains('登入') || text.contains('ログイン');
+  }
+
   @override
   Widget build(BuildContext context) {
     final error = controller.error;
@@ -829,6 +835,13 @@ class _MessageBar extends StatelessWidget {
                 ),
               ),
             ),
+            if (_offersLogin)
+              TextButton(
+                onPressed: controller.busy
+                    ? null
+                    : () => _showAuth(context, controller),
+                child: Text(strings.translateLegacy('登录')),
+              ),
             IconButton(
               tooltip: strings.text('common.close'),
               onPressed: controller.clearMessage,
@@ -3755,6 +3768,38 @@ class _SettingsPageState extends State<_SettingsPage> {
                     : (value) {
                         if (value != null) c.updatePreferences(voice: value);
                       },
+              ),
+              const SizedBox(height: 14),
+              DropdownButtonFormField<String>(
+                key: ValueKey(p.nativeVoice),
+                initialValue: nativeVoices.containsKey(p.nativeVoice)
+                    ? p.nativeVoice
+                    : nativeVoices.keys.first,
+                decoration: InputDecoration(
+                  labelText: s.text('settings.nativeVoice'),
+                ),
+                items: nativeVoices.entries
+                    .map(
+                      (entry) => DropdownMenuItem(
+                        value: entry.key,
+                        child: Text(s.nativeVoiceLabel(entry.key)),
+                      ),
+                    )
+                    .toList(),
+                onChanged: c.busy
+                    ? null
+                    : (value) {
+                        if (value != null) {
+                          c.updatePreferences(nativeVoice: value);
+                        }
+                      },
+              ),
+              const SizedBox(height: 8),
+              Text(
+                s.text('settings.nativeVoice.detail'),
+                style: SelahTypography.bodySmall(
+                  color: SelahColors.textSecondary,
+                ),
               ),
               const SizedBox(height: 14),
               Wrap(

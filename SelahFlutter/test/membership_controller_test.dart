@@ -28,11 +28,17 @@ class MockGateway implements LearningGateway {
   }
 
   @override
+  bool get isAnonymous => false;
+
+  @override
   Future<void> signIn(String email, String password) async {}
+
   @override
-  Future<void> signUp(String email, String password) async {}
+  Future<void> signInAnonymously() async {}
   @override
-  Future<void> resetPassword(String email) async {}
+  Future<void> signUp(String email, String password, {String? emailRedirectTo}) async {}
+  @override
+  Future<void> resetPassword(String email, {String? emailRedirectTo}) async {}
   @override
   Future<void> signOut() async {}
   @override

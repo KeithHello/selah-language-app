@@ -66,7 +66,66 @@ flutter:
   assets:
     - assets/sprites/
     - assets/content/
-    - assets/audio/
+    - assets/audio/seed-001-gentle-natural.mp3
+    - assets/audio/seed-001-clear-slow.mp3
+    - assets/audio/seed-001-daily-bright.mp3
+    - assets/audio/seed-001-elegant-british.mp3
+    - assets/audio/seed-001-source-zh-Hant.mp3
+    - assets/audio/seed-001-source-ja.mp3
+    - assets/audio/seed-006-gentle-natural.mp3
+    - assets/audio/seed-006-clear-slow.mp3
+    - assets/audio/seed-006-daily-bright.mp3
+    - assets/audio/seed-006-elegant-british.mp3
+    - assets/audio/seed-006-source-zh-Hant.mp3
+    - assets/audio/seed-006-source-ja.mp3
+    - assets/audio/seed-027-gentle-natural.mp3
+    - assets/audio/seed-027-clear-slow.mp3
+    - assets/audio/seed-027-daily-bright.mp3
+    - assets/audio/seed-027-elegant-british.mp3
+    - assets/audio/seed-027-source-zh-Hant.mp3
+    - assets/audio/seed-027-source-ja.mp3
+    - assets/audio/seed-012-gentle-natural.mp3
+    - assets/audio/seed-012-clear-slow.mp3
+    - assets/audio/seed-012-daily-bright.mp3
+    - assets/audio/seed-012-elegant-british.mp3
+    - assets/audio/seed-012-source-zh-Hant.mp3
+    - assets/audio/seed-012-source-ja.mp3
+    - assets/audio/seed-016-gentle-natural.mp3
+    - assets/audio/seed-016-clear-slow.mp3
+    - assets/audio/seed-016-daily-bright.mp3
+    - assets/audio/seed-016-elegant-british.mp3
+    - assets/audio/seed-016-source-zh-Hant.mp3
+    - assets/audio/seed-016-source-ja.mp3
+    - assets/audio/seed-021-gentle-natural.mp3
+    - assets/audio/seed-021-clear-slow.mp3
+    - assets/audio/seed-021-daily-bright.mp3
+    - assets/audio/seed-021-elegant-british.mp3
+    - assets/audio/seed-021-source-zh-Hant.mp3
+    - assets/audio/seed-021-source-ja.mp3
+    - assets/audio/seed-004-gentle-natural.mp3
+    - assets/audio/seed-004-clear-slow.mp3
+    - assets/audio/seed-004-daily-bright.mp3
+    - assets/audio/seed-004-elegant-british.mp3
+    - assets/audio/seed-004-source-zh-Hant.mp3
+    - assets/audio/seed-004-source-ja.mp3
+    - assets/audio/seed-010-gentle-natural.mp3
+    - assets/audio/seed-010-clear-slow.mp3
+    - assets/audio/seed-010-daily-bright.mp3
+    - assets/audio/seed-010-elegant-british.mp3
+    - assets/audio/seed-010-source-zh-Hant.mp3
+    - assets/audio/seed-010-source-ja.mp3
+    - assets/audio/seed-030-gentle-natural.mp3
+    - assets/audio/seed-030-clear-slow.mp3
+    - assets/audio/seed-030-daily-bright.mp3
+    - assets/audio/seed-030-elegant-british.mp3
+    - assets/audio/seed-030-source-zh-Hant.mp3
+    - assets/audio/seed-030-source-ja.mp3
+    - assets/audio/seed-020-gentle-natural.mp3
+    - assets/audio/seed-020-clear-slow.mp3
+    - assets/audio/seed-020-daily-bright.mp3
+    - assets/audio/seed-020-elegant-british.mp3
+    - assets/audio/seed-020-source-zh-Hant.mp3
+    - assets/audio/seed-020-source-ja.mp3
     - assets/fonts/
 
   fonts:

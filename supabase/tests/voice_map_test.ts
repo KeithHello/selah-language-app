@@ -30,8 +30,24 @@ Deno.test("unknown voice defaults to nova", () => {
   assertEquals(VOICE_MAP["unknown"] ?? "nova", "nova");
 });
 
-Deno.test("all 4 voice profiles are mapped", () => {
-  assertEquals(Object.keys(VOICE_MAP).length, 4);
+Deno.test("native-gentle maps to alloy", () => {
+  assertEquals(VOICE_MAP["native-gentle"], "alloy");
+});
+
+Deno.test("native-clear maps to echo", () => {
+  assertEquals(VOICE_MAP["native-clear"], "echo");
+});
+
+Deno.test("native-bright maps to onyx", () => {
+  assertEquals(VOICE_MAP["native-bright"], "onyx");
+});
+
+Deno.test("native-calm maps to fable", () => {
+  assertEquals(VOICE_MAP["native-calm"], "fable");
+});
+
+Deno.test("all 8 voice profiles are mapped", () => {
+  assertEquals(Object.keys(VOICE_MAP).length, 8);
 });
 
 Deno.test("all OpenAI voices are unique", () => {

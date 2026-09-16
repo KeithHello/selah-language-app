@@ -55,13 +55,35 @@ class MemoryPlatform implements LearningPlatform {
 }
 
 class FakeGateway extends UnconfiguredGateway {
-  final user = newId();
+  String? user = newId();
   bool fail = true;
   final requests = <String>[];
   @override
   bool get configured => true;
   @override
   String? get userId => user;
+  @override
+  bool get isAnonymous => anonymous;
+
+  bool anonymous = false;
+  int anonymousCalls = 0;
+
+  @override
+  Future<void> signInAnonymously() async {
+    anonymousCalls += 1;
+    anonymous = true;
+    user = newId();
+  }
+
+  @override
+  Future<void> signUp(
+    String email,
+    String password, {
+    String? emailRedirectTo,
+  }) async {
+    anonymous = false;
+    user ??= newId();
+  }
   @override
   Future<Map<String, dynamic>> invoke(
     String function,
@@ -85,6 +107,25 @@ class FakeGateway extends UnconfiguredGateway {
   @override
   Future<LearningSnapshot> synchronize(LearningSnapshot local) async =>
       local..lastSyncAt = DateTime.now();
+}
+
+class AuthRedirectGateway extends FakeGateway {
+  final signUpRedirects = <String?>[];
+  final resetPasswordRedirects = <String?>[];
+
+  @override
+  Future<void> signUp(
+    String email,
+    String password, {
+    String? emailRedirectTo,
+  }) async {
+    signUpRedirects.add(emailRedirectTo);
+  }
+
+  @override
+  Future<void> resetPassword(String email, {String? emailRedirectTo}) async {
+    resetPasswordRedirects.add(emailRedirectTo);
+  }
 }
 
 class SwitchingGateway extends FakeGateway {
@@ -306,6 +347,48 @@ void main() {
       seedId: 'seed-00${i + 1}',
     ),
   );
+
+  group('authentication redirect URL', () {
+    test(
+      'uses the site root and removes the app route, query and fragment',
+      () {
+        expect(
+          selahAuthRedirectUrl(
+            current: Uri.parse('http://127.0.0.1:5180/#/today?guide=1'),
+          ),
+          'http://127.0.0.1:5180/',
+        );
+        expect(
+          selahAuthRedirectUrl(
+            current: Uri.parse('https://example.com/selah/#/admin?tab=usage'),
+          ),
+          'https://example.com/selah/',
+        );
+      },
+    );
+
+    test('registration and password reset use the root redirect URL', () async {
+      final gateway = AuthRedirectGateway();
+      final controller = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+
+      await controller.login('user@example.com', '123456', register: true);
+      await controller.resetPassword('user@example.com');
+
+      final expectedRedirect = selahAuthRedirectUrl();
+      expect(gateway.signUpRedirects, [expectedRedirect]);
+      expect(gateway.resetPasswordRedirects, [expectedRedirect]);
+      expect(expectedRedirect.contains('#'), isFalse);
+      expect(expectedRedirect.contains('?'), isFalse);
+    });
+  });
+
   test('failed storage never advances onboarding or claims success', () async {
     final platform = MemoryPlatform()..failSave = true;
     final c = LearningController(
@@ -389,6 +472,35 @@ void main() {
       expect(c.state.lastSyncAt, isNull);
     },
   );
+  test(
+    'unsigned generation opens an anonymous cloud session and preserves guest input',
+    () async {
+      final gateway = FakeGateway()
+        ..user = null
+        ..fail = false;
+      final platform = MemoryPlatform();
+      final c = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      c.updateTodayInput('今天想早点休息。');
+
+      expect(c.hasSession, isFalse);
+      await c.generate('今天想早点休息。');
+
+      expect(gateway.anonymousCalls, 1);
+      expect(c.hasSession, isTrue);
+      expect(gateway.isAnonymous, isTrue);
+      expect(c.accountId, gateway.userId);
+      expect(c.todayInput, '今天想早点休息。');
+      expect(c.state.sentences, hasLength(1));
+    },
+  );
+
   test(
     'generation failure keeps draft and reuses idempotency ID on retry',
     () async {
@@ -1160,6 +1272,25 @@ void main() {
       expect(c.state.sentences.first.updatedAt, serverTime);
       expect(c.state.preferences.name, '同步期间的新名字');
       expect(c.state.lastSyncAt, serverTime);
+    },
+  );
+
+  test(
+    'native voice preference is saved independently of English voice',
+    () async {
+      final c = LearningController(
+        gateway: UnconfiguredGateway(),
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      await c.onboard('小豆', c.seeds.map((s) => s.id).toList());
+      await c.updatePreferences(nativeVoice: 'native-calm');
+      expect(c.state.preferences.voice, 'gentle-natural');
+      expect(c.state.preferences.nativeVoice, 'native-calm');
+      expect(c.state.preferences.speed, 1.0);
     },
   );
 }

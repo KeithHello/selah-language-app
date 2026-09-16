@@ -11,6 +11,8 @@ void main() {
       expect(preferences.nativeLanguage, 'zh-Hant');
       expect(preferences.toJson(), isNot(contains('uiLocale')));
       expect(preferences.toJson()['nativeLanguage'], 'zh-Hant');
+      expect(preferences.nativeVoice, 'native-gentle');
+      expect(preferences.speed, 1.0);
     },
   );
 
@@ -116,7 +118,40 @@ void main() {
     final restored = LearnPreferences.fromJson(preferences.toJson());
     expect(restored.uiLocale, 'zh-Hans');
     expect(restored.nativeLanguage, 'zh-Hans');
+    expect(restored.nativeVoice, 'native-gentle');
+    expect(restored.speed, 1.0);
   });
+
+  test('native voice preference round trips independently of English voice', () {
+    final preferences = LearnPreferences.fromJson({
+      'voice': 'elegant-british',
+      'nativeVoice': 'native-calm',
+      'speed': 1.0,
+    });
+    expect(preferences.voice, 'elegant-british');
+    expect(preferences.nativeVoice, 'native-calm');
+    final restored = LearnPreferences.fromJson(preferences.toJson());
+    expect(restored.voice, 'elegant-british');
+    expect(restored.nativeVoice, 'native-calm');
+  });
+
+  test(
+    'cloud snapshot merge keeps the device-local native voice preference',
+    () {
+      final local = LearningSnapshot.empty();
+      local.preferences
+        ..nativeVoice = 'native-bright'
+        ..updatedAt = DateTime(2026, 9, 10);
+      final cloud = LearningSnapshot.empty();
+      cloud.preferences
+        ..nativeVoice = 'native-gentle'
+        ..updatedAt = DateTime(2026, 9, 11);
+
+      final merged = local.merge(cloud);
+
+      expect(merged.preferences.nativeVoice, 'native-bright');
+    },
+  );
 
   test('backup rejects duplicate vocabulary and event identifiers', () {
     final snapshot = LearningSnapshot.empty();

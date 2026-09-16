@@ -15,6 +15,20 @@ import 'research_profile_controller.dart';
 import 'feedback_survey_controller.dart';
 import 'platform/learning_platform.dart';
 
+String selahAuthRedirectUrl({Uri? current}) {
+  final uri = current ?? Uri.base;
+  var path = uri.path;
+  if (!path.endsWith('/')) {
+    path = '$path/';
+  }
+  return Uri(
+    scheme: uri.scheme,
+    host: uri.host,
+    port: uri.hasPort ? uri.port : null,
+    path: path,
+  ).toString();
+}
+
 class LearningController extends ChangeNotifier {
   LearningController({
     required this.gateway,
@@ -223,6 +237,10 @@ class LearningController extends ChangeNotifier {
     notice = '循环听设置已保存。';
   });
 
+  String _loopVoiceFor(LoopTrackRole role) => role == LoopTrackRole.source
+      ? state.preferences.nativeVoice
+      : state.preferences.voice;
+
   Future<String> _loopAudioKey(
     String text,
     LoopTrackRole role,
@@ -232,7 +250,7 @@ class LearningController extends ChangeNotifier {
     if (hash is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)) {
       throw const LearningFailure('浏览器无法校验音频内容。');
     }
-    return 'loop:${state.preferences.voice}:${role.name}:$language:$hash';
+    return 'loop:${_loopVoiceFor(role)}:${role.name}:$language:$hash';
   }
 
   Future<Map<String, Object?>> _loopTrackReference(
@@ -320,7 +338,6 @@ class LearningController extends ChangeNotifier {
     notifyListeners();
     try {
       final account = _accountId;
-      final voice = state.preferences.voice;
       final references = <Map<String, Object?>>[];
       for (final item in items) {
         final sentence = state.sentences.firstWhere(
@@ -351,7 +368,11 @@ class LearningController extends ChangeNotifier {
             account,
             sentence,
             reference,
-            voice,
+            _loopVoiceFor(
+              reference['role'] == LoopTrackRole.source.name
+                  ? LoopTrackRole.source
+                  : LoopTrackRole.target,
+            ),
             language,
           );
         }
@@ -361,6 +382,10 @@ class LearningController extends ChangeNotifier {
             }) !=
             true) {
           final isSeed = sentence?.seedId != null;
+          if (!hasSession) {
+            await ensureCloudSession();
+            _ensureCurrent(generation);
+          }
           if (!hasSession) {
             throw LearningFailure(
               isSeed ? '例句的母语音频尚未随应用包就绪，请更新包含例句母语音频的版本。' : '登录后即可为自己的句子补齐音频。',
@@ -389,7 +414,11 @@ class LearningController extends ChangeNotifier {
             final response = await gateway.invoke('audio-generate', {
               'sentenceId': reference['sentenceId'],
               'targetText': text,
-              'voiceProfile': voice,
+              'voiceProfile': _loopVoiceFor(
+                reference['role'] == LoopTrackRole.source.name
+                    ? LoopTrackRole.source
+                    : LoopTrackRole.target,
+              ),
               'reason': 'loop_listening',
               'clientRequestId': requestId,
             });
@@ -629,6 +658,38 @@ class LearningController extends ChangeNotifier {
       await _change((next) => next.events.add(event));
     } catch (_) {
       _activitySlotStart = null;
+    }
+  }
+
+  Future<void> ensureCloudSession() async {
+    if (hasSession) return;
+    if (!configured) {
+      throw const LearningFailure(
+        '在线服务尚未配置。你可以继续学习种子句和已保存的内容。',
+        code: 'not_configured',
+      );
+    }
+    if (platformInfo['online'] == false) {
+      throw const LearningFailure('现在处于离线状态，联网后可继续生成。');
+    }
+    _localInputTimer?.cancel();
+    await _writes;
+    await store.save('guest', state.copy());
+    final guest = await store.load('guest');
+    await gateway.signInAnonymously();
+    final id = gateway.userId;
+    if (id == null) {
+      throw const LearningFailure('暂时无法开始云端学习，请稍后重试。');
+    }
+    await _switchAccount(id, force: true);
+    _ensureCurrent(_accountGeneration);
+    final hasGuestData = guest.todayInput.isNotEmpty ||
+        guest.segmentInputs.isNotEmpty ||
+        guest.sentences.isNotEmpty ||
+        guest.drafts.isNotEmpty ||
+        guest.audio.isNotEmpty;
+    if (hasGuestData) {
+      await _mergeImport(guest, _accountGeneration);
     }
   }
 
@@ -1210,6 +1271,11 @@ class LearningController extends ChangeNotifier {
     }
   }
 
+  Future<void> _ensureOnlineSession() async {
+    await ensureCloudSession();
+    _online();
+  }
+
   void _sameAccount(String account) {
     if (account != _accountId || (gateway.userId ?? 'guest') != account) {
       throw const LearningFailure('账户已切换，本次结果没有写入新账户。');
@@ -1304,6 +1370,9 @@ class LearningController extends ChangeNotifier {
       max: 500,
     );
     final submittedInputVersion = _inputVersion;
+    await ensureCloudSession();
+    generation = _accountGeneration;
+    _ensureCurrent(generation);
     legacySentence = null;
     final existing = state.sentences
         .where(
@@ -1346,8 +1415,8 @@ class LearningController extends ChangeNotifier {
         inputVersion: submittedInputVersion,
       );
       await _change((next) => next.drafts.add(fresh), sync: false);
-      _ensureCurrent(generation);
-      await _generate(fresh, generation, inputVersion: submittedInputVersion);
+      _ensureCurrent(_accountGeneration);
+      await _generate(fresh, _accountGeneration, inputVersion: submittedInputVersion);
       return;
     }
     var draft = state.drafts.where((d) => d.text == source).firstOrNull;
@@ -1359,10 +1428,10 @@ class LearningController extends ChangeNotifier {
       );
       await _change((next) => next.drafts.add(draft!), sync: false);
     }
-    _ensureCurrent(generation);
+    _ensureCurrent(_accountGeneration);
     await _generate(
       draft,
-      generation,
+      _accountGeneration,
       inputVersion: draft.inputVersion ?? submittedInputVersion,
     );
   });
@@ -1380,6 +1449,7 @@ class LearningController extends ChangeNotifier {
   }) async {
     _ensureCurrent(generation);
     _online();
+    _ensureCurrent(generation);
     final account = _accountId;
     final result = await gateway.invoke('sentences-generate', {
       'sourceText': draft.text,
@@ -1432,7 +1502,8 @@ class LearningController extends ChangeNotifier {
   Future<List<String>> prepare(String text) async {
     final output = <String>[];
     await _run((generation) async {
-      _online();
+      await _ensureOnlineSession();
+      _ensureCurrent(generation);
       final source = requiredText(
         text,
         nativeLanguage == 'ja' ? '日本語の表現' : '表达',
@@ -1525,7 +1596,8 @@ class LearningController extends ChangeNotifier {
   }
 
   Future<void> generatePreparedSegments() => _run((generation) async {
-    _online();
+    await _ensureOnlineSession();
+    _ensureCurrent(generation);
     final account = _accountId;
     var generatedCount = 0;
     while (true) {
@@ -1778,7 +1850,8 @@ class LearningController extends ChangeNotifier {
     }
     if (!cached) {
       ensurePlayback();
-      _online();
+      await _ensureOnlineSession();
+      _ensureCurrent(generation);
       var manifest = state.audio[key];
       if (manifest?['manifestId'] != null) {
         manifest = await gateway.invoke('audio-download-url', {
@@ -2088,6 +2161,7 @@ class LearningController extends ChangeNotifier {
   Future<void> updatePreferences({
     String? name,
     String? voice,
+    String? nativeVoice,
     double? speed,
     bool? companionRailVisible,
     bool? reminderEnabled,
@@ -2099,6 +2173,7 @@ class LearningController extends ChangeNotifier {
     String? nativeLanguage,
   }) => _run((generation) async {
     final previousVoice = state.preferences.voice;
+    final previousNativeVoice = state.preferences.nativeVoice;
     if (reminderEnabled == true) {
       final permission = await platform.invoke('requestNotifications');
       if (permission != 'granted') {
@@ -2109,6 +2184,7 @@ class LearningController extends ChangeNotifier {
       final json = next.preferences.toJson();
       if (name != null) json['name'] = name;
       if (voice != null) json['voice'] = voice;
+      if (nativeVoice != null) json['nativeVoice'] = nativeVoice;
       if (speed != null) json['speed'] = speed;
       if (companionRailVisible != null) {
         json['companionRailVisible'] = companionRailVisible;
@@ -2124,11 +2200,12 @@ class LearningController extends ChangeNotifier {
     }, generation: generation);
     _ensureCurrent(generation);
     if (speed != null) await platform.invoke('audioSpeed', {'speed': speed});
-    if (voice != null) {
+    if (voice != null || nativeVoice != null) {
       _playSession = null;
       await platform.invoke('audioStop');
       playback['state'] = 'idle';
-      if (voice != previousVoice) {
+      if ((voice != null && voice != previousVoice) ||
+          (nativeVoice != null && nativeVoice != previousNativeVoice)) {
         loopReady = false;
         _loopTracks = [];
         await stopLoop(reason: 'voiceChanged');
@@ -2144,7 +2221,11 @@ class LearningController extends ChangeNotifier {
         }
         try {
           if (register) {
-            await gateway.signUp(email, password);
+            await gateway.signUp(
+              email,
+              password,
+              emailRedirectTo: selahAuthRedirectUrl(),
+            );
           } else {
             await gateway.signIn(email, password);
           }
@@ -2176,7 +2257,7 @@ class LearningController extends ChangeNotifier {
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.trim())) {
       throw const LearningFailure('请输入有效邮箱，才能发送找回密码邮件。');
     }
-    await gateway.resetPassword(email);
+    await gateway.resetPassword(email, emailRedirectTo: selahAuthRedirectUrl());
     notice = '如果这个邮箱已注册，找回密码邮件很快会送到。';
   });
   Future<void> sync() async {
@@ -2399,7 +2480,8 @@ class LearningController extends ChangeNotifier {
             : PreparationDraft.fromJson(merged.preparationDraft!.toJson());
       }, generation: generation);
   Future<void> importGuest() => _run((generation) async {
-    _online();
+    await _ensureOnlineSession();
+    _ensureCurrent(generation);
     final guest = await store.load('guest');
     await _mergeImport(guest, generation);
     notice = '本机学习资料已合并到当前账户。';
@@ -2445,7 +2527,8 @@ class LearningController extends ChangeNotifier {
     if (recording || hasPendingRecording) {
       throw const LearningFailure('请先完成或取消上一次录音转写。');
     }
-    _online();
+    await _ensureOnlineSession();
+    _ensureCurrent(generation);
     _clearCompanionCue();
     _playSession = null;
     await platform.invoke('audioStop');
@@ -2469,7 +2552,8 @@ class LearningController extends ChangeNotifier {
       _pendingRecording = captured;
       recording = false;
       notifyListeners();
-      _online();
+      await _ensureOnlineSession();
+      _ensureCurrent(generation);
       final result = await gateway.transcribe(
         _pendingRecording!,
         _recordRequestId ??= newId(),

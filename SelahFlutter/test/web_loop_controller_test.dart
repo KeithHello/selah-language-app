@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/web/data/learning_gateway.dart';
 import 'package:selah/web/domain/learning_models.dart';
@@ -11,6 +13,7 @@ class _LoopPlatform implements LearningPlatform {
   final String? failMessage;
   final cached = <String>{};
   final actions = <String>[];
+  final snapshots = <String, Object?>{};
 
   @override
   Future<Object?> invoke(
@@ -23,8 +26,9 @@ class _LoopPlatform implements LearningPlatform {
     }
     switch (action) {
       case 'load':
-        return null;
+        return snapshots[payload['accountId']];
       case 'save':
+        snapshots[payload['accountId'] as String] = payload['snapshot'];
         return null;
       case 'platformInfo':
         return {'online': true};
@@ -57,10 +61,29 @@ class _LoopPlatform implements LearningPlatform {
 }
 
 class _SignedOutGateway extends UnconfiguredGateway {
+  _SignedOutGateway({this.cloudConfigured = false});
+
+  final bool cloudConfigured;
   final requests = <({String function, bool get})>[];
 
   @override
-  bool get configured => true;
+  bool get configured => cloudConfigured;
+
+  @override
+  String? get userId => user;
+
+  String? user;
+
+  @override
+  bool get isAnonymous => user != null;
+
+  @override
+  Future<void> signInAnonymously() async {
+    user = '33333333-3333-4333-8333-333333333333';
+  }
+
+  @override
+  Future<LearningSnapshot> synchronize(LearningSnapshot local) async => local;
 
   @override
   Future<Map<String, dynamic>> invoke(
@@ -68,16 +91,49 @@ class _SignedOutGateway extends UnconfiguredGateway {
     Map<String, dynamic> body, {
     bool get = false,
   }) async {
-    requests.add((function: function, get: get));
+    if (function == 'audio-generate' || function == 'audio-download-url') {
+      requests.add((function: function, get: get));
+    }
+    if (function == 'membership-status' || function == 'user-research-profile') {
+      return const {};
+    }
     throw StateError('guest must not call cloud');
   }
 }
 
-class _SignedInGateway extends _SignedOutGateway {
-  _SignedInGateway() : super();
+class _GeneratingGateway extends _SignedInGateway {
+  _GeneratingGateway();
+
+  final bodies = <Map<String, dynamic>>[];
 
   @override
-  String? get userId => 'user-1';
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    if (function == 'membership-status' || function == 'user-research-profile') {
+      return const {};
+    }
+    requests.add((function: function, get: get));
+    bodies.add(Map<String, dynamic>.from(body));
+    if (function == 'audio-generate') {
+      return {
+        'status': 'ready',
+        'downloadUrl': 'http://127.0.0.1:5180/${body['voiceProfile']}.mp3',
+      };
+    }
+    throw StateError('unexpected cloud function');
+  }
+}
+
+class _SignedInGateway extends _SignedOutGateway {
+  _SignedInGateway() : super(cloudConfigured: true) {
+    user = '22222222-2222-4222-8222-222222222222';
+  }
+
+  @override
+  String? get userId => '22222222-2222-4222-8222-222222222222';
 
   @override
   Future<Map<String, dynamic>> invoke(
@@ -96,8 +152,17 @@ class _SignedInGateway extends _SignedOutGateway {
   Future<LearningSnapshot> synchronize(LearningSnapshot local) async => local;
 }
 
+class _AnonymousGeneratingGateway extends _GeneratingGateway {
+  _AnonymousGeneratingGateway() {
+    user = null;
+  }
+
+  @override
+  String? get userId => user;
+}
+
 LearnSentence _sentence({String? seedId}) => LearnSentence(
-  id: seedId == null ? 'personal-1' : 'sentence-$seedId',
+  id: seedId == null ? '11111111-1111-4111-8111-111111111111' : 'sentence-$seedId',
   seedId: seedId,
   source: '一步一步来。',
   target: 'One step at a time.',
@@ -149,9 +214,9 @@ void main() {
   );
 
   test(
-    'guest personal sentences explain that login is needed without cloud calls',
+    'guest personal sentences open an anonymous cloud session and generate audio',
     () async {
-      final gateway = _SignedOutGateway();
+      final gateway = _AnonymousGeneratingGateway();
       final controller = LearningController(
         gateway: gateway,
         platform: _LoopPlatform(),
@@ -160,12 +225,17 @@ void main() {
       );
       addTearDown(controller.dispose);
       _setUpSentence(controller, _sentence());
+      await controller.mergeBackup(LearningSnapshot.importBackup(
+        jsonEncode(controller.state.toBackup()),
+      ));
+      await controller.flushLocalWrites();
 
+      await controller.prepareLoop();
       await controller.startLoop();
 
-      expect(controller.loopReady, isFalse);
-      expect(controller.error, '登录后即可为自己的句子补齐音频。');
-      expect(gateway.requests, isEmpty);
+      // ignore: avoid_print
+      expect(controller.hasSession, isTrue);
+      expect(gateway.requests.map((request) => request.function), contains('audio-generate'));
     },
   );
 
@@ -206,7 +276,7 @@ void main() {
       gateway.requests.clear();
       _setUpSentence(controller, _sentence());
       final key = 'loop:gentle-natural:target:en:${'a' * 64}';
-      final sourceKey = 'loop:gentle-natural:source:zh-Hant:${'a' * 64}';
+      final sourceKey = 'loop:native-gentle:source:zh-Hant:${'a' * 64}';
       controller.state.audio[key] = {'manifestId': 'manifest-1'};
       controller.state.audio[sourceKey] = {'manifestId': 'manifest-2'};
 
@@ -219,6 +289,37 @@ void main() {
         everyElement((function: 'audio-download-url', get: false)),
       );
       expect(platform.cached, contains(key));
+    },
+  );
+
+  test(
+    'signed-in personal loop generates source audio with the native voice',
+    () async {
+      final gateway = _GeneratingGateway();
+      final platform = _LoopPlatform();
+      final controller = LearningController(
+        gateway: gateway,
+        platform: platform,
+        polling: false,
+        seeds: const [],
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      gateway.requests.clear();
+      _setUpSentence(controller, _sentence());
+      controller.state.preferences.nativeVoice = 'native-calm';
+
+      await controller.prepareLoop();
+
+      expect(controller.loopReady, isTrue);
+      expect(
+        gateway.bodies.map((body) => body['voiceProfile']),
+        containsAll(['gentle-natural', 'native-calm']),
+      );
+      expect(
+        gateway.bodies.where((body) => body['voiceProfile'] == 'native-calm'),
+        isNotEmpty,
+      );
     },
   );
 }

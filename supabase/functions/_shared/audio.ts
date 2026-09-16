@@ -1,6 +1,6 @@
 export const AUDIO_BUCKET = "audio-assets";
 export const TTS_MODEL = "tts-1";
-export const TTS_SPEED = 0.85;
+export const TTS_SPEED = 1;
 export const AUDIO_FORMAT = "mp3";
 export const SIGNED_URL_TTL_SECONDS = 60 * 10;
 
@@ -9,6 +9,10 @@ export const VOICE_MAP: Record<string, string> = {
   "clear-slow": "sage",
   "daily-bright": "ash",
   "elegant-british": "shimmer",
+  "native-gentle": "alloy",
+  "native-clear": "echo",
+  "native-bright": "onyx",
+  "native-calm": "fable",
 };
 
 export function normalizeText(text: string): string {

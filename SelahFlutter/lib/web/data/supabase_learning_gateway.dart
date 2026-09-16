@@ -31,6 +31,8 @@ class SupabaseLearningGateway implements LearningGateway {
   @override
   String? get email => client.auth.currentUser?.email;
   @override
+  bool get isAnonymous => client.auth.currentUser?.isAnonymous == true;
+  @override
   Stream<String?> get accountChanges => client.auth.onAuthStateChange
       .map((event) => event.session?.user.id)
       .distinct();
@@ -43,10 +45,19 @@ class SupabaseLearningGateway implements LearningGateway {
   }
 
   @override
-  Future<void> signUp(String email, String password) async {
+  Future<void> signInAnonymously() async {
+    await client.auth.signInAnonymously();
+    if (userId == null) {
+      throw const LearningFailure('暂时无法开始云端学习，请稍后重试。');
+    }
+  }
+
+  @override
+  Future<void> signUp(String email, String password, {String? emailRedirectTo}) async {
     final response = await client.auth.signUp(
       email: email.trim(),
       password: password,
+      emailRedirectTo: emailRedirectTo,
     );
     if (response.session == null) {
       throw const LearningFailure(
@@ -57,8 +68,11 @@ class SupabaseLearningGateway implements LearningGateway {
   }
 
   @override
-  Future<void> resetPassword(String email) async {
-    await client.auth.resetPasswordForEmail(email.trim());
+  Future<void> resetPassword(String email, {String? emailRedirectTo}) async {
+    await client.auth.resetPasswordForEmail(
+      email.trim(),
+      redirectTo: emailRedirectTo,
+    );
   }
 
   @override

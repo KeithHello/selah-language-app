@@ -1,12 +1,36 @@
 # Selah 开发路线图
 
-> 最后更新：2026-09-15
+> 最后更新：2026-09-17
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
 > 完成口径：遵循 `CLAUDE.md` 的五级完成定义。
 
 ## 当前阶段
+
+### 2026-09-17 免邮箱确认与测试期游客云端功能（本地实现完成，远端未启用）
+
+- [x] 已实现测试期游客云端会话：生成英文、长文整理、批量生成、说出来转写、个人句音频补齐和循环听个人句补音频会先静默 `signInAnonymously()`。
+- [x] 第一版不原地把匿名账户绑定为邮箱账户；正式注册仍走普通 `signUp`，远端关闭 Confirm email 后可立即登录。仍校验邮箱格式、密码长度和密码是否正确。
+- [x] 未关闭收费 Edge Function 的 JWT。未带会话的直接 HTTP 调用仍按 401 设计；管理台继续要求管理员。
+- [x] 本地 `supabase/config.toml` 已启用 `enable_anonymous_sign_ins = true`；远端 Confirm email / Anonymous Sign-ins 未修改。
+- [x] 验证：Dart analyze 0 issues；Flutter 241 项通过；Node 35 项通过；Release 构建成功，Build ID `ebd23fdd5327ba6d`，仍为 10 句／60 MP3。
+- [ ] 本机 PATH 缺少 Deno，未重跑 Deno；本轮未修改 Edge Function TypeScript。
+- [ ] 尚未部署预览站、修改远端 Auth、配置 SMTP 或调用真实 OpenAI；旧 20 句远端种子继续不处理。详见 [本地验收记录](docs/guest-cloud-access-acceptance.md)。
+
+### 2026-09-16 未登录快捷登录、注册邮件排查、母语配音与首批 10 句收口（本地实现完成；邮件发送仍待远端配置）
+
+- [x] 未登录提示条在需要登录时提供登录按钮，直接打开现有登录／注册弹窗；相关 Widget 测试通过。
+- [x] 注册与找回密码通过 `selahAuthRedirectUrl()` 传站点根地址给 Supabase Auth，自动移除 query、hash 和 Flutter 应用路由，同时保留 scheme、host、port 与部署子路径，避免 Supabase Auth fragment 与应用路由冲突。
+- [x] 远端 Auth 只读核对：mailer_autoconfirm=false，SMTP 未配置，site_url=http://localhost:3000，uri_allow_list 为空。因此注册确认邮件目前发不出去，不是前端注册接口本身报错。
+- [x] 循环听个人句子的母语轨道改为独立 nativeVoice；设置页新增母语声线选择，默认语速改为 1.0。TTS 合约同步支持 native-* 声线，合成速度改为 1。
+- [x] 首批 starter 正式收口为 10 句，顺序为 `seed-001`、`seed-006`、`seed-027`、`seed-012`、`seed-016`、`seed-021`、`seed-004`、`seed-010`、`seed-030`、`seed-020`；剩余 20 句不在种子 JSON、界面、音频 manifest、预缓存清单或 Release 包中显示。
+- [x] 每句保留 4 个英文声线、1 条繁体中文母语音轨和 1 条日语母语音轨；正式 Web 包共 60 个 MP3。`pubspec.yaml` 改为显式声明这 60 个文件，不再整目录打包 `assets/audio/`，旧 20 句的 80 个历史英文 MP3 只保留在源码目录，不进入 Release 包。
+- [x] Service Worker 的种子音频路径规则支持 `source-zh-Hant.mp3` 的大小写混合，离线预缓存清单与测试夹具均按 10 句、60 音轨核对。
+- [x] 最近验证：Dart analyze 0 issues；Flutter 全量 239 项通过；Node 浏览器桥、循环播放、Service Worker、资源与构建配置测试 35 项通过；Deno 音频合约和声线映射测试 46 项通过；Deno fmt 检查通过。
+- [x] 标准 Release 构建成功，Build ID 为 `48701eec5933e652`。构建目录核对结果：种子 JSON 为 10 句，音频 manifest 为 60 条，物理 MP3 为 60 个，`selah-precache.json` 共 189 个资源且其中 60 个为音频，旧 20 句音频和文本引用均为 0。
+- [ ] 注册邮件真正发出仍需单独确认：配置 SMTP 或关闭邮件确认，并把 site_url／允许回跳地址改成本地 Web 预览或正式 HTTPS 地址。
+- [x] 2026-09-16 已单独部署 audio-generate 到 ijonabyyppmgvoufgamt，未跑整包部署、未改 secret/migration。零费用检查为 OPTIONS 200、未登录 POST 401。远端函数包含 native-gentle/alloy、native-clear/echo、native-bright/onyx、native-calm/fable，TTS_SPEED=1。
 
 ### 2026-09-16 Web 循环听游客闭环、自定义时长与三句引导（本地实现完成）
 

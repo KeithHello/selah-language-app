@@ -78,6 +78,12 @@ const voices = <String, String>{
   'daily-bright': '日常轻快',
   'elegant-british': '优雅英式',
 };
+const nativeVoices = <String, String>{
+  'native-gentle': '温柔自然',
+  'native-clear': '清晰平稳',
+  'native-bright': '明亮清晰',
+  'native-calm': '沉稳温和',
+};
 const reviewStates = ['new', 'learning', 'familiar', 'quiet'];
 const vocabularyStates = ['new', 'learning', 'familiar', 'owned'];
 const currentGenerationModel = 'gpt-4o-mini';
@@ -458,7 +464,8 @@ class LearnPreferences {
   LearnPreferences({
     this.name = '小豆',
     this.voice = 'gentle-natural',
-    this.speed = .85,
+    this.nativeVoice = 'native-gentle',
+    this.speed = 1.0,
     this.companionRailVisible = false,
     this.onboarded = false,
     this.reminderEnabled = false,
@@ -472,6 +479,7 @@ class LearnPreferences {
        updatedAt = updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
   String name;
   String voice;
+  String nativeVoice;
   double speed;
   /// Device-only presentation preference. It is intentionally not mapped to
   /// Supabase user_profiles and is preserved across cloud snapshot merges.
@@ -502,6 +510,7 @@ class LearnPreferences {
   Map<String, Object?> toJson() => {
     'name': name,
     'voice': voice,
+    'nativeVoice': nativeVoice,
     'speed': speed,
     'companionRailVisible': companionRailVisible,
     'onboarded': onboarded,
@@ -512,7 +521,7 @@ class LearnPreferences {
     'updatedAt': updatedAt.toUtc().toIso8601String(),
   };
   factory LearnPreferences.fromJson(Map<String, dynamic> j) {
-    final speed = j['speed'] ?? .85;
+    final speed = j['speed'] ?? 1.0;
     final reminder = j['reminderTime'] ?? '20:00';
     if (speed is! num ||
         ![.7, .85, 1.0, 1.2].contains(speed) ||
@@ -523,6 +532,7 @@ class LearnPreferences {
     return LearnPreferences(
       name: requiredText(j['name'] ?? '小豆', '精灵名字', max: 24),
       voice: _choice(j['voice'], voices.keys, 'gentle-natural'),
+      nativeVoice: _choice(j['nativeVoice'], nativeVoices.keys, 'native-gentle'),
       speed: speed.toDouble(),
       companionRailVisible: j['companionRailVisible'] == true,
       onboarded: j['onboarded'] == true,
@@ -1034,6 +1044,7 @@ class LearningSnapshot {
       preferences.nativeLanguage,
     );
     final localCompanionRailVisible = preferences.companionRailVisible;
+    final localNativeVoice = preferences.nativeVoice;
     final byId = {for (final s in result.sentences) s.id: s};
     for (final incoming in other.sentences) {
       final current = byId[incoming.id];
@@ -1091,6 +1102,7 @@ class LearningSnapshot {
     }
     result.preferences.nativeLanguage = localNativeLanguage;
     result.preferences.companionRailVisible = localCompanionRailVisible;
+    result.preferences.nativeVoice = localNativeVoice;
     for (final entry in other.memories.entries) {
       result.memories.update(
         entry.key,

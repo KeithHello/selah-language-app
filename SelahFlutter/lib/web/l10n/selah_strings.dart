@@ -48,6 +48,8 @@ const _baseStrings = <String, String>{
   'settings.name': '精灵名字',
   'settings.voice': '英文声线',
   'settings.speed': '默认语速',
+  'settings.nativeVoice': '母语声线',
+  'settings.nativeVoice.detail': '加入自己的句子后，循环听会按这个声线生成母语配音。',
   'settings.foregroundReminder': '在前台提醒我',
   'settings.reminderTime': '提醒时间',
   'settings.reminder.background': '关闭网页后不会保证准点送达。',
@@ -160,6 +162,10 @@ const _baseStrings = <String, String>{
   'voice.clear-slow': '清晰慢速',
   'voice.daily-bright': '日常轻快',
   'voice.elegant-british': '优雅英式',
+  'voice.native-gentle': '温柔自然',
+  'voice.native-clear': '清晰平稳',
+  'voice.native-bright': '明亮清晰',
+  'voice.native-calm': '沉稳温和',
   'review.new': '新句子',
   'review.learning': '正在熟悉',
   'review.familiar': '越来越熟',
@@ -331,6 +337,8 @@ class SelahStrings {
   String categoryLabel(String category) => text('category.$category');
 
   String voiceLabel(String voice) => text('voice.$voice');
+
+  String nativeVoiceLabel(String voice) => text('voice.$voice');
 
   String reviewLabel(String state) => text('review.$state');
 
