@@ -10,6 +10,10 @@ import {
 const SQL = await Deno.readTextFile(
   "supabase/migrations/006_membership_cost_control.sql",
 );
+const ANON_SQL = await Deno.readTextFile(
+  "supabase/migrations/007_anonymous_platform_budget.sql",
+);
+const ALL_SQL = `${SQL}\n${ANON_SQL}`;
 
 function functionBody(name: string): string {
   const start = SQL.indexOf(`CREATE OR REPLACE FUNCTION public.${name}`);
@@ -130,4 +134,61 @@ Deno.test("membership summary and payment reconciliation are server-owned", () =
   assertStringIncludes(SQL, "idx_membership_orders_channel_transaction");
   assertStringIncludes(SQL, "REVOKE SELECT ON TABLE public.user_memberships FROM authenticated");
   assertStringIncludes(SQL, "REVOKE SELECT ON TABLE public.membership_orders FROM authenticated");
+});
+
+Deno.test("anonymous testing is closed by default but protected by platform budget", () => {
+  assertStringIncludes(
+    ANON_SQL,
+    "ADD COLUMN IF NOT EXISTS anonymous_test_mode_enabled BOOLEAN",
+  );
+  assertStringIncludes(
+    ANON_SQL,
+    "ALTER COLUMN anonymous_test_mode_enabled SET DEFAULT false",
+  );
+  assertStringIncludes(
+    ANON_SQL,
+    "ALTER COLUMN anonymous_test_mode_enabled SET NOT NULL",
+  );
+  assertStringIncludes(
+    ANON_SQL,
+    "CREATE TABLE IF NOT EXISTS public.platform_generation_reservations",
+  );
+  const reserveStart = ANON_SQL.indexOf(
+    "CREATE OR REPLACE FUNCTION public.reserve_platform_generation_allowance",
+  );
+  const reserveEnd = ANON_SQL.indexOf("$$;", reserveStart);
+  const reserveBody = ANON_SQL.slice(reserveStart, reserveEnd);
+  assertStringIncludes(reserveBody, "platform_budget_ledgers");
+  assertStringIncludes(reserveBody, "rate_limited");
+  assertStringIncludes(reserveBody, "service_budget_protected");
+  assertStringIncludes(reserveBody, "reserved_nano_usd");
+  assertStringIncludes(ANON_SQL, "settle_platform_generation_allowance");
+  assertStringIncludes(
+    ALL_SQL,
+    "REVOKE ALL ON TABLE public.platform_generation_reservations FROM anon, authenticated",
+  );
+  assertStringIncludes(
+    ANON_SQL,
+    "REVOKE ALL ON FUNCTION public.reserve_platform_generation_allowance",
+  );
+  assertStringIncludes(
+    ANON_SQL,
+    "REVOKE ALL ON FUNCTION public.settle_platform_generation_allowance",
+  );
+  const writeStart = ANON_SQL.indexOf(
+    "CREATE OR REPLACE FUNCTION public.set_platform_service_controls",
+  );
+  const writeEnd = ANON_SQL.indexOf("$$;", writeStart);
+  const writeBody = ANON_SQL.slice(writeStart, writeEnd);
+  assert(writeStart >= 0, "missing updated service-control write RPC");
+  assertStringIncludes(
+    writeBody,
+    "p_anonymous_test_mode_enabled BOOLEAN",
+  );
+  assertStringIncludes(writeBody, "2026-09-17-v1");
+  assertStringIncludes(writeBody, "is_admin_operator");
+  assertStringIncludes(
+    ANON_SQL,
+    "REVOKE ALL ON FUNCTION public.set_platform_service_controls",
+  );
 });

@@ -57,6 +57,7 @@ class _AdminGateway implements LearningGateway {
         'trialSignupsEnabled': false,
         'membershipSalesEnabled': false,
         'generationEnabled': true,
+        'anonymousTestModeEnabled': false,
       };
     }
     if (function == 'admin-users') {
@@ -122,5 +123,20 @@ void main() {
     expect(controller.audience?.profileCoveredCount, 12);
     expect(controller.audienceError, isNull);
     controller.dispose();
+  });
+
+  test('updates the anonymous test switch with its own service flag', () async {
+    final gateway = _AdminGateway();
+    final controller = AdminController(gateway: gateway);
+    addTearDown(controller.dispose);
+    await controller.load();
+
+    final success = await controller.updateControls(
+      anonymousTestModeEnabled: true,
+      reason: 'dashboard_anonymousTest_toggle',
+    );
+
+    expect(success, isTrue);
+    expect(controller.controls.anonymousTestModeEnabled, isFalse);
   });
 }

@@ -2,7 +2,7 @@
 // The database is authoritative when the platform settings RPC is available;
 // environment values are only a safe local/bootstrap fallback.
 
-export const SERVICE_CONTROLS_VERSION = "2026-09-12-v1";
+export const SERVICE_CONTROLS_VERSION = "2026-09-17-v1";
 
 export interface ServiceControls {
   version: string;
@@ -10,6 +10,7 @@ export interface ServiceControls {
   trialSignupsEnabled: boolean;
   membershipSalesEnabled: boolean;
   generationEnabled: boolean;
+  anonymousTestModeEnabled: boolean;
   configured: boolean;
   updatedAt: string | null;
   updatedBy: string | null;
@@ -28,6 +29,7 @@ export interface ServiceControlsFallback {
   trialSignupsEnabled?: boolean;
   membershipSalesEnabled?: boolean;
   generationEnabled?: boolean;
+  anonymousTestModeEnabled?: boolean;
 }
 
 const DEFAULT_FALLBACK: Required<ServiceControlsFallback> = {
@@ -36,6 +38,7 @@ const DEFAULT_FALLBACK: Required<ServiceControlsFallback> = {
   trialSignupsEnabled: false,
   membershipSalesEnabled: false,
   generationEnabled: true,
+  anonymousTestModeEnabled: false,
 };
 
 function booleanValue(value: unknown, fallback: boolean): boolean {
@@ -81,6 +84,11 @@ export function parseServiceControls(
     generationEnabled: booleanValue(
       settings.generationEnabled ?? settings.generation_enabled,
       defaults.generationEnabled,
+    ),
+    anonymousTestModeEnabled: booleanValue(
+      settings.anonymousTestModeEnabled ??
+        settings.anonymous_test_mode_enabled,
+      defaults.anonymousTestModeEnabled,
     ),
     configured,
     updatedAt: stringValue(source.updatedAt ?? source.updated_at),
@@ -128,6 +136,11 @@ export function environmentFallback(
       "GENERATION_SERVICE_ENABLED",
       DEFAULT_FALLBACK.generationEnabled,
     ),
+    anonymousTestModeEnabled: envBoolean(
+      env,
+      "ANONYMOUS_TEST_MODE_ENABLED",
+      DEFAULT_FALLBACK.anonymousTestModeEnabled,
+    ),
   };
 }
 
@@ -167,6 +180,7 @@ export function publicServiceControls(controls: ServiceControls): Record<string,
     trialSignupsEnabled: controls.trialSignupsEnabled,
     membershipSalesEnabled: controls.membershipSalesEnabled,
     generationEnabled: controls.generationEnabled,
+    anonymousTestModeEnabled: controls.anonymousTestModeEnabled,
     configured: controls.configured,
     updatedAt: controls.updatedAt,
   };

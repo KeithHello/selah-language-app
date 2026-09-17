@@ -5,6 +5,7 @@ class AdminServiceControls {
     this.trialSignupsEnabled = false,
     this.membershipSalesEnabled = false,
     this.generationEnabled = true,
+    this.anonymousTestModeEnabled = false,
     this.configured = false,
     this.updatedAt,
   });
@@ -14,6 +15,7 @@ class AdminServiceControls {
   final bool trialSignupsEnabled;
   final bool membershipSalesEnabled;
   final bool generationEnabled;
+  final bool anonymousTestModeEnabled;
   final bool configured;
   final DateTime? updatedAt;
 
@@ -42,6 +44,11 @@ class AdminServiceControls {
         'generationEnabled',
         'generation_enabled',
         true,
+      ),
+      anonymousTestModeEnabled: flag(
+        'anonymousTestModeEnabled',
+        'anonymous_test_mode_enabled',
+        false,
       ),
       configured: json['configured'] == true,
       updatedAt: json['updatedAt'] != null

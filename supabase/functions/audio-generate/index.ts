@@ -6,8 +6,11 @@ import {
   errorResponse,
   handleOptions,
   json,
-  requireAuth,
 } from "../_shared/cors.ts";
+import {
+  authorizeBillableIdentity,
+  getGatewayVerifiedIdentity,
+} from "../_shared/anonymous_test_mode.ts";
 import {
   AUDIO_BUCKET,
   AUDIO_FORMAT,
@@ -105,6 +108,7 @@ export interface AudioSupabaseClient {
 export interface AudioHandlerDependencies {
   env?: Pick<typeof Deno.env, "get">;
   requireAuth?: (req: Request) => string | Response;
+  authorizeIdentity?: typeof authorizeBillableIdentity;
   createSupabase?: (url: string, key: string) => AudioSupabaseClient;
   fetch?: typeof fetch;
   sleep?: (delayMs: number) => Promise<void>;
@@ -177,7 +181,19 @@ export function createAudioGenerateHandler(
   dependencies: AudioHandlerDependencies = {},
 ): (req: Request) => Promise<Response> {
   const env = dependencies.env ?? Deno.env;
-  const authenticate = dependencies.requireAuth ?? requireAuth;
+  const authorize = dependencies.authorizeIdentity ??
+    ((req, controls) => {
+      if (dependencies.requireAuth) {
+        const legacy = dependencies.requireAuth(req);
+        if (legacy instanceof Response) return legacy;
+        return {
+          status: "allowed" as const,
+          userId: legacy,
+          isAnonymous: false,
+        };
+      }
+      return authorizeBillableIdentity(req, controls);
+    });
   const providerFetch = dependencies.fetch ?? fetch;
   const sleep = dependencies.sleep ??
     ((delayMs: number) =>
@@ -201,10 +217,6 @@ export function createAudioGenerateHandler(
       return errorResponse("Method not allowed", 405, "method_not_allowed");
     }
 
-    const authResult = authenticate(req);
-    if (authResult instanceof Response) return authResult;
-    const userId = authResult;
-
     const openAIKey = env.get("OPENAI_API_KEY") ?? "";
     const supabaseURL = env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -214,6 +226,17 @@ export function createAudioGenerateHandler(
         503,
         "audio_service_unavailable",
       );
+    }
+
+    const legacyIdentity = dependencies.requireAuth?.(req);
+    const earlyIdentity: { userId: string; isAnonymous: boolean } | Response | null = legacyIdentity !== undefined
+      ? legacyIdentity instanceof Response
+        ? legacyIdentity
+        : { userId: legacyIdentity, isAnonymous: false }
+      : getGatewayVerifiedIdentity(req);
+    if (earlyIdentity instanceof Response) return earlyIdentity;
+    if (!earlyIdentity) {
+      return errorResponse("Unauthorized", 401, "unauthorized");
     }
 
     let body: AudioGenerationInput;
@@ -240,6 +263,7 @@ export function createAudioGenerateHandler(
     } = validation;
 
     const supabase = makeSupabase(supabaseURL, serviceRoleKey);
+    const { userId, isAnonymous } = earlyIdentity;
     const hash = await contentHash(targetText, voiceProfile);
     const scopeKey = userScope(userId);
     const storagePath = userStoragePath(
@@ -390,6 +414,8 @@ export function createAudioGenerateHandler(
         "service_paused",
       );
     }
+    const identity = authorize(req, controls);
+    if (identity instanceof Response) return identity;
 
     const claimResult = normalizeRpcResult(
       await supabase.rpc("claim_generation_request", {
@@ -442,6 +468,7 @@ export function createAudioGenerateHandler(
         feature: "tts",
         units: { characters: [...targetText].length },
         payloadHash: hash,
+        isAnonymous,
         enforcementEnabled: controls.membershipEnforcementEnabled,
       },
     );
@@ -785,6 +812,8 @@ export function createAudioGenerateHandler(
         supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
         admission.reservationId,
         "settled",
+        undefined,
+        admission.reservationScope ?? "membership",
       );
     }
     return json(responsePayload);

@@ -116,9 +116,10 @@ class AdminController extends ChangeNotifier {
   Future<bool> updateControls({
     bool? membershipEnforcementEnabled,
     bool? trialSignupsEnabled,
-    bool? membershipSalesEnabled,
-    bool? generationEnabled,
-    required String reason,
+  bool? membershipSalesEnabled,
+  bool? generationEnabled,
+  bool? anonymousTestModeEnabled,
+  required String reason,
   }) async {
     if (controlsLoading) return false;
     controlsLoading = true;
@@ -141,6 +142,9 @@ class AdminController extends ChangeNotifier {
             : null,
         ...?generationEnabled != null
             ? {'generationEnabled': generationEnabled}
+            : null,
+        ...?anonymousTestModeEnabled != null
+            ? {'anonymousTestModeEnabled': anonymousTestModeEnabled}
             : null,
       });
       controls = AdminServiceControls.fromJson(response);

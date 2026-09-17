@@ -12,6 +12,7 @@ import type { MembershipErrorCode } from "./membership_contract.ts";
 export interface AdmissionCheckResult {
   allowed: boolean;
   reservationId?: string;
+  reservationScope?: "membership" | "platform";
   errorCode?: MembershipErrorCode;
   errorMessage?: string;
   quote?: CostQuote;
@@ -28,6 +29,11 @@ export interface GenerationAdmissionOptions {
   };
   payloadHash: string;
   quote?: CostQuote;
+  /**
+   * Temporary anonymous testing bypasses membership quotas only. It still
+   * reserves against the platform-wide daily budget before provider work.
+   */
+  isAnonymous?: boolean;
   /**
    * Set by the service-control snapshot. When false, the product is in free
    * mode and membership entitlements are deliberately bypassed. The default
@@ -128,6 +134,55 @@ export async function requestGenerationAdmission(
     options.units.durationMs ??
     1;
 
+  // Anonymous test identities have no trial or paid membership, but they must
+  // consume the shared daily platform budget before any provider request.
+  if (options.isAnonymous === true) {
+    try {
+      const result = await client.rpc("reserve_platform_generation_allowance", {
+        p_user_id: options.userId,
+        p_client_request_id: options.clientRequestId,
+        p_feature: options.feature,
+        p_units: unitsCount,
+        p_nano_usd: quote.maxNanoUsd,
+        p_payload_hash: options.payloadHash,
+      });
+      if (result.error) {
+        const errStr = typeof result.error === "object" && result.error !== null
+          ? (result.error as { message?: string }).message || ""
+          : String(result.error);
+        return {
+          allowed: false,
+          errorCode: errStr.includes("rate_limited")
+            ? "rate_limited"
+            : "service_budget_protected",
+          errorMessage: errStr || "Platform budget limit reached",
+        };
+      }
+      const platformReservationId = typeof result.data === "string"
+        ? result.data
+        : (result.data as { reservationId?: string })?.reservationId;
+      if (!platformReservationId) {
+        return {
+          allowed: false,
+          errorCode: "service_budget_protected",
+          errorMessage: "Platform budget reservation unavailable",
+        };
+      }
+      return {
+        allowed: true,
+        reservationId: platformReservationId,
+        reservationScope: "platform",
+        quote,
+      };
+    } catch (err) {
+      return {
+        allowed: false,
+        errorCode: "service_budget_protected",
+        errorMessage: `Platform budget unavailable: ${String(err)}`,
+      };
+    }
+  }
+
   try {
     const result = await client.rpc("reserve_generation_allowance", {
       p_user_id: options.userId,
@@ -169,6 +224,7 @@ export async function requestGenerationAdmission(
     return {
       allowed: true,
       reservationId,
+      reservationScope: "membership",
       quote,
     };
   } catch (err) {
@@ -185,13 +241,19 @@ export async function settleGenerationAdmission(
   reservationId: string,
   status: "settled" | "released_unsent" | "unknown",
   actualNanoUsd?: bigint,
+  scope: "membership" | "platform" = "membership",
 ): Promise<void> {
   try {
-    await client.rpc("settle_generation_allowance", {
+    await client.rpc(
+      scope === "platform"
+        ? "settle_platform_generation_allowance"
+        : "settle_generation_allowance",
+      {
       p_reservation_id: reservationId,
       p_status: status,
       p_actual_nano_usd: actualNanoUsd != null ? actualNanoUsd.toString() : null,
-    });
+      },
+    );
   } catch (err) {
     console.error("settleGenerationAdmission failed", err);
   }

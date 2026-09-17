@@ -446,6 +446,7 @@ class _ServiceControlsCard extends StatelessWidget {
       trialSignupsEnabled: key == 'trial' ? value : null,
       membershipSalesEnabled: key == 'sales' ? value : null,
       generationEnabled: key == 'generation' ? value : null,
+      anonymousTestModeEnabled: key == 'anonymousTest' ? value : null,
       reason: 'dashboard_${key}_toggle',
     );
     if (!context.mounted || success) return;
@@ -492,6 +493,14 @@ class _ServiceControlsCard extends StatelessWidget {
             enabled: !controller.controlsLoading,
             onChanged: (value) =>
                 _toggle(context, key: 'generation', value: value),
+          ),
+          _ControlSwitch(
+            title: copy('anonymousTestSwitch'),
+            subtitle: copy('anonymousTestSwitchDetail'),
+            value: controls.anonymousTestModeEnabled,
+            enabled: !controller.controlsLoading,
+            onChanged: (value) =>
+                _toggle(context, key: 'anonymousTest', value: value),
           ),
           if (controller.controlsError != null)
             Align(
@@ -827,6 +836,8 @@ const _adminCopies = <String, Map<String, String>>{
     'salesSwitchDetail': '只允许创建新的 39.9 元订单，不会直接发放权益。',
     'generationSwitch': '允许新增生成',
     'generationSwitchDetail': '关闭时保留已有内容学习，暂停新的模型与配音调用。',
+    'anonymousTestSwitch': '开放匿名测试',
+    'anonymousTestSwitchDetail': '临时身份可测试云端生成，但不享有会员额度；仍受每日平台预算保护。',
     'membershipOnConfirm': '打开后，新生成会按会员方案检查额度；请确认预算与数据库迁移已就绪。',
     'membershipOffConfirm': '关闭后将进入公开体验模式，不再执行会员额度限制。',
     'trialOnConfirm': '开放新的 7 天试用入口？试用仍会在第一条个人表达成功后开始。',
@@ -835,6 +846,8 @@ const _adminCopies = <String, Map<String, String>>{
     'salesOffConfirm': '关闭购买入口？已有订单和有效会员不会被撤销。',
     'generationOnConfirm': '恢复新增生成？系统仍会保留预算与会员限制。',
     'generationOffConfirm': '暂停新增生成？已有内容和草稿仍可使用。',
+    'anonymousTestOnConfirm': '开放匿名测试？临时用户可调用收费功能，费用会占用每日平台预算。',
+    'anonymousTestOffConfirm': '立即结束匿名测试？已有匿名身份将不能新增生成，但本机内容仍保留。',
     'confirmTitle': '确认变更服务开关',
     'cancel': '取消',
     'confirm': '确认',
@@ -866,6 +879,8 @@ const _adminCopies = <String, Map<String, String>>{
     'salesSwitchDetail': '只允許建立新的 39.9 元訂單，不會直接發放權益。',
     'generationSwitch': '允許新增產生',
     'generationSwitchDetail': '關閉時保留已有內容學習，暫停新的模型與配音呼叫。',
+    'anonymousTestSwitch': '開放匿名測試',
+    'anonymousTestSwitchDetail': '臨時身分可測試雲端產生，但不享有會員額度；仍受每日平台預算保護。',
     'membershipOnConfirm': '開啟後，新產生會按會員方案檢查額度；請確認預算與資料庫 migration 已就緒。',
     'membershipOffConfirm': '關閉後將進入公開體驗模式，不再執行會員額度限制。',
     'trialOnConfirm': '開放新的 7 天試用入口？試用仍會在第一條個人表達成功後開始。',
@@ -874,6 +889,8 @@ const _adminCopies = <String, Map<String, String>>{
     'salesOffConfirm': '關閉購買入口？已有訂單和有效會員不會被撤銷。',
     'generationOnConfirm': '恢復新增產生？系統仍會保留預算與會員限制。',
     'generationOffConfirm': '暫停新增產生？已有內容和草稿仍可使用。',
+    'anonymousTestOnConfirm': '開放匿名測試？臨時使用者可呼叫收費功能，費用會占用每日平台預算。',
+    'anonymousTestOffConfirm': '立即結束匿名測試？已有匿名身分將不能新增產生，但本機內容仍保留。',
     'confirmTitle': '確認變更服務開關',
     'cancel': '取消',
     'confirm': '確認',
@@ -905,6 +922,8 @@ const _adminCopies = <String, Map<String, String>>{
     'salesSwitchDetail': '新しい注文を作成できます。支払い確認前に会員権限は付与しません。',
     'generationSwitch': '新しい生成を許可',
     'generationSwitchDetail': 'オフでも保存済みの内容と下書きは利用できます。',
+    'anonymousTestSwitch': '匿名テストを開く',
+    'anonymousTestSwitchDetail': '一時的な本人確認なしでも生成を試せます。会員枠はなく、毎日の予算で保護します。',
     'membershipOnConfirm': '会員制限を有効にしますか？データベースと予算の準備を確認してください。',
     'membershipOffConfirm': '公開体験モードに戻しますか？会員上限は適用されません。',
     'trialOnConfirm': '新しいトライアルを開きますか？最初の生成成功から開始します。',
@@ -913,6 +932,8 @@ const _adminCopies = <String, Map<String, String>>{
     'salesOffConfirm': '購入入口を閉じますか？既存注文と会員期間は維持されます。',
     'generationOnConfirm': '新しい生成を再開しますか？予算と会員制限は維持されます。',
     'generationOffConfirm': '新しい生成を一時停止しますか？保存済み内容は利用できます。',
+    'anonymousTestOnConfirm': '匿名テストを開きますか？一時ユーザーの有料機能利用は毎日の予算を消費します。',
+    'anonymousTestOffConfirm': '匿名テストを終了しますか？既存の一時アカウントは生成できなくなり、ローカル内容は残ります。',
     'confirmTitle': 'サービス設定を変更',
     'cancel': 'キャンセル',
     'confirm': '確認',

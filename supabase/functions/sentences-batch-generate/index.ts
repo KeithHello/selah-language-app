@@ -3,8 +3,8 @@ import {
   errorResponse,
   handleOptions,
   json,
-  requireAuth,
 } from "../_shared/cors.ts";
+import { authorizeBillableIdentity } from "../_shared/anonymous_test_mode.ts";
 import {
   BatchTranslationInput,
   buildBatchTranslationRequest,
@@ -72,8 +72,6 @@ interface RPCClient {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
-  const authResult = requireAuth(req);
-  if (authResult instanceof Response) return authResult;
   if (req.method !== "POST") {
     return errorResponse("Method not allowed", 405, "method_not_allowed");
   }
@@ -112,13 +110,16 @@ Deno.serve(async (req: Request) => {
       "service_paused",
     );
   }
+  const identity = authorizeBillableIdentity(req, controls);
+  if (identity instanceof Response) return identity;
+  const { userId, isAnonymous } = identity;
   const replayed: BatchItem[] = [];
   const claimedIDs: string[] = [];
   for (const segment of validation.segments) {
     const { data: raw, error } = await supabase.rpc(
       "claim_generation_request",
       {
-        p_user_id: authResult,
+        p_user_id: userId,
         p_operation_type: "sentence_generation",
         p_client_request_id: segment.segmentId,
         p_minute_limit: MINUTE_LIMIT,
@@ -128,7 +129,7 @@ Deno.serve(async (req: Request) => {
     if (error || !raw) {
       await failClaims(
         supabase as unknown as RPCClient,
-        authResult,
+        userId,
         claimedIDs,
       );
       return errorResponse(
@@ -143,7 +144,7 @@ Deno.serve(async (req: Request) => {
     ) {
       await failClaims(
         supabase as unknown as RPCClient,
-        authResult,
+        userId,
         claimedIDs,
       );
       return errorResponse(
@@ -157,7 +158,7 @@ Deno.serve(async (req: Request) => {
     if (claim.decision === "in_progress") {
       await failClaims(
         supabase as unknown as RPCClient,
-        authResult,
+        userId,
         claimedIDs,
       );
       return errorResponse(
@@ -180,7 +181,7 @@ Deno.serve(async (req: Request) => {
     await recordBusinessEvent(
       supabase as unknown as Parameters<typeof recordBusinessEvent>[0],
       {
-        userId: authResult,
+        userId,
         feature: "batch",
         clientRequestId: validation.clientRequestId,
         outcome: "reused",
@@ -193,18 +194,19 @@ Deno.serve(async (req: Request) => {
   const admission = await requestGenerationAdmission(
     supabase as unknown as Parameters<typeof requestGenerationAdmission>[0],
     {
-      userId: authResult,
+      userId,
       clientRequestId: validation.clientRequestId,
       feature: "batch",
       units: { itemCount: pending.length },
       payloadHash: JSON.stringify(pending),
+      isAnonymous,
       enforcementEnabled: controls.membershipEnforcementEnabled,
     },
   );
   if (!admission.allowed) {
     await failClaims(
       supabase as unknown as RPCClient,
-      authResult,
+      userId,
       claimedIDs,
     );
     return errorResponse(
@@ -224,7 +226,7 @@ Deno.serve(async (req: Request) => {
         supabase as unknown as SupabaseLikeClient,
       ),
       {
-        userId: authResult,
+        userId,
         clientRequestId: validation.clientRequestId,
         feature: "batch",
         model: TRANSLATION_MODEL,
@@ -314,7 +316,7 @@ Deno.serve(async (req: Request) => {
       completionResult = await completePersonalGeneration(
         supabase as unknown as Parameters<typeof completePersonalGeneration>[0],
         {
-          userId: authResult,
+          userId,
           parentRequestId: validation.clientRequestId,
           reservationId: admission.reservationId ?? null,
           enforcementEnabled: controls.membershipEnforcementEnabled,
@@ -343,7 +345,7 @@ Deno.serve(async (req: Request) => {
     await recordBusinessEvent(
       supabase as unknown as Parameters<typeof recordBusinessEvent>[0],
       {
-        userId: authResult,
+        userId,
         feature: "batch",
         clientRequestId: validation.clientRequestId,
       outcome: "completed",
@@ -355,6 +357,8 @@ Deno.serve(async (req: Request) => {
        supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
        admission.reservationId,
        "settled",
+       undefined,
+       admission.reservationScope ?? "membership",
      );
    }
    return json({
@@ -375,9 +379,11 @@ Deno.serve(async (req: Request) => {
         supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
         admission.reservationId,
         "unknown",
+        undefined,
+        admission.reservationScope ?? "membership",
       );
     }
-    await failClaims(supabase as unknown as RPCClient, authResult, claimedIDs);
+    await failClaims(supabase as unknown as RPCClient, userId, claimedIDs);
     console.error("Batch sentence generation failed");
     return errorResponse("Batch generation failed", 502, "generation_failed");
   }

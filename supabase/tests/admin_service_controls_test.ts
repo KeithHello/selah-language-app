@@ -41,24 +41,26 @@ function setup(options: {
           if (name === "get_platform_service_controls") {
             return {
               data: {
-                version: "2026-09-12-v1",
+                version: "2026-09-17-v1",
                 configured: true,
                 membership_enforcement_enabled: false,
                 trial_signups_enabled: false,
                 membership_sales_enabled: false,
                 generation_enabled: true,
+                anonymous_test_mode_enabled: true,
               },
               error: null,
             };
           }
           if (name === "set_platform_service_controls") {
             return { data: options.updateResult ?? {
-              version: "2026-09-12-v1",
+              version: "2026-09-17-v1",
               configured: true,
               membership_enforcement_enabled: true,
               trial_signups_enabled: true,
               membership_sales_enabled: true,
               generation_enabled: true,
+              anonymous_test_mode_enabled: true,
             }, error: null };
           }
           return { data: null, error: new Error("unexpected rpc") };
@@ -79,10 +81,11 @@ Deno.test("service controls update requires operator and expected version", asyn
   const response = await createAdminServiceControlsHandler(setupData.dependencies)(
     request("POST", {
       action: "update",
-      expectedVersion: "2026-09-12-v1",
+      expectedVersion: "2026-09-17-v1",
       membershipEnforcementEnabled: true,
       trialSignupsEnabled: true,
       membershipSalesEnabled: true,
+      anonymousTestModeEnabled: true,
       reason: "launch_membership_mode",
     }),
   );
@@ -90,8 +93,10 @@ Deno.test("service controls update requires operator and expected version", asyn
   const body = await response.json();
   assertEquals(body.membershipEnforcementEnabled, true);
   assertEquals(body.membershipSalesEnabled, true);
+  assertEquals(body.anonymousTestModeEnabled, true);
   const update = setupData.calls.find((call) => call.name === "set_platform_service_controls");
   assertEquals(update?.args.p_reason, "launch_membership_mode");
+  assertEquals(update?.args.p_anonymous_test_mode_enabled, true);
 });
 
 Deno.test("service controls update is rejected for read-only admin", async () => {

@@ -84,6 +84,33 @@ test('free mode still rejects an unbounded request before any provider call', as
   assert.strictEqual(calls, 0);
 });
 
+test('anonymous test users reserve platform budget without membership quota', async () => {
+  const calls = [];
+  const res = await requestGenerationAdmission({
+    rpc: async (name, args) => {
+      calls.push({ name, args });
+      return {
+        data: { reservationId: 'platform-reservation', status: 'reserved' },
+        error: null,
+      };
+    },
+  }, {
+    userId: '11111111-1111-1111-1111-111111111111',
+    clientRequestId: '22222222-2222-2222-2222-222222222222',
+    feature: 'tts',
+    units: { characters: 12 },
+    payloadHash: 'hash123',
+    isAnonymous: true,
+    enforcementEnabled: true,
+  });
+
+  assert.strictEqual(res.allowed, true);
+  assert.strictEqual(res.reservationId, 'platform-reservation');
+  assert.strictEqual(calls.length, 1);
+  assert.strictEqual(calls[0].name, 'reserve_platform_generation_allowance');
+  assert.strictEqual(calls[0].args.p_nano_usd, String(12 * 15000));
+});
+
 test('requestGenerationAdmission translates RPC error codes accurately', async () => {
   const trialExpiredClient = {
     rpc: async () => ({ data: null, error: { message: 'trial_expired: trial period ended' } })

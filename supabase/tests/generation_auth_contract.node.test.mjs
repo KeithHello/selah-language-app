@@ -22,9 +22,16 @@ for (const [name, sourcePath] of functions) {
   test(`${name} requires an authenticated session before provider work`, async () => {
     assert.match(config, new RegExp(`\\[functions\\.${name.replace('-', '\\-')}\\][\\s\\S]*?verify_jwt\\s*=\\s*true`));
     const source = await readFile(new URL(`functions/${sourcePath}`, root), 'utf8');
-    assert.match(source, /(?:requireAuth|authenticate)\(/);
+    if (name === 'audio-download') {
+      assert.match(source, /requireAuth\(/);
+    } else {
+      assert.match(source, /authorizeBillableIdentity\(/);
+      assert.match(
+        source,
+        /authorizeBillableIdentity\(req, controls\)|authorize\(req, controls\)/,
+      );
+    }
   });
-
 }
 
 for (const [name, sourcePath] of billableFunctions) {

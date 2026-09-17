@@ -14,6 +14,7 @@ Deno.test("service controls parse strict flags and database metadata", () => {
       trial_signups_enabled: true,
       membershipSalesEnabled: false,
       generation_enabled: false,
+      anonymous_test_mode_enabled: true,
     },
     updated_at: "2026-09-12T00:00:00Z",
   });
@@ -22,18 +23,26 @@ Deno.test("service controls parse strict flags and database metadata", () => {
   assertEquals(parsed.trialSignupsEnabled, true);
   assertEquals(parsed.membershipSalesEnabled, false);
   assertEquals(parsed.generationEnabled, false);
+  assertEquals(parsed.anonymousTestModeEnabled, true);
   assertEquals(parsed.updatedAt, "2026-09-12T00:00:00Z");
 });
 Deno.test("environment fallback accepts explicit bootstrap values", () => {
   const fallback = environmentFallback({
     get(name: string) {
       return name === "MEMBERSHIP_ENFORCEMENT_ENABLED" ? "on" :
-        name === "GENERATION_SERVICE_ENABLED" ? "off" : undefined;
+        name === "GENERATION_SERVICE_ENABLED" ? "off" :
+        name === "ANONYMOUS_TEST_MODE_ENABLED" ? "on" : undefined;
     },
   });
   assertEquals(fallback.membershipEnforcementEnabled, true);
   assertEquals(fallback.generationEnabled, false);
+  assertEquals(fallback.anonymousTestModeEnabled, true);
   assertEquals(fallback.membershipSalesEnabled, false);
+});
+
+Deno.test("anonymous test mode defaults to closed", () => {
+  const parsed = parseServiceControls({ configured: true });
+  assertEquals(parsed.anonymousTestModeEnabled, false);
 });
 
 Deno.test("missing settings RPC fails safe and keeps generation available", async () => {

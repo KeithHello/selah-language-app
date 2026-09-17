@@ -3,8 +3,8 @@ import {
   errorResponse,
   handleOptions,
   json,
-  requireAuth,
 } from "../_shared/cors.ts";
+import { authorizeBillableIdentity } from "../_shared/anonymous_test_mode.ts";
 import {
   buildCapturePreparationRequest,
   CapturePreparationInput,
@@ -69,8 +69,6 @@ interface RPCClient {
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
-  const authResult = requireAuth(req);
-  if (authResult instanceof Response) return authResult;
   if (req.method !== "POST") {
     return errorResponse("Method not allowed", 405, "method_not_allowed");
   }
@@ -109,13 +107,16 @@ Deno.serve(async (req: Request) => {
       "service_paused",
     );
   }
+  const identity = authorizeBillableIdentity(req, controls);
+  if (identity instanceof Response) return identity;
+  const { userId, isAnonymous } = identity;
   let claimID: string | null = null;
 
   try {
     const { data: raw, error } = await supabase.rpc(
       "claim_generation_request",
       {
-        p_user_id: authResult,
+        p_user_id: userId,
         p_operation_type: "capture_preparation",
         p_client_request_id: validation.clientRequestId,
         p_minute_limit: CAPTURE_PREPARATION_MINUTE_LIMIT,
@@ -135,7 +136,7 @@ Deno.serve(async (req: Request) => {
       await recordBusinessEvent(
         supabase as unknown as Parameters<typeof recordBusinessEvent>[0],
         {
-          userId: authResult,
+          userId,
           feature: "preparation",
           clientRequestId: validation.clientRequestId,
           outcome: "reused",
@@ -174,17 +175,18 @@ Deno.serve(async (req: Request) => {
     const admission = await requestGenerationAdmission(
       supabase as unknown as Parameters<typeof requestGenerationAdmission>[0],
       {
-        userId: authResult,
+        userId,
         clientRequestId: validation.clientRequestId,
         feature: "preparation",
         units: { itemCount: 1 },
         payloadHash: validation.rawTranscript,
+        isAnonymous,
         enforcementEnabled: controls.membershipEnforcementEnabled,
       },
     );
     if (!admission.allowed) {
       await supabase.rpc("fail_generation_request", {
-        p_user_id: authResult,
+        p_user_id: userId,
         p_operation_type: "capture_preparation",
         p_client_request_id: validation.clientRequestId,
       });
@@ -204,7 +206,7 @@ Deno.serve(async (req: Request) => {
         supabase as unknown as SupabaseLikeClient,
       ),
       {
-        userId: authResult,
+        userId,
         clientRequestId: validation.clientRequestId,
         feature: "preparation",
         model: TRANSLATION_MODEL,
@@ -301,7 +303,7 @@ Deno.serve(async (req: Request) => {
     const { data: completed, error: completionError } = await supabase.rpc(
       "complete_generation_request",
       {
-        p_user_id: authResult,
+        p_user_id: userId,
         p_operation_type: "capture_preparation",
         p_client_request_id: validation.clientRequestId,
         p_response_payload: payload,
@@ -326,7 +328,7 @@ Deno.serve(async (req: Request) => {
     await recordBusinessEvent(
       supabase as unknown as Parameters<typeof recordBusinessEvent>[0],
       {
-        userId: authResult,
+        userId,
         feature: "preparation",
         clientRequestId: validation.clientRequestId,
         outcome: "completed",
@@ -338,6 +340,8 @@ Deno.serve(async (req: Request) => {
         supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
         admission.reservationId,
         "settled",
+        undefined,
+        admission.reservationScope ?? "membership",
       );
     }
     return json(payload);
@@ -346,7 +350,7 @@ Deno.serve(async (req: Request) => {
       try {
         await failPreparationClaim(
           supabase as unknown as RPCClient,
-          authResult,
+          userId,
           claimID,
         );
       } catch {

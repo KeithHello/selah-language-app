@@ -7,8 +7,11 @@ import {
   errorResponse,
   handleOptions,
   json,
-  requireAuth,
 } from "../_shared/cors.ts";
+import {
+  authorizeBillableIdentity,
+  getGatewayVerifiedIdentity,
+} from "../_shared/anonymous_test_mode.ts";
 import {
   buildSpeechTranscriptionForm,
   SPEECH_TRANSCRIPTION_MODEL,
@@ -47,6 +50,7 @@ export interface SpeechSupabaseClient {
 export interface SpeechHandlerDependencies {
   env?: Pick<typeof Deno.env, "get">;
   requireAuth?: (req: Request) => string | Response;
+  authorizeIdentity?: typeof authorizeBillableIdentity;
   createSupabase?: (url: string, key: string) => SpeechSupabaseClient;
   fetch?: typeof fetch;
 }
@@ -70,7 +74,19 @@ export function createSpeechTranscribeHandler(
   dependencies: SpeechHandlerDependencies = {},
 ): (req: Request) => Promise<Response> {
   const env = dependencies.env ?? Deno.env;
-  const authenticate = dependencies.requireAuth ?? requireAuth;
+  const authorize = dependencies.authorizeIdentity ??
+    ((req, controls) => {
+      if (dependencies.requireAuth) {
+        const legacy = dependencies.requireAuth(req);
+        if (legacy instanceof Response) return legacy;
+        return {
+          status: "allowed" as const,
+          userId: legacy,
+          isAnonymous: false,
+        };
+      }
+      return authorizeBillableIdentity(req, controls);
+    });
   const providerFetch = dependencies.fetch ?? fetch;
   const makeSupabase = dependencies.createSupabase ??
     ((url: string, key: string) =>
@@ -91,10 +107,6 @@ export function createSpeechTranscribeHandler(
       return errorResponse("Method not allowed", 405, "method_not_allowed");
     }
 
-    const authResult = authenticate(req);
-    if (authResult instanceof Response) return authResult;
-    const userId = authResult;
-
     const openAIKey = env.get("OPENAI_API_KEY") ?? "";
     const supabaseURL = env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -104,6 +116,17 @@ export function createSpeechTranscribeHandler(
         503,
         "transcription_service_unavailable",
       );
+    }
+
+    const legacyIdentity = dependencies.requireAuth?.(req);
+    const earlyIdentity: { userId: string; isAnonymous: boolean } | Response | null = legacyIdentity !== undefined
+      ? legacyIdentity instanceof Response
+        ? legacyIdentity
+        : { userId: legacyIdentity, isAnonymous: false }
+      : getGatewayVerifiedIdentity(req);
+    if (earlyIdentity instanceof Response) return earlyIdentity;
+    if (!earlyIdentity) {
+      return errorResponse("Unauthorized", 401, "unauthorized");
     }
 
     const contentType = req.headers.get("Content-Type") ?? "";
@@ -143,6 +166,9 @@ export function createSpeechTranscribeHandler(
         "service_paused",
       );
     }
+    const identity = authorize(req, controls);
+    if (identity instanceof Response) return identity;
+    const { userId, isAnonymous } = identity;
     let claimed = false;
 
     try {
@@ -214,6 +240,7 @@ export function createSpeechTranscribeHandler(
           feature: "transcription",
           units: { durationMs: input.durationMs },
           payloadHash: input.clientRequestId,
+          isAnonymous,
           enforcementEnabled: controls.membershipEnforcementEnabled,
         },
       );
@@ -361,6 +388,8 @@ export function createSpeechTranscribeHandler(
           supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
           admission.reservationId,
           "settled",
+          undefined,
+          admission.reservationScope ?? "membership",
         );
       }
       return json(payload);

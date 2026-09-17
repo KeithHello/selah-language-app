@@ -7,8 +7,8 @@ import {
   errorResponse,
   handleOptions,
   json,
-  requireAuth,
 } from "../_shared/cors.ts";
+import { authorizeBillableIdentity } from "../_shared/anonymous_test_mode.ts";
 import {
   buildTranslationRequest,
   GENERATION_PROMPT_VERSION,
@@ -117,10 +117,6 @@ interface GenerationClaim {
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
 
-  const authResult = requireAuth(req);
-  if (authResult instanceof Response) return authResult;
-  const userId = authResult;
-
   if (req.method !== "POST") {
     return errorResponse("Method not allowed", 405, "method_not_allowed");
   }
@@ -161,6 +157,9 @@ Deno.serve(async (req: Request) => {
       "service_paused",
     );
   }
+  const identity = authorizeBillableIdentity(req, controls);
+  if (identity instanceof Response) return identity;
+  const { userId, isAnonymous } = identity;
   const { data: claimRaw, error: claimError } = await supabase.rpc(
     "claim_generation_request",
     {
@@ -219,6 +218,7 @@ Deno.serve(async (req: Request) => {
       feature: "sentence",
       units: { itemCount: 1 },
       payloadHash: sourceText,
+      isAnonymous,
       enforcementEnabled: controls.membershipEnforcementEnabled,
     },
   );
@@ -257,6 +257,8 @@ Deno.serve(async (req: Request) => {
           supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
           admission.reservationId,
           "unknown",
+          undefined,
+          admission.reservationScope ?? "membership",
         );
       }
     };
@@ -455,6 +457,8 @@ Deno.serve(async (req: Request) => {
           supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
           admission.reservationId,
           "unknown",
+          undefined,
+          admission.reservationScope ?? "membership",
         );
       }
       return errorResponse(
@@ -475,6 +479,8 @@ Deno.serve(async (req: Request) => {
         supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
         admission.reservationId,
         "settled",
+        undefined,
+        admission.reservationScope ?? "membership",
       );
     }
     await recordBusinessEvent(
@@ -499,6 +505,8 @@ Deno.serve(async (req: Request) => {
         supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
         admission.reservationId,
         "unknown",
+        undefined,
+        admission.reservationScope ?? "membership",
       );
     }
     return errorResponse("Internal server error", 500, "internal_error");

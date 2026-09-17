@@ -152,6 +152,8 @@ class SupabaseLearningGateway implements LearningGateway {
         return membershipFailure('内容正在准备，请稍后刷新结果。');
       case 'service_paused':
         return membershipFailure('新增生成暂时暂停，已有内容仍可学习。');
+      case 'anonymous_test_ended':
+        return membershipFailure('匿名测试已经结束，请注册或登录后继续；本机内容仍保留。');
       case 'membership_sales_disabled':
         return membershipFailure('会员购买暂未开放，请稍后再试。');
       case 'payment_provider_unavailable':

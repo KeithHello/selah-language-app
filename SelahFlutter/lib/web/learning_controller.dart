@@ -141,6 +141,9 @@ class LearningController extends ChangeNotifier {
   bool _polling = false;
   int _accountGeneration = 0;
   Future<void> _accountLoad = Future.value();
+  // Concurrent cloud entry points share this Future so a double click cannot
+  // create more than one temporary anonymous Supabase identity.
+  Future<void>? _cloudSessionLoad;
   String? _remindedDay;
   String? _activitySessionId;
   DateTime? _lastActivityAt;
@@ -170,6 +173,7 @@ class LearningController extends ChangeNotifier {
     'paused',
   }.contains(loopPlayback['state']);
   bool get hasSession => gateway.userId != null;
+  bool get isAnonymous => gateway.isAnonymous;
   bool get hasPendingRecording => _pendingRecording != null;
   String? get pendingPracticeSignal => _pendingPracticeSignal;
   String? get pendingPracticeSentenceId => _pendingPracticeSentenceId;
@@ -661,8 +665,18 @@ class LearningController extends ChangeNotifier {
     }
   }
 
-  Future<void> ensureCloudSession() async {
-    if (hasSession) return;
+  Future<void> ensureCloudSession() {
+    if (hasSession) return Future<void>.value();
+    final existing = _cloudSessionLoad;
+    if (existing != null) return existing;
+    final load = _ensureCloudSession().whenComplete(() {
+      _cloudSessionLoad = null;
+    });
+    _cloudSessionLoad = load;
+    return load;
+  }
+
+  Future<void> _ensureCloudSession() async {
     if (!configured) {
       throw const LearningFailure(
         '在线服务尚未配置。你可以继续学习种子句和已保存的内容。',

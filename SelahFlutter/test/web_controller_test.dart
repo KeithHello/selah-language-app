@@ -67,10 +67,13 @@ class FakeGateway extends UnconfiguredGateway {
 
   bool anonymous = false;
   int anonymousCalls = 0;
+  Completer<void>? anonymousGate;
 
   @override
   Future<void> signInAnonymously() async {
     anonymousCalls += 1;
+    final gate = anonymousGate;
+    if (gate != null && !gate.isCompleted) await gate.future;
     anonymous = true;
     user = newId();
   }
@@ -470,6 +473,32 @@ void main() {
       await c.flushPendingLocalWritesForTest();
       expect(c.syncPresentation.state, WebSyncState.localSaveFailed);
       expect(c.state.lastSyncAt, isNull);
+    },
+  );
+
+  test(
+    'concurrent anonymous cloud entry points share one sign-in',
+    () async {
+      final gate = Completer<void>();
+      final gateway = FakeGateway()
+        ..user = null
+        ..anonymousGate = gate;
+      final controller = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: const [],
+        polling: false,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+
+      final first = controller.ensureCloudSession();
+      final second = controller.ensureCloudSession();
+      gate.complete();
+      await Future.wait([first, second]);
+
+      expect(gateway.anonymousCalls, 1);
+      expect(controller.accountId, gateway.userId);
     },
   );
   test(
