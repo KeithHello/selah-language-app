@@ -125,7 +125,7 @@ export async function requestGenerationAdmission(
   // We still validate and quote the request so malformed or unbounded calls
   // cannot use free mode as a way to bypass cost ceilings. No reservation is
   // created while enforcement is disabled.
-  if (options.enforcementEnabled === false) {
+  if (options.enforcementEnabled === false && options.isAnonymous !== true) {
     return { allowed: true, quote };
   }
 
