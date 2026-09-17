@@ -18,8 +18,11 @@
 - [x] 已修复匿名云端入口并发竞态：多个入口同时触发时共享同一个匿名登录 Future，双击不会创建多个匿名账号。
 - [x] 本地 `supabase/config.toml` 已启用 `enable_anonymous_sign_ins = true`；远端 Confirm email / Anonymous Sign-ins 未修改。
 - [x] 本地 migration 草稿新增 `supabase/migrations/007_anonymous_platform_budget.sql`：新增平台预算预留表、匿名测试开关列、服务控制 RPC 版本 `2026-09-17-v1` 与 service-role-only RPC；尚未应用到远端。
-- [x] 验证：Dart analyze 0 issues；Flutter 全量 242 项通过；Deno 全量 307 项通过；Release Web 构建成功；`git diff --check` 通过。
-- [ ] 远端尚未应用 `007` migration、尚未创建当天 `platform_budget_ledgers` 测试预算行、尚未部署新 Edge Functions、尚未开启远端 Anonymous Sign-ins；这些都需要单独确认。
+- [x] 2026-09-18 远端已应用 `006`、`007` migration；`001`—`007` 全部对齐。已部署六个更新 Edge Functions，开启 Supabase Anonymous Sign-ins，并将管理台版本推进到 `2026-09-17-v1-r4`，匿名测试开关当前开启。
+- [x] 2026-09-18 Cloudflare Pages 已部署 Build ID `7ac17a830f60d168`：<https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。页面 200，10 句种子，60 条音频清单，中文母语 MP3 为 `audio/mpeg`。
+- [x] 2026-09-18 UTC 当日平台预算为 5 USD；热修后验证匿名开关关闭返回 `403 anonymous_test_ended`，预算为 0 返回 `403 service_budget_protected`，均不调用 OpenAI。热修前一次短 TTS 探测估算 0.0003 USD，已补记 committed；临时匿名账号已删除。
+- [x] 验证：Dart analyze 0 issues；Flutter 全量 242 项通过；Deno 全量 307 项通过；Release Web 构建成功；`git diff --check` 通过。部署记录见 [匿名测试模式发布说明](docs/anonymous-test-mode-2026-09-18.md)。
+- [ ] 尚未执行正式用户完整收费链路批量验收；测试结束后应通过管理开关关闭匿名测试，并按需关闭 Supabase Anonymous Sign-ins。
 - [x] 已将 Build ID `ebd23fdd5327ba6d` 发布到 Cloudflare Pages 项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 预览别名：<https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。只读验收：首页 200、10 句种子、60 条音频清单、189 项预缓存和代表性 `audio/mpeg` MP3 均可访问。
 - [ ] 远端 Supabase Auth、SMTP 或真实 OpenAI 尚未启用／验收；旧 20 句远端种子继续不处理。详见 [本地验收记录](docs/guest-cloud-access-acceptance.md)。
 

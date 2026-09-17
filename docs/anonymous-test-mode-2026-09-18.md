@@ -47,3 +47,20 @@
 - `dart analyze lib/web ...`：0 issues。
 - Flutter Web Release 构建成功。
 - `git diff --check` 通过。
+
+## 2026-09-18 部署记录
+
+- GitHub 分支：`codex/web-ux-reliability`。
+- 初始提交：`b4d6947 feat: gate anonymous cloud testing with platform budget`。
+- 热修提交：`5290405 fix: require platform budget for anonymous free mode`。
+- Supabase 项目：`ijonabyyppmgvoufgamt`。
+- 远端 migration：`001`—`007` 均已应用；其中本次应用了 `006_membership_cost_control.sql` 与 `007_anonymous_platform_budget.sql`。
+- Edge Functions 已部署：`sentences-generate`、`sentences-prepare`、`sentences-batch-generate`、`speech-transcribe`、`audio-generate`、`admin-service-controls`。
+- 无凭证检查：六个函数的 `OPTIONS` 均为 200；无授权业务请求均为 401。
+- Supabase Auth：`external_anonymous_users_enabled=true`；邮箱确认、SMTP 和其他外部登录保持原状。
+- Cloudflare Pages：Build ID `7ac17a830f60d168` 已部署到 <https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。
+- 只读页面验证：首页 200、预缓存清单 200、10 句种子、60 条音频清单、中文母语 MP3 为 `audio/mpeg`。
+- UTC 当日预算：`platform:day:2026-09-17`，预算 5 USD，当前 committed 为 0.0003 USD，reserved 为 0。
+- 部署验证时发现旧版本在会员限制关闭时会让匿名请求绕过平台预算；已用热修提交修复并重新部署。
+- 热修后验证：匿名开关关闭时返回 `403 anonymous_test_ended` 且无预留；预算为 0 时返回 `403 service_budget_protected`，不会调用 OpenAI。
+- 热修前的一次短 TTS 探测已成功，估算费用 0.0003 USD，已补记到平台预算账本；临时匿名账号已删除。
