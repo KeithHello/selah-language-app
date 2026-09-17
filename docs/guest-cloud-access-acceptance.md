@@ -38,7 +38,7 @@ Release 构建产物核对：
 
 - 本机 PATH 中没有 `deno`，本次未重跑 Deno 测试；本轮没有修改 Edge Function TypeScript，只修改了本地 `supabase/config.toml` 开关。
 - 远端 Supabase Auth 未修改：Confirm email 与 Anonymous Sign-ins 的远端状态仍需单独确认后操作。
-- Cloudflare Pages 预览站未部署。
+- Cloudflare Pages 预览站已部署到 `selah-language-app-preview` 项目的 `codex-web-ux-reliability` 预览别名：<https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。只读验收：首页 200、Build ID `ebd23fdd5327ba6d`、10 句种子、60 条音频清单、189 项预缓存和代表性 `audio/mpeg` MP3 均通过。
 - 未调用真实 OpenAI，未做真实转写／生成／TTS 付费验收。
 - SMTP、Site URL、邮件模板和旧 20 句远端种子均未处理。
 

@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-09-17 免邮箱确认与测试期游客云端功能（本地实现完成，远端未启用）
+### 2026-09-17 免邮箱确认与测试期游客云端功能（本地实现完成，预览站已发布；远端 Supabase 仍待启用）
 
 - [x] 已实现测试期游客云端会话：生成英文、长文整理、批量生成、说出来转写、个人句音频补齐和循环听个人句补音频会先静默 `signInAnonymously()`。
 - [x] 第一版不原地把匿名账户绑定为邮箱账户；正式注册仍走普通 `signUp`，远端关闭 Confirm email 后可立即登录。仍校验邮箱格式、密码长度和密码是否正确。
@@ -16,7 +16,8 @@
 - [x] 本地 `supabase/config.toml` 已启用 `enable_anonymous_sign_ins = true`；远端 Confirm email / Anonymous Sign-ins 未修改。
 - [x] 验证：Dart analyze 0 issues；Flutter 241 项通过；Node 35 项通过；Release 构建成功，Build ID `ebd23fdd5327ba6d`，仍为 10 句／60 MP3。
 - [ ] 本机 PATH 缺少 Deno，未重跑 Deno；本轮未修改 Edge Function TypeScript。
-- [ ] 尚未部署预览站、修改远端 Auth、配置 SMTP 或调用真实 OpenAI；旧 20 句远端种子继续不处理。详见 [本地验收记录](docs/guest-cloud-access-acceptance.md)。
+- [x] 已将 Build ID `ebd23fdd5327ba6d` 发布到 Cloudflare Pages 项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 预览别名：<https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。只读验收：首页 200、10 句种子、60 条音频清单、189 项预缓存和代表性 `audio/mpeg` MP3 均可访问。
+- [ ] 远端 Supabase Auth、SMTP 或真实 OpenAI 尚未启用／验收；旧 20 句远端种子继续不处理。详见 [本地验收记录](docs/guest-cloud-access-acceptance.md)。
 
 ### 2026-09-16 未登录快捷登录、注册邮件排查、母语配音与首批 10 句收口（本地实现完成；邮件发送仍待远端配置）
 
