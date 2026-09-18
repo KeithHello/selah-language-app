@@ -116,10 +116,10 @@ class AdminController extends ChangeNotifier {
   Future<bool> updateControls({
     bool? membershipEnforcementEnabled,
     bool? trialSignupsEnabled,
-  bool? membershipSalesEnabled,
-  bool? generationEnabled,
-  bool? anonymousTestModeEnabled,
-  required String reason,
+    bool? membershipSalesEnabled,
+    bool? generationEnabled,
+    bool? anonymousTestModeEnabled,
+    required String reason,
   }) async {
     if (controlsLoading) return false;
     controlsLoading = true;
@@ -158,6 +158,20 @@ class AdminController extends ChangeNotifier {
       notifyListeners();
     }
     return false;
+  }
+
+  /// Maps one product mode to the existing service-control flags.
+  ///
+  /// Test mode still keeps generation enabled so it cannot accidentally look
+  /// active while all cloud creation paths are disabled.
+  Future<bool> setProductMode(ProductMode mode, {required String reason}) {
+    final test = mode == ProductMode.test;
+    return updateControls(
+      membershipEnforcementEnabled: !test,
+      generationEnabled: true,
+      anonymousTestModeEnabled: test,
+      reason: reason,
+    );
   }
 
   Future<void> loadUsers({String? search, int? cursor}) async {

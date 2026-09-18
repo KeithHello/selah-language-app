@@ -88,6 +88,7 @@ class LearningController extends ChangeNotifier {
   bool localSaveFailed = false;
   bool syncFailed = false;
   String? error;
+  String? errorCode;
   String? notice;
   int tab = 0;
   int? detailTab;
@@ -174,6 +175,9 @@ class LearningController extends ChangeNotifier {
   }.contains(loopPlayback['state']);
   bool get hasSession => gateway.userId != null;
   bool get isAnonymous => gateway.isAnonymous;
+  /// Anonymous Supabase sessions authenticate API calls but never become a
+  /// cloud account scope; only a formal account can sync or use membership.
+  bool get isRegistered => hasSession && !isAnonymous;
   bool get hasPendingRecording => _pendingRecording != null;
   String? get pendingPracticeSignal => _pendingPracticeSignal;
   String? get pendingPracticeSentenceId => _pendingPracticeSentenceId;
@@ -192,7 +196,7 @@ class LearningController extends ChangeNotifier {
   PreparationDraft? get preparationDraft => state.preparationDraft;
   WebSyncPresentation get syncPresentation => WebSyncPresentation.evaluate(
     configured: configured,
-    hasSession: hasSession,
+    hasSession: isRegistered,
     online: platformInfo['online'] == true,
     initialized: initialized,
     savingLocal: savingLocal,
@@ -689,33 +693,33 @@ class LearningController extends ChangeNotifier {
     _localInputTimer?.cancel();
     await _writes;
     await store.save('guest', state.copy());
-    final guest = await store.load('guest');
+    // Keep the browser's guest scope while using the anonymous identity only
+    // as a short-lived credential for protected Edge Function requests.
     await gateway.signInAnonymously();
-    final id = gateway.userId;
-    if (id == null) {
+    if (gateway.userId == null) {
       throw const LearningFailure('暂时无法开始云端学习，请稍后重试。');
     }
-    await _switchAccount(id, force: true);
     _ensureCurrent(_accountGeneration);
-    final hasGuestData = guest.todayInput.isNotEmpty ||
-        guest.segmentInputs.isNotEmpty ||
-        guest.sentences.isNotEmpty ||
-        guest.drafts.isNotEmpty ||
-        guest.audio.isNotEmpty;
-    if (hasGuestData) {
-      await _mergeImport(guest, _accountGeneration);
-    }
   }
 
   Future<void> initialize() async {
     if (initialized) return;
     try {
       _auth ??= gateway.accountChanges.listen((id) {
+        if (gateway.isAnonymous) {
+          // Anonymous cloud calls share the local guest scope. Establishing a
+          // temporary Supabase identity must not clear the current page.
+          notifyListeners();
+          return;
+        }
         if ((id ?? 'guest') != _accountId) {
           unawaited(_switchAccount(id ?? 'guest'));
         }
       });
-      await _switchAccount(gateway.userId ?? 'guest', force: true);
+      final initialAccount = gateway.isAnonymous
+          ? 'guest'
+          : (gateway.userId ?? 'guest');
+      await _switchAccount(initialAccount, force: true);
       platformInfo = objectMap(await platform.invoke('platformInfo'));
       if (polling) {
         _timer ??= Timer.periodic(
@@ -727,8 +731,9 @@ class LearningController extends ChangeNotifier {
           (_) => unawaited(_recordActivityHeartbeat()),
         );
       }
-      if (hasSession && platformInfo['online'] == true) _scheduleSync();
+      if (isRegistered && platformInfo['online'] == true) _scheduleSync();
     } catch (e) {
+      errorCode = e is LearningFailure ? e.code : null;
       error = _message(e, fallback: '无法读取本机学习记录，请检查浏览器存储权限后重试。');
     }
     notifyListeners();
@@ -767,6 +772,7 @@ class LearningController extends ChangeNotifier {
     _pendingWrites = 0;
     _localInputTimer?.cancel();
     error = null;
+    errorCode = null;
     notice = null;
     recording = false;
     _pendingRecording = null;
@@ -826,6 +832,7 @@ class LearningController extends ChangeNotifier {
         .catchError((Object _) {
           // Keep the departing account's draft in memory for retry and restoration.
           localSaveFailed = true;
+          errorCode = null;
           error = '先前账户的输入尚未保存，请检查浏览器存储后重试本机保存。';
         })
         .whenComplete(notifyListeners);
@@ -861,11 +868,14 @@ class LearningController extends ChangeNotifier {
       localSaveFailed = _departingInputs.isNotEmpty;
       syncFailed = false;
       _cloudDirty = false;
-      unawaited(membership.load());
-      unawaited(researchProfile.load());
-      if (hasSession) _scheduleSync();
+      if (isRegistered) {
+        unawaited(membership.load());
+        unawaited(researchProfile.load());
+        _scheduleSync();
+      }
     } catch (e) {
       if (_current(generation)) {
+        errorCode = e is LearningFailure ? e.code : null;
         error = _message(e, fallback: '读取账户数据失败，请刷新重试。');
       }
     }
@@ -875,7 +885,9 @@ class LearningController extends ChangeNotifier {
   bool _current(int generation) =>
       !_disposed &&
       generation == _accountGeneration &&
-      (gateway.userId ?? 'guest') == _accountId;
+      (gateway.isAnonymous
+          ? _accountId == 'guest'
+          : (gateway.userId ?? 'guest') == _accountId);
   void _ensureCurrent(int generation) {
     if (!_current(generation)) {
       throw const LearningFailure('账户已切换，请重新操作。', code: 'account_changed');
@@ -884,6 +896,7 @@ class LearningController extends ChangeNotifier {
 
   void clearMessage() {
     error = null;
+    errorCode = null;
     notice = null;
     notifyListeners();
   }
@@ -1174,12 +1187,14 @@ class LearningController extends ChangeNotifier {
     final generation = _accountGeneration;
     busy = true;
     error = null;
+    errorCode = null;
     notice = null;
     notifyListeners();
     try {
       await action(generation);
     } catch (e) {
       if (_current(generation)) {
+        errorCode = e is LearningFailure ? e.code : null;
         error = _message(e);
         if (playback['state'] == 'loading') playback['state'] = 'idle';
       }
@@ -1250,6 +1265,7 @@ class LearningController extends ChangeNotifier {
         if (_current(expectedGeneration)) {
           savingLocal = --_pendingWrites > 0;
           if (storageFailed) localSaveFailed = true;
+          errorCode = failure is LearningFailure ? failure.code : null;
           error = _message(failure, fallback: '本机保存失败，内容仍保留，请重试。');
           notifyListeners();
         }
@@ -1272,14 +1288,16 @@ class LearningController extends ChangeNotifier {
   }
 
   void _scheduleSync() {
-    if (!hasSession || platformInfo['online'] == false || _disposed) return;
+    if (!isRegistered || platformInfo['online'] == false || _disposed) return;
     _syncTimer?.cancel();
     _syncTimer = Timer(const Duration(seconds: 2), () => unawaited(sync()));
   }
 
   void _online() {
     if (!configured) throw const LearningFailure('在线服务尚未配置。你可以继续学习种子句和已保存的内容。');
-    if (!hasSession) throw const LearningFailure('请先登录，便能生成自己的英文和语音。');
+    if (!hasSession) {
+      throw const LearningFailure('请先登录，便能生成自己的英文和语音。', code: 'login_required');
+    }
     if (platformInfo['online'] == false) {
       throw const LearningFailure('现在处于离线状态，联网后可继续生成。');
     }
@@ -1291,7 +1309,10 @@ class LearningController extends ChangeNotifier {
   }
 
   void _sameAccount(String account) {
-    if (account != _accountId || (gateway.userId ?? 'guest') != account) {
+    final sameScope = gateway.isAnonymous
+        ? account == 'guest' && _accountId == 'guest'
+        : (gateway.userId ?? 'guest') == account;
+    if (account != _accountId || !sameScope) {
       throw const LearningFailure('账户已切换，本次结果没有写入新账户。');
     }
   }
@@ -1430,7 +1451,11 @@ class LearningController extends ChangeNotifier {
       );
       await _change((next) => next.drafts.add(fresh), sync: false);
       _ensureCurrent(_accountGeneration);
-      await _generate(fresh, _accountGeneration, inputVersion: submittedInputVersion);
+      await _generate(
+        fresh,
+        _accountGeneration,
+        inputVersion: submittedInputVersion,
+      );
       return;
     }
     var draft = state.drafts.where((d) => d.text == source).firstOrNull;
@@ -1505,14 +1530,17 @@ class LearningController extends ChangeNotifier {
     }, generation: generation);
     _ensureCurrent(generation);
     activeSentence = state.sentences.firstWhere((s) => s.id == sentence.id);
-    if (hasSession && platformInfo['online'] != false) {
+    if (isRegistered && platformInfo['online'] != false) {
       unawaited(membership.load());
     }
     notice = '这句英文已保存，准备好就听一听。';
   }
 
-  Future<void> retryDraft(GenerationDraft draft) =>
-      _run((generation) => _generate(draft, generation));
+  Future<void> retryDraft(GenerationDraft draft) => _run((generation) async {
+    await _ensureOnlineSession();
+    _ensureCurrent(generation);
+    await _generate(draft, generation);
+  });
   Future<List<String>> prepare(String text) async {
     final output = <String>[];
     await _run((generation) async {
@@ -1716,7 +1744,7 @@ class LearningController extends ChangeNotifier {
       }, generation: generation);
       _ensureCurrent(generation);
       generatedCount += sentences.length;
-      if (hasSession && platformInfo['online'] != false) {
+      if (isRegistered && platformInfo['online'] != false) {
         unawaited(membership.load());
       }
     }
@@ -1779,6 +1807,7 @@ class LearningController extends ChangeNotifier {
       await platform.invoke('audioStop');
       if (!current()) return;
       error = null;
+      errorCode = null;
       final key =
           'preview:${sample.seedId}:$selectedVoice:${bundled['sha256']}';
       playback = {'state': 'loading', 'positionMs': 0, 'durationMs': 0};
@@ -1812,6 +1841,7 @@ class LearningController extends ChangeNotifier {
       };
     } catch (e) {
       if (current()) {
+        errorCode = e is LearningFailure ? e.code : null;
         error = _message(e);
         playback = {'state': 'idle', 'positionMs': 0, 'durationMs': 0};
       }
@@ -2030,6 +2060,7 @@ class LearningController extends ChangeNotifier {
           }
         } else if (value['state'] == 'error') {
           _playSession = null;
+          errorCode = null;
           error = '音频播放中断，请重新播放。';
         }
       }
@@ -2049,6 +2080,7 @@ class LearningController extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       if (_current(generation)) {
+        errorCode = e is LearningFailure ? e.code : null;
         error = _message(e);
         notifyListeners();
       }
@@ -2277,7 +2309,7 @@ class LearningController extends ChangeNotifier {
   Future<void> sync() async {
     if (syncing ||
         !initialized ||
-        !hasSession ||
+        !isRegistered ||
         platformInfo['online'] == false) {
       return;
     }
@@ -2317,6 +2349,7 @@ class LearningController extends ChangeNotifier {
     } catch (e) {
       if (_current(generation)) {
         syncFailed = true;
+        errorCode = e is LearningFailure ? e.code : null;
         error = _message(e, fallback: '同步未完成，本机内容已保留，联网后可以重试。');
       }
     } finally {
@@ -2441,6 +2474,7 @@ class LearningController extends ChangeNotifier {
       return guest;
     } catch (e) {
       if (_current(generation)) {
+        errorCode = e is LearningFailure ? e.code : null;
         error = _message(e);
         notifyListeners();
       }
@@ -2449,7 +2483,10 @@ class LearningController extends ChangeNotifier {
   }
 
   Future<void> bringGuestInput() => _run((generation) async {
-    if (!hasSession) throw const LearningFailure('请先登录，再带入本机输入。');
+    if (!isRegistered) {
+      notice = '当前已在本机资料中，无需导入。';
+      return;
+    }
     final guest = await loadGuestData();
     _ensureCurrent(generation);
     if (guest == null || guest.todayInput.isEmpty) return;
@@ -2494,6 +2531,10 @@ class LearningController extends ChangeNotifier {
             : PreparationDraft.fromJson(merged.preparationDraft!.toJson());
       }, generation: generation);
   Future<void> importGuest() => _run((generation) async {
+    if (!isRegistered) {
+      notice = '测试模式下已直接使用本机资料。';
+      return;
+    }
     await _ensureOnlineSession();
     _ensureCurrent(generation);
     final guest = await store.load('guest');

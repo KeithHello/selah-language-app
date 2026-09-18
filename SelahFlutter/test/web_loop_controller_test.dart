@@ -94,7 +94,8 @@ class _SignedOutGateway extends UnconfiguredGateway {
     if (function == 'audio-generate' || function == 'audio-download-url') {
       requests.add((function: function, get: get));
     }
-    if (function == 'membership-status' || function == 'user-research-profile') {
+    if (function == 'membership-status' ||
+        function == 'user-research-profile') {
       return const {};
     }
     throw StateError('guest must not call cloud');
@@ -112,7 +113,8 @@ class _GeneratingGateway extends _SignedInGateway {
     Map<String, dynamic> body, {
     bool get = false,
   }) async {
-    if (function == 'membership-status' || function == 'user-research-profile') {
+    if (function == 'membership-status' ||
+        function == 'user-research-profile') {
       return const {};
     }
     requests.add((function: function, get: get));
@@ -134,6 +136,9 @@ class _SignedInGateway extends _SignedOutGateway {
 
   @override
   String? get userId => '22222222-2222-4222-8222-222222222222';
+
+  @override
+  bool get isAnonymous => false;
 
   @override
   Future<Map<String, dynamic>> invoke(
@@ -159,10 +164,15 @@ class _AnonymousGeneratingGateway extends _GeneratingGateway {
 
   @override
   String? get userId => user;
+
+  @override
+  bool get isAnonymous => user != null;
 }
 
 LearnSentence _sentence({String? seedId}) => LearnSentence(
-  id: seedId == null ? '11111111-1111-4111-8111-111111111111' : 'sentence-$seedId',
+  id: seedId == null
+      ? '11111111-1111-4111-8111-111111111111'
+      : 'sentence-$seedId',
   seedId: seedId,
   source: '一步一步来。',
   target: 'One step at a time.',
@@ -225,9 +235,9 @@ void main() {
       );
       addTearDown(controller.dispose);
       _setUpSentence(controller, _sentence());
-      await controller.mergeBackup(LearningSnapshot.importBackup(
-        jsonEncode(controller.state.toBackup()),
-      ));
+      await controller.mergeBackup(
+        LearningSnapshot.importBackup(jsonEncode(controller.state.toBackup())),
+      );
       await controller.flushLocalWrites();
 
       await controller.prepareLoop();
@@ -235,7 +245,10 @@ void main() {
 
       // ignore: avoid_print
       expect(controller.hasSession, isTrue);
-      expect(gateway.requests.map((request) => request.function), contains('audio-generate'));
+      expect(
+        gateway.requests.map((request) => request.function),
+        contains('audio-generate'),
+      );
     },
   );
 

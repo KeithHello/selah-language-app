@@ -136,7 +136,19 @@ void main() {
 
     await tester.pumpWidget(WebLearningApp(controller: controller));
     expect(find.text('先让 Selah 认识你'), findsOneWidget);
+    expect(find.text('第 1 步：给精灵取名字'), findsOneWidget);
+    expect(find.text('必填'), findsOneWidget);
+    expect(find.text('这是你要陪伴的精灵名字，之后会一直显示在学习空间里。'), findsOneWidget);
     expect(find.text('已选 0 句（至少 3 句）'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byType(WebStartAction),
+        matching: find.byType(FilledButton),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('请先输入精灵名字。'), findsOneWidget);
 
     await tester.enterText(find.byType(TextField).first, '小芽');
     for (final sentence in [
@@ -198,7 +210,7 @@ void main() {
         of: find.byType(WebStartAction),
         matching: find.byType(FilledButton),
       );
-      expect(tester.widget<FilledButton>(action).onPressed, isNull);
+      expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
       await tester.enterText(find.byType(TextField).first, '小芽');
       await tester.pump();
       expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
@@ -351,6 +363,7 @@ void main() {
     'configured local build keeps login available without membership section',
     (tester) async {
       final gateway = _SignedOutConfiguredGateway()..fail = false;
+      platform.info['online'] = true;
       final configuredController = LearningController(
         gateway: gateway,
         platform: platform,
@@ -364,9 +377,7 @@ void main() {
         ..uiLocale = 'zh-Hans';
       configuredController.navigate(4);
 
-      await tester.pumpWidget(
-        WebLearningApp(controller: configuredController),
-      );
+      await tester.pumpWidget(WebLearningApp(controller: configuredController));
       await tester.pumpAndSettle();
 
       expect(find.text('登录／注册'), findsOneWidget);
@@ -401,8 +412,35 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, '登录／注册'), findsOneWidget);
   });
 
+  testWidgets('unsigned generation starts anonymously without a login banner', (
+    tester,
+  ) async {
+    final gateway = _SignedOutConfiguredGateway()..fail = false;
+    platform.info['online'] = true;
+    final configuredController = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(6, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(configuredController.dispose);
+    await configuredController.initialize();
+    configuredController.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    await configuredController.generate('今天想早点休息。');
+
+    await tester.pumpWidget(WebLearningApp(controller: configuredController));
+    await tester.pumpAndSettle();
+
+    expect(configuredController.hasSession, isTrue);
+    expect(find.text('请先登录，便能生成自己的英文和语音。'), findsNothing);
+    await configuredController.sync();
+    await tester.pumpAndSettle();
+  });
+
   testWidgets(
-    'unsigned generation starts anonymously without a login banner',
+    'anonymous budget errors stay local without a login call to action',
     (tester) async {
       final gateway = _SignedOutConfiguredGateway()..fail = false;
       platform.info['online'] = true;
@@ -416,20 +454,42 @@ void main() {
       await configuredController.initialize();
       configuredController.state.preferences
         ..onboarded = true
-        ..uiLocale = 'zh-Hans';
-      await configuredController.generate('今天想早点休息。');
+        ..name = '小芽';
+      await configuredController.ensureCloudSession();
+      configuredController.errorCode = 'service_budget_protected';
+      configuredController.error = '今天的测试预算已用完，请明天再试。';
+      configuredController.notifyListeners();
 
-      await tester.pumpWidget(
-        WebLearningApp(controller: configuredController),
-      );
-      await tester.pumpAndSettle();
-
-      expect(configuredController.hasSession, isTrue);
-      expect(find.text('请先登录，便能生成自己的英文和语音。'), findsNothing);
-      await configuredController.sync();
-      await tester.pumpAndSettle();
+      await tester.pumpWidget(WebLearningApp(controller: configuredController));
+      expect(find.text('今天的测试预算已用完，请明天再试。'), findsOneWidget);
+      expect(find.text('注册／登录'), findsNothing);
     },
   );
+
+  testWidgets('production anonymous restriction keeps an inline login action', (
+    tester,
+  ) async {
+    final gateway = _SignedOutConfiguredGateway()..fail = false;
+    platform.info['online'] = true;
+    final configuredController = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(6, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(configuredController.dispose);
+    await configuredController.initialize();
+    configuredController.state.preferences
+      ..onboarded = true
+      ..name = '小芽';
+    await configuredController.ensureCloudSession();
+    configuredController.errorCode = 'anonymous_test_ended';
+    configuredController.error = '当前为生产模式，请登录正式账户后继续。';
+    configuredController.notifyListeners();
+
+    await tester.pumpWidget(WebLearningApp(controller: configuredController));
+    expect(find.text('注册／登录'), findsOneWidget);
+  });
 
   testWidgets('settings expose a native voice picker', (tester) async {
     controller.state.preferences

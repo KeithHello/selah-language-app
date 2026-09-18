@@ -433,11 +433,13 @@ class _SidebarStatus extends StatelessWidget {
       'isOnline',
     ]);
     final configured = controller.configured;
-    final session = controller.hasSession;
+    final session = controller.isRegistered;
     final label = !configured
         ? strings.translateLegacy('本机学习中（云端未配置）')
         : !session
-        ? strings.translateLegacy('本机学习中（登录后可同步）')
+        ? controller.isAnonymous
+              ? strings.text('sync.testMode')
+              : strings.translateLegacy('本机学习中（登录后可同步）')
         : online == false
         ? strings.translateLegacy('离线学习中')
         : online == true
@@ -800,13 +802,11 @@ class _MessageBar extends StatelessWidget {
 
   bool get _offersLogin {
     if (!controller.configured) return false;
-    final text = '${controller.error ?? ''} ${controller.notice ?? ''}';
-    return controller.isAnonymous ||
-        text.contains('登录') ||
-        text.contains('登入') ||
-        text.contains('注册') ||
-        text.contains('註冊') ||
-        text.contains('ログイン');
+    return const {
+      'unauthorized',
+      'login_required',
+      'anonymous_test_ended',
+    }.contains(controller.errorCode);
   }
 
   @override
@@ -3754,9 +3754,8 @@ class _SettingsPageState extends State<_SettingsPage> {
                 value: p.companionRailVisible,
                 onChanged: c.busy
                     ? null
-                    : (value) => c.updatePreferences(
-                          companionRailVisible: value,
-                        ),
+                    : (value) =>
+                          c.updatePreferences(companionRailVisible: value),
               ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
@@ -3873,9 +3872,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                   contentPadding: EdgeInsets.zero,
                   title: Text(s.translateLegacy('测试访客')),
                   subtitle: Text(
-                    s.translateLegacy(
-                      '正在免登录测试云端学习，资料主要保存在当前浏览器。',
-                    ),
+                    s.translateLegacy('正在免登录测试云端学习，资料主要保存在当前浏览器。'),
                   ),
                   leading: const Icon(
                     Icons.science_outlined,
@@ -4193,7 +4190,12 @@ class _OnboardingPage extends StatefulWidget {
 
 class _OnboardingPageState extends State<_OnboardingPage> {
   late final TextEditingController _name;
+  late final FocusNode _nameFocus;
+  final _nameSectionKey = GlobalKey();
+  final _selectionSectionKey = GlobalKey();
   final _selected = <String>{};
+  bool _nameAttempted = false;
+  bool _selectionAttempted = false;
 
   LearningController get c => widget.controller;
 
@@ -4202,19 +4204,47 @@ class _OnboardingPageState extends State<_OnboardingPage> {
     super.initState();
     final current = c.state.preferences.name;
     _name = TextEditingController(text: current == '小豆' ? '' : current);
+    _nameFocus = FocusNode();
   }
 
   @override
   void dispose() {
     _name.dispose();
+    _nameFocus.dispose();
     super.dispose();
   }
 
   Future<void> _complete() async {
     final name = _name.text.trim();
-    if (c.busy || name.isEmpty || _selected.length < minOnboardingSeedCount) {
+    if (c.busy) return;
+    final missingName = name.isEmpty;
+    final missingSelection = _selected.length < minOnboardingSeedCount;
+    if (missingName || missingSelection) {
+      setState(() {
+        _nameAttempted = missingName;
+        _selectionAttempted = missingSelection;
+      });
+      final key = missingName ? _nameSectionKey : _selectionSectionKey;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (missingName) _nameFocus.requestFocus();
+        final target = key.currentContext;
+        if (target != null) {
+          Scrollable.ensureVisible(
+            target,
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : const Duration(milliseconds: 220),
+            alignment: 0.12,
+          );
+        }
+      });
       return;
     }
+    setState(() {
+      _nameAttempted = false;
+      _selectionAttempted = false;
+    });
     FocusScope.of(context).unfocus();
     c.clearMessage();
     await c.onboard(name, _selected.toList());
@@ -4249,6 +4279,7 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                   hasName: _name.text.trim().isNotEmpty,
                   busy: c.busy,
                   onStart: _complete,
+                  onInvalid: _complete,
                   uiLocale: c.uiLocale,
                 ),
               ),
@@ -4298,20 +4329,105 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                       style: SelahTypography.bodyLarge(),
                     ),
                     const SizedBox(height: 24),
-                    TextField(
-                      controller: _name,
-                      onChanged: (_) => setState(() {}),
-                      enabled: !c.busy,
-                      maxLength: 24,
-                      decoration: InputDecoration(
-                        labelText: s.text('onboarding.nameLabel'),
-                        hintText: s.text('onboarding.nameHint'),
-                        prefixIcon: Icon(Icons.spa_outlined),
-                        counterText: '',
+                    Container(
+                      key: _nameSectionKey,
+                      padding: const EdgeInsets.fromLTRB(18, 16, 18, 15),
+                      decoration: BoxDecoration(
+                        color: SelahColors.coralSoft.withValues(alpha: .42),
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: _nameAttempted && _name.text.trim().isEmpty
+                              ? SelahColors.coral
+                              : SelahColors.coral.withValues(alpha: .24),
+                          width: _nameAttempted && _name.text.trim().isEmpty
+                              ? 1.5
+                              : 1,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  s.text('onboarding.nameStep'),
+                                  style: SelahTypography.headlineMedium(),
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 9,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: SelahColors.cardPrimary,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  s.text('onboarding.required'),
+                                  style: SelahTypography.labelSmall(
+                                    color: SelahColors.coral,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 5),
+                          Text(
+                            s.text('onboarding.nameHelp'),
+                            style: SelahTypography.bodySmall(
+                              color: SelahColors.textSecondary,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextField(
+                            controller: _name,
+                            focusNode: _nameFocus,
+                            onChanged: (_) => setState(() {}),
+                            enabled: !c.busy,
+                            maxLength: 24,
+                            style: SelahTypography.headlineMedium(),
+                            decoration: InputDecoration(
+                              labelText: s.text('onboarding.nameLabel'),
+                              hintText: s.text('onboarding.nameHint'),
+                              prefixIcon: const Icon(Icons.spa_outlined),
+                              counterText: '',
+                              errorText:
+                                  _nameAttempted && _name.text.trim().isEmpty
+                                  ? s.text('onboarding.nameError')
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(
+                                Icons.chat_bubble_outline_rounded,
+                                size: 17,
+                                color: SelahColors.coral.withValues(alpha: .8),
+                              ),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(
+                                  _name.text.trim().isEmpty
+                                      ? s.text('onboarding.namePreviewEmpty')
+                                      : s.message('onboarding.namePreview', {
+                                          'name': _name.text.trim(),
+                                        }),
+                                  style: SelahTypography.bodySmall(
+                                    color: SelahColors.textSecondary,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 25),
                     Row(
+                      key: _selectionSectionKey,
                       children: [
                         Expanded(
                           child: Text(
@@ -4320,8 +4436,8 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                           ),
                         ),
                         TextButton(
-                          onPressed: c.busy ||
-                                  c.seeds.length < minOnboardingSeedCount
+                          onPressed:
+                              c.busy || c.seeds.length < minOnboardingSeedCount
                               ? null
                               : () => setState(() {
                                   _selected
@@ -4336,7 +4452,8 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                                           .take(minOnboardingSeedCount)
                                           .map((seed) => seed.seedId!),
                                     );
-                                  if (_selected.length < minOnboardingSeedCount) {
+                                  if (_selected.length <
+                                      minOnboardingSeedCount) {
                                     _selected
                                       ..clear()
                                       ..addAll(
@@ -4365,6 +4482,17 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                       s.text('onboarding.seedHint'),
                       style: SelahTypography.bodySmall(),
                     ),
+                    if (_selectionAttempted &&
+                        _selected.length < minOnboardingSeedCount)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          s.text('onboarding.selectionError'),
+                          style: SelahTypography.bodySmall(
+                            color: SelahColors.coral,
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: 13),
                     if (c.seeds.isEmpty)
                       _EmptyState(

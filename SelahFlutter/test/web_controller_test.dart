@@ -87,6 +87,7 @@ class FakeGateway extends UnconfiguredGateway {
     anonymous = false;
     user ??= newId();
   }
+
   @override
   Future<Map<String, dynamic>> invoke(
     String function,
@@ -476,31 +477,28 @@ void main() {
     },
   );
 
-  test(
-    'concurrent anonymous cloud entry points share one sign-in',
-    () async {
-      final gate = Completer<void>();
-      final gateway = FakeGateway()
-        ..user = null
-        ..anonymousGate = gate;
-      final controller = LearningController(
-        gateway: gateway,
-        platform: MemoryPlatform(),
-        seeds: const [],
-        polling: false,
-      );
-      addTearDown(controller.dispose);
-      await controller.initialize();
+  test('concurrent anonymous cloud entry points share one sign-in', () async {
+    final gate = Completer<void>();
+    final gateway = FakeGateway()
+      ..user = null
+      ..anonymousGate = gate;
+    final controller = LearningController(
+      gateway: gateway,
+      platform: MemoryPlatform(),
+      seeds: const [],
+      polling: false,
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize();
 
-      final first = controller.ensureCloudSession();
-      final second = controller.ensureCloudSession();
-      gate.complete();
-      await Future.wait([first, second]);
+    final first = controller.ensureCloudSession();
+    final second = controller.ensureCloudSession();
+    gate.complete();
+    await Future.wait([first, second]);
 
-      expect(gateway.anonymousCalls, 1);
-      expect(controller.accountId, gateway.userId);
-    },
-  );
+    expect(gateway.anonymousCalls, 1);
+    expect(controller.accountId, 'guest');
+  });
   test(
     'unsigned generation opens an anonymous cloud session and preserves guest input',
     () async {
@@ -519,14 +517,97 @@ void main() {
       c.updateTodayInput('今天想早点休息。');
 
       expect(c.hasSession, isFalse);
+      await c.ensureCloudSession();
+      expect(c.accountId, 'guest');
+      expect(c.todayInput, '今天想早点休息。');
       await c.generate('今天想早点休息。');
 
       expect(gateway.anonymousCalls, 1);
       expect(c.hasSession, isTrue);
       expect(gateway.isAnonymous, isTrue);
-      expect(c.accountId, gateway.userId);
-      expect(c.todayInput, '今天想早点休息。');
+      expect(c.accountId, 'guest');
+      expect(c.todayInput, isEmpty);
       expect(c.state.sentences, hasLength(1));
+    },
+  );
+
+  test(
+    'existing anonymous sessions restore the local guest scope on startup',
+    () async {
+      final platform = MemoryPlatform();
+      final writerGateway = FakeGateway()
+        ..user = null
+        ..fail = false;
+      final writer = LearningController(
+        gateway: writerGateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      await writer.initialize();
+      writer.updateTodayInput('刷新后仍要保留的本机内容');
+      await writer.flushPendingLocalWritesForTest();
+      writer.dispose();
+
+      final anonymousGateway = FakeGateway()..anonymous = true;
+      final restored = LearningController(
+        gateway: anonymousGateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(restored.dispose);
+      await restored.initialize();
+
+      expect(restored.initialized, isTrue);
+      expect(restored.accountId, 'guest');
+      expect(restored.todayInput, '刷新后仍要保留的本机内容');
+    },
+  );
+
+  test('preview errors clear a stale authentication code', () async {
+    final gateway = FakeGateway()
+      ..user = null
+      ..fail = false;
+    final c = LearningController(
+      gateway: gateway,
+      platform: MemoryPlatform(),
+      seeds: seeds(),
+      polling: false,
+    );
+    addTearDown(c.dispose);
+    await c.initialize();
+    c.errorCode = 'anonymous_test_ended';
+
+    await c.previewSeed(seeds().first);
+
+    expect(c.errorCode, isNot('anonymous_test_ended'));
+    expect(c.error, isNotNull);
+  });
+
+  test(
+    'retrying a local draft opens the anonymous cloud session first',
+    () async {
+      final gateway = FakeGateway()
+        ..user = null
+        ..fail = false;
+      final c = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      final draft = GenerationDraft(id: newId(), text: '待重试的内容');
+      c.state.drafts.add(draft);
+
+      await c.retryDraft(draft);
+
+      expect(gateway.anonymousCalls, 1);
+      expect(gateway.isAnonymous, isTrue);
+      expect(c.state.sentences, hasLength(1));
+      expect(c.state.drafts, isEmpty);
     },
   );
 

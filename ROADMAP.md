@@ -1,6 +1,6 @@
 # Selah 开发路线图
 
-> 最后更新：2026-09-17
+> 最后更新：2026-09-18
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
@@ -17,7 +17,7 @@
 - [x] 管理台新增「开放匿名测试」开关；开关默认关闭，只有管理员写权限可开启。设置页把匿名会话显示为「测试访客」，并隐藏会员中心、研究问卷与正式账户同步表述。
 - [x] 已修复匿名云端入口并发竞态：多个入口同时触发时共享同一个匿名登录 Future，双击不会创建多个匿名账号。
 - [x] 本地 `supabase/config.toml` 已启用 `enable_anonymous_sign_ins = true`；远端 Confirm email / Anonymous Sign-ins 未修改。
-- [x] 本地 migration 草稿新增 `supabase/migrations/007_anonymous_platform_budget.sql`：新增平台预算预留表、匿名测试开关列、服务控制 RPC 版本 `2026-09-17-v1` 与 service-role-only RPC；尚未应用到远端。
+- [x] 本地 migration 文件保留 `supabase/migrations/007_anonymous_platform_budget.sql`：新增平台预算预留表、匿名测试开关列、服务控制 RPC 版本 `2026-09-17-v1` 与 service-role-only RPC；远端应用状态以紧接的验证记录为准。
 - [x] 2026-09-18 远端已应用 `006`、`007` migration；`001`—`007` 全部对齐。已部署六个更新 Edge Functions，开启 Supabase Anonymous Sign-ins，并将管理台版本推进到 `2026-09-17-v1-r4`，匿名测试开关当前开启。
 - [x] 2026-09-18 Cloudflare Pages 已部署 Build ID `7ac17a830f60d168`：<https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。页面 200，10 句种子，60 条音频清单，中文母语 MP3 为 `audio/mpeg`。
 - [x] 2026-09-18 UTC 当日平台预算为 5 USD；热修后验证匿名开关关闭返回 `403 anonymous_test_ended`，预算为 0 返回 `403 service_budget_protected`，均不调用 OpenAI。热修前一次短 TTS 探测估算 0.0003 USD，已补记 committed；临时匿名账号已删除。
@@ -25,6 +25,20 @@
 - [ ] 尚未执行正式用户完整收费链路批量验收；测试结束后应通过管理开关关闭匿名测试，并按需关闭 Supabase Anonymous Sign-ins。
 - [x] 已将 Build ID `ebd23fdd5327ba6d` 发布到 Cloudflare Pages 项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 预览别名：<https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。只读验收：首页 200、10 句种子、60 条音频清单、189 项预缓存和代表性 `audio/mpeg` MP3 均可访问。
 - [ ] 远端 Supabase Auth、SMTP 或真实 OpenAI 尚未启用／验收；旧 20 句远端种子继续不处理。详见 [本地验收记录](docs/guest-cloud-access-acceptance.md)。
+
+### 2026-09-18 Web 二元运行模式与首次引导（本地实现完成；远端开关与部署未改）
+
+- [x] 管理台服务控制收敛为单一「运行模式」：测试模式同时开启匿名测试、关闭会员限制并保持新增生成；生产模式关闭匿名测试、开启会员限制并保持新增生成。混合或不完整配置按生产安全回退。
+- [x] 匿名会话继续使用本机 `guest` 资料作用域，不再在建立匿名 Supabase 身份时切换页面、清空状态或启动跨设备同步；正式账户才切换账户作用域并同步。
+- [x] 已修复已有匿名会话刷新后的启动路径：初始化始终把匿名身份映射回 `guest` 作用域，本机资料可正常恢复，不会停留在加载态。
+- [x] 生成、转写、音频补齐、循环听和草稿重试都可在测试模式静默建立匿名会话；匿名资料导入入口改为原地提示，正式账户才执行本机资料合并。
+- [x] 错误提示保存 `LearningFailure.code`；只有真正的认证限制才显示登录／注册按钮，预算、网络、音频和普通业务错误保持当前页面原地提示。
+- [x] 已统一清理试听、轮询、账户加载和本机资料读取路径的旧错误码，避免普通音频错误沿用登录提示。
+- [x] 混合或不完整的远端服务开关会显示风险提示，并提供直接应用生产模式的归一化操作，避免管理员必须先切换到测试模式才能关闭匿名入口。
+- [x] 首次引导把精灵名字改为高对比步骤卡：明确「第 1 步」、必填标识、说明、放大输入框、实时问候预览；点击开始会聚焦缺失字段并显示名称／句子数量错误，不再静默禁用。
+- [x] 测试覆盖运行模式合约、匿名本机作用域、刷新恢复、草稿重试、错误 CTA、错误码清理、混合配置归一化、管理台模式控件和三语名称引导；`flutter test` 全量 251 项通过，相关 Dart analyze 0 issues。
+- [x] `tool/web.ps1 -Action build` Release 构建成功，当前本地候选 Build ID 为 `c19efc446a159867`；本轮未执行 Cloudflare、Supabase、数据库、密钥或公开部署操作。
+- [ ] 仍需在后续单独验证真实管理账号切换测试／生产模式，以及生产模式下匿名请求收到 `anonymous_test_ended` 后的实际登录流程；这两项不在本地代码测试中完成。
 
 ### 2026-09-16 未登录快捷登录、注册邮件排查、母语配音与首批 10 句收口（本地实现完成；邮件发送仍待远端配置）
 

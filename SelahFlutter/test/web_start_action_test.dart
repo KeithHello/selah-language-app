@@ -18,16 +18,18 @@ Widget _host(WebStartAction action, {double width = 360}) {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('invalid onboarding state disables the action and explains why', (
+  testWidgets('invalid onboarding state stays clickable and explains why', (
     tester,
   ) async {
+    var invalidTaps = 0;
     await tester.pumpWidget(
       _host(
-        const WebStartAction(
+        WebStartAction(
           selectedCount: 2,
           hasName: false,
           busy: false,
           onStart: _noop,
+          onInvalid: () => invalidTaps += 1,
         ),
       ),
     );
@@ -36,8 +38,10 @@ void main() {
     expect(find.text('先取名字'), findsOneWidget);
     expect(
       tester.widget<FilledButton>(find.byType(FilledButton)).onPressed,
-      isNull,
+      isNotNull,
     );
+    await tester.tap(find.byType(FilledButton));
+    expect(invalidTaps, 1);
   });
 
   testWidgets('at least three selected sentences and a name enable one tap', (
@@ -66,7 +70,7 @@ void main() {
   });
 
   testWidgets(
-    'counts below three stay disabled while larger selections stay enabled',
+    'counts below three stay actionable while larger selections stay enabled',
     (tester) async {
       final handle = tester.ensureSemantics();
       try {
@@ -78,15 +82,16 @@ void main() {
                 hasName: true,
                 busy: false,
                 onStart: _noop,
+                onInvalid: _noop,
               ),
             ),
           );
           expect(find.bySemanticsLabel('開始學習'), findsOneWidget);
-          expect(
-            tester.widget<FilledButton>(find.byType(FilledButton)).onPressed !=
-                null,
-            count >= 3,
-          );
+            expect(
+              tester.widget<FilledButton>(find.byType(FilledButton)).onPressed !=
+                  null,
+              isTrue,
+            );
         }
       } finally {
         handle.dispose();

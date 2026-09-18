@@ -53,7 +53,11 @@ class SupabaseLearningGateway implements LearningGateway {
   }
 
   @override
-  Future<void> signUp(String email, String password, {String? emailRedirectTo}) async {
+  Future<void> signUp(
+    String email,
+    String password, {
+    String? emailRedirectTo,
+  }) async {
     final response = await client.auth.signUp(
       email: email.trim(),
       password: password,
@@ -153,7 +157,7 @@ class SupabaseLearningGateway implements LearningGateway {
       case 'service_paused':
         return membershipFailure('新增生成暂时暂停，已有内容仍可学习。');
       case 'anonymous_test_ended':
-        return membershipFailure('匿名测试已经结束，请注册或登录后继续；本机内容仍保留。');
+        return membershipFailure('当前为生产模式，请注册或登录正式账户后继续；本机内容仍保留。');
       case 'membership_sales_disabled':
         return membershipFailure('会员购买暂未开放，请稍后再试。');
       case 'payment_provider_unavailable':

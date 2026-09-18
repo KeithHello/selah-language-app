@@ -1,3 +1,9 @@
+/// The single product-level switch exposed to administrators.
+///
+/// The underlying service flags remain separate for compatibility, but the
+/// Web admin UI should reason about these two safe, complete configurations.
+enum ProductMode { test, production }
+
 class AdminServiceControls {
   const AdminServiceControls({
     this.version = '2026-09-12-v1',
@@ -19,10 +25,30 @@ class AdminServiceControls {
   final bool configured;
   final DateTime? updatedAt;
 
+  /// Mixed or incomplete remote configurations fail closed into production.
+  ProductMode get productMode =>
+      anonymousTestModeEnabled &&
+          !membershipEnforcementEnabled &&
+          generationEnabled
+      ? ProductMode.test
+      : ProductMode.production;
+
+  /// Whether the remote flags exactly describe one of the two product modes.
+  bool get productModeNeedsNormalization =>
+      configured &&
+      !((anonymousTestModeEnabled &&
+              !membershipEnforcementEnabled &&
+              generationEnabled) ||
+          (!anonymousTestModeEnabled &&
+              membershipEnforcementEnabled &&
+              generationEnabled));
+
   factory AdminServiceControls.fromJson(Map<String, dynamic> json) {
-    bool flag(String camel, String snake, bool fallback) =>
-        json[camel] is bool ? json[camel] as bool :
-        json[snake] is bool ? json[snake] as bool : fallback;
+    bool flag(String camel, String snake, bool fallback) => json[camel] is bool
+        ? json[camel] as bool
+        : json[snake] is bool
+        ? json[snake] as bool
+        : fallback;
     return AdminServiceControls(
       version: json['version']?.toString() ?? '2026-09-12-v1',
       membershipEnforcementEnabled: flag(
@@ -40,11 +66,7 @@ class AdminServiceControls {
         'membership_sales_enabled',
         false,
       ),
-      generationEnabled: flag(
-        'generationEnabled',
-        'generation_enabled',
-        true,
-      ),
+      generationEnabled: flag('generationEnabled', 'generation_enabled', true),
       anonymousTestModeEnabled: flag(
         'anonymousTestModeEnabled',
         'anonymous_test_mode_enabled',
@@ -80,17 +102,18 @@ class AdminUserItem {
   final DateTime createdAt;
 
   factory AdminUserItem.fromJson(Map<String, dynamic> json) => AdminUserItem(
-        userId: json['userId']?.toString() ?? '',
-        emailMasked: json['emailMasked']?.toString() ?? '',
-        plan: json['plan']?.toString() ?? 'free',
-        status: json['status']?.toString() ?? 'none',
-        expiresAt: json['expiresAt'] != null
-            ? DateTime.tryParse(json['expiresAt'].toString())
-            : null,
-        serviceStatus: json['serviceStatus']?.toString() ?? 'active',
-        createdAt: DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
-            DateTime.now(),
-      );
+    userId: json['userId']?.toString() ?? '',
+    emailMasked: json['emailMasked']?.toString() ?? '',
+    plan: json['plan']?.toString() ?? 'free',
+    status: json['status']?.toString() ?? 'none',
+    expiresAt: json['expiresAt'] != null
+        ? DateTime.tryParse(json['expiresAt'].toString())
+        : null,
+    serviceStatus: json['serviceStatus']?.toString() ?? 'active',
+    createdAt:
+        DateTime.tryParse(json['createdAt']?.toString() ?? '') ??
+        DateTime.now(),
+  );
 }
 
 class AdminUserDetailData {
@@ -109,15 +132,18 @@ class AdminUserDetailData {
   factory AdminUserDetailData.fromJson(Map<String, dynamic> json) =>
       AdminUserDetailData(
         userId: json['userId']?.toString() ?? '',
-        periods: (json['periods'] as List<dynamic>?)
+        periods:
+            (json['periods'] as List<dynamic>?)
                 ?.map((e) => Map<String, dynamic>.from(e as Map))
                 .toList() ??
             [],
-        orders: (json['orders'] as List<dynamic>?)
+        orders:
+            (json['orders'] as List<dynamic>?)
                 ?.map((e) => Map<String, dynamic>.from(e as Map))
                 .toList() ??
             [],
-        auditLogs: (json['auditLogs'] as List<dynamic>?)
+        auditLogs:
+            (json['auditLogs'] as List<dynamic>?)
                 ?.map((e) => Map<String, dynamic>.from(e as Map))
                 .toList() ??
             [],

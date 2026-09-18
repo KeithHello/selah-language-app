@@ -19,6 +19,7 @@ class WebStartAction extends StatelessWidget {
     required this.hasName,
     required this.busy,
     required this.onStart,
+    this.onInvalid,
     this.uiLocale = defaultUiLocale,
   });
 
@@ -26,6 +27,7 @@ class WebStartAction extends StatelessWidget {
   final bool hasName;
   final bool busy;
   final VoidCallback onStart;
+  final VoidCallback? onInvalid;
 
   /// Kept optional for the standalone widget tests; the Web onboarding page
   /// always passes the user's persisted locale.
@@ -49,7 +51,8 @@ class WebStartAction extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = _enabled;
+    final valid = _enabled;
+    final enabled = !busy && (valid || onInvalid != null);
     final status = _status;
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
 
@@ -71,7 +74,7 @@ class WebStartAction extends StatelessWidget {
                 child: SizedBox.square(
                   dimension: 64,
                   child: FilledButton(
-                    onPressed: enabled ? onStart : null,
+                    onPressed: enabled ? (valid ? onStart : onInvalid) : null,
                     style: FilledButton.styleFrom(
                       backgroundColor: SelahColors.coral,
                       foregroundColor: SelahColors.textOnAccent,
