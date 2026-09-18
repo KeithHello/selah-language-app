@@ -8,6 +8,17 @@
 
 ## 当前阶段
 
+### 2026-09-18 测试模式匿名准入、登录 CTA、注册资料与语速完善（代码与预览发布完成）
+
+- [x] 测试模式（`membership_enforcement_enabled=false`）在完成请求边界与费用报价校验后，匿名请求不再依赖每日平台预算账本或会员额度预留；生产模式仍保留平台预算与会员准入。新增 Node 回归测试覆盖匿名测试模式和未授权生产模式。
+- [x] 生产模式触发认证限制时，当前提示条会原地显示带下划线的「请登录」链接，并复用现有登录／注册弹窗；预算、网络和一般业务错误不会误显示登录入口。
+- [x] 注册弹窗新增可选年龄段、性别和「自行描述」字段，填写时必须显式同意研究用途；沿用既有 `user-research-profile` 合约，不新增数据库迁移。注册后若已取得正式会话会自动保存；若仍需邮箱确认，则提示用户登录后到设置补填。
+- [x] 设置页与播放控制加入 `0.5x`、`0.75x`、`1x`、`1.25x`、`1.5x` 五档语速及自定义滑块；自定义范围为 `0.5x～2.0x`，继续使用现有本机／云端 `playback_speed` 字段，已与浏览器音频桥的实际范围对齐。
+- [x] 最近本地回归：Flutter 全量 254 项通过；Dart analyze 与 `flutter analyze --no-pub` 均为 0 issues；Supabase Deno 全量 308 项通过（使用项目内固定 Deno 2.9.3）；`git diff --check` 通过；Release Web 构建成功，Build ID 为 `6278cbcd4e066101`。
+- [x] 已部署 `sentences-generate`、`sentences-prepare`、`sentences-batch-generate`、`audio-generate`、`speech-transcribe` 五个 Supabase Edge Functions 到 `ijonabyyppmgvoufgamt`；均为 `ACTIVE`，未执行数据库迁移、密钥修改或旧种子导入。
+- [x] Cloudflare Pages 预览已部署到 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名；部署地址为 `https://a2f21314.selah-language-app-preview.pages.dev`，别名地址为 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`，Build ID `6278cbcd4e066101`。只读验收：首页 200，`flutter_bootstrap.js`、`main.dart.js`、`flutter.js`、Service Worker 均返回 200。
+- [ ] 如果生产环境继续启用邮箱确认，注册资料不会在确认前写入账户；邮件确认后的设置补填流程仍需真实远端账户验收。
+
 ### 2026-09-17 免邮箱确认与测试期游客云端功能（本地实现完成，预览站已发布；远端 Supabase 仍待启用）
 
 - [x] 已实现测试期游客云端会话：生成英文、长文整理、批量生成、说出来转写、个人句音频补齐和循环听个人句补音频会先静默 `signInAnonymously()`。

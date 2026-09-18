@@ -64,15 +64,12 @@ test('free mode bypasses membership reservation for registered users but still v
   assert.strictEqual(calls, 0);
 });
 
-test('anonymous test users use platform budget even when membership enforcement is off', async () => {
+test('anonymous test mode bypasses reservations when membership enforcement is off', async () => {
   const calls = [];
   const res = await requestGenerationAdmission({
     rpc: async (name, args) => {
       calls.push({ name, args });
-      return {
-        data: { reservationId: 'platform-reservation', status: 'reserved' },
-        error: null,
-      };
+      throw new Error('test mode must not require a budget ledger');
     },
   }, {
     userId: '11111111-1111-1111-1111-111111111111',
@@ -84,11 +81,9 @@ test('anonymous test users use platform budget even when membership enforcement 
     enforcementEnabled: false,
   });
   assert.strictEqual(res.allowed, true);
-  assert.strictEqual(res.reservationId, 'platform-reservation');
-  assert.strictEqual(res.reservationScope, 'platform');
-  assert.deepStrictEqual(calls.map((call) => call.name), [
-    'reserve_platform_generation_allowance',
-  ]);
+  assert.strictEqual(res.reservationId, undefined);
+  assert.strictEqual(res.reservationScope, undefined);
+  assert.deepStrictEqual(calls, []);
 });
 
 test('free mode still rejects an unbounded request before any provider call', async () => {

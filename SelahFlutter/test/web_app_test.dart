@@ -481,14 +481,48 @@ void main() {
     await configuredController.initialize();
     configuredController.state.preferences
       ..onboarded = true
-      ..name = '小芽';
+      ..name = '小芽'
+      ..uiLocale = 'zh-Hans';
     await configuredController.ensureCloudSession();
     configuredController.errorCode = 'anonymous_test_ended';
-    configuredController.error = '当前为生产模式，请登录正式账户后继续。';
+    configuredController.error = '匿名测试已结束。';
     configuredController.notifyListeners();
 
     await tester.pumpWidget(WebLearningApp(controller: configuredController));
     expect(find.text('注册／登录'), findsOneWidget);
+    expect(find.text('请登录'), findsOneWidget);
+  });
+
+  testWidgets('registration dialog offers optional age and gender fields', (
+    tester,
+  ) async {
+    final gateway = _SignedOutConfiguredGateway()..fail = false;
+    platform.info['online'] = true;
+    final configuredController = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(6, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(configuredController.dispose);
+    await configuredController.initialize();
+    configuredController.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    configuredController.navigate(4);
+
+    await tester.pumpWidget(WebLearningApp(controller: configuredController));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('登录／注册'));
+    await tester.tap(find.text('登录／注册'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('创建新账户'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('注册时可选资料'), findsOneWidget);
+    expect(find.text('年龄段'), findsOneWidget);
+    expect(find.text('性别'), findsOneWidget);
+    expect(find.textContaining('填写资料完全自愿'), findsOneWidget);
   });
 
   testWidgets('settings expose a native voice picker', (tester) async {
@@ -502,6 +536,27 @@ void main() {
     expect(find.text('英文声线'), findsOneWidget);
     expect(find.text('母语声线'), findsOneWidget);
     expect(find.textContaining('循环听会按这个声线生成母语配音'), findsOneWidget);
+  });
+
+  testWidgets('settings expose five speed presets and custom speed', (
+    tester,
+  ) async {
+    controller.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    controller.navigate(4);
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    for (final label in ['0.5x', '0.75x', '1x', '1.25x', '1.5x']) {
+      expect(find.text(label), findsOneWidget);
+    }
+    await tester.ensureVisible(find.widgetWithText(OutlinedButton, '自定义'));
+    await tester.tap(find.widgetWithText(OutlinedButton, '自定义'));
+    await tester.pumpAndSettle();
+    expect(find.text('自定义语速'), findsOneWidget);
+    expect(find.textContaining('可调节 0.5x～2.0x'), findsOneWidget);
+    await tester.tap(find.text('取消'));
   });
 
   testWidgets(

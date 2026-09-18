@@ -84,6 +84,9 @@ const nativeVoices = <String, String>{
   'native-bright': '明亮清晰',
   'native-calm': '沉稳温和',
 };
+const speedPresets = <double>[0.5, 0.75, 1.0, 1.25, 1.5];
+const minPlaybackSpeed = 0.5;
+const maxPlaybackSpeed = 2.0;
 const reviewStates = ['new', 'learning', 'familiar', 'quiet'];
 const vocabularyStates = ['new', 'learning', 'familiar', 'owned'];
 const currentGenerationModel = 'gpt-4o-mini';
@@ -524,7 +527,9 @@ class LearnPreferences {
     final speed = j['speed'] ?? 1.0;
     final reminder = j['reminderTime'] ?? '20:00';
     if (speed is! num ||
-        ![.7, .85, 1.0, 1.2].contains(speed) ||
+        !speed.isFinite ||
+        speed < minPlaybackSpeed ||
+        speed > maxPlaybackSpeed ||
         reminder is! String ||
         !RegExp(r'^([01]\d|2[0-3]):[0-5]\d$').hasMatch(reminder)) {
       throw const FormatException('学习偏好无效。');

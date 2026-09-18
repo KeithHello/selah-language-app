@@ -313,6 +313,24 @@ List<DropdownMenuItem<String>> _values(String locale, String key) {
       .toList();
 }
 
+/// Reuses the same validated, localized options for lightweight forms such as
+/// the registration dialog without duplicating the research-profile contract.
+List<String> researchProfileOptionValues(String key) => switch (key) {
+  'ageGroup' => const [
+    'age_14_17',
+    'age_18_24',
+    'age_25_34',
+    'age_35_44',
+    'age_45_plus',
+    'prefer_not_say',
+  ],
+  'gender' => const ['male', 'female', 'self_described', 'prefer_not_say'],
+  _ => const <String>[],
+};
+
+String researchProfileOptionLabel(String locale, String value) =>
+    _profileLabel(locale, value);
+
 String _profileLabel(String locale, String value) {
   final language = locale == 'ja' ? 'ja' : locale == 'zh-Hant' ? 'zh-Hant' : 'zh-Hans';
   return _profileLabels[language]?[value] ?? _profileLabels['zh-Hans']![value] ?? value;

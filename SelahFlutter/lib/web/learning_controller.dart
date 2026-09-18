@@ -5,6 +5,7 @@ import '../domain/selah_enums.dart';
 import 'domain/learning_models.dart';
 import 'domain/learning_engine.dart';
 import 'domain/loop_listening.dart';
+import 'domain/research_profile.dart';
 import 'domain/web_status.dart';
 import 'l10n/selah_strings.dart';
 import 'data/learning_gateway.dart';
@@ -2259,8 +2260,12 @@ class LearningController extends ChangeNotifier {
     }
     notice = '偏好已保存。';
   });
-  Future<void> login(String email, String password, {bool register = false}) =>
-      _run((generation) async {
+  Future<void> login(
+    String email,
+    String password, {
+    bool register = false,
+    ResearchProfile? registrationProfile,
+  }) => _run((generation) async {
         if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.trim()) ||
             password.length < 6) {
           throw const LearningFailure('请输入有效邮箱，密码至少六位。');
@@ -2290,7 +2295,25 @@ class LearningController extends ChangeNotifier {
         await sync();
         _ensureCurrent(loadedGeneration);
         if (syncFailed) return;
-        notice = '已登录，学习内容将同步到你的账户。';
+        var profileNotice = '';
+        if (register &&
+            registrationProfile?.hasAnyAnswer == true &&
+            isRegistered) {
+          try {
+            await researchProfile.load();
+            if (!researchProfile.profile.hasAnyAnswer) {
+              await researchProfile.save(
+                registrationProfile!,
+                consent: true,
+              );
+            }
+          } catch (_) {
+            profileNotice = '个人资料暂未保存，可在设置中补充。';
+          }
+        }
+        notice = profileNotice.isEmpty
+            ? '已登录，学习内容将同步到你的账户。'
+            : '已登录，学习内容将同步到你的账户。$profileNotice';
         notifyListeners();
       });
   Future<void> logout() => _run((generation) async {

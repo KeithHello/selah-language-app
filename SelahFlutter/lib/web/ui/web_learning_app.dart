@@ -12,6 +12,7 @@ import '../../design/selah_typography.dart';
 import '../../domain/selah_enums.dart';
 import '../domain/learning_engine.dart';
 import '../domain/learning_models.dart';
+import '../domain/research_profile.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
 import 'membership_widgets.dart';
@@ -836,11 +837,45 @@ class _MessageBar extends StatelessWidget {
             ),
             const SizedBox(width: 9),
             Expanded(
-              child: Text(
-                message,
-                style: SelahTypography.bodySmall(
-                  color: SelahColors.textSecondary,
-                ),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 6,
+                children: [
+                  Text(
+                    message,
+                    style: SelahTypography.bodySmall(
+                      color: SelahColors.textSecondary,
+                    ),
+                  ),
+                  if (_offersLogin)
+                    Semantics(
+                      button: true,
+                      link: true,
+                      label: strings.translateLegacy('请登录'),
+                      child: InkWell(
+                        onTap: controller.busy
+                            ? null
+                            : () => _showAuth(context, controller),
+                        borderRadius: BorderRadius.circular(6),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 2,
+                            vertical: 2,
+                          ),
+                          child: Text(
+                            strings.translateLegacy('请登录'),
+                            style:
+                                SelahTypography.bodySmall(
+                                  color: SelahColors.coral,
+                                ).copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  decoration: TextDecoration.underline,
+                                ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
               ),
             ),
             if (_offersLogin)
@@ -2364,32 +2399,120 @@ class _PlaybackControls extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Text(
-              strings.translateLegacy('语速'),
-              style: SelahTypography.labelSmall(
-                color: SelahColors.textTertiary,
-              ),
-            ),
-            const SizedBox(width: 8),
-            ...[.7, .85, 1.0, 1.2].map((speed) {
-              final selected = controller.state.preferences.speed == speed;
-              return Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: ChoiceChip(
-                  label: Text('${speed}x'),
-                  selected: selected,
-                  onSelected: (_) => controller.updatePreferences(speed: speed),
-                  visualDensity: VisualDensity.compact,
-                ),
-              );
-            }),
-          ],
+        _SpeedSelector(
+          controller: controller,
+          label: strings.translateLegacy('语速'),
         ),
       ],
     );
   }
+}
+
+class _SpeedSelector extends StatelessWidget {
+  const _SpeedSelector({required this.controller, required this.label});
+
+  final LearningController controller;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = SelahStrings.of(controller.uiLocale);
+    final current = controller.state.preferences.speed;
+    final isPreset = speedPresets.any((value) => value == current);
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        Text(
+          label,
+          style: SelahTypography.labelSmall(color: SelahColors.textTertiary),
+        ),
+        ...speedPresets.map(
+          (speed) => ChoiceChip(
+            label: Text('${_speedLabel(speed)}x'),
+            selected: current == speed,
+            onSelected: controller.busy
+                ? null
+                : (_) => controller.updatePreferences(speed: speed),
+            visualDensity: VisualDensity.compact,
+          ),
+        ),
+        OutlinedButton(
+          onPressed: controller.busy
+              ? null
+              : () => _showCustomSpeedDialog(context, controller),
+          style: OutlinedButton.styleFrom(
+            visualDensity: VisualDensity.compact,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+          ),
+          child: Text(
+            isPreset
+                ? strings.text('settings.speed.custom')
+                : '${strings.text('settings.speed.custom')}（${_speedLabel(current)}x）',
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+String _speedLabel(double speed) => speed
+    .toStringAsFixed(2)
+    .replaceFirst(RegExp(r'0+$'), '')
+    .replaceFirst(RegExp(r'\.$'), '');
+
+Future<void> _showCustomSpeedDialog(
+  BuildContext context,
+  LearningController controller,
+) async {
+  final strings = SelahStrings.of(controller.uiLocale);
+  var speed = controller.state.preferences.speed
+      .clamp(minPlaybackSpeed, maxPlaybackSpeed)
+      .toDouble();
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setState) => AlertDialog(
+        title: Text(strings.text('settings.speed.customTitle')),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              '${_speedLabel(speed)}x',
+              style: SelahTypography.headlineLarge(),
+            ),
+            Slider(
+              value: speed,
+              min: minPlaybackSpeed,
+              max: maxPlaybackSpeed,
+              label: '${_speedLabel(speed)}x',
+              onChanged: (value) => setState(() => speed = value),
+            ),
+            Text(
+              strings.text('settings.speed.range'),
+              style: SelahTypography.bodySmall(
+                color: SelahColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: Text(strings.text('common.cancel')),
+          ),
+          FilledButton(
+            onPressed: () async {
+              await controller.updatePreferences(speed: speed);
+              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
+            },
+            child: Text(strings.text('settings.save')),
+          ),
+        ],
+      ),
+    ),
+  );
 }
 
 class _PracticePage extends StatefulWidget {
@@ -3813,27 +3936,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    s.text('settings.speed'),
-                    style: SelahTypography.bodyMedium(),
-                  ),
-                  ...[.7, .85, 1.0, 1.2].map(
-                    (speed) => Padding(
-                      padding: const EdgeInsets.only(left: 6),
-                      child: ChoiceChip(
-                        label: Text('${speed}x'),
-                        selected: p.speed == speed,
-                        onSelected: (_) => c.updatePreferences(speed: speed),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+              _SpeedSelector(controller: c, label: s.text('settings.speed')),
             ],
           ),
           const SizedBox(height: 14),
@@ -5196,6 +5299,15 @@ class _AuthDialogState extends State<_AuthDialog> {
   final _password = TextEditingController();
   bool _register = false;
   bool _busy = false;
+  String? _ageGroup;
+  String? _gender;
+  String? _genderDescription;
+  bool _profileConsent = false;
+
+  bool get _hasProfileAnswer =>
+      _ageGroup != null ||
+      _gender != null ||
+      (_genderDescription?.trim().isNotEmpty ?? false);
 
   @override
   void dispose() {
@@ -5208,10 +5320,25 @@ class _AuthDialogState extends State<_AuthDialog> {
     final email = _email.text.trim();
     final password = _password.text;
     if (email.isEmpty || password.length < 6) return;
+    if (_register && _hasProfileAnswer && !_profileConsent) {
+      setState(() {});
+      return;
+    }
     setState(() => _busy = true);
     widget.controller.clearMessage();
     try {
-      await widget.controller.login(email, password, register: _register);
+      await widget.controller.login(
+        email,
+        password,
+        register: _register,
+        registrationProfile: _register && _hasProfileAnswer
+            ? ResearchProfile(
+                ageGroup: _ageGroup,
+                gender: _gender,
+                genderDescription: _genderDescription,
+              )
+            : null,
+      );
       if (mounted && widget.controller.error == null) {
         Navigator.of(context).pop();
       }
@@ -5249,6 +5376,105 @@ class _AuthDialogState extends State<_AuthDialog> {
                 helperText: strings.translateLegacy('至少 6 个字符'),
               ),
             ),
+            if (_register) ...[
+              const SizedBox(height: 16),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  strings.text('auth.profile.title'),
+                  style: SelahTypography.labelLarge(),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  strings.text('auth.profile.detail'),
+                  style: SelahTypography.bodySmall(
+                    color: SelahColors.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: _ageGroup,
+                decoration: InputDecoration(
+                  labelText: strings.text('auth.profile.ageGroup'),
+                ),
+                items: researchProfileOptionValues('ageGroup')
+                    .map(
+                      (value) => DropdownMenuItem(
+                        value: value,
+                        child: Text(
+                          researchProfileOptionLabel(
+                            widget.controller.uiLocale,
+                            value,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _ageGroup = value),
+              ),
+              const SizedBox(height: 10),
+              DropdownButtonFormField<String>(
+                initialValue: _gender,
+                decoration: InputDecoration(
+                  labelText: strings.text('auth.profile.gender'),
+                ),
+                items: researchProfileOptionValues('gender')
+                    .map(
+                      (value) => DropdownMenuItem(
+                        value: value,
+                        child: Text(
+                          researchProfileOptionLabel(
+                            widget.controller.uiLocale,
+                            value,
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList(),
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() {
+                        _gender = value;
+                        if (value != 'self_described') {
+                          _genderDescription = null;
+                        }
+                      }),
+              ),
+              if (_gender == 'self_described') ...[
+                const SizedBox(height: 10),
+                TextField(
+                  maxLength: 40,
+                  onChanged: (value) => _genderDescription = value,
+                  decoration: InputDecoration(
+                    labelText: strings.text('auth.profile.genderDescription'),
+                  ),
+                ),
+              ],
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _profileConsent,
+                onChanged: _busy
+                    ? null
+                    : (value) =>
+                          setState(() => _profileConsent = value == true),
+                title: Text(strings.text('auth.profile.consent')),
+                controlAffinity: ListTileControlAffinity.leading,
+              ),
+              if (_hasProfileAnswer && !_profileConsent)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    strings.text('auth.profile.consentRequired'),
+                    style: SelahTypography.bodySmall(color: SelahColors.danger),
+                  ),
+                ),
+            ],
             if (widget.controller.error != null) ...[
               const SizedBox(height: 12),
               Align(

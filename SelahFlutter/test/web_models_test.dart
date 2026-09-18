@@ -135,6 +135,20 @@ void main() {
     expect(restored.nativeVoice, 'native-calm');
   });
 
+  test('custom playback speeds stay within the supported range', () {
+    final preferences = LearnPreferences.fromJson({'speed': .65});
+    expect(preferences.speed, .65);
+
+    expect(
+      () => LearnPreferences.fromJson({'speed': .1}),
+      throwsFormatException,
+    );
+    expect(
+      () => LearnPreferences.fromJson({'speed': 2.1}),
+      throwsFormatException,
+    );
+  });
+
   test(
     'cloud snapshot merge keeps the device-local native voice preference',
     () {

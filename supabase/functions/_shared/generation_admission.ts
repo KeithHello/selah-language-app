@@ -35,8 +35,9 @@ export interface GenerationAdmissionOptions {
    */
   isAnonymous?: boolean;
   /**
-   * Set by the service-control snapshot. When false, the product is in free
-   * mode and membership entitlements are deliberately bypassed. The default
+   * Set by the service-control snapshot. When false, the product is in test
+   * mode: authenticated test identities bypass membership and platform
+   * reservations after the request bounds have been validated. The default
    * remains true for callers that have not opted into the global flag yet.
    */
   enforcementEnabled?: boolean;
@@ -121,11 +122,12 @@ export async function requestGenerationAdmission(
   }
   const quote = quotePrep.quote;
 
-  // The global switch is evaluated on the server before any membership RPC.
+  // The global switch is evaluated on the server before any reservation RPC.
   // We still validate and quote the request so malformed or unbounded calls
-  // cannot use free mode as a way to bypass cost ceilings. No reservation is
-  // created while enforcement is disabled.
-  if (options.enforcementEnabled === false && options.isAnonymous !== true) {
+  // cannot use test mode to bypass feature ceilings. Test mode is intended for
+  // the shared browser preview, so it must not depend on a daily platform
+  // ledger row that can be missing after a UTC date rollover.
+  if (options.enforcementEnabled === false) {
     return { allowed: true, quote };
   }
 
