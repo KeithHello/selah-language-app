@@ -2,7 +2,7 @@
 
 日期：2026-09-18
 
-本轮完成 Web 客户端本地实现，目标是把产品行为收敛为「测试模式」和「生产模式」两种模式，并改善首次输入精灵名字的可理解性。没有修改 `.env`、数据库 schema、Supabase 远端开关、Cloudflare Pages 或 Edge Function。
+本轮完成 Web 客户端实现，目标是把产品行为收敛为「测试模式」和「生产模式」两种模式，并改善首次输入精灵名字的可理解性。没有修改 `.env`、数据库 schema、Supabase 远端开关或 Edge Function；已按授权部署 Cloudflare Pages 预览版本。
 
 ## 已验证行为
 
@@ -24,10 +24,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\tool\web.ps1 -Action build
 git diff --check
 ```
 
-结果：Dart analyze 0 issues，Flutter 全量 251 项通过，Release Web 构建成功，`git diff --check` 通过。本地构建产物 Build ID 为 `c19efc446a159867`。
+结果：Dart analyze 0 issues，Flutter 全量 251 项通过，Release Web 构建成功，`git diff --check` 通过。本地和远端 Build ID 均为 `c19efc446a159867`。远端首页、种子 JSON、音频清单、预缓存清单和代表性中文 MP3 均返回 200；种子 10 句、音频 60 条、预缓存 189 项。
 
 ## 后续需要单独确认
 
 - 使用真实管理员账号在管理台切换两种模式，并用浏览器分别验证匿名生成、转写、TTS 和生产模式登录提示。
 - 生产环境上线前确认匿名测试开关、每日平台预算、Supabase Anonymous Sign-ins 和会员限制的最终状态。
-- 本轮没有推送 GitHub、部署 Cloudflare 或更改 Supabase 远端配置。
+- 本轮已将提交 `a38c811` 推送到 GitHub 分支 `codex/web-ux-reliability`，并部署 Cloudflare Pages 预览；没有更改 Supabase 远端配置、DNS 或正式生产域名。

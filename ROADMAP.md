@@ -26,7 +26,7 @@
 - [x] 已将 Build ID `ebd23fdd5327ba6d` 发布到 Cloudflare Pages 项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 预览别名：<https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。只读验收：首页 200、10 句种子、60 条音频清单、189 项预缓存和代表性 `audio/mpeg` MP3 均可访问。
 - [ ] 远端 Supabase Auth、SMTP 或真实 OpenAI 尚未启用／验收；旧 20 句远端种子继续不处理。详见 [本地验收记录](docs/guest-cloud-access-acceptance.md)。
 
-### 2026-09-18 Web 二元运行模式与首次引导（本地实现完成；远端开关与部署未改）
+### 2026-09-18 Web 二元运行模式与首次引导（本地实现完成；Cloudflare 预览已部署）
 
 - [x] 管理台服务控制收敛为单一「运行模式」：测试模式同时开启匿名测试、关闭会员限制并保持新增生成；生产模式关闭匿名测试、开启会员限制并保持新增生成。混合或不完整配置按生产安全回退。
 - [x] 匿名会话继续使用本机 `guest` 资料作用域，不再在建立匿名 Supabase 身份时切换页面、清空状态或启动跨设备同步；正式账户才切换账户作用域并同步。
@@ -37,7 +37,8 @@
 - [x] 混合或不完整的远端服务开关会显示风险提示，并提供直接应用生产模式的归一化操作，避免管理员必须先切换到测试模式才能关闭匿名入口。
 - [x] 首次引导把精灵名字改为高对比步骤卡：明确「第 1 步」、必填标识、说明、放大输入框、实时问候预览；点击开始会聚焦缺失字段并显示名称／句子数量错误，不再静默禁用。
 - [x] 测试覆盖运行模式合约、匿名本机作用域、刷新恢复、草稿重试、错误 CTA、错误码清理、混合配置归一化、管理台模式控件和三语名称引导；`flutter test` 全量 251 项通过，相关 Dart analyze 0 issues。
-- [x] `tool/web.ps1 -Action build` Release 构建成功，当前本地候选 Build ID 为 `c19efc446a159867`；本轮未执行 Cloudflare、Supabase、数据库、密钥或公开部署操作。
+- [x] `tool/web.ps1 -Action build` Release 构建成功，Build ID 为 `c19efc446a159867`；未修改 Supabase、数据库、密钥或正式生产域名配置。
+- [x] Cloudflare Pages 预览已部署到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：<https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>。远端只读验收：首页 200、Build ID 一致、10 句种子、60 条音频清单、189 项预缓存和代表性中文 MP3 的 `audio/mpeg` 均通过。
 - [ ] 仍需在后续单独验证真实管理账号切换测试／生产模式，以及生产模式下匿名请求收到 `anonymous_test_ended` 后的实际登录流程；这两项不在本地代码测试中完成。
 
 ### 2026-09-16 未登录快捷登录、注册邮件排查、母语配音与首批 10 句收口（本地实现完成；邮件发送仍待远端配置）
