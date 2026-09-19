@@ -8,6 +8,16 @@
 
 ## 当前阶段
 
+### 2026-09-20 Azure 台湾中文母语音频重制与英语美音英音声线区分（已部署预览环境）
+
+- [x] 首批 10 句随包种子繁体中文母语音轨（`seed-*-source-zh-Hant.mp3`）全部通过 Azure Speech（`zh-TW-HsiaoChenNeural`，区域 `japaneast`）重新生成并原子覆盖，输出规格为 16 kHz、128 kbit/s、单声道 MP3。
+- [x] 本地音频清单 `seed-audio.json` 重新计算哈希与大小对齐；新增本地生成脚本 `generate_azure_seed_audio.py` 与 12 项单元测试。
+- [x] 英语美音／英音声线区分：在 `learning_models.dart`、三语本地化字典（繁中、简中、日文）中为 4 种英语声线增加显式口音标注（溫柔自然（美音）、清晰慢速（美音）、日常輕快（美音）、優雅英式（英音））；设置页增加美英声线说明（`settings.voice.detail`）。
+- [x] 服务端 `supabase/functions/_shared/audio.ts` 同步补充 `VOICE_ACCENTS` 映射（`en-US` / `en-GB` / `zh-TW`），为动态生成分流提供基础。
+- [x] 验证：`dart analyze lib test` 0 issues；`flutter test` 全套国际化与模型测试通过；Web Release 构建成功（Build ID: `2766dd177559be71`）。
+- [x] 代码已提交并推送至 GitHub（分支 `codex/web-ux-reliability`，commit `ef5c7fb`）。
+- [x] Cloudflare Pages 预览环境部署完成：项目 `selah-language-app-preview`，分支别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`（部署版本：`https://c1965346.selah-language-app-preview.pages.dev`）。远端只读验收：首页 HTTP 200，中文母语代表性 MP3 HTTP 200（62,784 字节，`audio/mpeg`），音频清单 200。
+
 ### 2026-09-20 精灵 100 趣味名字池与骰子随机起名交互（已完成并验证）
 
 - [x] 新增 100 个年轻化趣味名字池与数据模型（`SelahFlutter/lib/web/domain/companion_names.dart`），涵盖职场生存（20）、校园闯关（20）、低电量日常（20）、温柔反转（20）、食物补给（10）、荒诞彩蛋（10）六大类别；支持繁体中文、简体中文、日语三语本地化与小腹黑、小反转调性。
