@@ -447,7 +447,12 @@ class LearningController extends ChangeNotifier {
         );
         final response = await gateway.invoke('audio-generate', {
           'sentenceId': reference.sentenceId,
-          'targetText': reference.text,
+          'contractVersion': 2,
+          'text': reference.text,
+          'audioRole': reference.role.name,
+          'sourceLanguage': sentence.sourceLanguage ?? currentSourceLanguage,
+          'targetLanguage': sentence.targetLanguage ?? currentTargetLanguage,
+          'accent': reference.accent,
           'voiceProfile': reference.voice,
           'reason': 'audio_preparation',
           'clientRequestId': requestId,
@@ -536,7 +541,7 @@ class LearningController extends ChangeNotifier {
       if (value is! List) return <String>{};
       return value
           .whereType<String>()
-          .where((key) => key.startsWith('loop:'))
+          .where((key) => key.startsWith(audioCacheKeyPrefix))
           .toSet();
     } catch (_) {
       // Older bridge versions may not enumerate cache keys. Known in-memory
@@ -1904,12 +1909,17 @@ class LearningController extends ChangeNotifier {
     if (hash is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)) {
       throw const LearningFailure('浏览器无法校验音频内容。');
     }
-    return '${s.id}:${state.preferences.voice}:$hash';
+    return singleAudioTrackKey(
+      sentenceId: s.id,
+      voice: state.preferences.voice,
+      language: s.targetLanguage ?? currentTargetLanguage,
+      contentHash: hash,
+    );
   }
 
   bool isPlaybackFor(LearnSentence sentence) =>
       _playSentenceId == sentence.id &&
-      (_playKey?.startsWith('${sentence.id}:${state.preferences.voice}:') ??
+      (_playKey?.startsWith('audio:v2:sentence:${sentence.id}:') ??
           false);
 
   LearnSentence? get playingSentence {
@@ -2061,7 +2071,15 @@ class LearningController extends ChangeNotifier {
         ensurePlayback();
         manifest = await gateway.invoke('audio-generate', {
           'sentenceId': selected.id,
-          'targetText': selected.target,
+          'contractVersion': 2,
+          'text': selected.target,
+          'audioRole': 'target',
+          'sourceLanguage': selected.sourceLanguage ?? currentSourceLanguage,
+          'targetLanguage': selected.targetLanguage ?? currentTargetLanguage,
+          'accent': audioAccentFor(
+            voice: voice,
+            language: selected.targetLanguage ?? currentTargetLanguage,
+          ),
           'voiceProfile': voice,
           'reason': 'initial_generation',
           'clientRequestId': requestId,

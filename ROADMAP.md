@@ -1,12 +1,23 @@
 # Selah 开发路线图
 
-> 最后更新：2026-09-19
+> 最后更新：2026-09-20
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
 > 完成口径：遵循 `CLAUDE.md` 的五级完成定义。
 
 ## 当前阶段
+
+### 2026-09-20 在线音频按语言供应商路由（代码完成，远端部署待执行）
+
+- [x] `audio-generate` 合约升级为 v2：明确区分 `source`／`target`、原文语言／学习语言、口音与声线；保留旧版 `targetText` 请求的兼容路径。
+- [x] 繁体中文母语音频固定路由到 Azure Speech 台湾普通话（`zh-TW-HsiaoChenNeural`），英文继续使用 OpenAI `tts-1`，英式声线保持 `en-GB`；日语本阶段继续使用原 OpenAI 路由。
+- [x] 音频缓存键与 Storage 路径加入供应商、供应商声线、语速和文本哈希；切换供应商或声线时不会复用旧 MP3；Azure SSML 已做 XML 转义并绑定母语语速／音高配置。
+- [x] 服务端加入 15 秒供应商超时、最多 2 次有限重试和明确的供应商失败记录；Azure 费用在价格核实前保持未知，不把未知费用记为 0。
+- [x] Web 循环听、个人句播放和后台音频补齐统一发送 v2 元数据，并切换 `audio:v2` 本机缓存键；新增路由、重试、Azure SSML 和前端请求回归覆盖。
+- [x] 本地验证：Supabase Deno 全量 320 项通过；本次 Flutter 相关测试 15 项通过；`flutter analyze` 通过；Web Release 构建成功；目标服务文件 `deno fmt --check` 通过。
+- [ ] 待提交并推送 GitHub；随后单独部署 `audio-generate` 到 Supabase Edge Function，并做 OPTIONS／未登录请求的零费用预检。
+- [ ] 待主人确认 Cloudflare Pages 预览部署后，再发布包含 Web v2 音频请求与缓存键的 Release 构建并做远端只读验收。
 
 ### 2026-09-20 Azure 台湾中文母语音频重制与英语美音英音声线区分（已部署预览环境）
 

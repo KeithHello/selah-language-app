@@ -351,8 +351,10 @@ void main() {
       await controller.initialize();
       gateway.requests.clear();
       _setUpSentence(controller, _sentence());
-      final key = 'loop:gentle-natural:target:en:${'a' * 64}';
-      final sourceKey = 'loop:native-gentle:source:zh-Hant:${'a' * 64}';
+      final key =
+          'audio:v2:loop:openai:gentle-natural:1:gentle-natural:target:en:${'a' * 64}';
+      final sourceKey =
+          'audio:v2:loop:azure:zh-TW-HsiaoChenNeural@native-gentle:1:native-gentle:source:zh-Hant:${'a' * 64}';
       controller.state.audio[key] = {'manifestId': 'manifest-1'};
       controller.state.audio[sourceKey] = {'manifestId': 'manifest-2'};
 
@@ -396,6 +398,15 @@ void main() {
         gateway.bodies.where((body) => body['voiceProfile'] == 'native-calm'),
         isNotEmpty,
       );
+      final sourceBody = gateway.bodies.firstWhere(
+        (body) => body['voiceProfile'] == 'native-calm',
+      );
+      expect(sourceBody['contractVersion'], 2);
+      expect(sourceBody['text'], '一步一步来。');
+      expect(sourceBody['audioRole'], 'source');
+      expect(sourceBody['sourceLanguage'], 'zh-Hant');
+      expect(sourceBody['targetLanguage'], 'en');
+      expect(sourceBody['accent'], 'zh-TW');
     },
   );
 }

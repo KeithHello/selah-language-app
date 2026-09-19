@@ -2,11 +2,7 @@
 // Generates (or reuses) private TTS audio and returns a short-lived signed URL.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  errorResponse,
-  handleOptions,
-  json,
-} from "../_shared/cors.ts";
+import { errorResponse, handleOptions, json } from "../_shared/cors.ts";
 import {
   authorizeBillableIdentity,
   getGatewayVerifiedIdentity,
@@ -14,27 +10,30 @@ import {
 import {
   AUDIO_BUCKET,
   AUDIO_FORMAT,
-  contentHash,
   estimatedDurationMs,
   sha256,
   SIGNED_URL_TTL_SECONDS,
-  TTS_MODEL,
-  TTS_SPEED,
+  textContentHash,
   userScope,
-  userStoragePath,
+  userStoragePathV2,
 } from "../_shared/audio.ts";
 import {
   AudioGenerationInput,
   buildTTSRequest,
   validateAudioGenerationInput,
 } from "../_shared/audio_contract.ts";
+import { audioCacheKey, type AudioRoute } from "../_shared/audio_routing.ts";
+import { buildAzureSpeechRequest } from "../_shared/azure_speech.ts";
 import {
   AUDIO_GENERATION_TTL_MS,
+  AUDIO_PROVIDER_MAX_ATTEMPTS,
+  AUDIO_PROVIDER_RETRY_BASE_DELAY_MS,
   AUDIO_TTS_TIMEOUT_MS,
   AUDIO_UPLOAD_MAX_ATTEMPTS,
   AUDIO_UPLOAD_RETRY_BASE_DELAY_MS,
   isLikelyMp3Audio,
   isRecoverableAudioStatus,
+  shouldRetryProviderResponse,
   shouldReuseInFlightGeneration,
 } from "../_shared/audio_generation_policy.ts";
 import {
@@ -137,6 +136,7 @@ function responseFromManifest(
   manifest: AudioManifest,
   downloadUrl: string | null,
   cacheHit: boolean,
+  route?: AudioRoute,
 ): Record<string, unknown> {
   return {
     status: manifest.generation_status,
@@ -149,6 +149,11 @@ function responseFromManifest(
     durationMs: manifest.duration_ms,
     cacheHit,
     errorCode: manifest.error_code,
+    provider: route?.provider ??
+      (manifest.tts_model.startsWith("azure-speech/") ? "azure" : "openai"),
+    providerVoice: route?.providerVoice ?? null,
+    accent: route?.accent ?? null,
+    cacheKeyVersion: "v2",
   };
 }
 
@@ -217,10 +222,9 @@ export function createAudioGenerateHandler(
       return errorResponse("Method not allowed", 405, "method_not_allowed");
     }
 
-    const openAIKey = env.get("OPENAI_API_KEY") ?? "";
     const supabaseURL = env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-    if (!openAIKey || !supabaseURL || !serviceRoleKey) {
+    if (!supabaseURL || !serviceRoleKey) {
       return errorResponse(
         "Audio service is not configured",
         503,
@@ -229,11 +233,14 @@ export function createAudioGenerateHandler(
     }
 
     const legacyIdentity = dependencies.requireAuth?.(req);
-    const earlyIdentity: { userId: string; isAnonymous: boolean } | Response | null = legacyIdentity !== undefined
-      ? legacyIdentity instanceof Response
-        ? legacyIdentity
-        : { userId: legacyIdentity, isAnonymous: false }
-      : getGatewayVerifiedIdentity(req);
+    const earlyIdentity:
+      | { userId: string; isAnonymous: boolean }
+      | Response
+      | null = legacyIdentity !== undefined
+        ? legacyIdentity instanceof Response
+          ? legacyIdentity
+          : { userId: legacyIdentity, isAnonymous: false }
+        : getGatewayVerifiedIdentity(req);
     if (earlyIdentity instanceof Response) return earlyIdentity;
     if (!earlyIdentity) {
       return errorResponse("Unauthorized", 401, "unauthorized");
@@ -256,21 +263,47 @@ export function createAudioGenerateHandler(
     }
     const {
       sentenceId,
-      targetText,
+      text,
       voiceProfile,
-      openaiVoice,
+      route,
       clientRequestId,
     } = validation;
 
+    const openAIKey = env.get("OPENAI_API_KEY") ?? "";
+    const azureKey = env.get("AZURE_SPEECH_KEY") ?? "";
+    const azureRegion = env.get("AZURE_SPEECH_REGION") ?? "";
+    if (route.provider === "openai" && !openAIKey) {
+      return errorResponse(
+        "OpenAI audio service is not configured",
+        503,
+        "audio_provider_unavailable",
+      );
+    }
+    if (route.provider === "azure" && (!azureKey || !azureRegion)) {
+      return errorResponse(
+        "Azure audio service is not configured",
+        503,
+        "audio_provider_unavailable",
+      );
+    }
+
     const supabase = makeSupabase(supabaseURL, serviceRoleKey);
     const { userId, isAnonymous } = earlyIdentity;
-    const hash = await contentHash(targetText, voiceProfile);
+    const textHash = await textContentHash(text, route.language, AUDIO_FORMAT);
+    const hash = audioCacheKey({
+      provider: route.provider,
+      providerVoice: route.providerVoice,
+      speed: route.speed,
+      textHash,
+    });
     const scopeKey = userScope(userId);
-    const storagePath = userStoragePath(
+    const storagePath = userStoragePathV2(
       userId,
       sentenceId,
-      voiceProfile,
-      hash,
+      route.provider,
+      route.providerVoice,
+      route.speed,
+      textHash,
     );
     const nowIso = () => new Date().toISOString();
 
@@ -325,7 +358,7 @@ export function createAudioGenerateHandler(
       );
 
       return json(
-        responseFromManifest(manifest, signed.data.signedUrl, cacheHit),
+        responseFromManifest(manifest, signed.data.signedUrl, cacheHit, route),
       );
     }
 
@@ -366,7 +399,7 @@ export function createAudioGenerateHandler(
         error_code: null,
         storage_path: manifest.storage_path,
         byte_size: audioBuffer.byteLength,
-        duration_ms: estimatedDurationMs(targetText),
+        duration_ms: estimatedDurationMs(text),
         sha256: await sha256(audioBuffer),
         last_accessed_at: nowIso(),
       });
@@ -376,7 +409,7 @@ export function createAudioGenerateHandler(
         if (current?.generation_status === "ready") {
           return signAndRespond(current, true);
         }
-        return json(responseFromManifest(manifest, null, true), 202);
+        return json(responseFromManifest(manifest, null, true, route), 202);
       }
 
       return signAndRespond(recovered, true);
@@ -400,7 +433,7 @@ export function createAudioGenerateHandler(
         existing?.updated_at,
       )
     ) {
-      return json(responseFromManifest(existing!, null, true), 202);
+      return json(responseFromManifest(existing!, null, true, route), 202);
     }
 
     const controls = await readServiceControls(
@@ -423,7 +456,7 @@ export function createAudioGenerateHandler(
         p_operation_type: OPERATION_TYPE,
         p_client_request_id: clientRequestId,
         p_minute_limit: minuteLimit,
-        p_daily_limit: 1000000,
+        p_daily_limit: dailyLimit,
       }),
     );
     if (claimResult.error || !claimResult.data) {
@@ -466,7 +499,7 @@ export function createAudioGenerateHandler(
         userId,
         clientRequestId,
         feature: "tts",
-        units: { characters: [...targetText].length },
+        units: { characters: [...text].length },
         payloadHash: hash,
         isAnonymous,
         enforcementEnabled: controls.membershipEnforcementEnabled,
@@ -488,6 +521,19 @@ export function createAudioGenerateHandler(
         }),
       );
     }
+
+    const settleAdmission = async (
+      status: "settled" | "released_unsent" | "unknown",
+    ): Promise<void> => {
+      if (!admission.reservationId) return;
+      await settleGenerationAdmission(
+        supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
+        admission.reservationId,
+        status,
+        undefined,
+        admission.reservationScope ?? "membership",
+      );
+    };
 
     let manifest: AudioManifest | null = null;
     const claimCutoff = new Date(Date.now() - AUDIO_GENERATION_TTL_MS)
@@ -514,7 +560,7 @@ export function createAudioGenerateHandler(
         if (existing?.generation_status === "ready" && existing.storage_path) {
           return signAndRespond(existing, true);
         }
-        return json(responseFromManifest(existing!, null, true), 202);
+        return json(responseFromManifest(existing!, null, true, route), 202);
       } else {
         console.error("Audio manifest state update failed");
         await supabase.rpc("fail_generation_request", {
@@ -522,6 +568,7 @@ export function createAudioGenerateHandler(
           p_operation_type: OPERATION_TYPE,
           p_client_request_id: clientRequestId,
         });
+        await settleAdmission("released_unsent");
         return errorResponse(
           "Audio generation state update failed",
           500,
@@ -538,8 +585,8 @@ export function createAudioGenerateHandler(
           voice_profile: voiceProfile,
           content_hash: hash,
           storage_path: storagePath,
-          tts_model: TTS_MODEL,
-          speed: TTS_SPEED,
+          tts_model: route.providerModel,
+          speed: route.speed,
           audio_format: AUDIO_FORMAT,
           generation_status: "generating",
         })
@@ -554,7 +601,7 @@ export function createAudioGenerateHandler(
         if (existing?.generation_status === "ready" && existing.storage_path) {
           return signAndRespond(existing, true);
         }
-        return json(responseFromManifest(existing!, null, true), 202);
+        return json(responseFromManifest(existing!, null, true, route), 202);
       } else {
         console.error("Audio manifest insert failed");
         await supabase.rpc("fail_generation_request", {
@@ -562,6 +609,7 @@ export function createAudioGenerateHandler(
           p_operation_type: OPERATION_TYPE,
           p_client_request_id: clientRequestId,
         });
+        await settleAdmission("released_unsent");
         return errorResponse(
           "Audio generation state creation failed",
           500,
@@ -580,74 +628,158 @@ export function createAudioGenerateHandler(
     }
 
     let usageRecorder: GenerationUsageRecorder | null = null;
+    let providerResponse: Response | null = null;
+    let providerRequestId: string | null = null;
+    let providerWasAttempted = false;
+    const usageTable = createGenerationUsageTable(
+      supabase as unknown as SupabaseLikeClient,
+    );
+
+    const failRequest = async (
+      message: string,
+      status: number,
+      code: string,
+      manifestStatus: "generating" | "failed" = "failed",
+      settlement: "released_unsent" | "unknown" = providerWasAttempted
+        ? "unknown"
+        : "released_unsent",
+    ): Promise<Response> => {
+      await supabase.from("audio_manifests")
+        .update({
+          generation_status: manifestStatus,
+          error_code: code,
+        })
+        .eq("id", activeManifest.id);
+      await supabase.rpc("fail_generation_request", {
+        p_user_id: userId,
+        p_operation_type: OPERATION_TYPE,
+        p_client_request_id: clientRequestId,
+      });
+      await settleAdmission(settlement);
+      return errorResponse(message, status, code);
+    };
+
     try {
-      usageRecorder = await recordGenerationAttempt(
-        createGenerationUsageTable(
-          supabase as unknown as SupabaseLikeClient,
-        ),
-        {
+      for (
+        let attempt = 1;
+        attempt <= AUDIO_PROVIDER_MAX_ATTEMPTS;
+        attempt += 1
+      ) {
+        usageRecorder = await recordGenerationAttempt(usageTable, {
           userId,
           clientRequestId,
           feature: "tts",
-          model: TTS_MODEL,
-          inputCharacters: [...targetText].length,
-        },
-      );
-      const openaiResponse = await providerFetch(
-        "https://api.openai.com/v1/audio/speech",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${openAIKey}`,
-          },
-          body: JSON.stringify(buildTTSRequest(targetText, openaiVoice)),
-          signal: AbortSignal.timeout(AUDIO_TTS_TIMEOUT_MS),
-        },
-      );
+          model: route.providerModel,
+          inputCharacters: [...text].length,
+          usageSource: route.provider === "azure"
+            ? "unknown"
+            : "request_estimate",
+        });
 
-      if (!openaiResponse.ok) {
-        console.error("OpenAI TTS failed", openaiResponse.status);
-        await usageRecorder.fail({
-          deliveryStatus: "failed",
-          httpStatus: openaiResponse.status,
-          errorCode: "tts_failed",
-          providerRequestId: openaiResponse.headers.get("x-request-id"),
-        });
-        await supabase.from("audio_manifests")
-          .update({ generation_status: "failed", error_code: "tts_failed" })
-          .eq("id", activeManifest.id);
-        await supabase.rpc("fail_generation_request", {
-          p_user_id: userId,
-          p_operation_type: OPERATION_TYPE,
-          p_client_request_id: clientRequestId,
-        });
-        return errorResponse("Audio generation failed", 502, "tts_failed");
+        let response: Response;
+        try {
+          providerWasAttempted = true;
+          if (route.provider === "azure") {
+            const request = buildAzureSpeechRequest(
+              text,
+              route,
+              azureKey,
+              azureRegion,
+            );
+            response = await providerFetch(request.url, {
+              ...request.init,
+              signal: AbortSignal.timeout(AUDIO_TTS_TIMEOUT_MS),
+            });
+          } else {
+            response = await providerFetch(
+              "https://api.openai.com/v1/audio/speech",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  "Authorization": `Bearer ${openAIKey}`,
+                },
+                body: JSON.stringify(
+                  buildTTSRequest(text, route.providerVoice),
+                ),
+                signal: AbortSignal.timeout(AUDIO_TTS_TIMEOUT_MS),
+              },
+            );
+          }
+        } catch {
+          await usageRecorder.unknown({
+            deliveryStatus: "failed",
+            errorCode: "provider_timeout",
+          });
+          if (attempt < AUDIO_PROVIDER_MAX_ATTEMPTS) {
+            await sleep(AUDIO_PROVIDER_RETRY_BASE_DELAY_MS * attempt);
+            continue;
+          }
+          return await failRequest(
+            "Audio provider timed out",
+            504,
+            "provider_timeout",
+            "generating",
+            "unknown",
+          );
+        }
+
+        providerRequestId = response.headers.get("x-request-id") ??
+          response.headers.get("x-ms-request-id");
+        if (!response.ok) {
+          await usageRecorder.fail({
+            deliveryStatus: "failed",
+            httpStatus: response.status,
+            errorCode: "tts_failed",
+            providerRequestId,
+          });
+          if (
+            attempt < AUDIO_PROVIDER_MAX_ATTEMPTS &&
+            shouldRetryProviderResponse(response.status)
+          ) {
+            await sleep(AUDIO_PROVIDER_RETRY_BASE_DELAY_MS * attempt);
+            continue;
+          }
+          const status = response.status === 429 ? 429 : 502;
+          return await failRequest(
+            response.status === 429
+              ? "Audio provider is busy, please retry later"
+              : "Audio generation failed",
+            status,
+            response.status === 429 ? "provider_rate_limited" : "tts_failed",
+            "failed",
+            response.status >= 400 && response.status < 500 &&
+              response.status !== 429
+              ? "released_unsent"
+              : "unknown",
+          );
+        }
+        providerResponse = response;
+        break;
       }
 
-      const audioBuffer = await openaiResponse.arrayBuffer();
+      if (!providerResponse || !usageRecorder) {
+        return await failRequest(
+          "Audio generation failed",
+          502,
+          "tts_failed",
+        );
+      }
+
+      const audioBuffer = await providerResponse.arrayBuffer();
       if (!isLikelyMp3Audio(audioBuffer)) {
         await usageRecorder.succeed({
           deliveryStatus: "failed",
           httpStatus: 200,
           errorCode: "audio_invalid",
-          providerRequestId: openaiResponse.headers.get("x-request-id"),
+          providerRequestId,
         });
-        await supabase.from("audio_manifests")
-          .update({
-            generation_status: "failed",
-            error_code: "audio_invalid",
-          })
-          .eq("id", activeManifest.id);
-        await supabase.rpc("fail_generation_request", {
-          p_user_id: userId,
-          p_operation_type: OPERATION_TYPE,
-          p_client_request_id: clientRequestId,
-        });
-        return errorResponse(
+        return await failRequest(
           "Generated audio was not a usable MP3",
           502,
           "audio_invalid",
+          "failed",
+          "unknown",
         );
       }
 
@@ -679,7 +811,7 @@ export function createAudioGenerateHandler(
           deliveryStatus: "failed",
           httpStatus: 200,
           errorCode: "storage_upload_failed",
-          providerRequestId: openaiResponse.headers.get("x-request-id"),
+          providerRequestId,
         });
         await supabase.from("audio_manifests")
           .update({
@@ -692,6 +824,7 @@ export function createAudioGenerateHandler(
           p_operation_type: OPERATION_TYPE,
           p_client_request_id: clientRequestId,
         });
+        await settleAdmission("unknown");
         return errorResponse(
           "Audio storage failed",
           503,
@@ -705,7 +838,7 @@ export function createAudioGenerateHandler(
           generation_status: "ready",
           error_code: null,
           byte_size: audioBuffer.byteLength,
-          duration_ms: estimatedDurationMs(targetText),
+          duration_ms: estimatedDurationMs(text),
           sha256: audioDigest,
           last_accessed_at: new Date().toISOString(),
         })
@@ -728,13 +861,14 @@ export function createAudioGenerateHandler(
           deliveryStatus: "failed",
           httpStatus: 200,
           errorCode: "manifest_ready_update_failed",
-          providerRequestId: openaiResponse.headers.get("x-request-id"),
+          providerRequestId,
         });
         await supabase.rpc("fail_generation_request", {
           p_user_id: userId,
           p_operation_type: OPERATION_TYPE,
           p_client_request_id: clientRequestId,
         });
+        await settleAdmission("unknown");
         return errorResponse(
           "Audio metadata update failed",
           500,
@@ -751,13 +885,14 @@ export function createAudioGenerateHandler(
           deliveryStatus: "failed",
           httpStatus: 200,
           errorCode: "signed_url_failed",
-          providerRequestId: openaiResponse.headers.get("x-request-id"),
+          providerRequestId,
         });
         await supabase.rpc("fail_generation_request", {
           p_user_id: userId,
           p_operation_type: OPERATION_TYPE,
           p_client_request_id: clientRequestId,
         });
+        await settleAdmission("unknown");
         return errorResponse(
           "Audio generated but delivery URL failed",
           503,
@@ -769,6 +904,7 @@ export function createAudioGenerateHandler(
         ready,
         signed.data.signedUrl,
         false,
+        route,
       );
       const completion = normalizeRpcResult(
         await supabase.rpc("complete_generation_request", {
@@ -784,8 +920,9 @@ export function createAudioGenerateHandler(
           deliveryStatus: "failed",
           httpStatus: 200,
           errorCode: "generation_completion_unavailable",
-          providerRequestId: openaiResponse.headers.get("x-request-id"),
+          providerRequestId,
         });
+        await settleAdmission("unknown");
         return errorResponse(
           "Audio completion unavailable",
           503,
@@ -796,28 +933,20 @@ export function createAudioGenerateHandler(
       await usageRecorder.succeed({
         deliveryStatus: "succeeded",
         httpStatus: 200,
-        providerRequestId: openaiResponse.headers.get("x-request-id"),
+        providerRequestId,
       });
       await recordBusinessEvent(
         supabase as unknown as Parameters<typeof recordBusinessEvent>[0],
         {
           userId,
-        feature: "tts",
-        clientRequestId,
-        outcome: "completed",
-      },
-    );
-    if (admission.reservationId) {
-      await settleGenerationAdmission(
-        supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
-        admission.reservationId,
-        "settled",
-        undefined,
-        admission.reservationScope ?? "membership",
+          feature: "tts",
+          clientRequestId,
+          outcome: "completed",
+        },
       );
-    }
-    return json(responsePayload);
-  } catch {
+      await settleAdmission("settled");
+      return json(responsePayload);
+    } catch {
       console.error("Audio generation function failed");
       await usageRecorder?.unknown({
         deliveryStatus: "failed",
@@ -834,6 +963,7 @@ export function createAudioGenerateHandler(
         p_operation_type: OPERATION_TYPE,
         p_client_request_id: clientRequestId,
       });
+      await settleAdmission("unknown");
       return errorResponse(
         "Internal audio generation error",
         500,

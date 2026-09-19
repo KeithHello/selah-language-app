@@ -7,7 +7,6 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   estimateGenerationCost,
-  type GenerationUsageRecorder,
   type GenerationUsageRow,
   type GenerationUsageTable,
   recordGenerationAttempt,
@@ -66,6 +65,41 @@ Deno.test("unknown usage is never priced as zero", () => {
     }).estimatedCostUsd,
     null,
   );
+});
+
+Deno.test("Azure TTS remains unpriced until the subscription rate is verified", () => {
+  const result = estimateGenerationCost({
+    feature: "tts",
+    model: "azure-speech/zh-TW-HsiaoChenNeural",
+    usageSource: "request_estimate",
+    inputCharacters: 100,
+  });
+  assertEquals(result.basis, "tts_characters");
+  assertEquals(result.estimatedCostUsd, null);
+  assertEquals(result.priceVersion, null);
+});
+
+Deno.test("Azure recorder preserves unknown pricing after a successful delivery", async () => {
+  const updated: Array<Record<string, unknown>> = [];
+  const table: GenerationUsageTable = {
+    insert: () =>
+      Promise.resolve({ data: { id: "azure-attempt" }, error: null }),
+    update: (_id, values) => {
+      updated.push(values);
+      return Promise.resolve({ error: null });
+    },
+  };
+  const recorder = await recordGenerationAttempt(table, {
+    userId: "5a9b8d4c-6e2f-4c7a-9b1d-2e3f4a5b6c7d",
+    clientRequestId: "8d42c8e5-4f0e-4a37-b63d-51c4ab25d1f0",
+    feature: "tts",
+    model: "azure-speech/zh-TW-HsiaoChenNeural",
+    inputCharacters: 100,
+    usageSource: "unknown",
+  });
+  await recorder.succeed({ deliveryStatus: "succeeded" });
+  assertEquals(updated[0].usage_source, "unknown");
+  assertEquals(updated[0].estimated_cost_usd, null);
 });
 
 Deno.test("recorder starts and completes one provider attempt", async () => {

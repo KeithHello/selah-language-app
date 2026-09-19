@@ -1,11 +1,50 @@
 enum AudioTrackRole { target, source }
 
+const audioCacheKeyVersion = 'audio:v2';
+const audioCacheKeyPrefix = '$audioCacheKeyVersion:loop:';
+
+String audioProviderForLanguage(String language) => language.startsWith('zh')
+    ? 'azure'
+    : 'openai';
+
+String audioProviderVoice({
+  required String voice,
+  required String language,
+}) {
+  final provider = audioProviderForLanguage(language);
+  return provider == 'azure' ? 'zh-TW-HsiaoChenNeural@$voice' : voice;
+}
+
+String audioAccentFor({
+  required String voice,
+  required String language,
+}) {
+  if (language.startsWith('zh')) return 'zh-TW';
+  if (language.startsWith('ja')) return 'ja-JP';
+  return voice == 'elegant-british' ? 'en-GB' : 'en-US';
+}
+
 String audioTrackKey({
   required String voice,
   required AudioTrackRole role,
   required String language,
   required String contentHash,
-}) => 'loop:$voice:${role.name}:$language:$contentHash';
+}) {
+  final provider = audioProviderForLanguage(language);
+  final providerVoice = audioProviderVoice(voice: voice, language: language);
+  return '$audioCacheKeyPrefix$provider:$providerVoice:1:$voice:${role.name}:$language:$contentHash';
+}
+
+String singleAudioTrackKey({
+  required String sentenceId,
+  required String voice,
+  required String language,
+  required String contentHash,
+}) {
+  final provider = audioProviderForLanguage(language);
+  final providerVoice = audioProviderVoice(voice: voice, language: language);
+  return '$audioCacheKeyVersion:sentence:$sentenceId:$provider:$providerVoice:1:$voice:target:$language:$contentHash';
+}
 
 class AudioTrackRef {
   const AudioTrackRef({
@@ -23,6 +62,10 @@ class AudioTrackRef {
   final String voice;
   final String text;
   final String key;
+
+  String get provider => audioProviderForLanguage(language);
+
+  String get accent => audioAccentFor(voice: voice, language: language);
 
   Map<String, Object?> toLoopTrack() => {
     'sentenceId': sentenceId,

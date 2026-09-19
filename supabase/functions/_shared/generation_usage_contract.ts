@@ -136,6 +136,7 @@ function nonNegativeBigInt(
 
 export function estimateGenerationCost(input: {
   feature: GenerationFeature;
+  model?: string;
   usageSource?: UsageSource;
   inputTokens?: bigint;
   cachedInputTokens?: bigint;
@@ -187,6 +188,14 @@ export function estimateGenerationCost(input: {
       "inputCharacters",
     );
     if (characters === undefined) return { ...base, basis: "unknown" };
+    if (input.model?.startsWith("azure-speech/")) {
+      return {
+        basis: "tts_characters",
+        usageSource,
+        priceVersion: null,
+        estimatedCostUsd: null,
+      };
+    }
     return {
       basis: "tts_characters",
       usageSource: "request_estimate",
@@ -250,6 +259,7 @@ function validateStart(input: GenerationUsageInput): Record<string, unknown> {
   );
   const initialEstimate = estimateGenerationCost({
     feature: input.feature,
+    model: input.model,
     usageSource: input.usageSource ??
       (input.feature === "tts" || input.feature === "transcription"
         ? "request_estimate"
@@ -302,10 +312,11 @@ export async function recordGenerationAttempt(
   ): Promise<void> {
     const usageInput = {
       feature: input.feature,
+      model: input.model,
       usageSource: completion.usage?.usageSource ??
         (providerStatus === "succeeded"
           ? (input.feature === "tts" || input.feature === "transcription"
-            ? "request_estimate"
+            ? (input.usageSource ?? "request_estimate")
             : "provider")
           : "unknown"),
       inputTokens: completion.usage?.inputTokens ?? input.inputTokens,

@@ -1,8 +1,15 @@
-import { AUDIO_FORMAT, TTS_MODEL, TTS_SPEED, VOICE_MAP } from "./audio.ts";
+import { AUDIO_FORMAT, TTS_MODEL, TTS_SPEED } from "./audio.ts";
+import { type AudioRoute, resolveAudioRoute } from "./audio_routing.ts";
 
 export interface AudioGenerationInput {
+  contractVersion?: number;
   sentenceId?: string;
+  text?: string;
   targetText?: string;
+  audioRole?: "source" | "target";
+  sourceLanguage?: string;
+  targetLanguage?: string;
+  accent?: string;
   voiceProfile?: string;
   reason?: string;
   clientRequestId?: string;
@@ -12,9 +19,15 @@ export type AudioInputValidation =
   | {
     ok: true;
     sentenceId: string;
+    text: string;
     targetText: string;
     voiceProfile: string;
     openaiVoice: string;
+    audioRole: "source" | "target";
+    sourceLanguage: string | null;
+    targetLanguage: string;
+    accent: string;
+    route: AudioRoute;
     clientRequestId: string;
   }
   | { ok: false; status: number; code: string; message: string };
@@ -23,32 +36,39 @@ export function validateAudioGenerationInput(
   body: AudioGenerationInput,
 ): AudioInputValidation {
   const sentenceId = body.sentenceId?.trim();
-  const targetText = body.targetText?.trim();
-  if (!sentenceId || !targetText) {
+  const text = (body.text ?? body.targetText)?.trim();
+  if (!sentenceId || !text) {
     return {
       ok: false,
       status: 400,
       code: "missing_audio_input",
-      message: "sentenceId and targetText are required",
+      message: "sentenceId and text are required",
     };
   }
-  if (targetText.length > 1000) {
+  if (text.length > 1000) {
     return {
       ok: false,
       status: 400,
       code: "text_too_long",
-      message: "targetText too long (max 1000 chars)",
+      message: "text too long (max 1000 chars)",
     };
   }
 
-  const voiceProfile = body.voiceProfile ?? "gentle-natural";
-  const openaiVoice = VOICE_MAP[voiceProfile];
-  if (!openaiVoice) {
+  const legacyRequest = body.contractVersion !== 2 && !body.audioRole;
+  const audioRole = legacyRequest ? "target" : body.audioRole;
+  const route = resolveAudioRoute({
+    audioRole,
+    sourceLanguage: body.sourceLanguage,
+    targetLanguage: body.targetLanguage ?? "en",
+    accent: body.accent,
+    voiceProfile: body.voiceProfile,
+  });
+  if (!route.ok) {
     return {
       ok: false,
       status: 400,
-      code: "unsupported_voice_profile",
-      message: "Unsupported voice profile",
+      code: route.code,
+      message: route.message,
     };
   }
 
@@ -65,9 +85,17 @@ export function validateAudioGenerationInput(
   return {
     ok: true,
     sentenceId,
-    targetText,
-    voiceProfile,
-    openaiVoice,
+    text,
+    targetText: text,
+    voiceProfile: route.route.voiceProfile,
+    openaiVoice: route.route.provider === "openai"
+      ? route.route.providerVoice
+      : "",
+    audioRole: route.route.audioRole,
+    sourceLanguage: body.sourceLanguage?.trim() || null,
+    targetLanguage: body.targetLanguage?.trim() || "en",
+    accent: route.route.accent,
+    route: route.route,
     clientRequestId,
   };
 }

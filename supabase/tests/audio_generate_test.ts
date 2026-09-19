@@ -61,7 +61,10 @@ interface FakeManifest {
   [key: string]: unknown;
 }
 
-function makeRequest(clientRequestId = REQUEST_ID): Request {
+function makeRequest(
+  clientRequestId = REQUEST_ID,
+  overrides: Record<string, unknown> = {},
+): Request {
   return new Request("https://example.test/functions/v1/audio-generate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -70,6 +73,7 @@ function makeRequest(clientRequestId = REQUEST_ID): Request {
       targetText: "Hello world",
       voiceProfile: "gentle-natural",
       clientRequestId,
+      ...overrides,
     }),
   });
 }
@@ -114,6 +118,9 @@ function fakeAudioDependencies(
     uploadFailures?: number;
     signedError?: boolean;
     providerResponse?: Response | Promise<Response>;
+    providerResponses?: Array<Response | Promise<Response>>;
+    providerError?: Error;
+    envOverrides?: Record<string, string>;
     onProviderCall?: () => void;
     claimDecisions?: Array<Record<string, unknown>>;
   } = {},
@@ -144,6 +151,7 @@ function fakeAudioDependencies(
   }
   let uploadAttempt = 0;
   let claimAttempt = 0;
+  let providerAttempt = 0;
 
   const queryBuilderFor = (tableName: string) => {
     const filters: Array<
@@ -332,6 +340,9 @@ function fakeAudioDependencies(
           OPENAI_API_KEY: "test-openai-key",
           SUPABASE_URL: "https://example.supabase.co",
           SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
+          AZURE_SPEECH_KEY: "test-azure-key",
+          AZURE_SPEECH_REGION: "japaneast",
+          ...options.envOverrides,
         }[name];
       },
     },
@@ -342,8 +353,14 @@ function fakeAudioDependencies(
         input instanceof Request ? input : new Request(input, init),
       );
       options.onProviderCall?.();
+      const currentAttempt = providerAttempt++;
+      const response = options.providerResponses?.[currentAttempt] ??
+        options.providerResponse;
+      if (options.providerError && currentAttempt === 0) {
+        return Promise.reject(options.providerError);
+      }
       return Promise.resolve(
-        options.providerResponse ??
+        response ??
           new Response(mp3Bytes()),
       );
     },
@@ -389,6 +406,75 @@ Deno.test("Uses mp3 format", () => {
 
 Deno.test("Default speed is 1", () => {
   assertEquals(TTS_SPEED, 1);
+});
+
+Deno.test("routes a v2 Chinese source request to Azure Speech", async () => {
+  const setup = fakeAudioDependencies();
+  const response = await createAudioGenerateHandler(setup.deps)(
+    makeRequest(REQUEST_ID, {
+      contractVersion: 2,
+      text: "你好，最近好吗？",
+      targetText: undefined,
+      audioRole: "source",
+      sourceLanguage: "zh-Hant",
+      targetLanguage: "en",
+      accent: "zh-TW",
+      voiceProfile: "native-gentle",
+    }),
+  );
+  assertEquals(response.status, 200);
+  assertEquals(setup.calls.fetch.length, 1);
+  assertStringIncludes(
+    setup.calls.fetch[0].url,
+    "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1",
+  );
+  assertEquals(
+    setup.calls.fetch[0].headers.get("Ocp-Apim-Subscription-Key"),
+    "test-azure-key",
+  );
+  assertStringIncludes(await setup.calls.fetch[0].text(), "HsiaoChenNeural");
+  assertEquals(
+    setup.getManifest()?.tts_model,
+    "azure-speech/zh-TW-HsiaoChenNeural",
+  );
+});
+
+Deno.test("retries a provider timeout once and then returns the successful audio", async () => {
+  const setup = fakeAudioDependencies({
+    providerError: new Error("network timeout"),
+  });
+  const response = await createAudioGenerateHandler(setup.deps)(makeRequest());
+  assertEquals(response.status, 200);
+  assertEquals(setup.calls.fetch.length, 2);
+});
+
+Deno.test("does not silently fall back from Azure to OpenAI after provider failure", async () => {
+  const setup = fakeAudioDependencies({
+    providerResponses: [
+      new Response(null, { status: 503 }),
+      new Response(null, { status: 503 }),
+    ],
+  });
+  const response = await createAudioGenerateHandler(setup.deps)(
+    makeRequest(REQUEST_ID, {
+      contractVersion: 2,
+      text: "你好",
+      targetText: undefined,
+      audioRole: "source",
+      sourceLanguage: "zh-Hant",
+      targetLanguage: "en",
+      accent: "zh-TW",
+      voiceProfile: "native-gentle",
+    }),
+  );
+  assertEquals(response.status, 502);
+  assertEquals(setup.calls.fetch.length, 2);
+  assertEquals(
+    setup.calls.fetch.every((request) =>
+      request.url.startsWith("https://japaneast.tts.speech.microsoft.com/")
+    ),
+    true,
+  );
 });
 
 // ============================================================

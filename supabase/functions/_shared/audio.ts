@@ -15,7 +15,10 @@ export const VOICE_MAP: Record<string, string> = {
   "native-calm": "fable",
 };
 
-export const VOICE_ACCENTS: Record<string, "en-US" | "en-GB" | "zh-TW" | "ja-JP"> = {
+export const VOICE_ACCENTS: Record<
+  string,
+  "en-US" | "en-GB" | "zh-TW" | "ja-JP"
+> = {
   "gentle-natural": "en-US",
   "clear-slow": "en-US",
   "daily-bright": "en-US",
@@ -51,6 +54,29 @@ export async function contentHash(
     .join("");
 }
 
+/**
+ * Hashes the spoken text independently from the provider identity.  The
+ * provider, voice and speed are added by audioCacheKey so a route change can
+ * never reuse an older provider's bytes.
+ */
+export async function textContentHash(
+  text: string,
+  spokenLanguage: string,
+  format = AUDIO_FORMAT,
+): Promise<string> {
+  const canonical = [
+    spokenLanguage.trim().toLowerCase(),
+    format,
+    normalizeText(text),
+  ]
+    .join("|");
+  const bytes = new TextEncoder().encode(canonical);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return Array.from(new Uint8Array(digest))
+    .map((byte) => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
 export async function sha256(data: ArrayBuffer): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", data);
   return Array.from(new Uint8Array(digest))
@@ -69,6 +95,20 @@ export function userStoragePath(
   hash: string,
 ): string {
   return `users/${userId}/${sentenceId}/${voiceProfile}/${hash}.mp3`;
+}
+
+export function userStoragePathV2(
+  userId: string,
+  sentenceId: string,
+  provider: string,
+  providerVoice: string,
+  speed: number,
+  textHash: string,
+): string {
+  const safe = (value: string) => value.replace(/[^a-zA-Z0-9._@-]/g, "_");
+  return `users/${userId}/${sentenceId}/${safe(provider)}/${
+    safe(providerVoice)
+  }/${safe(String(speed))}/${textHash}.mp3`;
 }
 
 export function seedScope(seedSentenceId: string): string {

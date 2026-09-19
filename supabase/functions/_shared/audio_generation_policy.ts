@@ -5,9 +5,16 @@ export type AudioGenerationStatus =
   | "failed";
 
 export const AUDIO_GENERATION_TTL_MS = 5 * 60 * 1_000;
-export const AUDIO_TTS_TIMEOUT_MS = 60 * 1_000;
+export const AUDIO_TTS_TIMEOUT_MS = 15 * 1_000;
+export const AUDIO_PROVIDER_MAX_ATTEMPTS = 2;
+export const AUDIO_PROVIDER_RETRY_BASE_DELAY_MS = 250;
 export const AUDIO_UPLOAD_MAX_ATTEMPTS = 3;
 export const AUDIO_UPLOAD_RETRY_BASE_DELAY_MS = 200;
+
+export function shouldRetryProviderResponse(status: number | null): boolean {
+  return status === null || status === 408 || status === 429 ||
+    (status >= 500 && status <= 599);
+}
 
 export function shouldReuseInFlightGeneration(
   status: AudioGenerationStatus | null,

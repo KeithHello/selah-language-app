@@ -12,7 +12,7 @@ void main() {
           language: 'en',
           contentHash: 'a' * 64,
         ),
-        'loop:gentle-natural:target:en:${'a' * 64}',
+        'audio:v2:loop:openai:gentle-natural:1:gentle-natural:target:en:${'a' * 64}',
       );
     },
   );
