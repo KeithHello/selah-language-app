@@ -1,4 +1,4 @@
-import 'dart:math';
+﻿import 'dart:math';
 
 import 'learning_models.dart';
 
@@ -1099,4 +1099,3 @@ class CompanionNamePool {
     ).nameForLanguage(languageCode);
   }
 }
-
