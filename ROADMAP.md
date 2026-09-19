@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-09-20 在线音频按语言供应商路由（代码完成，远端部署待执行）
+### 2026-09-20 在线音频按语言供应商路由（已提交并发布预览）
 
 - [x] `audio-generate` 合约升级为 v2：明确区分 `source`／`target`、原文语言／学习语言、口音与声线；保留旧版 `targetText` 请求的兼容路径。
 - [x] 繁体中文母语音频固定路由到 Azure Speech 台湾普通话（`zh-TW-HsiaoChenNeural`），英文继续使用 OpenAI `tts-1`，英式声线保持 `en-GB`；日语本阶段继续使用原 OpenAI 路由。
@@ -16,8 +16,9 @@
 - [x] 服务端加入 15 秒供应商超时、最多 2 次有限重试和明确的供应商失败记录；Azure 费用在价格核实前保持未知，不把未知费用记为 0。
 - [x] Web 循环听、个人句播放和后台音频补齐统一发送 v2 元数据，并切换 `audio:v2` 本机缓存键；新增路由、重试、Azure SSML 和前端请求回归覆盖。
 - [x] 本地验证：Supabase Deno 全量 320 项通过；本次 Flutter 相关测试 15 项通过；`flutter analyze` 通过；Web Release 构建成功；目标服务文件 `deno fmt --check` 通过。
-- [ ] 待提交并推送 GitHub；随后单独部署 `audio-generate` 到 Supabase Edge Function，并做 OPTIONS／未登录请求的零费用预检。
-- [ ] 待主人确认 Cloudflare Pages 预览部署后，再发布包含 Web v2 音频请求与缓存键的 Release 构建并做远端只读验收。
+- [x] 已提交并推送 GitHub：分支 `codex/web-ux-reliability`，commit `189097b`；未纳入工作区中的素材、临时目录和旧资源。
+- [x] 已单独部署 `audio-generate` 到 Supabase 项目 `ijonabyyppmgvoufgamt`；远端零费用预检为 `OPTIONS 200`、未登录 `POST 401`，未修改 migration、Secrets 或其他函数。
+- [x] Cloudflare Pages 预览已发布到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://32ed1a15.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；首页、Flutter 主脚本、Service Worker、音频清单和代表性中文 MP3 均 HTTP 200，`main.dart.js` 已包含 `audio:v2`。
 
 ### 2026-09-20 Azure 台湾中文母语音频重制与英语美音英音声线区分（已部署预览环境）
 
