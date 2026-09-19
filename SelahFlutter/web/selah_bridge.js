@@ -919,9 +919,11 @@
 
     function snapshot() {
       if (!active) return idleStatus();
-      var remaining = active.deadlineAtMs == null
-        ? active.durationMs
-        : Math.max(0, active.deadlineAtMs - nowMs());
+      var remaining = active.state === 'paused'
+        ? (active.pausedRemainingMs != null ? active.pausedRemainingMs : active.durationMs)
+        : (active.deadlineAtMs == null
+          ? (active.pausedRemainingMs != null ? active.pausedRemainingMs : active.durationMs)
+          : Math.max(0, active.deadlineAtMs - nowMs()));
       return {
         sessionId: active.sessionId,
         state: active.state,
@@ -942,6 +944,7 @@
       active.state = 'ended';
       active.phase = null;
       active.remainingMs = 0;
+      active.pausedRemainingMs = 0;
       active.deadlineAtMs = active.deadlineAtMs || nowMs();
       active.stopReason = reason;
     }
@@ -987,13 +990,15 @@
           session.element.playbackRate = session.speed;
           addListener(session, 'playing', function () {
             if (active !== session) return;
-            if (session.deadlineAtMs == null) {
+            if (session.deadlineAtMs == null && session.pausedRemainingMs == null) {
               session.deadlineAtMs = nowMs() + session.durationMs;
               armDeadline(session);
-            } else {
+            } else if (session.deadlineAtMs != null) {
               armDeadline(session);
             }
-            session.state = 'playing';
+            if (session.state !== 'paused') {
+              session.state = 'playing';
+            }
           });
           addListener(session, 'ended', function () {
             if (active !== session || session.phase !== track.role) return;
@@ -1085,6 +1090,7 @@
         state: 'starting',
         durationMs: config.durationMs,
         deadlineAtMs: null,
+        pausedRemainingMs: null,
         stopReason: null,
         languageGapMs: config.languageGapMs,
         sentenceGapMs: config.sentenceGapMs,
@@ -1106,6 +1112,13 @@
         return snapshot();
       }
       active.state = 'paused';
+      if (active.deadlineAtMs != null) {
+        active.pausedRemainingMs = Math.max(0, active.deadlineAtMs - nowMs());
+        clearDeadlineTimer();
+        active.deadlineAtMs = null;
+      } else if (active.pausedRemainingMs == null) {
+        active.pausedRemainingMs = active.durationMs;
+      }
       if (active.gapStartedAtMs != null && active.gapRemainingMs != null) {
         active.gapRemainingMs = Math.max(
           0,
@@ -1120,7 +1133,15 @@
 
     function resume(payload) {
       if (!active || !isCurrent(payload)) return Promise.resolve(snapshot());
-      if (active.deadlineAtMs != null && active.deadlineAtMs <= nowMs()) {
+      if (active.pausedRemainingMs != null) {
+        if (active.pausedRemainingMs <= 0) {
+          finish('timeout');
+          return Promise.resolve(snapshot());
+        }
+        active.deadlineAtMs = nowMs() + active.pausedRemainingMs;
+        active.pausedRemainingMs = null;
+        armDeadline(active);
+      } else if (active.deadlineAtMs != null && active.deadlineAtMs <= nowMs()) {
         finish('timeout');
         return Promise.resolve(snapshot());
       }
@@ -1151,6 +1172,11 @@
         return Promise.resolve(snapshot());
       }
       clearAdvanceTimers();
+      if (active.pausedRemainingMs != null) {
+        active.deadlineAtMs = nowMs() + active.pausedRemainingMs;
+        active.pausedRemainingMs = null;
+        armDeadline(active);
+      }
       active.trackIndex = 0;
       active.itemIndex = (active.itemIndex + 1) % active.items.length;
       if (active.pendingOrder) {
@@ -1178,6 +1204,17 @@
       return snapshot();
     }
 
+    function speed(payload) {
+      var next = Math.min(2, Math.max(0.5, toNumber(payload && payload.speed, active ? active.speed : 1)));
+      if (active) {
+        active.speed = next;
+        if (active.element) {
+          active.element.playbackRate = next;
+        }
+      }
+      return null;
+    }
+
     function stop(payload) {
       if (active && (!payload || !payload.sessionId || isCurrent(payload))) finish('user');
       return snapshot();
@@ -1188,6 +1225,7 @@
       pause: pause,
       resume: resume,
       next: next,
+      speed: speed,
       setOrder: setOrder,
       stop: stop,
       status: function (payload) {
@@ -1632,7 +1670,12 @@
       audioResume: function () { return audio.resume(); },
       audioStop: function () { return audio.stop(); },
       audioSeek: audio.seek,
-      audioSpeed: audio.speed,
+      audioSpeed: function (payload) {
+        audio.speed(payload || {});
+        loopAudio.speed(payload || {});
+        return null;
+      },
+      audioLoopSpeed: function (payload) { return loopAudio.speed(payload || {}); },
       audioCacheInfo: audioCacheInfo,
       audioLoopStart: function (payload) { return loopAudio.start(payload); },
       audioLoopStatus: function (payload) { return loopAudio.status(payload || {}); },

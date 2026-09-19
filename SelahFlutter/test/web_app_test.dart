@@ -8,6 +8,7 @@ import 'package:selah/web/platform/learning_platform.dart';
 import 'package:selah/web/ui/web_learning_app.dart';
 import 'package:selah/web/ui/plush_companion.dart';
 import 'package:selah/web/ui/web_start_action.dart';
+import 'package:selah/web/ui/companion_dice_button.dart';
 import 'web_controller_test.dart' show FakeGateway;
 
 class _FakePlatform implements LearningPlatform {
@@ -139,7 +140,21 @@ void main() {
     expect(find.text('第 1 步：给精灵取名字'), findsOneWidget);
     expect(find.text('必填'), findsOneWidget);
     expect(find.text('这是你要陪伴的精灵名字，之后会一直显示在学习空间里。'), findsOneWidget);
-    expect(find.text('已选 0 句（至少 3 句）'), findsOneWidget);
+
+    final nameField = find.byType(TextField).first;
+    final initialName = tester.widget<TextField>(nameField).controller!.text;
+    expect(initialName, isNotEmpty);
+    expect(find.byType(CompanionDiceButton), findsOneWidget);
+
+    // Roll a new name with the dice button
+    await tester.tap(find.byType(CompanionDiceButton));
+    await tester.pump();
+    final rolledName = tester.widget<TextField>(nameField).controller!.text;
+    expect(rolledName, isNotEmpty);
+
+    // If the name is cleared, attempting to start requires entering a name
+    await tester.enterText(nameField, '');
+    await tester.pump();
 
     await tester.tap(
       find.descendant(
@@ -150,7 +165,7 @@ void main() {
     await tester.pump();
     expect(find.text('请先输入精灵名字。'), findsOneWidget);
 
-    await tester.enterText(find.byType(TextField).first, '小芽');
+    await tester.enterText(nameField, '小芽');
     for (final sentence in [
       '今天想早点休息。',
       '我终于把这件事做完了。',

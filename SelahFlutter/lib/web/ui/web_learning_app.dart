@@ -20,8 +20,11 @@ import 'research_profile_widgets.dart';
 import 'feedback_survey_widgets.dart';
 import 'admin_dashboard_page.dart';
 import 'loop_listening_panel.dart';
+import 'speed_selector.dart';
 import 'plush_companion.dart';
 import 'web_start_action.dart';
+import '../domain/companion_names.dart';
+import 'companion_dice_button.dart';
 
 String _contextUiLocale(BuildContext context) {
   final locale = Localizations.maybeLocaleOf(context);
@@ -2399,120 +2402,13 @@ class _PlaybackControls extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 8),
-        _SpeedSelector(
+        SpeedSelector(
           controller: controller,
           label: strings.translateLegacy('语速'),
         ),
       ],
     );
   }
-}
-
-class _SpeedSelector extends StatelessWidget {
-  const _SpeedSelector({required this.controller, required this.label});
-
-  final LearningController controller;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = SelahStrings.of(controller.uiLocale);
-    final current = controller.state.preferences.speed;
-    final isPreset = speedPresets.any((value) => value == current);
-    return Wrap(
-      spacing: 6,
-      runSpacing: 6,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [
-        Text(
-          label,
-          style: SelahTypography.labelSmall(color: SelahColors.textTertiary),
-        ),
-        ...speedPresets.map(
-          (speed) => ChoiceChip(
-            label: Text('${_speedLabel(speed)}x'),
-            selected: current == speed,
-            onSelected: controller.busy
-                ? null
-                : (_) => controller.updatePreferences(speed: speed),
-            visualDensity: VisualDensity.compact,
-          ),
-        ),
-        OutlinedButton(
-          onPressed: controller.busy
-              ? null
-              : () => _showCustomSpeedDialog(context, controller),
-          style: OutlinedButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-          ),
-          child: Text(
-            isPreset
-                ? strings.text('settings.speed.custom')
-                : '${strings.text('settings.speed.custom')}（${_speedLabel(current)}x）',
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-String _speedLabel(double speed) => speed
-    .toStringAsFixed(2)
-    .replaceFirst(RegExp(r'0+$'), '')
-    .replaceFirst(RegExp(r'\.$'), '');
-
-Future<void> _showCustomSpeedDialog(
-  BuildContext context,
-  LearningController controller,
-) async {
-  final strings = SelahStrings.of(controller.uiLocale);
-  var speed = controller.state.preferences.speed
-      .clamp(minPlaybackSpeed, maxPlaybackSpeed)
-      .toDouble();
-  await showDialog<void>(
-    context: context,
-    builder: (dialogContext) => StatefulBuilder(
-      builder: (dialogContext, setState) => AlertDialog(
-        title: Text(strings.text('settings.speed.customTitle')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              '${_speedLabel(speed)}x',
-              style: SelahTypography.headlineLarge(),
-            ),
-            Slider(
-              value: speed,
-              min: minPlaybackSpeed,
-              max: maxPlaybackSpeed,
-              label: '${_speedLabel(speed)}x',
-              onChanged: (value) => setState(() => speed = value),
-            ),
-            Text(
-              strings.text('settings.speed.range'),
-              style: SelahTypography.bodySmall(
-                color: SelahColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(strings.text('common.cancel')),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await controller.updatePreferences(speed: speed);
-              if (dialogContext.mounted) Navigator.of(dialogContext).pop();
-            },
-            child: Text(strings.text('settings.save')),
-          ),
-        ],
-      ),
-    ),
-  );
 }
 
 class _PracticePage extends StatefulWidget {
@@ -3856,6 +3752,20 @@ class _SettingsPageState extends State<_SettingsPage> {
                       decoration: InputDecoration(
                         labelText: s.text('settings.name'),
                         counterText: '',
+                        suffixIcon: CompanionDiceButton(
+                          tooltip: s.text('companion.diceTooltip'),
+                          languageCode: p.nativeLanguage,
+                          currentName: _name.text,
+                          enabled: !c.busy,
+                          onRolled: (name) {
+                            setState(() {
+                              _name.text = name;
+                              _name.selection = TextSelection.fromPosition(
+                                TextPosition(offset: name.length),
+                              );
+                            });
+                          },
+                        ),
                       ),
                     ),
                   ),
@@ -3903,6 +3813,13 @@ class _SettingsPageState extends State<_SettingsPage> {
                         if (value != null) c.updatePreferences(voice: value);
                       },
               ),
+              const SizedBox(height: 8),
+              Text(
+                s.text('settings.voice.detail'),
+                style: SelahTypography.bodySmall(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
               const SizedBox(height: 14),
               DropdownButtonFormField<String>(
                 key: ValueKey(p.nativeVoice),
@@ -3936,7 +3853,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                 ),
               ),
               const SizedBox(height: 14),
-              _SpeedSelector(controller: c, label: s.text('settings.speed')),
+              SpeedSelector(controller: c, label: s.text('settings.speed')),
             ],
           ),
           const SizedBox(height: 14),
@@ -4306,7 +4223,10 @@ class _OnboardingPageState extends State<_OnboardingPage> {
   void initState() {
     super.initState();
     final current = c.state.preferences.name;
-    _name = TextEditingController(text: current == '小豆' ? '' : current);
+    final initialName = (current.isEmpty || current == '小豆')
+        ? CompanionNamePool.initialDefaultName(c.state.preferences.nativeLanguage)
+        : current;
+    _name = TextEditingController(text: initialName);
     _nameFocus = FocusNode();
   }
 
@@ -4495,6 +4415,23 @@ class _OnboardingPageState extends State<_OnboardingPage> {
                               labelText: s.text('onboarding.nameLabel'),
                               hintText: s.text('onboarding.nameHint'),
                               prefixIcon: const Icon(Icons.spa_outlined),
+                              suffixIcon: CompanionDiceButton(
+                                tooltip: s.text('companion.diceTooltip'),
+                                languageCode:
+                                    c.state.preferences.nativeLanguage,
+                                currentName: _name.text,
+                                enabled: !c.busy,
+                                onRolled: (name) {
+                                  setState(() {
+                                    _name.text = name;
+                                    _nameAttempted = false;
+                                    _name.selection =
+                                        TextSelection.fromPosition(
+                                          TextPosition(offset: name.length),
+                                        );
+                                  });
+                                },
+                              ),
                               counterText: '',
                               errorText:
                                   _nameAttempted && _name.text.trim().isEmpty

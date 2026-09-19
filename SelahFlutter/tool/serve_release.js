@@ -61,6 +61,8 @@ const server = http.createServer((req, res) => {
     }
     res.writeHead(200, {
       'Content-Type': contentType,
+      'Content-Length': data.length,
+      'Accept-Ranges': 'bytes',
       'Access-Control-Allow-Origin': '*',
       'Cache-Control': 'no-cache',
     });

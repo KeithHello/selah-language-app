@@ -7,6 +7,7 @@ import '../domain/loop_listening.dart';
 import '../domain/learning_models.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
+import 'speed_selector.dart';
 
 class LoopListeningPanel extends StatefulWidget {
   const LoopListeningPanel({super.key, required this.controller});
@@ -397,6 +398,14 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
               label: Text(strings.text('loop.next')),
             ),
           ],
+        ),
+        const SizedBox(height: 20),
+        Center(
+          child: SpeedSelector(
+            controller: c,
+            label: strings.text('settings.speed'),
+            alignment: WrapAlignment.center,
+          ),
         ),
         const SizedBox(height: 12),
         TextButton(

@@ -190,7 +190,7 @@ test('source-first order and an order change apply from the next sentence', asyn
   assert.equal(status.phase, 'target');
 });
 
-test('fixed deadline remains active during pause and prevents resume after timeout', async () => {
+test('pausing loop audio freezes remaining duration and extends deadline upon resume', async () => {
   const env = makeEnvironment();
   for (const track of env.tracks) {
     await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
@@ -209,10 +209,33 @@ test('fixed deadline remains active during pause and prevents resume after timeo
   assert.equal(status.state, 'paused');
   assert.equal(status.remainingMs, 59000);
   env.timers.now = 170000;
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-3' }));
+  assert.equal(status.state, 'paused');
+  assert.equal(status.remainingMs, 59000);
   await env.call('audioLoopResume', { sessionId: 'session-3' });
   status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-3' }));
-  assert.equal(status.state, 'ended');
-  assert.equal(status.stopReason, 'timeout');
+  assert.equal(status.state, 'playing');
+  assert.equal(status.remainingMs, 59000);
+});
+
+test('audioSpeed updates active loop playback rate and persists for subsequent tracks', async () => {
+  const env = makeEnvironment();
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-speed',
+    order: 'targetFirst',
+    durationMs: 60000,
+    speed: 1.0,
+    tracks: env.tracks,
+  });
+  await env.flush();
+  assert.equal(env.root.Audio.lastInstance.playbackRate, 1.0);
+
+  await env.call('audioSpeed', { speed: 1.5 });
+  assert.equal(env.root.Audio.lastInstance.playbackRate, 1.5);
 });
 
 test('absolute deadline timer ends playback without a status poll', async () => {

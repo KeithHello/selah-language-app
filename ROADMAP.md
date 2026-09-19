@@ -1,12 +1,19 @@
 # Selah 开发路线图
 
-> 最后更新：2026-09-18
+> 最后更新：2026-09-19
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
 > 完成口径：遵循 `CLAUDE.md` 的五级完成定义。
 
 ## 当前阶段
+
+### 2026-09-20 精灵 100 趣味名字池与骰子随机起名交互（已完成并验证）
+
+- [x] 新增 100 个年轻化趣味名字池与数据模型（`SelahFlutter/lib/web/domain/companion_names.dart`），涵盖职场生存（20）、校园闯关（20）、低电量日常（20）、温柔反转（20）、食物补给（10）、荒诞彩蛋（10）六大类别；支持繁体中文、简体中文、日语三语本地化与小腹黑、小反转调性。
+- [x] 首次进入 Onboarding 精灵起名步骤时，自动从 60 个低电量／温柔反转／食物／彩蛋默认池中预抽一个契合当前母语的名字，告别空白输入框与催促感，下方问候语同步响应。
+- [x] 输入框右侧新增 `CompanionDiceButton` 骰子按钮组件（`SelahFlutter/lib/web/ui/companion_dice_button.dart`），提供弹性缩放与 360° 旋转骰子微动效，点击即可全池抽取新名字，自动规避连续重复；设置页面同样完整嵌入该骰子组件，方便用户后续随时重抽与保存。
+- [x] 国际化三语字典（`selah_strings.dart`、`selah_zh_hant.dart`、`selah_zh_hans.dart`、`selah_ja.dart`）补齐骰子提示词；`web_l10n_test.dart`、`web_app_test.dart` 与新增的 `companion_random_names_test.dart`（100 词条唯一性、类别分布、三语非空映射、初次默认池比例、骰子动画与设置页保存联动）全部通过；`flutter analyze` 0 issues；`flutter build web --release` 构建成功。
 
 ### 2026-09-19 Today 后台双语音频预热与一键循环听（已完成并验证）
 
@@ -17,6 +24,31 @@
 - [x] 新增音频身份、队列去重、Today 后台预热、一键循环听、增量复用、归档清理、自动播放受阻和界面 loading 回归测试；Node 浏览器桥与循环播放测试 29 项通过，相关 Flutter 测试通过，`flutter analyze --no-pub` 无问题。
 - [x] `flutter build web --release` 成功生成 `build/web`；预览部署由发布步骤单独执行，未涉及数据库 schema／migration、密钥修改或生产部署。
 - 验证边界：Flutter 全量 268 项中 266 项通过，剩余 2 项是工作区原有 starter 音频资源清单与物理文件不一致导致的既有失败，未涉及本功能。
+
+### 2026-09-19 循环听暂停计时定格与播放页即时语速切换（已完成并验证）
+
+- [x] 循环听暂停时间定格：底层 `selah_bridge.js` 改造，`pause()` 触发时定格记录 `pausedRemainingMs`，立即清理截止定时器 `clearDeadlineTimer()`；`snapshot()` 在 `paused` 状态下定格展示剩余时间，不再随物理时间空转倒数；`resume()` 与 `next()` 恢复播放时基于定格时间顺延重新挂载截止定时器。
+- [x] 循环听播放界面嵌入语速控制：独立提取 `SpeedSelector` 组件（`SelahFlutter/lib/web/ui/speed_selector.dart`），在 `loop_listening_panel.dart` 循环听主播放卡片中加入 5 档预设（0.5x, 0.75x, 1x, 1.25x, 1.5x）及自定义语速调节；单句播放页与设置页完成统一复用。
+- [x] 循环听底层动态变频广播：在 `selah_bridge.js` 的 `makeLoopAudioController` 中补齐 `speed(payload)` 方法，并将 `audioSpeed` 桥接方法广播至 `loopAudio`，支持正在播放的音频实时无缝变频且自动继承至后续句子。
+- [x] 测试与构建验证：
+  - `browser_loop_playback.test.mjs` 新增及更新暂停定格、超时顺延和中途调速测试，7 项测试全部通过；
+  - `web_loop_listening_ui_test.dart` 与 `web_loop_controller_test.dart` 界面交互与控制器测试全部通过；
+  - Web Release 构建成功，`selah_bridge.js` 产物已同步对齐。
+
+
+### 2026-09-19 Azure 台湾中文母语音频第一阶段（10 条随包音频已生成并完成打包构建）
+
+- [x] 英语美音／英音声线区分与展示开发完成：在 `learning_models.dart`、三语本地化字典（繁中、简中、日文）中为 4 种英语声线增加显式口音标注（溫柔自然（美音）、清晰慢速（美音）、日常輕快（美音）、優雅英式（英音））；设置页增加美英声线说明（`settings.voice.detail`）。
+- [x] 服务端 `supabase/functions/_shared/audio.ts` 同步补充 `VOICE_ACCENTS` 映射（`en-US` / `en-GB` / `zh-TW`），与前端声线保持一致。
+- [x] 验证：`dart analyze lib test` 0 issues；`flutter test` 全套国际化与模型测试通过；Web Release 构建成功（Build ID: `faef07dba28d24dd`）。
+- [x] 新增本地脚本 `supabase/scripts/generate_azure_seed_audio.py`：读取现有本地 `.env`，使用 Azure Speech REST 接口与 `zh-TW-HsiaoChenNeural`，只生成十条 `seed-xxx-source-zh-Hant.mp3`，采用原子写入并拒绝无效 MP3；不会把密钥写入前端资源或输出日志。
+- [x] 新增脚本单元测试，覆盖 SSML 转义、台湾声线、文件命名、缺少凭证时不发起网络请求、dry-run 和 MP3 头校验；与现有打包器测试合计 12 项通过。
+- [x] 明确区域配置为 `japaneast` 后，10 条中文母语音频全部通过 Azure Speech 生成成功，输出为 16 kHz、128 kbit/s、单声道 MP3，已原子覆盖写入 `SelahFlutter/assets/audio/seed-*-source-zh-Hant.mp3`。
+- [x] 已通过 `package_seed_audio.py --local` 重新计算音频清单，60 条清单（40 条英文声线、10 条中文母语、10 条日文母语）SHA-256 与文件大小全部更新对齐。
+- [x] Release Web 构建成功，Build ID 为 `5a3cf40624e923ff`；本地服务 `http://127.0.0.1:5191/` 已就绪，首批 10 句随包中文母语音频已完全更新为 Azure Taiwan Mandarin 声线。
+- [x] 构建包只读核对：10 句种子、60 条音频清单、10 条繁体中文母语轨道、10 条日语母语轨道、189 项预缓存；代表性 MP3 通过 HTTP 200 与 `audio/mpeg` 校验。
+- [ ] 待主人试听确认 Azure 台湾中文声线在循环听中的自然度、声调与停顿效果。
+- [ ] 下一阶段再把线上 `audio-generate` 拆成按源语言／供应商路由：`zh-Hant` 使用 Azure，英语继续现有 OpenAI 路由；先补合约、缓存键与失败回退测试，再单独确认 Supabase Edge Function 部署。
 
 ### 2026-09-18 测试模式匿名准入、登录 CTA、注册资料与语速完善（代码与预览发布完成）
 

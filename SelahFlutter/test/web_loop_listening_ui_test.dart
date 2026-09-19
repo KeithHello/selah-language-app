@@ -112,12 +112,15 @@ void main() {
     );
     await tester.pump();
     await tester.pump();
-    expect(find.text('開始循環聽'), findsOneWidget);
-    await tester.tap(find.text('開始循環聽'));
-    await tester.pump();
-    await tester.pump();
     expect(find.text('正在播放英語'), findsOneWidget);
     expect(find.textContaining('30:00'), findsWidgets);
+    expect(find.text('預設語速'), findsOneWidget);
+    expect(find.text('1x'), findsWidgets);
+    expect(find.text('1.25x'), findsWidgets);
+    await tester.ensureVisible(find.text('1.25x'));
+    await tester.tap(find.text('1.25x'));
+    await tester.pump();
+    expect(controller.state.preferences.speed, 1.25);
   });
 
   testWidgets('custom duration keeps the chip visible and saves free input', (

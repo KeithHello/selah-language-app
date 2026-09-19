@@ -26,8 +26,8 @@
   },
   "seed-001:source:zh-Hant": {
     "path": "assets/audio/seed-001-source-zh-Hant.mp3",
-    "sha256": "e14f9008d6b4bf1a8f713e77b281a01a1f71a28b9b279942b1506c8664760eaa",
-    "byteSize": 51072
+    "sha256": "3f91a77d8de991a9e36b25cc38cff246177afdb1c5121457bc95aaf34d2c8053",
+    "byteSize": 62784
   },
   "seed-004:clear-slow": {
     "path": "assets/audio/seed-004-clear-slow.mp3",
@@ -56,8 +56,8 @@
   },
   "seed-004:source:zh-Hant": {
     "path": "assets/audio/seed-004-source-zh-Hant.mp3",
-    "sha256": "82c9ec5a5bc33f5ddefac4eddd601567a6933e3d802711cf5a5d73c113f9eb25",
-    "byteSize": 47232
+    "sha256": "82eb017051410f03a07868bf5facd41a4eaa9e87dcefa99881d9b0cc122460f5",
+    "byteSize": 63360
   },
   "seed-006:clear-slow": {
     "path": "assets/audio/seed-006-clear-slow.mp3",
@@ -86,8 +86,8 @@
   },
   "seed-006:source:zh-Hant": {
     "path": "assets/audio/seed-006-source-zh-Hant.mp3",
-    "sha256": "b2a91edca11627cd111a7ba86a98c7acb8e12fd2f458078301d6b2b880b372ea",
-    "byteSize": 35712
+    "sha256": "844cb054e2b9a88416a01aa6678bb8248fa52c1664a37db6989d2f439cc72c06",
+    "byteSize": 54144
   },
   "seed-010:clear-slow": {
     "path": "assets/audio/seed-010-clear-slow.mp3",
@@ -116,8 +116,8 @@
   },
   "seed-010:source:zh-Hant": {
     "path": "assets/audio/seed-010-source-zh-Hant.mp3",
-    "sha256": "dde7bd1668b0a1e4a3056422169c04c809fbf54151c4235f010267849807e7f6",
-    "byteSize": 72192
+    "sha256": "0ed65010f1dc0c8945498393ce9e70f5a27f358c30184ac49efb86ce1b4de654",
+    "byteSize": 85248
   },
   "seed-012:clear-slow": {
     "path": "assets/audio/seed-012-clear-slow.mp3",
@@ -146,8 +146,8 @@
   },
   "seed-012:source:zh-Hant": {
     "path": "assets/audio/seed-012-source-zh-Hant.mp3",
-    "sha256": "34d10f6a20e55a4ddf16d8a0b5a430ee907d39d673527300de1959b59f5529f1",
-    "byteSize": 72192
+    "sha256": "18aac3182b630d1a922a53d88bcae85389931467366b4ad9e41410dbcf499fa3",
+    "byteSize": 70848
   },
   "seed-016:clear-slow": {
     "path": "assets/audio/seed-016-clear-slow.mp3",
@@ -176,8 +176,8 @@
   },
   "seed-016:source:zh-Hant": {
     "path": "assets/audio/seed-016-source-zh-Hant.mp3",
-    "sha256": "078c6584ab8f38b001467fe20fb97d9ec9ac65c64750cbb99ecbb17f985c72c7",
-    "byteSize": 93696
+    "sha256": "fdc1061cb3732897e2f07c15873a2b504a1c462456bd146e217eacb10748421c",
+    "byteSize": 85248
   },
   "seed-020:clear-slow": {
     "path": "assets/audio/seed-020-clear-slow.mp3",
@@ -206,8 +206,8 @@
   },
   "seed-020:source:zh-Hant": {
     "path": "assets/audio/seed-020-source-zh-Hant.mp3",
-    "sha256": "0340ee512677f6034d688c9b0b780b053c5a26872ccceedbefd69ac2b8835658",
-    "byteSize": 92160
+    "sha256": "5d447f31f743782cd338f8cbaab3e9f59311be4d0a9aea4c05325d71d781bc0b",
+    "byteSize": 77184
   },
   "seed-021:clear-slow": {
     "path": "assets/audio/seed-021-clear-slow.mp3",
@@ -236,8 +236,8 @@
   },
   "seed-021:source:zh-Hant": {
     "path": "assets/audio/seed-021-source-zh-Hant.mp3",
-    "sha256": "e65f19895bf4929efa8cc9559464097d6d614e20da1beb98616914ec245908a7",
-    "byteSize": 63360
+    "sha256": "0fdc1696b339894b23c79fd44d0155200409bda15c7e0c6d2c0ff6413c356379",
+    "byteSize": 67392
   },
   "seed-027:clear-slow": {
     "path": "assets/audio/seed-027-clear-slow.mp3",
@@ -266,8 +266,8 @@
   },
   "seed-027:source:zh-Hant": {
     "path": "assets/audio/seed-027-source-zh-Hant.mp3",
-    "sha256": "19c8a5cfe06e444cab502de47239f5a17e7d7b804105bf1f9be032ed1c694690",
-    "byteSize": 81408
+    "sha256": "a6c6918bf3df3d78d3626972e3169451e6176d036c459ef30ece9d0fa1fdc438",
+    "byteSize": 79488
   },
   "seed-030:clear-slow": {
     "path": "assets/audio/seed-030-clear-slow.mp3",
@@ -296,7 +296,27 @@
   },
   "seed-030:source:zh-Hant": {
     "path": "assets/audio/seed-030-source-zh-Hant.mp3",
-    "sha256": "09dc006230e39b5ce675d2db269c2a08c682cf20d112f9be93cb62f20575190c",
-    "byteSize": 87168
+    "sha256": "247e5e2ad353a89833d3269d7cda82f6062c73f183b38851d5f6ded7a9d96822",
+    "byteSize": 89280
+  },
+  "seed-003:gentle-natural": {
+    "path": "assets/audio/seed-003-gentle-natural.mp3",
+    "sha256": "21e379f48816a316645497101ad4b9c378b4f792a288b54f3f73757c695744ea",
+    "byteSize": 140160
+  },
+  "seed-005:gentle-natural": {
+    "path": "assets/audio/seed-005-gentle-natural.mp3",
+    "sha256": "4f91f2ab30ad6c1d6c50262d7e8482208e7ba6cf6213ffe1c18c9dabf0ac1105",
+    "byteSize": 140160
+  },
+  "seed-015:gentle-natural": {
+    "path": "assets/audio/seed-015-gentle-natural.mp3",
+    "sha256": "691d743594c697d7df41a9a74b66dcfe38c450ccf0d303e2301c1948d83e0b6a",
+    "byteSize": 107520
+  },
+  "seed-025:gentle-natural": {
+    "path": "assets/audio/seed-025-gentle-natural.mp3",
+    "sha256": "34dd8682784702655bdeaa25d0227ac5241a7551f2d0765bd175dff9e7dd5457",
+    "byteSize": 93120
   }
 }

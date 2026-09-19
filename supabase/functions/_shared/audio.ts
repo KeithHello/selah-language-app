@@ -15,6 +15,17 @@ export const VOICE_MAP: Record<string, string> = {
   "native-calm": "fable",
 };
 
+export const VOICE_ACCENTS: Record<string, "en-US" | "en-GB" | "zh-TW" | "ja-JP"> = {
+  "gentle-natural": "en-US",
+  "clear-slow": "en-US",
+  "daily-bright": "en-US",
+  "elegant-british": "en-GB",
+  "native-gentle": "zh-TW",
+  "native-clear": "zh-TW",
+  "native-bright": "zh-TW",
+  "native-calm": "zh-TW",
+};
+
 export function normalizeText(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
 }

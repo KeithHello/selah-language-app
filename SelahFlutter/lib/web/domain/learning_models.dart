@@ -78,6 +78,12 @@ const voices = <String, String>{
   'daily-bright': '日常轻快',
   'elegant-british': '优雅英式',
 };
+const voiceAccents = <String, String>{
+  'gentle-natural': 'en-US',
+  'clear-slow': 'en-US',
+  'daily-bright': 'en-US',
+  'elegant-british': 'en-GB',
+};
 const nativeVoices = <String, String>{
   'native-gentle': '温柔自然',
   'native-clear': '清晰平稳',
