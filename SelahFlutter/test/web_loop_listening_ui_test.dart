@@ -7,6 +7,9 @@ import 'package:selah/web/platform/learning_platform.dart';
 import 'package:selah/web/ui/web_learning_app.dart';
 
 class _LoopPlatform implements LearningPlatform {
+  _LoopPlatform({this.autoplayBlocked = false});
+
+  final bool autoplayBlocked;
   Map<String, dynamic> loop = {'state': 'idle'};
 
   @override
@@ -20,12 +23,13 @@ class _LoopPlatform implements LearningPlatform {
     if (action == 'audioLoopStart') {
       loop = {
         'sessionId': payload['sessionId'],
-        'state': 'playing',
+        'state': autoplayBlocked ? 'ready' : 'playing',
         'phase': 'target',
         'sentenceIndex': 0,
         'sentenceCount': 1,
         'remainingMs': payload['durationMs'],
         'order': payload['order'],
+        'stopReason': autoplayBlocked ? 'autoplay_blocked' : null,
       };
     }
     if (action == 'audioLoopStatus') return loop;
@@ -36,6 +40,25 @@ class _LoopPlatform implements LearningPlatform {
     if (action == 'audioLoopStop') loop = {'state': 'idle'};
     return null;
   }
+}
+
+Future<LearningController> _controllerFor(_LoopPlatform platform) async {
+  final controller = LearningController(
+    gateway: _Gateway(),
+    platform: platform,
+    polling: false,
+    seeds: const [],
+  );
+  controller.state.sentences.add(
+    LearnSentence(
+      id: '00000000-0000-4000-8000-000000000001',
+      source: '我们一步一步来。',
+      target: 'One step at a time.',
+    ),
+  );
+  controller.state.preferences.onboarded = true;
+  controller.initialized = true;
+  return controller;
 }
 
 class _Gateway extends UnconfiguredGateway {
@@ -80,12 +103,12 @@ void main() {
 
     expect(find.text('英語 → 中文'), findsOneWidget);
     expect(find.text('30 分鐘'), findsWidgets);
-    expect(find.text('準備循環聽'), findsOneWidget);
+    expect(find.text('開始循環聽'), findsOneWidget);
 
-    final prepareButton = find.text('準備循環聽');
-    await tester.ensureVisible(prepareButton);
+    final startButton = find.text('開始循環聽');
+    await tester.ensureVisible(startButton);
     await tester.tap(
-      find.ancestor(of: prepareButton, matching: find.byType(FilledButton)),
+      find.ancestor(of: startButton, matching: find.byType(FilledButton)),
     );
     await tester.pump();
     await tester.pump();
@@ -145,5 +168,29 @@ void main() {
     expect(find.byType(AlertDialog), findsNothing);
     expect(find.text('自訂 · 45 分鐘'), findsOneWidget);
     expect(controller.state.preferences.loopOptions.durationMinutes, 45);
+  });
+
+  testWidgets('loop setup explains when the browser blocks autoplay', (
+    tester,
+  ) async {
+    final controller = await _controllerFor(_LoopPlatform(autoplayBlocked: true));
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(home: WebLearningApp(controller: controller)),
+    );
+    controller.navigate(1);
+    await tester.pump();
+    await tester.tap(find.text('循環聽'));
+    await tester.pump();
+    final startButton = find.text('開始循環聽');
+    await tester.ensureVisible(startButton);
+    await tester.tap(
+      find.ancestor(of: startButton, matching: find.byType(FilledButton)),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('音訊已準備好，請點擊播放。'), findsOneWidget);
   });
 }

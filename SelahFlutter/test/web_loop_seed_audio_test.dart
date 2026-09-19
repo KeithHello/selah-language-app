@@ -95,9 +95,6 @@ void main() {
       await controller.startLoop();
 
       expect(controller.loopReady, isTrue);
-      expect(platform.loopStarted, isEmpty);
-      await controller.startLoop();
-
       expect(platform.loopStarted, hasLength(1));
       expect(gateway.called, isFalse);
       expect(platform.ensured, hasLength(2));
@@ -142,7 +139,6 @@ void main() {
 
     await controller.startLoop();
     expect(controller.loopReady, isTrue);
-    await controller.startLoop();
 
     expect(platform.loopStarted, hasLength(1));
     expect(platform.ensured.any((key) => key.contains(':source:ja:')), isTrue);

@@ -12,6 +12,7 @@ class _LoopPlatform implements LearningPlatform {
   final String? failAction;
   final String? failMessage;
   final cached = <String>{};
+  final hashes = <String, String>{};
   final actions = <String>[];
   final snapshots = <String, Object?>{};
 
@@ -33,12 +34,14 @@ class _LoopPlatform implements LearningPlatform {
       case 'platformInfo':
         return {'online': true};
       case 'contentHash':
-        return 'a' * 64;
+        return hashes[payload['text']] ?? 'a' * 64;
       case 'audioCached':
         return cached.contains(payload['key']);
       case 'audioEnsure':
         cached.add(payload['key'] as String);
         return {'cached': true};
+      case 'audioCacheDelete':
+        return cached.remove(payload['key']);
       case 'audioLoopStart':
         return {
           'sessionId': payload['sessionId'],
@@ -186,7 +189,7 @@ void _setUpSentence(LearningController controller, LearnSentence sentence) {
 
 void main() {
   test(
-    'guest can prepare and then start bundled seed loop without cloud calls',
+    'guest can start a bundled seed loop without cloud calls',
     () async {
       final platform = _LoopPlatform();
       final gateway = _SignedOutGateway();
@@ -212,16 +215,76 @@ void main() {
       await controller.startLoop();
 
       expect(controller.loopReady, isTrue);
-      expect(controller.loopSessionId, isNull);
-      expect(gateway.requests, isEmpty);
-
-      await controller.startLoop();
-
       expect(controller.loopSessionId, isNotNull);
       expect(platform.actions, contains('audioLoopStart'));
+      expect(platform.actions, contains('audioUnlock'));
       expect(gateway.requests, isEmpty);
     },
   );
+
+  test('unchanged loop reuses verified tracks on the next session', () async {
+    final platform = _LoopPlatform();
+    final gateway = _GeneratingGateway();
+    final controller = LearningController(
+      gateway: gateway,
+      platform: platform,
+      polling: false,
+      seeds: const [],
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize();
+    _setUpSentence(controller, _sentence());
+
+    await controller.startLoop();
+    await controller.stopLoop();
+    platform.actions.clear();
+    gateway.requests.clear();
+
+    await controller.startLoop();
+
+    expect(platform.actions, isNot(contains('audioCached')));
+    expect(platform.actions, isNot(contains('audioEnsure')));
+    expect(gateway.requests, isEmpty);
+    expect(controller.loopSessionId, isNotNull);
+  });
+
+  test('archived sentences leave the next loop and their orphan cache is deleted', () async {
+    final platform = _LoopPlatform();
+    final gateway = _GeneratingGateway();
+    final controller = LearningController(
+      gateway: gateway,
+      platform: platform,
+      polling: false,
+      seeds: const [],
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize();
+    final first = _sentence();
+    final second = LearnSentence(
+      id: '22222222-2222-4222-8222-222222222222',
+      source: '换一个表达。',
+      target: 'Try another expression.',
+    );
+    platform.hashes[second.target] = 'b' * 64;
+    platform.hashes[second.source] = 'c' * 64;
+    controller.state.sentences.addAll([first, second]);
+    controller.state.preferences.onboarded = true;
+    controller.initialized = true;
+
+    await controller.startLoop();
+    await controller.stopLoop();
+    platform.actions.clear();
+    gateway.requests.clear();
+    controller.state.sentences
+        .firstWhere((sentence) => sentence.id == first.id)
+        .archived = true;
+
+    await controller.startLoop();
+
+    expect(platform.actions, contains('audioCacheDelete'));
+    expect(gateway.requests, isEmpty);
+    expect(controller.loopSessionId, isNotNull);
+  });
 
   test(
     'guest personal sentences open an anonymous cloud session and generate audio',

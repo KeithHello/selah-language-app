@@ -4,7 +4,7 @@ import bridgeModule from '../web/selah_bridge.js';
 
 const { createBridge, helpers } = bridgeModule;
 
-function createAudioClass(timers) {
+function createAudioClass(timers, { blocked = false } = {}) {
   class FakeAudio {
     static lastInstance;
     constructor() {
@@ -25,6 +25,11 @@ function createAudioClass(timers) {
       this.emit(name);
     }
     async play() {
+      if (blocked) {
+        const error = new Error('autoplay is not allowed');
+        error.name = 'NotAllowedError';
+        throw error;
+      }
       timers.microtasks.push(() => this.emit('playing'));
     }
     pause() {
@@ -36,12 +41,12 @@ function createAudioClass(timers) {
   return FakeAudio;
 }
 
-function makeEnvironment() {
+function makeEnvironment({ blocked = false } = {}) {
   const cache = helpers.createMemoryAudioCache();
   const timers = { timeouts: [], now: 100000, microtasks: [] };
   let activeTimerId = 0;
   const root = {
-    Audio: createAudioClass(timers),
+    Audio: createAudioClass(timers, { blocked }),
     navigator: {},
     URL: {
       createObjectURL: (() => {
@@ -132,6 +137,24 @@ test('loop playback follows target then source and continues to next sentence', 
   status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-1' }));
   assert.equal(status.sentenceIndex, 1);
   assert.equal(status.phase, 'target');
+});
+
+test('loop playback exposes a retryable ready state when autoplay is blocked', async () => {
+  const env = makeEnvironment({ blocked: true });
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+
+  const result = JSON.parse(await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-autoplay',
+    order: 'targetFirst',
+    durationMs: 60000,
+    tracks: env.tracks,
+  }));
+
+  assert.equal(result.state, 'ready');
+  assert.equal(result.stopReason, 'autoplay_blocked');
 });
 
 test('source-first order and an order change apply from the next sentence', async () => {

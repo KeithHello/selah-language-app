@@ -1012,9 +1012,16 @@
         });
       }).catch(function (error) {
         if (active === session) {
+          cleanupElement(session);
+          var errorName = String(error && error.name || '').toLowerCase();
+          var errorMessage = String(error && (error.message || error) || '').toLowerCase();
+          if (errorName === 'notallowederror' || errorMessage.indexOf('autoplay') >= 0 || errorMessage.indexOf('not allowed') >= 0) {
+            session.state = 'ready';
+            session.stopReason = 'autoplay_blocked';
+            return snapshot();
+          }
           session.state = 'error';
           session.stopReason = 'audio_error';
-          cleanupElement(session);
         }
         if (error && error.name === 'SelahBridgeError') throw error;
         throw safeError('音频播放失败。', error);
@@ -1496,6 +1503,35 @@
       return getAudioCache(root, providedAudioCache).then(function (cache) { return Promise.resolve(cache.match(audioCacheKey(accountId, key, root))).then(function (value) { return !!value; }); });
     }
 
+    function audioCacheDelete(payload) {
+      var accountId = requiredString(payload, 'accountId');
+      var key = requiredString(payload, 'key');
+      return getAudioCache(root, providedAudioCache).then(function (cache) {
+        return Promise.resolve(cache.delete(audioCacheKey(accountId, key, root))).then(function (deleted) {
+          return deleted !== false;
+        });
+      });
+    }
+
+    function audioCacheKeys(payload) {
+      var accountId = requiredString(payload, 'accountId');
+      var prefix = audioCacheKey(accountId, '', root).replace(/\/$/, '') + '/';
+      return getAudioCache(root, providedAudioCache).then(function (cache) {
+        return Promise.resolve(cache.keys()).then(function (keys) {
+          return keys.map(function (request) {
+            if (!request || typeof request.url !== 'string' || request.url.indexOf(prefix) !== 0) {
+              return null;
+            }
+            try {
+              return decodeURIComponent(request.url.slice(prefix.length));
+            } catch (_) {
+              return null;
+            }
+          }).filter(function (key) { return typeof key === 'string' && key.indexOf('loop:') === 0; });
+        });
+      });
+    }
+
     function audioCacheInfo(payload) {
       var accountId = requiredString(payload, 'accountId');
       var prefix = audioCacheKey(accountId, '', root).replace(/\/$/, '');
@@ -1580,6 +1616,16 @@
       install: install,
       audioEnsure: function (payload) { return cacheAudio(root, payload, providedAudioCache); },
       audioCached: audioCached,
+      audioCacheDelete: audioCacheDelete,
+      audioCacheKeys: audioCacheKeys,
+      audioUnlock: function () {
+        var AudioContextCtor = root && (root.AudioContext || root.webkitAudioContext);
+        if (typeof AudioContextCtor !== 'function') return true;
+        if (!root.__selahAudioContext) root.__selahAudioContext = new AudioContextCtor();
+        var context = root.__selahAudioContext;
+        if (!context || typeof context.resume !== 'function') return true;
+        return Promise.resolve(context.resume()).then(function () { return true; });
+      },
       audioPlay: audio.play,
       audioStatus: function () { return audio.status(); },
       audioPause: function () { return audio.pause(); },

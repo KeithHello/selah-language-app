@@ -145,6 +145,7 @@ const selahJaOverrides = <String, String>{
   'loop.preparing': 'バイリンガル音声を準備中 {done}/{total}',
   'loop.prepare': 'ループ再生を準備',
   'loop.start': 'ループ再生を開始',
+  'loop.autoplayBlocked': '音声の準備ができました。タップして再生してください。',
   'loop.targetFirst': '{target} → {source}',
   'loop.sourceFirst': '{source} → {target}',
   'loop.custom': 'カスタム',

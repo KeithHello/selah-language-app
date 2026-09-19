@@ -148,6 +148,7 @@ const _baseStrings = <String, String>{
   'loop.preparing': '正在准备双语音频 {done}/{total}',
   'loop.prepare': '准备循环听',
   'loop.start': '开始循环听',
+  'loop.autoplayBlocked': '音频已准备好，请点击播放。',
   'loop.targetFirst': '{target} → {source}',
   'loop.sourceFirst': '{source} → {target}',
   'loop.custom': '自定义',

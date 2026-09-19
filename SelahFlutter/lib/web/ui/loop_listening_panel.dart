@@ -130,6 +130,13 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
           strings.text('loop.afterStart'),
           style: SelahTypography.bodySmall(color: SelahColors.textTertiary),
         ),
+        if (c.loopPlayback['stopReason'] == 'autoplay_blocked') ...[
+          const SizedBox(height: 10),
+          Text(
+            strings.text('loop.autoplayBlocked'),
+            style: SelahTypography.bodySmall(color: SelahColors.coral),
+          ),
+        ],
         const SizedBox(height: 24),
         FilledButton(
           onPressed: c.busy || c.loopPreparing
@@ -138,14 +145,27 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
                   c.clearMessage();
                   await c.startLoop();
                 },
-          child: Text(
-            c.loopPreparing
-                ? strings.message('loop.preparing', {
-                    'done': '${c.loopPreparedTracks}',
-                    'total': '${c.loopTotalTracks}',
-                  })
-                : strings.text(c.loopReady ? 'loop.start' : 'loop.prepare'),
-          ),
+          child: c.loopPreparing
+              ? Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator.adaptive(
+                        strokeWidth: 2,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Text(
+                      strings.message('loop.preparing', {
+                        'done': '${c.loopPreparedTracks}',
+                        'total': '${c.loopTotalTracks}',
+                      }),
+                    ),
+                  ],
+              )
+              : Text(strings.text('loop.start')),
         ),
         const SizedBox(height: 12),
         Text(

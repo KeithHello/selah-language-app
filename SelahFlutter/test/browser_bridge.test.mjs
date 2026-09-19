@@ -197,6 +197,63 @@ test('audio ensure caches bytes, verifies a supplied hash and reports cache size
   assert.deepEqual(JSON.parse(await bridge('audioCacheInfo', JSON.stringify({ accountId: 'a' }))), { count: 1, bytes: 4 });
 });
 
+test('audio cache delete removes only the requested account and key', async () => {
+  const cache = helpers.createMemoryAudioCache();
+  const root = {
+    location: { origin: 'https://app.example' },
+    navigator: {},
+    fetch: async () => ({
+      ok: true,
+      headers: { get: () => 'audio/mpeg' },
+      arrayBuffer: async () => new Uint8Array([1, 2]).buffer,
+    }),
+  };
+  const bridge = createBridge({ root, audioCache: cache });
+  await bridge('audioEnsure', JSON.stringify({ accountId: 'a', key: 'keep', url: 'https://cdn.example/keep.mp3' }));
+  await bridge('audioEnsure', JSON.stringify({ accountId: 'a', key: 'delete', url: 'https://cdn.example/delete.mp3' }));
+  await bridge('audioEnsure', JSON.stringify({ accountId: 'b', key: 'delete', url: 'https://cdn.example/other.mp3' }));
+
+  assert.equal(JSON.parse(await bridge('audioCacheDelete', JSON.stringify({ accountId: 'a', key: 'delete' }))), true);
+  assert.equal(JSON.parse(await bridge('audioCached', JSON.stringify({ accountId: 'a', key: 'delete' }))), false);
+  assert.equal(JSON.parse(await bridge('audioCached', JSON.stringify({ accountId: 'a', key: 'keep' }))), true);
+  assert.equal(JSON.parse(await bridge('audioCached', JSON.stringify({ accountId: 'b', key: 'delete' }))), true);
+});
+
+test('audio cache keys only exposes loop keys for the requested account', async () => {
+  const cache = helpers.createMemoryAudioCache();
+  const root = {
+    location: { origin: 'https://app.example' },
+    navigator: {},
+    fetch: async () => ({
+      ok: true,
+      headers: { get: () => 'audio/mpeg' },
+      arrayBuffer: async () => new Uint8Array([1]).buffer,
+    }),
+  };
+  const bridge = createBridge({ root, audioCache: cache });
+  await bridge('audioEnsure', JSON.stringify({ accountId: 'a', key: 'loop:target-key', url: 'https://cdn.example/loop.mp3' }));
+  await bridge('audioEnsure', JSON.stringify({ accountId: 'a', key: 'sentence-key', url: 'https://cdn.example/sentence.mp3' }));
+  await bridge('audioEnsure', JSON.stringify({ accountId: 'b', key: 'loop:other-key', url: 'https://cdn.example/other.mp3' }));
+
+  assert.deepEqual(JSON.parse(await bridge('audioCacheKeys', JSON.stringify({ accountId: 'a' }))), ['loop:target-key']);
+});
+
+test('audio unlock resumes an available browser audio context', async () => {
+  let resumeCalls = 0;
+  class FakeAudioContext {
+    resume() {
+      resumeCalls += 1;
+      return Promise.resolve();
+    }
+  }
+  const bridge = createBridge({
+    root: { AudioContext: FakeAudioContext, navigator: {} },
+  });
+
+  assert.equal(JSON.parse(await bridge('audioUnlock', '{}')), true);
+  assert.equal(resumeCalls, 1);
+});
+
 test('audio play resolves after media starts and ended cleans the object URL', async () => {
   const cache = helpers.createMemoryAudioCache();
   let revoked = 0;

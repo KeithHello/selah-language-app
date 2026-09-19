@@ -141,6 +141,7 @@ const selahZhHantOverrides = <String, String>{
   'loop.preparing': '正在準備雙語音訊 {done}/{total}',
   'loop.prepare': '準備循環聽',
   'loop.start': '開始循環聽',
+  'loop.autoplayBlocked': '音訊已準備好，請點擊播放。',
   'loop.targetFirst': '{target} → {source}',
   'loop.sourceFirst': '{source} → {target}',
   'loop.custom': '自訂',

@@ -334,6 +334,75 @@ class RecordingPlatform extends MemoryPlatform {
   }
 }
 
+class AudioPrewarmPlatform extends MemoryPlatform {
+  final cached = <String>{};
+  String? secondHashMarker;
+
+  @override
+  Future<Object?> invoke(
+    String action, [
+    Map<String, Object?> payload = const {},
+  ]) async {
+    if (action == 'contentHash' &&
+        secondHashMarker != null &&
+        ((payload['text'] as String).contains(secondHashMarker!) ||
+            payload['text'] == '第二句。')) {
+      return 'b' * 64;
+    }
+    if (action == 'audioCached') return cached.contains(payload['key']);
+    if (action == 'audioEnsure') {
+      cached.add(payload['key'] as String);
+      return {'cached': true};
+    }
+    if (action == 'audioCacheDelete') {
+      return cached.remove(payload['key']);
+    }
+    return super.invoke(action, payload);
+  }
+}
+
+class AudioPrewarmGateway extends FakeGateway {
+  final audioBodies = <Map<String, dynamic>>[];
+  final nativeStarted = Completer<void>();
+  final nativeResponse = Completer<Map<String, dynamic>>();
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    if (function == 'sentences-batch-generate') {
+      final segments = (body['segments'] as List).cast<Map>();
+      return {
+        'items': segments
+            .map(
+              (segment) => {
+                'segmentId': segment['segmentId'],
+                'targetText': 'English for ${segment['segmentId']}',
+                'category': 'daily_life',
+                'deconstruction': <dynamic>[],
+                'vocabulary': <dynamic>[],
+              },
+            )
+            .toList(),
+      };
+    }
+    if (function == 'audio-generate') {
+      audioBodies.add(Map<String, dynamic>.from(body));
+      if ((body['voiceProfile'] as String).startsWith('native')) {
+        if (!nativeStarted.isCompleted) nativeStarted.complete();
+        return nativeResponse.future;
+      }
+      return {
+        'status': 'ready',
+        'downloadUrl': 'http://127.0.0.1:5180/${body['voiceProfile']}.mp3',
+      };
+    }
+    return super.invoke(function, body, get: get);
+  }
+}
+
 Future<void> flushOperations() async {
   for (var i = 0; i < 12; i++) {
     await Future<void>.delayed(Duration.zero);
@@ -528,6 +597,84 @@ void main() {
       expect(c.accountId, 'guest');
       expect(c.todayInput, isEmpty);
       expect(c.state.sentences, hasLength(1));
+    },
+  );
+
+  test(
+    'Today completes English content before native audio prewarming finishes',
+    () async {
+      final gateway = AudioPrewarmGateway()..fail = false;
+      final platform = AudioPrewarmPlatform();
+      final c = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+
+      await c.generate('今天想早点休息。');
+      await gateway.nativeStarted.future.timeout(const Duration(seconds: 1));
+
+      expect(c.state.sentences, hasLength(1));
+      expect(c.notice, '这句英文已保存，准备好就听一听。');
+      expect(
+        gateway.audioBodies.map((body) => body['voiceProfile']),
+        containsAll(['gentle-natural', 'native-gentle']),
+      );
+      expect(platform.cached, hasLength(1));
+
+      gateway.nativeResponse.complete({
+        'status': 'ready',
+        'downloadUrl': 'http://127.0.0.1:5180/native-gentle.mp3',
+      });
+      await flushOperations();
+
+      expect(platform.cached, hasLength(2));
+    },
+  );
+
+  test(
+    'batch generation queues bilingual audio without delaying batch completion',
+    () async {
+      final gateway = AudioPrewarmGateway()..fail = false;
+      final platform = AudioPrewarmPlatform();
+      final c = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      final firstId = newId();
+      final secondId = newId();
+      platform.secondHashMarker = secondId;
+      c.state.preparationDraft = PreparationDraft(
+        id: newId(),
+        sourceText: '第一句。第二句。',
+        segments: [
+          PreparationSegment(id: firstId, sourceText: '第一句。'),
+          PreparationSegment(id: secondId, sourceText: '第二句。'),
+        ],
+      );
+
+      await c.generatePreparedSegments();
+      await gateway.nativeStarted.future.timeout(const Duration(seconds: 1));
+
+      expect(c.state.sentences, hasLength(2));
+      expect(c.error, isNull);
+      expect(c.notice, contains('2 句英語'));
+      expect(platform.cached, hasLength(2));
+
+      gateway.nativeResponse.complete({
+        'status': 'ready',
+        'downloadUrl': 'http://127.0.0.1:5180/native-gentle.mp3',
+      });
+      await flushOperations();
+
+      expect(platform.cached, hasLength(4));
     },
   );
 
