@@ -20,13 +20,14 @@
 - [x] 已单独部署 `audio-generate` 到 Supabase 项目 `ijonabyyppmgvoufgamt`；远端零费用预检为 `OPTIONS 200`、未登录 `POST 401`，未修改 migration、Secrets 或其他函数。
 - [x] Cloudflare Pages 预览已发布到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://32ed1a15.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；首页、Flutter 主脚本、Service Worker、音频清单和代表性中文 MP3 均 HTTP 200，`main.dart.js` 已包含 `audio:v2`。
 
-### 2026-09-20 个人句子语言 provenance 与跨端同步收尾（迁移已应用，预览待发布）
+### 2026-09-20 个人句子语言 provenance 与跨端同步收尾（迁移已应用，预览已发布）
 
 - [x] 远端只读盘点确认 `public.sentences` 现有 13 条记录；不依据旧句子文本猜测语言，所有旧记录的新增 provenance 字段保留为 `NULL`。
 - [x] 新增 `008_sentence_language_provenance.sql`：为个人句子增加 `source_language`、`target_language`、`generation_model`、`prompt_version` 四个可空字段，并限制当前支持的语言代码；不改变既有 RLS 与句子内容。
 - [x] 已将 008 migration 应用到 Supabase 项目 `ijonabyyppmgvoufgamt`；远端核对四列均存在且可空，13 条旧记录四列均为 `NULL`。
 - [x] Web `SupabaseLearningGateway` 的读写映射已保存并恢复语言、模型与 prompt 版本；旧云端行仍可正常读取，未提供 provenance 时不会被本地同步覆盖。
-- [x] 新增 migration 静态测试与句子同步映射回归测试；目标测试通过。普通账户跨设备真实登录、音频动态生成和预览包发布仍需外部验收与单独发布确认。
+- [x] 新增 migration 静态测试与句子同步映射回归测试；目标测试通过。普通账户跨设备真实登录和动态音频真实账户验收仍需后续外部验收。
+- [x] 最新 Web Release 已发布到 Cloudflare Pages 项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://25a9974b.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；静态资源、音频清单、预缓存与代表性中文 MP3 只读验收通过。
 
 ### 2026-09-20 Azure 台湾中文母语音频重制与英语美音英音声线区分（已部署预览环境）
 
