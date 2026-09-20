@@ -310,6 +310,54 @@ void main() {
     },
   );
 
+  test('sentence sync preserves language and generation provenance', () {
+    final id = newId();
+    final sentence = LearnSentence(
+      id: id,
+      source: '駅はどこですか？',
+      target: 'Where is the station?',
+      sourceLanguage: 'ja',
+      targetLanguage: 'en',
+      generationModel: 'openai/gpt-4o-mini',
+      promptVersion: 'v8.0',
+      createdAt: DateTime.parse('2026-09-01T00:00:00Z'),
+      updatedAt: DateTime.parse('2026-09-02T00:00:00Z'),
+    );
+
+    final payload = SupabaseLearningGateway.sentenceToCloud(sentence, newId());
+    expect(payload['source_language'], 'ja');
+    expect(payload['target_language'], 'en');
+    expect(payload['generation_model'], 'openai/gpt-4o-mini');
+    expect(payload['prompt_version'], 'v8.0');
+
+    final restored = SupabaseLearningGateway.sentenceFromCloud({
+      'id': id,
+      'source_text': sentence.source,
+      'target_text': sentence.target,
+      'source_language': 'ja',
+      'target_language': 'en',
+      'generation_model': 'openai/gpt-4o-mini',
+      'prompt_version': 'v8.0',
+      'category': 'daily_life',
+      'origin': 'user_recording',
+      'deconstruction': <dynamic>[],
+      'archived': false,
+      'created_at': '2026-09-01T00:00:00Z',
+      'updated_at': '2026-09-02T00:00:00Z',
+      'review_state': 'new',
+      'next_review_at': '2026-09-02T00:00:00Z',
+      'interval_days': 1,
+      'lapse_count': 0,
+      'last_recall_signal': null,
+      'listen_completed_at': null,
+      'previewed_at': null,
+    }, const []);
+    expect(restored.sourceLanguage, 'ja');
+    expect(restored.targetLanguage, 'en');
+    expect(restored.generationModel, 'openai/gpt-4o-mini');
+    expect(restored.promptVersion, 'v8.0');
+  });
+
   test(
     'synchronize uses conditional writes and absorbs server timestamps',
     () async {
