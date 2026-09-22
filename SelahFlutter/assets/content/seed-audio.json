@@ -298,25 +298,5 @@
     "path": "assets/audio/seed-030-source-zh-Hant.mp3",
     "sha256": "247e5e2ad353a89833d3269d7cda82f6062c73f183b38851d5f6ded7a9d96822",
     "byteSize": 89280
-  },
-  "seed-003:gentle-natural": {
-    "path": "assets/audio/seed-003-gentle-natural.mp3",
-    "sha256": "21e379f48816a316645497101ad4b9c378b4f792a288b54f3f73757c695744ea",
-    "byteSize": 140160
-  },
-  "seed-005:gentle-natural": {
-    "path": "assets/audio/seed-005-gentle-natural.mp3",
-    "sha256": "4f91f2ab30ad6c1d6c50262d7e8482208e7ba6cf6213ffe1c18c9dabf0ac1105",
-    "byteSize": 140160
-  },
-  "seed-015:gentle-natural": {
-    "path": "assets/audio/seed-015-gentle-natural.mp3",
-    "sha256": "691d743594c697d7df41a9a74b66dcfe38c450ccf0d303e2301c1948d83e0b6a",
-    "byteSize": 107520
-  },
-  "seed-025:gentle-natural": {
-    "path": "assets/audio/seed-025-gentle-natural.mp3",
-    "sha256": "34dd8682784702655bdeaa25d0227ac5241a7551f2d0765bd175dff9e7dd5457",
-    "byteSize": 93120
   }
 }

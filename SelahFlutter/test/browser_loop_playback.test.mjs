@@ -7,10 +7,14 @@ const { createBridge, helpers } = bridgeModule;
 function createAudioClass(timers, { blocked = false } = {}) {
   class FakeAudio {
     static lastInstance;
+    static instances = [];
+    static playSources = [];
     constructor() {
       this.listeners = {};
       this.playbackRate = 1;
+      this.src = '';
       FakeAudio.lastInstance = this;
+      FakeAudio.instances.push(this);
     }
     addEventListener(name, handler) {
       (this.listeners[name] ||= []).push(handler);
@@ -25,6 +29,7 @@ function createAudioClass(timers, { blocked = false } = {}) {
       this.emit(name);
     }
     async play() {
+      FakeAudio.playSources.push(this.src);
       if (blocked) {
         const error = new Error('autoplay is not allowed');
         error.name = 'NotAllowedError';
@@ -101,7 +106,7 @@ function makeEnvironment({ blocked = false } = {}) {
     await new Promise((resolve) => setTimeout(resolve, 0));
     await flush();
   };
-  return { cache, timers, root, bridge, call, flush, fireLatest, settle, tracks };
+  return { cache, timers, root, bridge, call, flush, fireLatest, settle, tracks, Audio: root.Audio };
 }
 
 test('loop playback follows target then source and continues to next sentence', async () => {
@@ -137,6 +142,31 @@ test('loop playback follows target then source and continues to next sentence', 
   status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-1' }));
   assert.equal(status.sentenceIndex, 1);
   assert.equal(status.phase, 'target');
+  assert.equal(env.Audio.instances.length, 1, 'loop keeps one audio element for every track');
+});
+
+test('audio unlock primes the reusable loop element before the first track', async () => {
+  const env = makeEnvironment();
+
+  await env.call('audioUnlock');
+  await env.flush();
+
+  assert.equal(env.Audio.instances.length, 2);
+  assert.match(env.Audio.playSources[0], /^data:audio\/wav;base64,/);
+
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-unlocked',
+    order: 'targetFirst',
+    durationMs: 60000,
+    tracks: env.tracks,
+  });
+  await env.flush();
+
+  assert.equal(env.Audio.instances.length, 2);
 });
 
 test('loop playback exposes a retryable ready state when autoplay is blocked', async () => {

@@ -1021,6 +1021,28 @@ void main() {
   );
 
   test(
+    'short multi-sentence input uses the batch contract without preparation',
+    () async {
+      final gateway = CaptureGateway();
+      final c = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      c.updateTodayInput('第一句。第二句？');
+      await c.generateSplitSentences(['第一句。', '第二句？'], sourceText: '第一句。第二句？');
+      expect(gateway.prepareCalls, 0);
+      expect(gateway.batchSegmentCounts, [2]);
+      expect(c.state.sentences, hasLength(2));
+      expect(c.recentGeneratedSentences, hasLength(2));
+      expect(c.todayInput, isEmpty);
+    },
+  );
+
+  test(
     'a failed mid-way batch keeps completed work and retries only pending segments',
     () async {
       final gateway = CaptureGateway()..failOnBatchCall = 2;

@@ -64,6 +64,12 @@ void main() {
     expect(SelahStrings.of('ja').text('notes.practice'), 'この文を練習');
   });
 
+  test('listen phrase peek copy is localized in every supported locale', () {
+    expect(SelahStrings.of('zh-Hans').text('listen.peekHint'), '点选查看母语');
+    expect(SelahStrings.of('zh-Hant').text('listen.peekHint'), '點選查看母語');
+    expect(SelahStrings.of('ja').text('listen.peekHint'), 'タップして母語を表示');
+  });
+
   test(
     'onboarding selection copy states a three-sentence minimum in every locale',
     () {
@@ -115,14 +121,8 @@ void main() {
   );
 
   test('native voice settings copy exists in every supported locale', () {
-    expect(
-      SelahStrings.of('zh-Hans').text('settings.nativeVoice'),
-      '母语声线',
-    );
-    expect(
-      SelahStrings.of('zh-Hant').text('settings.nativeVoice'),
-      '母語聲線',
-    );
+    expect(SelahStrings.of('zh-Hans').text('settings.nativeVoice'), '母语声线');
+    expect(SelahStrings.of('zh-Hant').text('settings.nativeVoice'), '母語聲線');
     expect(SelahStrings.of('ja').text('settings.nativeVoice'), '母語の声');
     expect(
       SelahStrings.of('zh-Hans').nativeVoiceLabel('native-gentle'),

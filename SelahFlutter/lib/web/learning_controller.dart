@@ -120,6 +120,7 @@ class LearningController extends ChangeNotifier {
   int loopPreparedTracks = 0;
   int loopTotalTracks = 0;
   List<Map<String, Object?>> _loopTracks = [];
+  String? _loopPreparedFingerprint;
   final AudioPreparationService _audioPreparation = AudioPreparationService();
   final Set<String> _loopVerifiedKeys = <String>{};
   String? _loopSessionId;
@@ -135,6 +136,7 @@ class LearningController extends ChangeNotifier {
   Map<String, dynamic>? _pendingRecording;
   String? _pendingPracticeSentenceId;
   String? _pendingPracticeSignal;
+  List<LearnSentence> recentGeneratedSentences = <LearnSentence>[];
   Timer? _timer;
   Timer? _syncTimer;
   Timer? _companionTimer;
@@ -178,8 +180,18 @@ class LearningController extends ChangeNotifier {
     'gap',
     'paused',
   }.contains(loopPlayback['state']);
+  bool get loopSessionVisible =>
+      _loopSessionId != null &&
+      const {
+        'starting',
+        'playing',
+        'gap',
+        'paused',
+        'ready',
+      }.contains(loopPlayback['state']);
   bool get hasSession => gateway.userId != null;
   bool get isAnonymous => gateway.isAnonymous;
+
   /// Anonymous Supabase sessions authenticate API calls but never become a
   /// cloud account scope; only a formal account can sync or use membership.
   bool get isRegistered => hasSession && !isAnonymous;
@@ -350,7 +362,8 @@ class LearningController extends ChangeNotifier {
     return true;
   }
 
-  Future<void> prepareLoop() => _run((generation) => _prepareLoop(generation));
+  Future<void> prepareLoop() =>
+      _run((generation) => _prepareLoop(generation, announce: true));
 
   Future<void> _recordAudioFailure(
     AudioTrackRef reference,
@@ -410,9 +423,7 @@ class LearningController extends ChangeNotifier {
       }
       if (!hasSession) {
         throw LearningFailure(
-          isSeed
-              ? '例句的母语音频尚未随应用包就绪，请更新包含例句母语音频的版本。'
-              : '登录后即可为自己的句子补齐音频。',
+          isSeed ? '例句的母语音频尚未随应用包就绪，请更新包含例句母语音频的版本。' : '登录后即可为自己的句子补齐音频。',
           code: isSeed ? 'seed_native_audio_missing' : 'login_required',
         );
       }
@@ -468,10 +479,7 @@ class LearningController extends ChangeNotifier {
           generation: generation,
         );
         if (response['status'] != 'ready' || response['downloadUrl'] == null) {
-          throw const LearningFailure(
-            '音频正在准备，请稍后重试。',
-            code: 'audio_pending',
-          );
+          throw const LearningFailure('音频正在准备，请稍后重试。', code: 'audio_pending');
         }
         await _ensureLoopAudio(
           account,
@@ -501,7 +509,8 @@ class LearningController extends ChangeNotifier {
             (track) => _ensureAudioTrack(track, generation),
           );
         } catch (failure) {
-          if (failure is! LearningFailure || failure.code != 'audio_cancelled') {
+          if (failure is! LearningFailure ||
+              failure.code != 'audio_cancelled') {
             await _recordAudioFailure(reference, failure, generation);
           }
         }
@@ -550,7 +559,25 @@ class LearningController extends ChangeNotifier {
     }
   }
 
-  Future<void> _prepareLoop(int generation) async {
+  String _loopPreparationFingerprint() => jsonEncode({
+    'voice': state.preferences.voice,
+    'nativeVoice': state.preferences.nativeVoice,
+    'sentences': state.sentences
+        .where((sentence) => !sentence.archived)
+        .map(
+          (sentence) => [
+            sentence.id,
+            sentence.seedId,
+            sentence.source,
+            sentence.target,
+            sentence.sourceLanguage,
+            sentence.targetLanguage,
+          ],
+        )
+        .toList(),
+  });
+
+  Future<void> _prepareLoop(int generation, {required bool announce}) async {
     loopReady = false;
     loopPreparing = true;
     loopPreparedTracks = 0;
@@ -600,15 +627,19 @@ class LearningController extends ChangeNotifier {
         loopPreparedTracks += 1;
         notifyListeners();
       }
-      _loopTracks = references.map((reference) => reference.toLoopTrack()).toList();
+      _loopTracks = references
+          .map((reference) => reference.toLoopTrack())
+          .toList();
+      _loopPreparedFingerprint = _loopPreparationFingerprint();
       loopPreparing = false;
       loopReady = true;
-      notice = '双语音频已准备好。';
+      if (announce) notice = '双语音频已准备好。';
       notifyListeners();
     } catch (_) {
       loopPreparing = false;
       loopReady = false;
       _loopTracks = [];
+      _loopPreparedFingerprint = null;
       notifyListeners();
       rethrow;
     }
@@ -651,6 +682,18 @@ class LearningController extends ChangeNotifier {
   }
 
   Future<void> startLoop() => _run((generation) async {
+    if (loopReady &&
+        _loopPreparedFingerprint != _loopPreparationFingerprint()) {
+      loopReady = false;
+      _loopTracks = [];
+      _loopPreparedFingerprint = null;
+    }
+    if (!loopReady || _loopTracks.isEmpty) {
+      await _prepareLoop(generation, announce: false);
+    }
+    if (!loopReady || _loopTracks.isEmpty) {
+      throw const LearningFailure('请先准备循环听音频。', code: 'loop_not_ready');
+    }
     try {
       try {
         await platform.invoke('audioUnlock');
@@ -658,7 +701,6 @@ class LearningController extends ChangeNotifier {
         // Unlocking is an enhancement. The bridge still reports a clear
         // retryable state if the browser blocks the eventual media play.
       }
-      await _prepareLoop(generation);
       _ensureCurrent(generation);
       await _beginLoopSession(generation);
     } catch (_) {
@@ -893,8 +935,10 @@ class LearningController extends ChangeNotifier {
     final previousLoopAccount = _loopAccountId ?? _accountId;
     _loopSessionId = null;
     _loopAccountId = null;
+    recentGeneratedSentences = <LearnSentence>[];
     loopPreparing = false;
     loopReady = false;
+    _loopPreparedFingerprint = null;
     _loopVerifiedKeys.clear();
     _audioPreparation.clear();
     if (initialized && (_inputDirty || localSaveFailed)) {
@@ -1572,6 +1616,7 @@ class LearningController extends ChangeNotifier {
         .firstOrNull;
     if (allowReuse && reusable != null) {
       activeSentence = reusable;
+      recentGeneratedSentences = [reusable];
       notice = '这句已经生成过，已为你打开现有记录。';
       return;
     }
@@ -1616,6 +1661,42 @@ class LearningController extends ChangeNotifier {
       _accountGeneration,
       inputVersion: draft.inputVersion ?? submittedInputVersion,
     );
+  });
+
+  /// Generates locally detected short sentences through the existing batch
+  /// contract. This avoids a second preparation-model request for ordinary
+  /// multi-sentence input while keeping the editable preparation flow for
+  /// long or ambiguous text.
+  Future<void> generateSplitSentences(
+    List<String> segments, {
+    String? sourceText,
+  }) => _run((generation) async {
+    final cleaned = segments.map((segment) => segment.trim()).toList();
+    if (cleaned.length < 2 ||
+        cleaned.length > PreparationDraft.maxSegments ||
+        cleaned.any((segment) => segment.isEmpty || segment.length > 500)) {
+      throw const LearningFailure('分句数量或长度无效，请修改后重试。');
+    }
+    final source = sourceText?.trim().isNotEmpty == true
+        ? sourceText!.trim()
+        : cleaned.join('\n');
+    recentGeneratedSentences = <LearnSentence>[];
+    final requestId = newId();
+    await _change(
+      (next) => next.preparationDraft = PreparationDraft(
+        id: requestId,
+        sourceText: source,
+        inputVersion: _inputVersion,
+        sourceLanguage: sourceLanguage,
+        targetLanguage: targetLanguage,
+        segments: cleaned
+            .map((text) => PreparationSegment(id: newId(), sourceText: text))
+            .toList(),
+      ),
+      sync: false,
+      generation: generation,
+    );
+    await _generatePreparedSegments(generation);
   });
 
   void openLegacySentence() {
@@ -1673,6 +1754,7 @@ class LearningController extends ChangeNotifier {
     }, generation: generation);
     _ensureCurrent(generation);
     activeSentence = state.sentences.firstWhere((s) => s.id == sentence.id);
+    recentGeneratedSentences = [activeSentence!];
     if (isRegistered && platformInfo['online'] != false) {
       unawaited(membership.load());
     }
@@ -1781,7 +1863,10 @@ class LearningController extends ChangeNotifier {
     return output;
   }
 
-  Future<void> generatePreparedSegments() => _run((generation) async {
+  Future<void> generatePreparedSegments() =>
+      _run((generation) => _generatePreparedSegments(generation));
+
+  Future<void> _generatePreparedSegments(int generation) async {
     await _ensureOnlineSession();
     _ensureCurrent(generation);
     final account = _accountId;
@@ -1892,6 +1977,7 @@ class LearningController extends ChangeNotifier {
       }, generation: generation);
       _ensureCurrent(generation);
       generatedCount += sentences.length;
+      recentGeneratedSentences = [...recentGeneratedSentences, ...sentences];
       for (final sentence in sentences) {
         _scheduleSentenceAudio(sentence, generation);
       }
@@ -1902,7 +1988,7 @@ class LearningController extends ChangeNotifier {
     notice = state.preparationDraft == null
         ? strings.generatedCount(generatedCount)
         : strings.generatedRemaining(generatedCount);
-  });
+  }
 
   Future<String> _audioKey(LearnSentence s) async {
     final hash = await platform.invoke('contentHash', {'text': s.target});
@@ -1919,8 +2005,7 @@ class LearningController extends ChangeNotifier {
 
   bool isPlaybackFor(LearnSentence sentence) =>
       _playSentenceId == sentence.id &&
-      (_playKey?.startsWith('audio:v2:sentence:${sentence.id}:') ??
-          false);
+      (_playKey?.startsWith('audio:v2:sentence:${sentence.id}:') ?? false);
 
   LearnSentence? get playingSentence {
     final id = _playSentenceId;
@@ -2009,6 +2094,12 @@ class LearningController extends ChangeNotifier {
   Future<void> play([LearnSentence? sentence]) => _run((generation) async {
     if (loopActive) await pauseLoop();
     await stopPlayback();
+    try {
+      await platform.invoke('audioUnlock');
+    } catch (_) {
+      // The media element still receives the user's play gesture below. Some
+      // browsers do not expose AudioContext, so unlocking is best effort.
+    }
     final playbackGeneration = _playGeneration;
     void ensurePlayback() {
       _ensureCurrent(generation);
@@ -2113,11 +2204,21 @@ class LearningController extends ChangeNotifier {
     }
     ensurePlayback();
     if (cached) {
-      await platform.invoke('audioPlay', {
-        'accountId': account,
-        'key': key,
-        'speed': state.preferences.speed,
-      });
+      try {
+        await platform.invoke('audioPlay', {
+          'accountId': account,
+          'key': key,
+          'speed': state.preferences.speed,
+        });
+      } on LearningFailure catch (failure) {
+        if (failure.code == 'autoplay_blocked') {
+          throw const LearningFailure(
+            '音频已准备好，请再点一次播放。',
+            code: 'autoplay_blocked',
+          );
+        }
+        rethrow;
+      }
       ensurePlayback();
       _playSession = newId();
       _playKey = key;
@@ -2418,6 +2519,7 @@ class LearningController extends ChangeNotifier {
           (nativeVoice != null && nativeVoice != previousNativeVoice)) {
         loopReady = false;
         _loopTracks = [];
+        _loopPreparedFingerprint = null;
         await stopLoop(reason: 'voiceChanged');
       }
     }
@@ -2429,56 +2531,51 @@ class LearningController extends ChangeNotifier {
     bool register = false,
     ResearchProfile? registrationProfile,
   }) => _run((generation) async {
-        if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.trim()) ||
-            password.length < 6) {
-          throw const LearningFailure('请输入有效邮箱，密码至少六位。');
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.trim()) ||
+        password.length < 6) {
+      throw const LearningFailure('请输入有效邮箱，密码至少六位。');
+    }
+    try {
+      if (register) {
+        await gateway.signUp(
+          email,
+          password,
+          emailRedirectTo: selahAuthRedirectUrl(),
+        );
+      } else {
+        await gateway.signIn(email, password);
+      }
+    } on LearningFailure catch (failure) {
+      if (failure.code != 'email_confirmation') rethrow;
+      if (_current(generation)) notice = '请先通过邮件确认账户，再回来登录。';
+      return;
+    }
+    if (gateway.userId == null) {
+      notice = '注册请求已提交，请检查邮箱并确认账户后登录。';
+      return;
+    }
+    await _switchAccount(gateway.userId!);
+    final loadedGeneration = _accountGeneration;
+    if (!initialized) return;
+    await sync();
+    _ensureCurrent(loadedGeneration);
+    if (syncFailed) return;
+    var profileNotice = '';
+    if (register && registrationProfile?.hasAnyAnswer == true && isRegistered) {
+      try {
+        await researchProfile.load();
+        if (!researchProfile.profile.hasAnyAnswer) {
+          await researchProfile.save(registrationProfile!, consent: true);
         }
-        try {
-          if (register) {
-            await gateway.signUp(
-              email,
-              password,
-              emailRedirectTo: selahAuthRedirectUrl(),
-            );
-          } else {
-            await gateway.signIn(email, password);
-          }
-        } on LearningFailure catch (failure) {
-          if (failure.code != 'email_confirmation') rethrow;
-          if (_current(generation)) notice = '请先通过邮件确认账户，再回来登录。';
-          return;
-        }
-        if (gateway.userId == null) {
-          notice = '注册请求已提交，请检查邮箱并确认账户后登录。';
-          return;
-        }
-        await _switchAccount(gateway.userId!);
-        final loadedGeneration = _accountGeneration;
-        if (!initialized) return;
-        await sync();
-        _ensureCurrent(loadedGeneration);
-        if (syncFailed) return;
-        var profileNotice = '';
-        if (register &&
-            registrationProfile?.hasAnyAnswer == true &&
-            isRegistered) {
-          try {
-            await researchProfile.load();
-            if (!researchProfile.profile.hasAnyAnswer) {
-              await researchProfile.save(
-                registrationProfile!,
-                consent: true,
-              );
-            }
-          } catch (_) {
-            profileNotice = '个人资料暂未保存，可在设置中补充。';
-          }
-        }
-        notice = profileNotice.isEmpty
-            ? '已登录，学习内容将同步到你的账户。'
-            : '已登录，学习内容将同步到你的账户。$profileNotice';
-        notifyListeners();
-      });
+      } catch (_) {
+        profileNotice = '个人资料暂未保存，可在设置中补充。';
+      }
+    }
+    notice = profileNotice.isEmpty
+        ? '已登录，学习内容将同步到你的账户。'
+        : '已登录，学习内容将同步到你的账户。$profileNotice';
+    notifyListeners();
+  });
   Future<void> logout() => _run((generation) async {
     await gateway.signOut();
     await _switchAccount('guest');

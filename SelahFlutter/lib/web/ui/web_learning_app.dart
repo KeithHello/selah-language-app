@@ -12,6 +12,8 @@ import '../../design/selah_typography.dart';
 import '../../domain/selah_enums.dart';
 import '../domain/learning_engine.dart';
 import '../domain/learning_models.dart';
+import '../domain/listen_peek.dart';
+import '../domain/sentence_splitter.dart';
 import '../domain/research_profile.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
@@ -792,7 +794,7 @@ class _Content extends StatelessWidget {
             ],
           ),
         ),
-        if (controller.loopActive)
+        if (controller.loopSessionVisible)
           LoopListeningMiniPlayer(controller: controller),
       ],
     );
@@ -1104,6 +1106,18 @@ class _TodayPageState extends State<_TodayPage> {
     final text = _input.text.trim();
     if (text.isEmpty || c.busy) return;
     c.clearMessage();
+    final segments = splitSourceSentences(text);
+    if (segments.length > 1 &&
+        segments.length <= PreparationDraft.maxSegments) {
+      await c.generateSplitSentences(segments, sourceText: text);
+      if (mounted && c.error == null) {
+        c.notice = c.strings.message('today.splitNotice', {
+          'count': '${segments.length}',
+        });
+        c.notifyListeners();
+      }
+      return;
+    }
     if (text.length <= 500) {
       await c.generate(text);
       return;
@@ -1208,7 +1222,11 @@ class _TodayPageState extends State<_TodayPage> {
 
   @override
   Widget build(BuildContext context) {
-    final sentence = c.activeSentence;
+    final sentences = c.recentGeneratedSentences.isNotEmpty
+        ? c.recentGeneratedSentences
+        : (c.activeSentence == null
+              ? const <LearnSentence>[]
+              : [c.activeSentence!]);
     final textLength = _input.text.length;
     final strings = c.strings;
     return _PageFrame(
@@ -1217,7 +1235,7 @@ class _TodayPageState extends State<_TodayPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _TodayGreeting(controller: c),
-          const SizedBox(height: 24),
+          const SizedBox(height: 12),
           _ExpressionComposer(
             controller: _input,
             strings: strings,
@@ -1253,9 +1271,17 @@ class _TodayPageState extends State<_TodayPage> {
               onAction: c.openLegacySentence,
             ),
           ],
-          if (sentence != null) ...[
+          if (sentences.isNotEmpty) ...[
             const SizedBox(height: 22),
-            _GeneratedSentenceCard(controller: c, sentence: sentence),
+            ...sentences.map(
+              (sentence) => Padding(
+                padding: const EdgeInsets.only(bottom: 14),
+                child: _GeneratedSentenceCard(
+                  controller: c,
+                  sentence: sentence,
+                ),
+              ),
+            ),
           ],
           if (c.hasPendingRecording && !c.recording) ...[
             const SizedBox(height: 12),
@@ -1287,7 +1313,6 @@ class _TodayGreeting extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(controller.uiLocale);
-    final nativeLanguage = controller.nativeLanguage;
     final name = controller.state.preferences.name.trim();
     final displayName = name.isEmpty ? '小芽' : name;
     final stage = _decorationStage(controller);
@@ -1296,92 +1321,73 @@ class _TodayGreeting extends StatelessWidget {
       uiLocale: controller.uiLocale,
     );
 
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        children: [
-          Semantics(
-            label:
-                '${strings.translateLegacy('精灵')}：$displayName，${strings.translateLegacy('当前状态')}：$caption',
-            image: true,
-            excludeSemantics: true,
-            child: PlushCompanion(
-              action: controller.companionAction,
-              revision: controller.companionRevision,
-              size: 144,
-              decorationStage: stage,
-              uiLocale: controller.uiLocale,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Wrap(
-            alignment: WrapAlignment.center,
-            crossAxisAlignment: WrapCrossAlignment.center,
-            spacing: 8,
-            runSpacing: 8,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final showStatus = constraints.maxWidth >= 420;
+        return SizedBox(
+          width: double.infinity,
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text(
-                displayName,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: SelahTypography.labelLarge(
-                  color: SelahColors.textSecondary,
+              Semantics(
+                label:
+                    '${strings.translateLegacy('精灵')}：$displayName，${strings.translateLegacy('当前状态')}：$caption',
+                image: true,
+                excludeSemantics: true,
+                child: PlushCompanion(
+                  action: controller.companionAction,
+                  revision: controller.companionRevision,
+                  size: 56,
+                  decorationStage: stage,
+                  uiLocale: controller.uiLocale,
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: SelahColors.sageSoft,
-                  borderRadius: BorderRadius.circular(SelahCornerRadius.pill),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      width: 6,
-                      height: 6,
-                      decoration: const BoxDecoration(
-                        color: SelahColors.sage,
-                        shape: BoxShape.circle,
-                      ),
+                    Text(
+                      strings.todayGreetingTitle(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SelahTypography.displayMedium(),
                     ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        caption,
-                        textAlign: TextAlign.center,
-                        style: SelahTypography.bodySmall(
-                          color: const Color(0xFF376F57),
-                        ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '$displayName · $caption',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SelahTypography.bodySmall(
+                        color: SelahColors.textSecondary,
                       ),
                     ),
                   ],
                 ),
               ),
+              if (showStatus) ...[
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: SelahColors.sageSoft,
+                    borderRadius: BorderRadius.circular(SelahCornerRadius.pill),
+                  ),
+                  child: Text(
+                    strings.text('today.learningStatus'),
+                    style: SelahTypography.labelSmall(
+                      color: const Color(0xFF376F57),
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            strings.todayGreetingTitle(),
-            textAlign: TextAlign.center,
-            style: SelahTypography.displayLarge(),
-          ),
-          const SizedBox(height: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Text(
-              strings.todayGreetingSubtitle(nativeLanguage),
-              textAlign: TextAlign.center,
-              style: SelahTypography.bodyLarge(
-                color: SelahColors.textSecondary,
-              ),
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -1422,30 +1428,36 @@ class _ExpressionComposer extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.edit_note_rounded,
-                  size: 20,
-                  color: SelahColors.coral,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    strings.text('today.inputLabel'),
-                    style: SelahTypography.headlineMedium(),
+            LayoutBuilder(
+              builder: (context, constraints) => Row(
+                children: [
+                  Icon(
+                    Icons.edit_note_rounded,
+                    size: 20,
+                    color: SelahColors.coral,
                   ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '$textLength / 4,000',
-                  style: SelahTypography.labelSmall(
-                    color: textLength > 4000
-                        ? SelahColors.danger
-                        : SelahColors.textTertiary,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      strings.text('today.inputLabel'),
+                      maxLines: constraints.maxWidth < 380 ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: SelahTypography.headlineMedium(),
+                    ),
                   ),
-                ),
-              ],
+                  if (constraints.maxWidth >= 380) ...[
+                    const SizedBox(width: 8),
+                    Text(
+                      '$textLength / 4,000',
+                      style: SelahTypography.labelSmall(
+                        color: textLength > 4000
+                            ? SelahColors.danger
+                            : SelahColors.textTertiary,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             TextField(
@@ -1462,49 +1474,72 @@ class _ExpressionComposer extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             LayoutBuilder(
-              builder: (context, constraints) => Row(
-                children: [
-                  ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: constraints.maxWidth * .42,
-                    ),
-                    child: OutlinedButton.icon(
-                      onPressed: busy ? null : onRecord,
-                      icon: Icon(
-                        recording ? Icons.stop_rounded : Icons.mic_none_rounded,
-                        size: 18,
-                      ),
-                      label: Text(
-                        strings.recordLabel(
-                          recording: recording,
-                          seconds: recordingSeconds,
-                        ),
-                      ),
+              builder: (context, constraints) {
+                final recordButton = OutlinedButton.icon(
+                  onPressed: busy ? null : onRecord,
+                  icon: Icon(
+                    recording ? Icons.stop_rounded : Icons.mic_none_rounded,
+                    size: 18,
+                  ),
+                  label: Text(
+                    strings.recordLabel(
+                      recording: recording,
+                      seconds: recordingSeconds,
                     ),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: busy || textLength == 0 ? null : onSubmit,
-                      icon: Icon(
-                        long
-                            ? Icons.view_agenda_outlined
-                            : Icons.auto_awesome_rounded,
-                        size: 18,
-                      ),
-                      label: Text(strings.submitLabel(busy: busy, long: long)),
-                    ),
+                );
+                final generateButton = FilledButton.icon(
+                  onPressed: busy || textLength == 0 ? null : onSubmit,
+                  icon: Icon(
+                    long
+                        ? Icons.view_agenda_outlined
+                        : Icons.auto_awesome_rounded,
+                    size: 18,
                   ),
-                  if (onClear != null) ...[
-                    const SizedBox(width: 4),
-                    IconButton(
-                      tooltip: strings.text('common.clear'),
-                      onPressed: onClear,
-                      icon: const Icon(Icons.close_rounded, size: 19),
+                  label: Text(strings.submitLabel(busy: busy, long: long)),
+                );
+                final clearButton = onClear == null
+                    ? null
+                    : IconButton(
+                        tooltip: strings.text('common.clear'),
+                        onPressed: onClear,
+                        icon: const Icon(Icons.close_rounded, size: 19),
+                      );
+                if (constraints.maxWidth < 520) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(child: recordButton),
+                          if (clearButton != null) ...[
+                            const SizedBox(width: 4),
+                            clearButton,
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(width: double.infinity, child: generateButton),
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    ConstrainedBox(
+                      constraints: BoxConstraints(
+                        maxWidth: constraints.maxWidth * .42,
+                      ),
+                      child: recordButton,
                     ),
+                    const SizedBox(width: 10),
+                    Expanded(child: generateButton),
+                    if (clearButton != null) ...[
+                      const SizedBox(width: 4),
+                      clearButton,
+                    ],
                   ],
-                ],
-              ),
+                );
+              },
             ),
             const SizedBox(height: 9),
             Text(
@@ -1726,6 +1761,7 @@ class _GeneratedSentenceCard extends StatelessWidget {
                         ? null
                         : () async {
                             controller.clearMessage();
+                            controller.selectSentence(sentence);
                             await controller.play(sentence);
                           },
                     icon: const Icon(Icons.headphones_rounded, size: 18),
@@ -1942,7 +1978,7 @@ class _ListenPageState extends State<_ListenPage> {
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
-    final loopMode = _loopMode || c.loopActive;
+    final loopMode = _loopMode || c.loopSessionVisible;
     final sentences = c.state.sentences
         .where((sentence) => !sentence.archived)
         .toList();
@@ -2014,6 +2050,7 @@ class _ListenPageState extends State<_ListenPage> {
                       const SizedBox(height: 16),
                       if (selected != null)
                         _ListenDetail(
+                          key: ValueKey(selected.id),
                           controller: c,
                           sentence: selected,
                           revealed: _revealed,
@@ -2056,6 +2093,7 @@ class _ListenPageState extends State<_ListenPage> {
                           child: selected == null
                               ? const SizedBox.shrink()
                               : _ListenDetail(
+                                  key: ValueKey(selected.id),
                                   controller: c,
                                   sentence: selected,
                                   revealed: _revealed,
@@ -2218,8 +2256,9 @@ class _SentencePicker extends StatelessWidget {
   }
 }
 
-class _ListenDetail extends StatelessWidget {
+class _ListenDetail extends StatefulWidget {
   const _ListenDetail({
+    super.key,
     required this.controller,
     required this.sentence,
     required this.revealed,
@@ -2232,7 +2271,31 @@ class _ListenDetail extends StatelessWidget {
   final VoidCallback onReveal;
 
   @override
+  State<_ListenDetail> createState() => _ListenDetailState();
+}
+
+class _ListenDetailState extends State<_ListenDetail> {
+  String? _selectedPeekId;
+
+  @override
+  void didUpdateWidget(covariant _ListenDetail oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.sentence.id != widget.sentence.id ||
+        (oldWidget.revealed && !widget.revealed)) {
+      _selectedPeekId = null;
+    }
+  }
+
+  void _togglePeek(String id) {
+    setState(() {
+      _selectedPeekId = _selectedPeekId == id ? null : id;
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
+    final sentence = widget.sentence;
     final strings = SelahStrings.of(controller.uiLocale);
     final playback = controller.isPlaybackFor(sentence)
         ? controller.playback
@@ -2241,6 +2304,23 @@ class _ListenDetail extends StatelessWidget {
     final position =
         _numValue(playback, const ['positionMs', 'position', 'currentMs']) ?? 0;
     final duration = _numValue(playback, const ['durationMs', 'duration']) ?? 0;
+    final peekItems = listenPeekItems(sentence);
+    final peekSpans = listenPeekSpans(sentence.target, peekItems);
+    final selectedPeek = peekItems
+        .where((item) => item.id == _selectedPeekId)
+        .firstOrNull;
+    final breakdownItems = peekItems
+        .where((item) => item.source == ListenPeekSource.breakdown)
+        .toList();
+    final gloss = selectedPeek == null
+        ? const SizedBox.shrink()
+        : _ListenGlossCard(
+            key: ValueKey(selectedPeek.id),
+            item: selectedPeek,
+            closeLabel: strings.text('common.close'),
+            onClose: () => setState(() => _selectedPeekId = null),
+          );
+    final reducedMotion = MediaQuery.disableAnimationsOf(context);
     return Card(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
@@ -2264,10 +2344,10 @@ class _ListenDetail extends StatelessWidget {
             const SizedBox(height: 8),
             Text(sentence.source, style: SelahTypography.displayMedium()),
             const SizedBox(height: 22),
-            if (!revealed)
+            if (!widget.revealed)
               Center(
                 child: OutlinedButton.icon(
-                  onPressed: onReveal,
+                  onPressed: widget.onReveal,
                   icon: const Icon(Icons.visibility_outlined, size: 18),
                   label: Text(strings.translateLegacy('看英文答案')),
                 ),
@@ -2280,19 +2360,60 @@ class _ListenDetail extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(sentence.target, style: SelahTypography.headlineLarge()),
-              if (sentence.breakdown.isNotEmpty) ...[
+              _ListenTargetText(
+                target: sentence.target,
+                spans: peekSpans,
+                selectedId: _selectedPeekId,
+                labelBuilder: (item) => strings.message(
+                  'listen.peekTargetLabel',
+                  {'surface': item.surface},
+                ),
+                onSelect: _togglePeek,
+              ),
+              reducedMotion
+                  ? gloss
+                  : AnimatedSize(
+                      duration: SelahMotion.quick,
+                      curve: SelahMotion.standardCurve,
+                      alignment: Alignment.topCenter,
+                      child: gloss,
+                    ),
+              if (breakdownItems.isNotEmpty) ...[
                 const SizedBox(height: 20),
-                Text(
-                  strings.translateLegacy('拆解'),
-                  style: SelahTypography.labelLarge(),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Text(
+                      strings.translateLegacy('拆解'),
+                      style: SelahTypography.labelLarge(),
+                    ),
+                    const Spacer(),
+                    Flexible(
+                      child: Text(
+                        strings.text('listen.peekHint'),
+                        textAlign: TextAlign.right,
+                        style: SelahTypography.labelSmall(
+                          color: SelahColors.textTertiary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Wrap(
                   spacing: 7,
                   runSpacing: 7,
-                  children: sentence.breakdown
-                      .map((item) => _BreakdownChip(item: item))
+                  children: breakdownItems
+                      .map(
+                        (item) => _ListenPeekChip(
+                          item: item,
+                          selected: item.id == _selectedPeekId,
+                          label: strings.message('listen.peekBreakdownLabel', {
+                            'surface': item.surface,
+                          }),
+                          onTap: () => _togglePeek(item.id),
+                        ),
+                      )
                       .toList(),
                 ),
               ],
@@ -2309,6 +2430,180 @@ class _ListenDetail extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ListenTargetText extends StatelessWidget {
+  const _ListenTargetText({
+    required this.target,
+    required this.spans,
+    required this.selectedId,
+    required this.labelBuilder,
+    required this.onSelect,
+  });
+
+  final String target;
+  final List<ListenPeekSpan> spans;
+  final String? selectedId;
+  final String Function(ListenPeekItem item) labelBuilder;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    final style = SelahTypography.headlineLarge();
+    if (spans.isEmpty) return Text(target, style: style);
+
+    final children = <InlineSpan>[];
+    var cursor = 0;
+    for (final span in spans) {
+      if (span.start > cursor) {
+        children.add(TextSpan(text: target.substring(cursor, span.start)));
+      }
+      final selected = span.item.id == selectedId;
+      children.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.baseline,
+          baseline: TextBaseline.alphabetic,
+          child: Semantics(
+            container: true,
+            button: true,
+            selected: selected,
+            label: labelBuilder(span.item),
+            child: InkWell(
+              key: ValueKey('listen-target-${span.item.id}'),
+              onTap: () => onSelect(span.item.id),
+              borderRadius: BorderRadius.circular(SelahCornerRadius.xs),
+              child: Container(
+                padding: const EdgeInsets.only(bottom: 1),
+                decoration: BoxDecoration(
+                  color: selected ? SelahColors.lavenderSoft : null,
+                  borderRadius: BorderRadius.circular(SelahCornerRadius.xs),
+                  border: const Border(
+                    bottom: BorderSide(color: SelahColors.lavender, width: 1.5),
+                  ),
+                ),
+                child: Text(
+                  target.substring(span.start, span.end),
+                  style: style.copyWith(
+                    color: selected
+                        ? SelahColors.lavender
+                        : SelahColors.textPrimary,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      cursor = span.end;
+    }
+    if (cursor < target.length) {
+      children.add(TextSpan(text: target.substring(cursor)));
+    }
+    return RichText(
+      text: TextSpan(style: style, children: children),
+      softWrap: true,
+    );
+  }
+}
+
+class _ListenPeekChip extends StatelessWidget {
+  const _ListenPeekChip({
+    required this.item,
+    required this.selected,
+    required this.label,
+    required this.onTap,
+  });
+
+  final ListenPeekItem item;
+  final bool selected;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      button: true,
+      selected: selected,
+      label: label,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(
+          minHeight: SelahSpacing.minTouchTarget,
+        ),
+        child: ActionChip(
+          label: Text(item.surface),
+          backgroundColor: SelahColors.lavenderSoft,
+          side: BorderSide(
+            color: selected ? SelahColors.lavender : Colors.transparent,
+            width: selected ? 1.5 : 0,
+          ),
+          onPressed: onTap,
+        ),
+      ),
+    );
+  }
+}
+
+class _ListenGlossCard extends StatelessWidget {
+  const _ListenGlossCard({
+    super.key,
+    required this.item,
+    required this.closeLabel,
+    required this.onClose,
+  });
+
+  final ListenPeekItem item;
+  final String closeLabel;
+  final VoidCallback onClose;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.fromLTRB(14, 12, 8, 12),
+      decoration: BoxDecoration(
+        color: SelahColors.lavenderSoft,
+        borderRadius: BorderRadius.circular(SelahCornerRadius.sm),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  item.surface,
+                  style: SelahTypography.labelLarge(
+                    color: SelahColors.textPrimary,
+                  ),
+                ),
+                const SizedBox(height: 5),
+                Text(
+                  item.meaning,
+                  style: SelahTypography.bodyMedium(
+                    color: SelahColors.textPrimary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            key: const ValueKey('listen-gloss-close'),
+            tooltip: closeLabel,
+            onPressed: onClose,
+            icon: const Icon(Icons.close_rounded, size: 18),
+            color: SelahColors.textTertiary,
+            constraints: const BoxConstraints(
+              minWidth: SelahSpacing.minTouchTarget,
+              minHeight: SelahSpacing.minTouchTarget,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -4224,7 +4519,9 @@ class _OnboardingPageState extends State<_OnboardingPage> {
     super.initState();
     final current = c.state.preferences.name;
     final initialName = (current.isEmpty || current == '小豆')
-        ? CompanionNamePool.initialDefaultName(c.state.preferences.nativeLanguage)
+        ? CompanionNamePool.initialDefaultName(
+            c.state.preferences.nativeLanguage,
+          )
         : current;
     _name = TextEditingController(text: initialName);
     _nameFocus = FocusNode();
@@ -4845,16 +5142,53 @@ class _BreakdownChip extends StatelessWidget {
       'meaningInContext',
       'meaning',
     ]);
-    return Tooltip(
-      message: explanation ?? '',
-      child: Chip(
+    return Builder(
+      builder: (context) => ActionChip(
         label: Text(surface.isEmpty ? strings.translateLegacy('词组') : surface),
         backgroundColor: SelahColors.lavenderSoft,
         side: BorderSide.none,
+        onPressed: explanation == null || explanation.isEmpty
+            ? null
+            : () => _showBreakdownMeaning(
+                context,
+                surface,
+                explanation,
+                locale: strings.locale,
+              ),
       ),
     );
   }
 }
+
+Future<void> _showBreakdownMeaning(
+  BuildContext context,
+  String surface,
+  String explanation, {
+  required String locale,
+}) => showModalBottomSheet<void>(
+  context: context,
+  showDragHandle: true,
+  backgroundColor: SelahColors.cardPrimary,
+  builder: (context) => SafeArea(
+    child: Padding(
+      padding: const EdgeInsets.fromLTRB(22, 4, 22, 26),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(surface, style: SelahTypography.headlineMedium()),
+          const SizedBox(height: 8),
+          Text(explanation, style: SelahTypography.bodyLarge()),
+          const SizedBox(height: 8),
+          Text(
+            SelahStrings.of(locale).text('today.dismissMeaning'),
+            style: SelahTypography.bodySmall(color: SelahColors.textTertiary),
+          ),
+        ],
+      ),
+    ),
+  ),
+);
 
 class _BreakdownLine extends StatelessWidget {
   const _BreakdownLine({required this.item});
@@ -4934,7 +5268,18 @@ class _VocabularyRow extends StatelessWidget {
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [Text(entry.text, style: SelahTypography.labelLarge())],
+              children: [
+                Text(entry.text, style: SelahTypography.labelLarge()),
+                const SizedBox(height: 2),
+                Text(
+                  entry.meaning,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: SelahTypography.bodySmall(
+                    color: SelahColors.textSecondary,
+                  ),
+                ),
+              ],
             ),
           ),
           const SizedBox(width: 8),

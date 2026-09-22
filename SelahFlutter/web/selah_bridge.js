@@ -31,6 +31,7 @@
   var RECORDING_LIMIT_MS = 180000;
   var BACKUP_LIMIT_BYTES = 10 * 1024 * 1024;
   var AUDIO_PREFIX = '/__selah_audio/';
+  var SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
   function safeError(message, cause) {
     var error = new Error(message);
@@ -357,7 +358,7 @@
   function makeAudioController(root, providedCache) {
     var state = {
       state: 'idle', key: null, positionMs: 0, durationMs: 0, error: undefined,
-      element: null, objectUrl: null, listeners: [], speed: 1,
+      element: null, primedElement: null, objectUrl: null, listeners: [], speed: 1,
       operation: 0,
     };
 
@@ -411,11 +412,46 @@
       throw safeError('当前浏览器不支持音频播放。');
     }
 
+    // Browsers may reject an audible play() after an awaited network/cache
+    // request. Prime one muted element during the user's click so the later
+    // generated audio can reuse the browser's media permission.
+    function unlock() {
+      if (state.element) return Promise.resolve(true);
+      if (!state.primedElement) {
+        try {
+          state.primedElement = createAudioElement();
+        } catch (_) {
+          // AudioContext-only environments can still unlock loop playback;
+          // the normal audio path will report its own support error later.
+          return Promise.resolve(false);
+        }
+      }
+      var element = state.primedElement;
+      element.muted = true;
+      element.volume = 0;
+      element.src = SILENT_AUDIO_DATA_URI;
+      var result;
+      try { result = element.play(); } catch (error) { return Promise.reject(error); }
+      if (result && typeof result.then === 'function') {
+        return result.then(function () { return true; });
+      }
+      return Promise.resolve(true);
+    }
+
     function add(name, handler) {
       if (state.element && typeof state.element.addEventListener === 'function') {
         state.element.addEventListener(name, handler);
         state.listeners.push({ name: name, handler: handler });
       }
+    }
+
+    function ensureElement() {
+      if (state.element) return state.element;
+      state.element = state.primedElement || createAudioElement();
+      state.primedElement = null;
+      state.element.muted = false;
+      state.element.volume = 1;
+      return state.element;
     }
 
     function play(payload) {
@@ -452,7 +488,7 @@
           } else {
             throw safeError('当前浏览器无法载入音频。');
           }
-          state.element = createAudioElement();
+          ensureElement();
           if (operation !== state.operation) {
             cleanup(false);
             throw safeError('音频播放已取消。');
@@ -550,7 +586,7 @@
       return result;
     }
 
-    return { play: play, pause: pause, resume: resume, stop: stop, seek: seek, speed: speed, status: status };
+    return { play: play, pause: pause, resume: resume, stop: stop, seek: seek, speed: speed, status: status, unlock: unlock };
   }
 
   function makeRecorderController(root) {
@@ -762,6 +798,7 @@
 
   function makeLoopAudioController(root, providedCache) {
     var active = null;
+    var primedElement = null;
     var pendingTimerIds = [];
     var deadlineTimerId = null;
 
@@ -822,7 +859,7 @@
       }, Math.max(0, remaining));
     }
 
-    function cleanupElement(session) {
+    function removeElementListeners(session) {
       if (!session || !session.element) return;
       var element = session.element;
       if (typeof element.removeEventListener === 'function') {
@@ -830,15 +867,42 @@
           element.removeEventListener(item.name, item.handler);
         });
       }
+      session.listeners = [];
+    }
+
+    function revokeObjectUrl(url) {
+      if (url && root.URL && typeof root.URL.revokeObjectURL === 'function') {
+        try { root.URL.revokeObjectURL(url); } catch (_) {}
+      }
+    }
+
+    function releaseElement(session) {
+      if (!session || !session.element) return;
+      var element = session.element;
+      removeElementListeners(session);
       try { element.pause(); } catch (_) {}
       try { element.removeAttribute('src'); } catch (_) {}
       try { element.load(); } catch (_) {}
-      if (session.objectUrl && root.URL && typeof root.URL.revokeObjectURL === 'function') {
-        try { root.URL.revokeObjectURL(session.objectUrl); } catch (_) {}
-      }
+      revokeObjectUrl(session.objectUrl);
       session.element = null;
       session.objectUrl = null;
-      session.listeners = [];
+    }
+
+    function prepareElementForTrack(session) {
+      if (!session || !session.element) return;
+      removeElementListeners(session);
+      try { session.element.pause(); } catch (_) {}
+    }
+
+    function ensureElement(session) {
+      if (session.element) return session.element;
+      if (primedElement) {
+        session.element = primedElement;
+        primedElement = null;
+      } else {
+        session.element = createAudioElement();
+      }
+      return session.element;
     }
 
     function createAudioElement() {
@@ -940,7 +1004,7 @@
     function finish(reason) {
       if (!active) return;
       clearTimers();
-      cleanupElement(active);
+      releaseElement(active);
       active.state = 'ended';
       active.phase = null;
       active.remainingMs = 0;
@@ -970,7 +1034,7 @@
       var track = currentTrack(session);
       session.phase = track.role;
       session.state = 'playing';
-      cleanupElement(session);
+      prepareElementForTrack(session);
       return getAudioCache(root, providedCache).then(function (cache) {
         if (active !== session) return null;
         var key = audioCacheKey(session.accountId, track.key, root);
@@ -981,12 +1045,16 @@
           if (active !== session) return null;
           var URLCtor = root && root.URL;
           if (URLCtor && typeof URLCtor.createObjectURL === 'function') {
+            var previousObjectUrl = session.objectUrl;
             session.objectUrl = URLCtor.createObjectURL(blob);
+            var element = ensureElement(session);
+            element.src = session.objectUrl;
+            if (previousObjectUrl && previousObjectUrl !== session.objectUrl) {
+              revokeObjectUrl(previousObjectUrl);
+            }
           } else {
             throw safeError('当前浏览器无法载入音频。');
           }
-          session.element = createAudioElement();
-          session.element.src = session.objectUrl;
           session.element.playbackRate = session.speed;
           addListener(session, 'playing', function () {
             if (active !== session) return;
@@ -1002,14 +1070,14 @@
           });
           addListener(session, 'ended', function () {
             if (active !== session || session.phase !== track.role) return;
-            cleanupElement(session);
+            prepareElementForTrack(session);
             onTrackEnded(session);
           });
           addListener(session, 'error', function () {
             if (active !== session) return;
             session.state = 'error';
             session.stopReason = 'audio_error';
-            cleanupElement(session);
+            releaseElement(session);
           });
           var result = session.element.play();
           if (result && typeof result.then === 'function') return result.then(function () { return null; });
@@ -1017,7 +1085,6 @@
         });
       }).catch(function (error) {
         if (active === session) {
-          cleanupElement(session);
           var errorName = String(error && error.name || '').toLowerCase();
           var errorMessage = String(error && (error.message || error) || '').toLowerCase();
           if (errorName === 'notallowederror' || errorMessage.indexOf('autoplay') >= 0 || errorMessage.indexOf('not allowed') >= 0) {
@@ -1025,6 +1092,7 @@
             session.stopReason = 'autoplay_blocked';
             return snapshot();
           }
+          releaseElement(session);
           session.state = 'error';
           session.stopReason = 'audio_error';
         }
@@ -1076,7 +1144,7 @@
       var config = validateStart(payload);
       if (active) {
         clearTimers();
-        cleanupElement(active);
+        releaseElement(active);
       }
       active = {
         accountId: config.accountId,
@@ -1145,21 +1213,36 @@
         finish('timeout');
         return Promise.resolve(snapshot());
       }
+      if (active.gapRemainingMs != null) {
+        active.state = 'gap';
+        scheduleAdvance(active, active.gapRemainingMs);
+        return Promise.resolve(snapshot());
+      }
       if (active.element) {
         active.state = 'playing';
         try {
           var result = active.element.play();
-          if (result && typeof result.then === 'function') return result.then(function () { return snapshot(); });
+          if (result && typeof result.then === 'function') {
+            return result.then(function () { return snapshot(); }).catch(function (error) {
+              var errorName = String(error && error.name || '').toLowerCase();
+              var errorMessage = String(error && (error.message || error) || '').toLowerCase();
+              if (errorName === 'notallowederror' || errorMessage.indexOf('autoplay') >= 0 || errorMessage.indexOf('not allowed') >= 0) {
+                active.state = 'ready';
+                active.stopReason = 'autoplay_blocked';
+                return snapshot();
+              }
+              releaseElement(active);
+              active.state = 'error';
+              active.stopReason = 'audio_error';
+              throw safeError('音频播放失败。', error);
+            });
+          }
         } catch (error) {
           active.state = 'error';
           active.stopReason = 'audio_error';
+          releaseElement(active);
           throw safeError('音频播放失败。', error);
         }
-        return Promise.resolve(snapshot());
-      }
-      if (active.gapRemainingMs != null) {
-        active.state = 'gap';
-        scheduleAdvance(active, active.gapRemainingMs);
         return Promise.resolve(snapshot());
       }
       return playTrack().then(function () { return snapshot(); });
@@ -1220,6 +1303,29 @@
       return snapshot();
     }
 
+    function unlock() {
+      if (active && active.element) return Promise.resolve(true);
+      if (!primedElement) {
+        try {
+          primedElement = createAudioElement();
+        } catch (_) {
+          return Promise.resolve(false);
+        }
+      }
+      var element = primedElement;
+      element.muted = true;
+      element.volume = 0;
+      element.src = SILENT_AUDIO_DATA_URI;
+      var result;
+      try {
+        result = element.play();
+      } catch (error) {
+        return Promise.reject(error);
+      }
+      if (result && typeof result.then === 'function') return result.then(function () { return true; });
+      return Promise.resolve(true);
+    }
+
     return {
       start: start,
       pause: pause,
@@ -1228,6 +1334,7 @@
       speed: speed,
       setOrder: setOrder,
       stop: stop,
+      unlock: unlock,
       status: function (payload) {
         if (payload && payload.sessionId && active && !isCurrent(payload)) return idleStatus();
         if (active && active.deadlineAtMs != null && active.deadlineAtMs <= nowMs() &&
@@ -1657,12 +1764,22 @@
       audioCacheDelete: audioCacheDelete,
       audioCacheKeys: audioCacheKeys,
       audioUnlock: function () {
+        var audioUnlock = audio.unlock();
+        var loopUnlock = loopAudio.unlock();
         var AudioContextCtor = root && (root.AudioContext || root.webkitAudioContext);
-        if (typeof AudioContextCtor !== 'function') return true;
+        if (typeof AudioContextCtor !== 'function') {
+          return Promise.all([audioUnlock, loopUnlock]).then(function () { return true; });
+        }
         if (!root.__selahAudioContext) root.__selahAudioContext = new AudioContextCtor();
         var context = root.__selahAudioContext;
-        if (!context || typeof context.resume !== 'function') return true;
-        return Promise.resolve(context.resume()).then(function () { return true; });
+        if (!context || typeof context.resume !== 'function') {
+          return Promise.all([audioUnlock, loopUnlock]).then(function () { return true; });
+        }
+        return Promise.all([
+          audioUnlock,
+          loopUnlock,
+          Promise.resolve(context.resume()),
+        ]).then(function () { return true; });
       },
       audioPlay: audio.play,
       audioStatus: function () { return audio.status(); },

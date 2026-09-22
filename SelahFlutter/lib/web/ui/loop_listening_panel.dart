@@ -42,7 +42,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(SelahSpacing.xxl),
-        child: c.loopActive
+        child: c.loopSessionVisible
             ? _playingUi(sentences.length, strings)
             : _setupUi(sentences.length, strings),
       ),
@@ -131,20 +131,17 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
           strings.text('loop.afterStart'),
           style: SelahTypography.bodySmall(color: SelahColors.textTertiary),
         ),
-        if (c.loopPlayback['stopReason'] == 'autoplay_blocked') ...[
-          const SizedBox(height: 10),
-          Text(
-            strings.text('loop.autoplayBlocked'),
-            style: SelahTypography.bodySmall(color: SelahColors.coral),
-          ),
-        ],
         const SizedBox(height: 24),
         FilledButton(
           onPressed: c.busy || c.loopPreparing
               ? null
               : () async {
                   c.clearMessage();
-                  await c.startLoop();
+                  if (c.loopReady) {
+                    await c.startLoop();
+                  } else {
+                    await c.prepareLoop();
+                  }
                 },
           child: c.loopPreparing
               ? Row(
@@ -165,8 +162,8 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
                       }),
                     ),
                   ],
-              )
-              : Text(strings.text('loop.start')),
+                )
+              : Text(strings.text(c.loopReady ? 'loop.start' : 'loop.prepare')),
         ),
         const SizedBox(height: 12),
         Text(
@@ -309,6 +306,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
 
   Widget _playingUi(int count, SelahStrings strings) {
     final status = c.loopPlayback;
+    final waitingForTap = status['state'] == 'ready';
     final remaining = (status['remainingMs'] as num? ?? 0).toInt();
     final index = ((status['sentenceIndex'] as num? ?? 0).toInt()) + 1;
     final phase = status['phase'];
@@ -345,49 +343,61 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
           style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
         ),
         const SizedBox(height: 22),
-        Wrap(
-          alignment: WrapAlignment.center,
-          spacing: 10,
-          children: [
-            Chip(
-              label: Text(
-                strings.message(
-                  phase == 'source'
-                      ? 'loop.playingSource'
-                      : 'loop.playingTarget',
-                  {
-                    phase == 'source' ? 'source' : 'target': phase == 'source'
-                        ? source
-                        : target,
-                  },
+        if (waitingForTap)
+          Text(
+            strings.text('loop.autoplayBlocked'),
+            textAlign: TextAlign.center,
+            style: SelahTypography.bodySmall(color: SelahColors.coral),
+          )
+        else
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            children: [
+              Chip(
+                label: Text(
+                  strings.message(
+                    phase == 'source'
+                        ? 'loop.playingSource'
+                        : 'loop.playingTarget',
+                    {
+                      phase == 'source' ? 'source' : 'target': phase == 'source'
+                          ? source
+                          : target,
+                    },
+                  ),
                 ),
               ),
-            ),
-            Chip(
-              label: Text(
-                strings.message('loop.sentenceIndex', {
-                  'index': '$index',
-                  'count': '$count',
-                }),
+              Chip(
+                label: Text(
+                  strings.message('loop.sentenceIndex', {
+                    'index': '$index',
+                    'count': '$count',
+                  }),
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
         const SizedBox(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             FilledButton.icon(
-              onPressed: () =>
-                  status['state'] == 'paused' ? c.resumeLoop() : c.pauseLoop(),
+              onPressed: waitingForTap
+                  ? c.resumeLoop
+                  : () => status['state'] == 'paused'
+                        ? c.resumeLoop()
+                        : c.pauseLoop(),
               icon: Icon(
-                status['state'] == 'paused'
+                waitingForTap || status['state'] == 'paused'
                     ? Icons.play_arrow_rounded
                     : Icons.pause_rounded,
               ),
               label: Text(
                 strings.text(
-                  status['state'] == 'paused' ? 'loop.resume' : 'loop.pause',
+                  waitingForTap || status['state'] == 'paused'
+                      ? 'loop.resume'
+                      : 'loop.pause',
                 ),
               ),
             ),
@@ -453,7 +463,8 @@ class LoopListeningMiniPlayer extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(controller.uiLocale);
     final status = controller.loopPlayback;
-    if (status['state'] != 'playing' &&
+    if (status['state'] != 'ready' &&
+        status['state'] != 'playing' &&
         status['state'] != 'gap' &&
         status['state'] != 'paused') {
       return const SizedBox.shrink();
@@ -504,15 +515,16 @@ class LoopListeningMiniPlayer extends StatelessWidget {
             ),
             IconButton(
               tooltip: strings.text(
-                status['state'] == 'paused'
+                status['state'] == 'paused' || status['state'] == 'ready'
                     ? 'loop.resumeLoop'
                     : 'loop.pauseLoop',
               ),
-              onPressed: () => status['state'] == 'paused'
+              onPressed: () => status['state'] == 'paused' ||
+                      status['state'] == 'ready'
                   ? controller.resumeLoop()
                   : controller.pauseLoop(),
               icon: Icon(
-                status['state'] == 'paused'
+                status['state'] == 'paused' || status['state'] == 'ready'
                     ? Icons.play_arrow_rounded
                     : Icons.pause_rounded,
               ),

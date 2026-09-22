@@ -259,7 +259,14 @@ test('audio play resolves after media starts and ended cleans the object URL', a
   let revoked = 0;
   let activeAudio;
   class FakeAudio {
-    constructor() { this.listeners = {}; this.currentTime = 0; this.duration = 2; activeAudio = this; }
+    static instances = [];
+    constructor() {
+      this.listeners = {};
+      this.currentTime = 0;
+      this.duration = 2;
+      activeAudio = this;
+      FakeAudio.instances.push(this);
+    }
     addEventListener(name, handler) { (this.listeners[name] ??= []).push(handler); }
     removeEventListener(name, handler) { this.listeners[name] = (this.listeners[name] || []).filter((item) => item !== handler); }
     play() { (this.listeners.playing || []).forEach((handler) => handler()); return Promise.resolve(); }
@@ -280,8 +287,18 @@ test('audio play resolves after media starts and ended cleans the object URL', a
     fetch: async () => ({ ok: true, headers: { get: () => 'audio/mpeg' }, arrayBuffer: async () => bytes.buffer }),
   };
   const bridge = createBridge({ root, audioCache: cache });
+  await bridge('audioUnlock', '{}');
+  const primedAudio = FakeAudio.instances[0];
   await bridge('audioEnsure', JSON.stringify({ accountId: 'a', key: 'k', url: 'https://cdn.example/k.mp3' }));
   await bridge('audioPlay', JSON.stringify({ accountId: 'a', key: 'k', speed: 1 }));
+  assert.equal(FakeAudio.instances.length, 2, 'main and loop audio each prime once');
+  assert.equal(
+    FakeAudio.instances[0],
+    primedAudio,
+    'single-sentence playback reuses the primed element',
+  );
+  assert.equal(FakeAudio.instances[0].listeners.ended.length, 1);
+  activeAudio = FakeAudio.instances[0];
   const status = JSON.parse(await bridge('audioStatus', '{}'));
   assert.equal(status.state, 'playing');
   activeAudio.currentTime = 2;

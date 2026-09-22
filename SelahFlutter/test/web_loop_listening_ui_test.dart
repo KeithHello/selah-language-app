@@ -103,6 +103,15 @@ void main() {
 
     expect(find.text('英語 → 中文'), findsOneWidget);
     expect(find.text('30 分鐘'), findsWidgets);
+    expect(find.text('準備循環聽'), findsOneWidget);
+
+    final prepareButton = find.text('準備循環聽');
+    await tester.ensureVisible(prepareButton);
+    await tester.tap(
+      find.ancestor(of: prepareButton, matching: find.byType(FilledButton)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('開始循環聽'), findsOneWidget);
 
     final startButton = find.text('開始循環聽');
@@ -111,8 +120,9 @@ void main() {
       find.ancestor(of: startButton, matching: find.byType(FilledButton)),
     );
     await tester.pump();
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('正在播放英語'), findsOneWidget);
+    expect(find.text('雙語音訊已準備好。'), findsNothing);
     expect(find.textContaining('30:00'), findsWidgets);
     expect(find.text('預設語速'), findsOneWidget);
     expect(find.text('1x'), findsWidgets);
@@ -176,7 +186,9 @@ void main() {
   testWidgets('loop setup explains when the browser blocks autoplay', (
     tester,
   ) async {
-    final controller = await _controllerFor(_LoopPlatform(autoplayBlocked: true));
+    final controller = await _controllerFor(
+      _LoopPlatform(autoplayBlocked: true),
+    );
     addTearDown(controller.dispose);
 
     await tester.pumpWidget(
@@ -186,14 +198,23 @@ void main() {
     await tester.pump();
     await tester.tap(find.text('循環聽'));
     await tester.pump();
+    final prepareButton = find.text('準備循環聽');
+    await tester.ensureVisible(prepareButton);
+    await tester.tap(
+      find.ancestor(of: prepareButton, matching: find.byType(FilledButton)),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
     final startButton = find.text('開始循環聽');
     await tester.ensureVisible(startButton);
     await tester.tap(
       find.ancestor(of: startButton, matching: find.byType(FilledButton)),
     );
     await tester.pump();
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
 
-    expect(find.text('音訊已準備好，請點擊播放。'), findsOneWidget);
+    expect(find.text('繼續播放'), findsOneWidget);
+    expect(find.text('音訊已準備好，請點擊播放。'), findsNothing);
   });
 }

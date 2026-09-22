@@ -7,10 +7,17 @@ import 'package:selah/web/learning_controller.dart';
 import 'package:selah/web/platform/learning_platform.dart';
 
 class _LoopPlatform implements LearningPlatform {
-  _LoopPlatform({this.failAction, this.failMessage});
+  _LoopPlatform({
+    this.failAction,
+    this.failMessage,
+    this.loopStartState = 'playing',
+    this.loopStartStopReason,
+  });
 
   final String? failAction;
   final String? failMessage;
+  final String loopStartState;
+  final String? loopStartStopReason;
   final cached = <String>{};
   final hashes = <String, String>{};
   final actions = <String>[];
@@ -45,12 +52,13 @@ class _LoopPlatform implements LearningPlatform {
       case 'audioLoopStart':
         return {
           'sessionId': payload['sessionId'],
-          'state': 'playing',
+          'state': loopStartState,
           'phase': 'target',
           'sentenceIndex': 0,
           'sentenceCount': 1,
           'remainingMs': payload['durationMs'],
           'order': payload['order'],
+          'stopReason': loopStartStopReason,
         };
       case 'audioLoopStatus':
         return {'state': 'playing'};
@@ -181,6 +189,17 @@ LearnSentence _sentence({String? seedId}) => LearnSentence(
   target: 'One step at a time.',
 );
 
+Map<String, Map<String, String>> _bundledSeedAudio() => {
+  'seed-001:gentle-natural': {
+    'path': 'assets/audio/seed-001-gentle-natural.mp3',
+    'sha256': 'b' * 64,
+  },
+  'seed-001:source': {
+    'path': 'assets/audio/seed-001-source.mp3',
+    'sha256': 'c' * 64,
+  },
+};
+
 void _setUpSentence(LearningController controller, LearnSentence sentence) {
   controller.state.sentences.add(sentence);
   controller.state.preferences.onboarded = true;
@@ -189,36 +208,91 @@ void _setUpSentence(LearningController controller, LearnSentence sentence) {
 
 void main() {
   test(
-    'guest can start a bundled seed loop without cloud calls',
+    'preparing a loop never starts playback, and a ready start skips preparation',
     () async {
       final platform = _LoopPlatform();
-      final gateway = _SignedOutGateway();
       final controller = LearningController(
-        gateway: gateway,
+        gateway: _SignedOutGateway(),
         platform: platform,
         polling: false,
         seeds: const [],
-        bundledAudio: {
-          'seed-001:gentle-natural': {
-            'path': 'assets/audio/seed-001-gentle-natural.mp3',
-            'sha256': 'b' * 64,
-          },
-          'seed-001:source': {
-            'path': 'assets/audio/seed-001-source.mp3',
-            'sha256': 'c' * 64,
-          },
-        },
+        bundledAudio: _bundledSeedAudio(),
       );
       addTearDown(controller.dispose);
       _setUpSentence(controller, _sentence(seedId: 'seed-001'));
 
+      await controller.prepareLoop();
+      expect(platform.actions, isNot(contains('audioLoopStart')));
+      expect(controller.loopReady, isTrue);
+
+      platform.actions.clear();
       await controller.startLoop();
 
-      expect(controller.loopReady, isTrue);
-      expect(controller.loopSessionId, isNotNull);
       expect(platform.actions, contains('audioLoopStart'));
-      expect(platform.actions, contains('audioUnlock'));
-      expect(gateway.requests, isEmpty);
+      expect(platform.actions, isNot(contains('audioCached')));
+      expect(controller.notice, isNull);
+    },
+  );
+
+  test(
+    'autoplay blocking keeps the loop session visible for one-tap resume',
+    () async {
+      final platform = _LoopPlatform(
+        loopStartState: 'ready',
+        loopStartStopReason: 'autoplay_blocked',
+      );
+      final controller = LearningController(
+        gateway: _SignedOutGateway(),
+        platform: platform,
+        polling: false,
+        seeds: const [],
+        bundledAudio: _bundledSeedAudio(),
+      );
+      addTearDown(controller.dispose);
+      _setUpSentence(controller, _sentence(seedId: 'seed-001'));
+
+      await controller.prepareLoop();
+      await controller.startLoop();
+
+      expect(controller.loopSessionId, isNotNull);
+      expect(controller.loopSessionVisible, isTrue);
+      expect(controller.loopActive, isFalse);
+
+      await controller.resumeLoop();
+      expect(platform.actions, contains('audioLoopResume'));
+      expect(controller.loopSessionId, isNotNull);
+    },
+  );
+
+  test('guest can start a bundled seed loop without cloud calls', () async {
+    final platform = _LoopPlatform();
+    final gateway = _SignedOutGateway();
+    final controller = LearningController(
+      gateway: gateway,
+      platform: platform,
+      polling: false,
+      seeds: const [],
+      bundledAudio: {
+        'seed-001:gentle-natural': {
+          'path': 'assets/audio/seed-001-gentle-natural.mp3',
+          'sha256': 'b' * 64,
+        },
+        'seed-001:source': {
+          'path': 'assets/audio/seed-001-source.mp3',
+          'sha256': 'c' * 64,
+        },
+      },
+    );
+    addTearDown(controller.dispose);
+    _setUpSentence(controller, _sentence(seedId: 'seed-001'));
+
+    await controller.startLoop();
+
+    expect(controller.loopReady, isTrue);
+    expect(controller.loopSessionId, isNotNull);
+    expect(platform.actions, contains('audioLoopStart'));
+    expect(platform.actions, contains('audioUnlock'));
+    expect(gateway.requests, isEmpty);
     },
   );
 
@@ -249,41 +323,41 @@ void main() {
   });
 
   test('archived sentences leave the next loop and their orphan cache is deleted', () async {
-    final platform = _LoopPlatform();
-    final gateway = _GeneratingGateway();
-    final controller = LearningController(
-      gateway: gateway,
-      platform: platform,
-      polling: false,
-      seeds: const [],
-    );
-    addTearDown(controller.dispose);
-    await controller.initialize();
-    final first = _sentence();
-    final second = LearnSentence(
-      id: '22222222-2222-4222-8222-222222222222',
-      source: '换一个表达。',
-      target: 'Try another expression.',
-    );
-    platform.hashes[second.target] = 'b' * 64;
-    platform.hashes[second.source] = 'c' * 64;
-    controller.state.sentences.addAll([first, second]);
-    controller.state.preferences.onboarded = true;
-    controller.initialized = true;
+      final platform = _LoopPlatform();
+      final gateway = _GeneratingGateway();
+      final controller = LearningController(
+        gateway: gateway,
+        platform: platform,
+        polling: false,
+        seeds: const [],
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      final first = _sentence();
+      final second = LearnSentence(
+        id: '22222222-2222-4222-8222-222222222222',
+        source: '换一个表达。',
+        target: 'Try another expression.',
+      );
+      platform.hashes[second.target] = 'b' * 64;
+      platform.hashes[second.source] = 'c' * 64;
+      controller.state.sentences.addAll([first, second]);
+      controller.state.preferences.onboarded = true;
+      controller.initialized = true;
 
-    await controller.startLoop();
-    await controller.stopLoop();
-    platform.actions.clear();
-    gateway.requests.clear();
-    controller.state.sentences
-        .firstWhere((sentence) => sentence.id == first.id)
+      await controller.startLoop();
+      await controller.stopLoop();
+      platform.actions.clear();
+      gateway.requests.clear();
+      controller.state.sentences
+              .firstWhere((sentence) => sentence.id == first.id)
         .archived = true;
 
-    await controller.startLoop();
+      await controller.startLoop();
 
-    expect(platform.actions, contains('audioCacheDelete'));
-    expect(gateway.requests, isEmpty);
-    expect(controller.loopSessionId, isNotNull);
+      expect(platform.actions, contains('audioCacheDelete'));
+      expect(gateway.requests, isEmpty);
+      expect(controller.loopSessionId, isNotNull);
   });
 
   test(

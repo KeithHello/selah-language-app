@@ -700,7 +700,7 @@ void main() {
   );
 
   testWidgets(
-    'today centers its single companion and greeting across viewport widths',
+    'today keeps the compact greeting and companion usable across widths',
     (tester) async {
       addTearDown(() => tester.binding.setSurfaceSize(null));
       controller.state.preferences.onboarded = true;
@@ -711,14 +711,11 @@ void main() {
         expect(tester.takeException(), isNull);
         expect(find.byType(PlushCompanion), findsOneWidget);
         expect(find.textContaining('OpenAI GPT'), findsOneWidget);
-        final contentCenter = tester.getCenter(find.byType(TextField)).dx;
-        for (final element in [
-          find.byType(PlushCompanion),
-          find.text('今天，想说点什么？'),
-          find.text('把真实的中文想法交给 Selah，慢慢变成你会说的英文。'),
-        ]) {
-          expect(tester.getCenter(element).dx, closeTo(contentCenter, 1));
-        }
+        expect(find.text('今天，想说点什么？'), findsOneWidget);
+        expect(
+          tester.getSize(find.byType(PlushCompanion)).width,
+          closeTo(56, 1),
+        );
       }
     },
   );
