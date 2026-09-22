@@ -59,6 +59,24 @@ dist/
 
 # AI local config
 .workbuddy/
+.agents/
+.worktrees/
+skills/
+skills-lock.json
+
+# Wrangler cache
+.wrangler/
+**/.wrangler/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local exploratory design and review assets
+design-system/selah/mascot/
+overview-code-review-*.md
+overview-current-status*.md
+SelahFlutter/tool/server_*.py
 
 # Local browser acceptance captures and test backups
 output/playwright/
