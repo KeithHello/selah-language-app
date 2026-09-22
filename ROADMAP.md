@@ -8,15 +8,16 @@
 
 ## 当前阶段
 
-### 2026-09-22 逐句听答案的母语释义点选（本地实现完成）
+### 2026-09-22 逐句听答案的母语释义点选（预览已发布，待真机验收）
 
 - [x] 逐句听揭开答案后，拆解短语和英文正文对应片段共用同一个选中状态；点击任一入口都在英文下方就地展开母语释义，再点收起或切换句子时清空。
 - [x] 拆解优先采用最长、不重叠匹配，避免 `all-nighter` 把 `pulled another all-nighter` 切碎；没有拆解时仍支持已有词汇条目点选。
 - [x] 使用现有 Quiet Growth 薰衣草 token、44px 触控热区、三语无障碍标签和减少动态适配；不改句子模型、音频、循环听、练习或笔记路径。
 - [x] 新增纯逻辑与正式 Web 入口 UI 回归测试；定向 Flutter 回归 61 项通过，`flutter analyze --no-pub` 无问题，`flutter build web --release` 成功生成 `SelahFlutter/build/web`。
-- [ ] 尚未做 Cloudflare Pages 预览与 iPhone Safari 真机验收。
+- [x] Cloudflare Pages 预览已发布到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://287709d6.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`，关联 commit `b039fdb`。
+- [ ] 尚未做 iPhone Safari 真机验收。
 
-### 2026-09-22 Today 输入、分句、拆解与单句语音体验修正（本地实现完成，待预览部署）
+### 2026-09-22 Today 输入、分句、拆解与单句语音体验修正（预览已发布，待真机验收）
 
 - [x] Today 输入区改为上方紧凑问候、下方大输入卡片；精灵保持 56px 主视觉，窄屏隐藏状态胶囊，输入标题、录音与生成按钮在 320px 和大字体下不溢出。
 - [x] 中文／日文转写文本会按句号、问号、感叹号和换行自动分句；2—20 句直接复用批量生成合约，超过 20 句继续进入可编辑整理流程；批量结果在 Today 显示为多张独立学习卡。
@@ -24,9 +25,9 @@
 - [x] 浏览器单句音频在用户点击时同时预解锁主音频与循环音频元素，网络／缓存完成后复用媒体权限再播放；自动播放受阻时保留可重试语义，兼容不支持音频元素的环境。
 - [x] 首批 starter 音频清单收敛为当前 10 句的 60 条有效轨道，保留物理目录中的旧 MP3 但不再由清单和 Web 资源引用。
 - [x] 新增句子切分与短句批量生成控制器测试；`flutter analyze`、`flutter test` 全量 284 项、Node 浏览器桥接 41 项和 `flutter build web --release` 均通过。
-- [ ] 尚未部署 Cloudflare Pages 预览；本轮未修改数据库、密钥、Supabase 远端函数或生产配置。
+- [x] Cloudflare Pages 预览已发布到 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名；本轮未修改数据库、密钥、Supabase 远端函数或生产配置。
 
-### 2026-09-22 循环听播放状态与音频复用修正（本地实现完成，待预览部署）
+### 2026-09-22 循环听播放状态与音频复用修正（预览已发布，待真机验收）
 
 - [x] 循环听拆分为「准备循环听」和「开始循环听」：准备阶段只增量核对、生成和缓存双语音轨，完成后显示可开始状态，不再在准备流程中启动播放或把准备完成提示带入播放页。
 - [x] 播放会话把 `ready` 视为「浏览器拦截自动播放，等待用户点击」的有效会话状态；主卡片、底部迷你播放器和聆听页保持在播放上下文，用户点击「继续播放」即可恢复，不会被切回准备界面。
@@ -34,7 +35,7 @@
 - [x] 增加准备快照指纹：句子新增、归档、文本／语言变化或声线变化会使旧准备结果失效；下一次开始只重新处理变化内容，并清理不再引用的循环听缓存。
 - [x] 新增并通过控制器、UI 与 Node 桥接回归测试：准备不启动播放、ready 一键继续、单元素复用、暂停／继续、顺序切换和归档缓存清理均有覆盖。
 - [x] `flutter analyze` 通过；相关 Flutter 测试全部通过；Node 循环播放测试 9 项通过；`flutter build web --release` 成功生成 `SelahFlutter/build/web`。
-- [ ] 尚未部署 Cloudflare Pages 预览；本轮不涉及数据库、Supabase 函数、密钥或生产环境变更。
+- [x] Cloudflare Pages 预览已发布到 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名；本轮不涉及数据库、Supabase 函数、密钥或生产环境变更。
 
 ### 2026-09-20 在线音频按语言供应商路由（已提交并发布预览）
 
