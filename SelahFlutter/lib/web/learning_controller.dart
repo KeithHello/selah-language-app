@@ -93,6 +93,15 @@ class LearningController extends ChangeNotifier {
   String? error;
   String? errorCode;
   String? notice;
+  bool noticeIsPersistent = false;
+  String? toastMessage;
+  bool toastIsError = false;
+  int toastRevision = 0;
+  int authPromptRevision = 0;
+  String? authPromptReason;
+  bool _authErrorPromoted = false;
+  bool _errorInAuthDialog = false;
+  int loginSuccessRevision = 0;
   int tab = 0;
   int? detailTab;
   String? detailSentenceId;
@@ -190,6 +199,9 @@ class LearningController extends ChangeNotifier {
   bool get isAnonymous => gateway.isAnonymous;
 
   bool get isRegistered => hasSession;
+  bool get shouldShowGlobalMessage =>
+      (error != null && !_authErrorPromoted && !_errorInAuthDialog) ||
+      (notice != null && noticeIsPersistent);
   bool get hasPendingRecording => _pendingRecording != null;
   String? get pendingPracticeSignal => _pendingPracticeSignal;
   String? get pendingPracticeSentenceId => _pendingPracticeSentenceId;
@@ -254,7 +266,7 @@ class LearningController extends ChangeNotifier {
             durationMinutes ?? next.preferences.loopOptions.durationMinutes,
       ).copyWith();
     }, generation: generation);
-    notice = '循环听设置已保存。';
+    showToast('循环听设置已保存。');
   });
 
   String _loopVoiceFor(LoopTrackRole role) => role == LoopTrackRole.source
@@ -628,7 +640,7 @@ class LearningController extends ChangeNotifier {
       _loopPreparedFingerprint = _loopPreparationFingerprint();
       loopPreparing = false;
       loopReady = true;
-      if (announce) notice = '双语音频已准备好。';
+      if (announce) showToast('双语音频已准备好。');
       notifyListeners();
     } catch (_) {
       loopPreparing = false;
@@ -954,6 +966,11 @@ class LearningController extends ChangeNotifier {
     error = null;
     errorCode = null;
     notice = null;
+    noticeIsPersistent = false;
+    _authErrorPromoted = false;
+    _errorInAuthDialog = false;
+    authPromptReason = null;
+    clearToast();
     recording = false;
     _pendingRecording = null;
     _recordRequestId = null;
@@ -1078,7 +1095,46 @@ class LearningController extends ChangeNotifier {
     error = null;
     errorCode = null;
     notice = null;
+    noticeIsPersistent = false;
+    _authErrorPromoted = false;
+    _errorInAuthDialog = false;
+    authPromptReason = null;
+    clearToast();
     notifyListeners();
+  }
+
+  void showToast(String message, {bool isError = false}) {
+    notice = message;
+    noticeIsPersistent = false;
+    toastMessage = message;
+    toastIsError = isError;
+    toastRevision++;
+    notifyListeners();
+  }
+
+  void showPersistentNotice(String message) {
+    clearToast();
+    notice = message;
+    noticeIsPersistent = true;
+    notifyListeners();
+  }
+
+  void clearToast() {
+    if (toastMessage == null) return;
+    toastMessage = null;
+    toastRevision++;
+  }
+
+  void _requestAuthPrompt(String reason, {bool promotesError = false}) {
+    authPromptReason = reason;
+    authPromptRevision++;
+    _authErrorPromoted = promotesError;
+  }
+
+  String? takeAuthPromptReason() {
+    final reason = authPromptReason;
+    authPromptReason = null;
+    return reason;
   }
 
   void updateTodayInput(String text) {
@@ -1118,7 +1174,7 @@ class LearningController extends ChangeNotifier {
     if (!initialized || preparation == null) return;
     if (index < 0 || index >= preparation.segments.length) return;
     if (busy) {
-      notice = '生成中，请等待完成后再编辑分句。';
+      showToast('生成中，请等待完成后再编辑分句。');
       notifyListeners();
       return;
     }
@@ -1362,13 +1418,19 @@ class LearningController extends ChangeNotifier {
     return fallback;
   }
 
-  Future<void> _run(Future<void> Function(int generation) action) async {
+  Future<void> _run(
+    Future<void> Function(int generation) action, {
+    bool promptForLogin = true,
+  }) async {
     if (busy) return;
     final generation = _accountGeneration;
     busy = true;
     error = null;
     errorCode = null;
     notice = null;
+    noticeIsPersistent = false;
+    _authErrorPromoted = false;
+    _errorInAuthDialog = false;
     notifyListeners();
     try {
       await action(generation);
@@ -1376,6 +1438,16 @@ class LearningController extends ChangeNotifier {
       if (_current(generation)) {
         errorCode = e is LearningFailure ? e.code : null;
         error = _message(e);
+        _errorInAuthDialog = !promptForLogin;
+        if (promptForLogin &&
+            configured &&
+            const {
+              'unauthorized',
+              'login_required',
+              'registered_account_required',
+            }.contains(errorCode)) {
+          _requestAuthPrompt(error!, promotesError: true);
+        }
         if (playback['state'] == 'loading') playback['state'] = 'idle';
       }
     } finally {
@@ -1603,7 +1675,7 @@ class LearningController extends ChangeNotifier {
     if (allowReuse && reusable != null) {
       activeSentence = reusable;
       recentGeneratedSentences = [reusable];
-      notice = '这句已经生成过，已为你打开现有记录。';
+      showToast('这句已经生成过，已为你打开现有记录。');
       return;
     }
     if (allowReuse) {
@@ -1611,7 +1683,7 @@ class LearningController extends ChangeNotifier {
           .where((sentence) => !sentence.hasKnownGenerationProvenance)
           .firstOrNull;
       if (legacySentence != null) {
-        notice = '发现已有相同内容，来源版本未知；你可以打开历史结果。';
+        showToast('发现已有相同内容，来源版本未知；你可以打开历史结果。');
       }
     }
     if (!allowReuse) {
@@ -1745,7 +1817,7 @@ class LearningController extends ChangeNotifier {
       unawaited(membership.load());
     }
     _scheduleSentenceAudio(sentence, generation);
-    notice = '这句英文已保存，准备好就听一听。';
+    showToast('这句英文已保存，准备好就听一听。');
   }
 
   Future<void> retryDraft(GenerationDraft draft) => _run((generation) async {
@@ -1971,9 +2043,11 @@ class LearningController extends ChangeNotifier {
         unawaited(membership.load());
       }
     }
-    notice = state.preparationDraft == null
-        ? strings.generatedCount(generatedCount)
-        : strings.generatedRemaining(generatedCount);
+    showToast(
+      state.preparationDraft == null
+          ? strings.generatedCount(generatedCount)
+          : strings.generatedRemaining(generatedCount),
+    );
   }
 
   Future<String> _audioKey(LearnSentence s) async {
@@ -2406,7 +2480,7 @@ class LearningController extends ChangeNotifier {
     if (platformInfo['online'] != false) {
       unawaited(_offerAfterLearning());
     }
-    notice = signal == 'clear' ? '记住的表达，会慢慢成为你的语言。' : '已经记下，下次会陪你再练一遍。';
+    showToast(signal == 'clear' ? '记住的表达，会慢慢成为你的语言。' : '已经记下，下次会陪你再练一遍。');
   }
 
   Future<void> markPreviewed(List<LearnSentence> sentences) =>
@@ -2509,7 +2583,7 @@ class LearningController extends ChangeNotifier {
         await stopLoop(reason: 'voiceChanged');
       }
     }
-    notice = '偏好已保存。';
+    showToast('偏好已保存。');
   });
   Future<void> login(
     String email,
@@ -2533,48 +2607,56 @@ class LearningController extends ChangeNotifier {
       }
     } on LearningFailure catch (failure) {
       if (failure.code != 'email_confirmation') rethrow;
-      if (_current(generation)) notice = '请先通过邮件确认账户，再回来登录。';
+      if (_current(generation)) {
+        showPersistentNotice('请先通过邮件确认账户，再回来登录。');
+      }
       return;
     }
     if (gateway.userId == null) {
-      notice = '注册请求已提交，请检查邮箱并确认账户后登录。';
+      showPersistentNotice('注册请求已提交，请检查邮箱并确认账户后登录。');
       return;
     }
     await _switchAccount(gateway.userId!);
     final loadedGeneration = _accountGeneration;
     if (!initialized) return;
-    await sync();
     _ensureCurrent(loadedGeneration);
-    if (syncFailed) return;
-    var profileNotice = '';
+    loginSuccessRevision++;
+    showToast(strings.text('feedback.login.success'));
+    await sync();
     if (register && registrationProfile?.hasAnyAnswer == true && isRegistered) {
-      try {
-        await researchProfile.load();
-        if (!researchProfile.profile.hasAnyAnswer) {
-          await researchProfile.save(registrationProfile!, consent: true);
-        }
-      } catch (_) {
-        profileNotice = '个人资料暂未保存，可在设置中补充。';
+      unawaited(
+        _saveRegistrationProfile(registrationProfile!, loadedGeneration),
+      );
+    }
+  }, promptForLogin: false);
+
+  Future<void> _saveRegistrationProfile(
+    ResearchProfile profile,
+    int generation,
+  ) async {
+    try {
+      await researchProfile.load();
+      if (!_current(generation) || researchProfile.profile.hasAnyAnswer) return;
+      await researchProfile.save(profile, consent: true);
+    } catch (_) {
+      if (_current(generation)) {
+        showPersistentNotice('个人资料暂未保存，可在设置中补充。');
       }
     }
-    notice = profileNotice.isEmpty
-        ? '已登录，学习内容将同步到你的账户。'
-        : '已登录，学习内容将同步到你的账户。$profileNotice';
-    notifyListeners();
-  });
+  }
+
   Future<void> logout() => _run((generation) async {
     await gateway.signOut();
     await _switchAccount('guest');
-    notice = '已退出账户，本机学习资料仍保留。';
-    notifyListeners();
+    showToast('已退出账户，本机学习资料仍保留。');
   });
   Future<void> resetPassword(String email) => _run((generation) async {
     if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(email.trim())) {
       throw const LearningFailure('请输入有效邮箱，才能发送找回密码邮件。');
     }
     await gateway.resetPassword(email, emailRedirectTo: selahAuthRedirectUrl());
-    notice = '如果这个邮箱已注册，找回密码邮件很快会送到。';
-  });
+    showPersistentNotice('如果这个邮箱已注册，找回密码邮件很快会送到。');
+  }, promptForLogin: false);
   Future<void> sync() async {
     if (syncing ||
         !initialized ||
@@ -2620,6 +2702,8 @@ class LearningController extends ChangeNotifier {
         syncFailed = true;
         errorCode = e is LearningFailure ? e.code : null;
         error = _message(e, fallback: '同步未完成，本机内容已保留，联网后可以重试。');
+        _authErrorPromoted = false;
+        _errorInAuthDialog = false;
       }
     } finally {
       if (_current(generation)) {
@@ -2695,14 +2779,14 @@ class LearningController extends ChangeNotifier {
           'selah-backup-${DateTime.now().toIso8601String().substring(0, 10)}.json',
       'text': const JsonEncoder.withIndent('  ').convert(data),
     });
-    notice = '备份已导出，包含句子、词汇、复习进度和精灵回忆。';
+    showToast('备份已导出，包含句子、词汇、复习进度和精灵回忆。');
   });
   Future<void> importBackup() => _run((generation) async {
     final raw = await platform.invoke('importBackup');
     if (raw == null) return;
     final imported = LearningSnapshot.importBackup(raw as String);
     await _mergeImport(imported, generation);
-    notice = '备份已合并，已有记录按较新版本保留。';
+    showToast('备份已合并，已有记录按较新版本保留。');
   });
 
   Future<LearningSnapshot?> pickBackup() async {
@@ -2729,7 +2813,7 @@ class LearningController extends ChangeNotifier {
         );
         await _mergeImport(validated, generation);
         _ensureCurrent(generation);
-        notice = '备份已合并，已有记录按较新版本保留。';
+        showToast('备份已合并，已有记录按较新版本保留。');
       });
 
   Future<LearningSnapshot?> loadGuestData() async {
@@ -2753,7 +2837,7 @@ class LearningController extends ChangeNotifier {
 
   Future<void> bringGuestInput() => _run((generation) async {
     if (!isRegistered) {
-      notice = '当前已在本机资料中，无需导入。';
+      showToast('当前已在本机资料中，无需导入。');
       return;
     }
     final guest = await loadGuestData();
@@ -2768,7 +2852,7 @@ class LearningController extends ChangeNotifier {
     updateTodayInput(input);
     await flushLocalWrites();
     _ensureCurrent(generation);
-    if (!localSaveFailed) notice = '访客输入已追加，原输入仍保留在访客区。';
+    if (!localSaveFailed) showToast('访客输入已追加，原输入仍保留在访客区。');
   });
   Future<void> _mergeImport(LearningSnapshot imported, int generation) =>
       _change((next) {
@@ -2801,19 +2885,23 @@ class LearningController extends ChangeNotifier {
       }, generation: generation);
   Future<void> importGuest() => _run((generation) async {
     if (!isRegistered) {
-      notice = '请注册或登录正式账户后，再选择导入本机资料。';
+      _requestAuthPrompt('请注册或登录正式账户后，再选择导入本机资料。');
       return;
     }
     await _ensureOnlineSession();
     _ensureCurrent(generation);
     final guest = await store.load('guest');
     await _mergeImport(guest, generation);
-    notice = '本机学习资料已合并到当前账户。';
+    showToast('本机学习资料已合并到当前账户。');
   });
   Future<void> install() => _run((generation) async {
     final installed = await platform.invoke('install');
     await _refreshPlatformInfo();
-    notice = installed == true ? '已添加 Selah。' : '可在浏览器菜单中选择「添加到主屏幕」或「安装应用」。';
+    if (installed == true) {
+      showToast('已添加 Selah。');
+    } else {
+      showPersistentNotice('可在浏览器菜单中选择「添加到主屏幕」或「安装应用」。');
+    }
   });
   Future<void> applyUpdate() => _run((generation) async {
     await flushLocalWrites();
@@ -2822,23 +2910,27 @@ class LearningController extends ChangeNotifier {
       throw const LearningFailure('请先保存本机内容，并完成录音转写或练习评分，再更新应用。');
     }
     final applied = await platform.invoke('applyUpdate');
-    if (applied != true) notice = '当前已经是最新版本。';
+    if (applied != true) showToast('当前已经是最新版本。');
     if (applied == true) await _refreshPlatformInfo();
   });
   Future<void> persistStorage() => _run((generation) async {
     final granted = await platform.invoke('persistentStorage');
     await _refreshPlatformInfo();
-    notice = granted == true ? '浏览器已允许持久保存学习缓存。' : '浏览器暂未授予持久存储，请定期导出备份。';
+    if (granted == true) {
+      showToast('浏览器已允许持久保存学习缓存。');
+    } else {
+      showPersistentNotice('浏览器暂未授予持久存储，请定期导出备份。');
+    }
   });
   Future<void> checkForUpdates() => _run((generation) async {
     final result = await platform.invoke('checkUpdate');
     await _refreshPlatformInfo();
     final info = result is Map ? Map<String, dynamic>.from(result) : const {};
-    notice = switch (info['status']) {
+    showToast(switch (info['status']) {
       'available' => '有新版本可用。',
       'unsupported' => '当前浏览器不支持自动检查更新。',
       _ => '当前已经是最新版本。',
-    };
+    });
   });
 
   Future<void> _refreshPlatformInfo() async {
@@ -2888,7 +2980,7 @@ class LearningController extends ChangeNotifier {
       _pendingRecording = null;
       _recordRequestId = null;
       _showCompanionCue(SpriteActionId.recDone);
-      notice = '录音已转为文字，可以修改后生成英文。';
+      showToast('录音已转为文字，可以修改后生成英文。');
     });
     if (_current(startedGeneration)) {
       recording = false;

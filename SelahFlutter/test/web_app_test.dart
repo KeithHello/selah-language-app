@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/domain/selah_enums.dart';
@@ -60,6 +62,22 @@ class _FakePlatform implements LearningPlatform {
 class _SignedOutConfiguredGateway extends FakeGateway {
   _SignedOutConfiguredGateway() {
     user = null;
+  }
+}
+
+class _SlowSignInGateway extends _SignedOutConfiguredGateway {
+  final syncStarted = Completer<void>();
+  final syncResult = Completer<LearningSnapshot>();
+
+  @override
+  Future<void> signIn(String email, String password) async {
+    user = '00000000-0000-4000-8000-000000000001';
+  }
+
+  @override
+  Future<LearningSnapshot> synchronize(LearningSnapshot local) {
+    if (!syncStarted.isCompleted) syncStarted.complete();
+    return syncResult.future;
   }
 }
 
@@ -428,7 +446,7 @@ void main() {
   });
 
   testWidgets(
-    'unsigned generation prompts registration and preserves local access',
+    'unsigned generation opens auth dialog and preserves local access',
     (tester) async {
       final gateway = _SignedOutConfiguredGateway()..fail = false;
       platform.info['online'] = true;
@@ -450,12 +468,55 @@ void main() {
 
       expect(configuredController.hasSession, isFalse);
       expect(configuredController.errorCode, 'login_required');
-      expect(find.text('注册／登录'), findsOneWidget);
+      expect(find.text('登录 Selah'), findsOneWidget);
       expect(find.text('请先登录，便能生成自己的英文和语音。'), findsOneWidget);
+      expect(find.text('注册／登录'), findsNothing);
       await configuredController.sync();
       await tester.pumpAndSettle();
     },
   );
+
+  testWidgets('successful action notice appears as a floating toast', (
+    tester,
+  ) async {
+    controller.state.preferences.onboarded = true;
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pump();
+
+    controller.showToast('偏好已保存。');
+    await tester.pump();
+
+    expect(find.byKey(const ValueKey('webFeedbackToast')), findsOneWidget);
+    expect(find.text('偏好已保存。'), findsOneWidget);
+    expect(find.byKey(const ValueKey('persistentMessageBar')), findsNothing);
+  });
+
+  testWidgets('sidebar reports actual sync state instead of connection state', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final gateway = FakeGateway()
+      ..fail = false
+      ..user = null;
+    final configuredController = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(6, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(configuredController.dispose);
+    await configuredController.initialize();
+    configuredController.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+
+    await tester.pumpWidget(WebLearningApp(controller: configuredController));
+    await tester.pumpAndSettle();
+
+    expect(find.text('本机学习中'), findsOneWidget);
+    expect(find.text('已连接，可以同步'), findsNothing);
+  });
 
   testWidgets(
     'non-auth generation errors do not replace their own message with a login action',
@@ -482,6 +543,98 @@ void main() {
       expect(find.text('注册／登录'), findsNothing);
     },
   );
+
+  testWidgets('background auth failure stays visible without opening login', (
+    tester,
+  ) async {
+    final gateway = _SignedOutConfiguredGateway()..fail = false;
+    final configuredController = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(6, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(configuredController.dispose);
+    await configuredController.initialize();
+    configuredController.state.preferences.onboarded = true;
+    configuredController.syncFailed = true;
+    configuredController.errorCode = 'unauthorized';
+    configuredController.error = '同步未完成，本机内容已保留，请重新登录。';
+
+    await tester.pumpWidget(WebLearningApp(controller: configuredController));
+    await tester.pumpAndSettle();
+
+    expect(find.text('同步未完成，本机内容已保留，请重新登录。'), findsOneWidget);
+    expect(find.text('登录 Selah'), findsNothing);
+  });
+
+  testWidgets('login dialog closes before cloud sync finishes', (tester) async {
+    final gateway = _SlowSignInGateway();
+    platform.info['online'] = true;
+    final configuredController = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(6, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(configuredController.dispose);
+    await configuredController.initialize();
+    configuredController.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    configuredController.navigate(4);
+
+    await tester.pumpWidget(WebLearningApp(controller: configuredController));
+    await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('登录／注册'));
+    await tester.tap(find.text('登录／注册'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('authEmailField')),
+      'user@example.com',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('authPasswordField')),
+      '123456',
+    );
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const ValueKey('authSubmitButton')))
+          .onPressed,
+      isNotNull,
+    );
+    await tester.tap(find.byKey(const ValueKey('authSubmitButton')));
+    await tester.pump();
+    for (
+      var attempt = 0;
+      attempt < 10 && !gateway.syncStarted.isCompleted;
+      attempt++
+    ) {
+      await tester.pump(const Duration(milliseconds: 1));
+    }
+
+    expect(
+      gateway.syncStarted.isCompleted,
+      isTrue,
+      reason:
+          'revision=${configuredController.loginSuccessRevision}, '
+          'initialized=${configuredController.initialized}, '
+          'registered=${configuredController.isRegistered}, '
+          'online=${configuredController.platformInfo["online"]}, '
+          'syncing=${configuredController.syncing}',
+    );
+    expect(find.text('登录 Selah'), findsNothing);
+    expect(find.byKey(const ValueKey('webFeedbackToast')), findsOneWidget);
+    final loginNotice = configuredController.strings.text(
+      'feedback.login.success',
+    );
+    expect(configuredController.toastMessage, loginNotice);
+    expect(find.text(loginNotice), findsOneWidget);
+    expect(configuredController.syncPresentation.state.name, 'syncing');
+
+    gateway.syncResult.complete(configuredController.state.copy());
+    await tester.pumpAndSettle();
+  });
 
   testWidgets(
     'registered-account requirement offers inline registration and login',

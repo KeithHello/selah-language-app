@@ -15,6 +15,7 @@ import '../domain/learning_models.dart';
 import '../domain/listen_peek.dart';
 import '../domain/sentence_splitter.dart';
 import '../domain/research_profile.dart';
+import '../domain/web_status.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
 import 'membership_widgets.dart';
@@ -169,21 +170,212 @@ class _WebLearningAppState extends State<WebLearningApp> {
   };
 }
 
-class _WebRoot extends StatelessWidget {
+class _WebRoot extends StatefulWidget {
   const _WebRoot({required this.controller, required this.strings});
 
   final LearningController controller;
   final SelahStrings strings;
 
   @override
-  Widget build(BuildContext context) {
+  State<_WebRoot> createState() => _WebRootState();
+}
+
+class _WebToastContent {
+  const _WebToastContent({required this.message, required this.isError});
+
+  final String message;
+  final bool isError;
+}
+
+class _WebRootState extends State<_WebRoot> {
+  Timer? _toastTimer;
+  _WebToastContent? _toast;
+  int _seenToastRevision = 0;
+  int _seenAuthPromptRevision = 0;
+  bool _authDialogOpen = false;
+
+  LearningController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller.addListener(_controllerChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _controllerChanged());
+  }
+
+  @override
+  void didUpdateWidget(covariant _WebRoot oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == controller) return;
+    oldWidget.controller.removeListener(_controllerChanged);
+    controller.addListener(_controllerChanged);
+    _seenToastRevision = 0;
+    _seenAuthPromptRevision = 0;
+    WidgetsBinding.instance.addPostFrameCallback((_) => _controllerChanged());
+  }
+
+  void _controllerChanged() {
+    if (!mounted) return;
+    if (controller.toastRevision > _seenToastRevision) {
+      _seenToastRevision = controller.toastRevision;
+      final message = controller.toastMessage;
+      if (message == null) {
+        _dismissToast();
+      } else {
+        _showToast(message, controller.toastIsError);
+      }
+    }
+    if (controller.authPromptRevision > _seenAuthPromptRevision) {
+      _seenAuthPromptRevision = controller.authPromptRevision;
+      final reason = controller.takeAuthPromptReason();
+      if (reason != null) _showAuthPrompt(reason);
+    }
+  }
+
+  void _showToast(String message, bool isError) {
+    _toastTimer?.cancel();
+    setState(
+      () => _toast = _WebToastContent(message: message, isError: isError),
+    );
+    if (!MediaQuery.accessibleNavigationOf(context)) {
+      _toastTimer = Timer(const Duration(seconds: 5), _dismissToast);
+    }
+  }
+
+  void _dismissToast() {
+    _toastTimer?.cancel();
+    controller.clearToast();
+    if (mounted && _toast != null) setState(() => _toast = null);
+  }
+
+  void _showAuthPrompt(String reason) {
+    if (_authDialogOpen) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || _authDialogOpen) return;
+      _authDialogOpen = true;
+      showDialog<void>(
+        context: context,
+        builder: (_) => _AuthDialog(controller: controller, reason: reason),
+      ).whenComplete(() {
+        if (mounted) setState(() => _authDialogOpen = false);
+      });
+    });
+  }
+
+  Widget _page() {
     if (!controller.initialized) {
-      return _LoadingView(error: controller.error, strings: strings);
+      return _LoadingView(error: controller.error, strings: widget.strings);
     }
     if (!controller.state.preferences.onboarded) {
       return _OnboardingPage(controller: controller);
     }
     return _WebShell(controller: controller);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final desktop = width >= 900;
+        final companionVisible =
+            width >= 1180 &&
+            controller.state.preferences.companionRailVisible &&
+            controller.tab != 0;
+        final right = desktop ? (companionVisible ? 280.0 : 24.0) : 16.0;
+        final top =
+            MediaQuery.paddingOf(context).top +
+            (controller.state.preferences.onboarded
+                ? (desktop ? 76.0 : 68.0)
+                : 16.0);
+        final toastWidth = (width - right - 16).clamp(0.0, 420.0).toDouble();
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            _page(),
+            if (_toast != null)
+              Positioned(
+                top: top,
+                right: right,
+                width: toastWidth,
+                child: _WebToast(content: _toast!, onDismiss: _dismissToast),
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  @override
+  void dispose() {
+    controller.removeListener(_controllerChanged);
+    _toastTimer?.cancel();
+    super.dispose();
+  }
+}
+
+class _WebToast extends StatelessWidget {
+  const _WebToast({required this.content, required this.onDismiss});
+
+  final _WebToastContent content;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = SelahStrings.of(_contextUiLocale(context));
+    final color = content.isError ? SelahColors.coral : SelahColors.sage;
+    final background = content.isError
+        ? SelahColors.coralSoft
+        : SelahColors.sageSoft;
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+    return Semantics(
+      liveRegion: true,
+      label:
+          '${strings.translateLegacy(content.isError ? '错误：' : '提示：')}'
+          '${strings.translateLegacy(content.message)}',
+      child: Material(
+        key: const ValueKey('webFeedbackToast'),
+        color: background,
+        elevation: 4,
+        shadowColor: SelahColors.textPrimary.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(SelahCornerRadius.md),
+        child: AnimatedOpacity(
+          opacity: 1,
+          duration: duration,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
+            child: Row(
+              children: [
+                Icon(
+                  content.isError
+                      ? Icons.info_outline_rounded
+                      : Icons.check_circle_outline_rounded,
+                  size: 19,
+                  color: color,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    strings.translateLegacy(content.message),
+                    style: SelahTypography.bodySmall(
+                      color: SelahColors.textSecondary,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: strings.text('common.close'),
+                  onPressed: onDismiss,
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  visualDensity: VisualDensity.compact,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -432,48 +624,94 @@ class _SidebarStatus extends StatelessWidget {
   final LearningController controller;
 
   @override
+  Widget build(BuildContext context) =>
+      _SyncStatusTile(controller: controller, compact: true);
+}
+
+class _SyncStatusTile extends StatelessWidget {
+  const _SyncStatusTile({required this.controller, this.compact = false});
+
+  final LearningController controller;
+  final bool compact;
+
+  @override
   Widget build(BuildContext context) {
-    final strings = SelahStrings.of(controller.uiLocale);
-    final online = _boolValue(controller.platformInfo, const [
-      'online',
-      'isOnline',
-    ]);
-    final configured = controller.configured;
-    final session = controller.isRegistered;
-    final label = !configured
-        ? strings.translateLegacy('本机学习中（云端未配置）')
-        : !session
-        ? strings.translateLegacy('本机学习中（登录后可同步）')
-        : online == false
-        ? strings.translateLegacy('离线学习中')
-        : online == true
-        ? strings.translateLegacy('已连接，可以同步')
-        : strings.translateLegacy('账户已连接，等待网络状态');
-    final muted = !configured || !session || online == false;
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: muted ? SelahColors.amberSoft : SelahColors.sageSoft,
-        borderRadius: BorderRadius.circular(SelahCornerRadius.md),
-      ),
-      child: Row(
-        children: [
-          Icon(
-            muted ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
-            size: 17,
-            color: muted ? SelahColors.amber : SelahColors.sage,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: SelahTypography.bodySmall(
-                color: SelahColors.textSecondary,
-              ),
+    final status = controller.syncPresentation;
+    final isFailure =
+        status.state == WebSyncState.localSaveFailed ||
+        status.state == WebSyncState.syncFailed;
+    final isSynced = status.state == WebSyncState.synced;
+    final color = isFailure
+        ? SelahColors.coral
+        : isSynced
+        ? SelahColors.sage
+        : SelahColors.amber;
+    final background = isFailure
+        ? SelahColors.coralSoft
+        : isSynced
+        ? SelahColors.sageSoft
+        : SelahColors.amberSoft;
+    final icon = switch (status.state) {
+      WebSyncState.syncing => Icons.sync_rounded,
+      WebSyncState.synced => Icons.cloud_done_outlined,
+      WebSyncState.pendingChanges => Icons.cloud_upload_outlined,
+      WebSyncState.syncFailed ||
+      WebSyncState.localSaveFailed => Icons.cloud_off_outlined,
+      WebSyncState.savingLocal => Icons.save_outlined,
+      _ => Icons.cloud_off_outlined,
+    };
+    return Semantics(
+      liveRegion: true,
+      label: '${status.label}。${status.detail}',
+      child: Container(
+        width: double.infinity,
+        padding: EdgeInsets.all(compact ? 12 : 14),
+        decoration: BoxDecoration(
+          color: background,
+          borderRadius: BorderRadius.circular(SelahCornerRadius.md),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: compact
+                  ? Text(
+                      status.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SelahTypography.bodySmall(
+                        color: SelahColors.textSecondary,
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          status.label,
+                          style: SelahTypography.labelMedium(
+                            color: SelahColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          status.detail,
+                          style: SelahTypography.bodySmall(
+                            color: SelahColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
-          ),
-        ],
+            if (status.state == WebSyncState.syncing)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -753,7 +991,7 @@ class _Content extends StatelessWidget {
               onOpen: () => controller.navigate(4),
             ),
           ),
-        if (controller.error != null || controller.notice != null)
+        if (controller.shouldShowGlobalMessage)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: _MessageBar(controller: controller),
@@ -823,6 +1061,7 @@ class _MessageBar extends StatelessWidget {
       liveRegion: true,
       label: '${strings.translateLegacy(isError ? '错误：' : '提示：')}$message',
       child: Container(
+        key: const ValueKey('persistentMessageBar'),
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
         decoration: BoxDecoration(
@@ -1109,10 +1348,11 @@ class _TodayPageState extends State<_TodayPage> {
         segments.length <= PreparationDraft.maxSegments) {
       await c.generateSplitSentences(segments, sourceText: text);
       if (mounted && c.error == null) {
-        c.notice = c.strings.message('today.splitNotice', {
-          'count': '${segments.length}',
-        });
-        c.notifyListeners();
+        c.showToast(
+          c.strings.message('today.splitNotice', {
+            'count': '${segments.length}',
+          }),
+        );
       }
       return;
     }
@@ -4199,6 +4439,9 @@ class _SettingsPageState extends State<_SettingsPage> {
                     child: Text(s.translateLegacy('退出')),
                   ),
                 ),
+                const SizedBox(height: 12),
+                _SyncStatusTile(controller: c),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     FilledButton.icon(
@@ -4560,7 +4803,7 @@ class _OnboardingPageState extends State<_OnboardingPage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (c.error != null || c.notice != null) ...[
+          if (c.shouldShowGlobalMessage) ...[
             SizedBox(
               width: (MediaQuery.sizeOf(context).width - 32).clamp(0.0, 360.0),
               child: _MessageBar(controller: c),
@@ -5550,9 +5793,10 @@ class _InfoBox extends StatelessWidget {
 }
 
 class _AuthDialog extends StatefulWidget {
-  const _AuthDialog({required this.controller});
+  const _AuthDialog({required this.controller, this.reason});
 
   final LearningController controller;
+  final String? reason;
 
   @override
   State<_AuthDialog> createState() => _AuthDialogState();
@@ -5567,6 +5811,8 @@ class _AuthDialogState extends State<_AuthDialog> {
   String? _gender;
   String? _genderDescription;
   bool _profileConsent = false;
+  int _loginRevisionAtSubmit = 0;
+  bool _closedAfterLogin = false;
 
   bool get _hasProfileAnswer =>
       _ageGroup != null ||
@@ -5574,7 +5820,25 @@ class _AuthDialogState extends State<_AuthDialog> {
       (_genderDescription?.trim().isNotEmpty ?? false);
 
   @override
+  void initState() {
+    super.initState();
+    widget.controller.addListener(_controllerChanged);
+  }
+
+  void _controllerChanged() {
+    if (!mounted ||
+        !_busy ||
+        _closedAfterLogin ||
+        widget.controller.loginSuccessRevision <= _loginRevisionAtSubmit) {
+      return;
+    }
+    _closedAfterLogin = true;
+    Navigator.of(context).pop();
+  }
+
+  @override
   void dispose() {
+    widget.controller.removeListener(_controllerChanged);
     _email.dispose();
     _password.dispose();
     super.dispose();
@@ -5590,6 +5854,8 @@ class _AuthDialogState extends State<_AuthDialog> {
     }
     setState(() => _busy = true);
     widget.controller.clearMessage();
+    _loginRevisionAtSubmit = widget.controller.loginSuccessRevision;
+    _closedAfterLogin = false;
     try {
       await widget.controller.login(
         email,
@@ -5603,7 +5869,10 @@ class _AuthDialogState extends State<_AuthDialog> {
               )
             : null,
       );
-      if (mounted && widget.controller.error == null) {
+      if (mounted &&
+          !_closedAfterLogin &&
+          widget.controller.loginSuccessRevision > _loginRevisionAtSubmit) {
+        _closedAfterLogin = true;
         Navigator.of(context).pop();
       }
     } finally {
@@ -5623,7 +5892,20 @@ class _AuthDialogState extends State<_AuthDialog> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (widget.reason != null) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  strings.translateLegacy(widget.reason!),
+                  style: SelahTypography.bodySmall(
+                    color: SelahColors.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             TextField(
+              key: const ValueKey('authEmailField'),
               controller: _email,
               keyboardType: TextInputType.emailAddress,
               autofocus: true,
@@ -5633,6 +5915,7 @@ class _AuthDialogState extends State<_AuthDialog> {
             ),
             const SizedBox(height: 12),
             TextField(
+              key: const ValueKey('authPasswordField'),
               controller: _password,
               obscureText: true,
               decoration: InputDecoration(
@@ -5739,7 +6022,9 @@ class _AuthDialogState extends State<_AuthDialog> {
                   ),
                 ),
             ],
-            if (widget.controller.error != null) ...[
+            if (widget.controller.error != null &&
+                !(widget.reason != null &&
+                    widget.reason == widget.controller.error)) ...[
               const SizedBox(height: 12),
               Align(
                 alignment: Alignment.centerLeft,
@@ -5749,10 +6034,25 @@ class _AuthDialogState extends State<_AuthDialog> {
                 ),
               ),
             ],
+            if (widget.controller.notice != null &&
+                widget.controller.noticeIsPersistent) ...[
+              const SizedBox(height: 12),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  strings.translateLegacy(widget.controller.notice!),
+                  style: SelahTypography.bodySmall(color: SelahColors.amber),
+                ),
+              ),
+            ],
           ],
         ),
       ),
       actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: Text(strings.translateLegacy('取消')),
+        ),
         TextButton(
           onPressed: _busy
               ? null
@@ -5760,6 +6060,7 @@ class _AuthDialogState extends State<_AuthDialog> {
           child: Text(strings.translateLegacy(_register ? '已有账户？登录' : '创建新账户')),
         ),
         FilledButton(
+          key: const ValueKey('authSubmitButton'),
           onPressed: _busy ? null : _submit,
           child: Text(
             strings.translateLegacy(_busy ? '处理中…' : (_register ? '注册' : '登录')),

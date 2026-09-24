@@ -253,6 +253,7 @@ const selahJaOverrides = <String, String>{
   'admin.attemptsCost': '{count}回・USD {cost}',
   'admin.count': '{count}回',
   'admin.unknownCost': '確認待ち',
+  'feedback.login.success': 'Selah にログインしました。',
   'sync.loading': '学習記録を読み込んでいます',
   'sync.loadingDetail': 'この端末の学習スペースを開いています。',
   'sync.localSaveFailed': '端末への保存に失敗',

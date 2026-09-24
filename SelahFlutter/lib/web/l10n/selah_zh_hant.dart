@@ -249,6 +249,7 @@ const selahZhHantOverrides = <String, String>{
   'admin.attemptsCost': '{count} 次 · USD {cost}',
   'admin.count': '{count} 次',
   'admin.unknownCost': '待確認',
+  'feedback.login.success': '已登入 Selah。',
   'sync.loading': '正在讀取學習記錄',
   'sync.loadingDetail': '請稍候，正在開啟這台裝置上的學習空間。',
   'sync.localSaveFailed': '本機保存失敗',

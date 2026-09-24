@@ -256,6 +256,7 @@ const _baseStrings = <String, String>{
   'admin.attemptsCost': '{count} 次 · USD {cost}',
   'admin.count': '{count} 次',
   'admin.unknownCost': '待确认',
+  'feedback.login.success': '已登录 Selah。',
   'sync.loading': '正在读取学习记录',
   'sync.loadingDetail': '请稍等，正在打开这台设备上的学习空间。',
   'sync.localSaveFailed': '本机保存失败',
