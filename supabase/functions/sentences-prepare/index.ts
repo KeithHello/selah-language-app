@@ -61,6 +61,7 @@ interface Claim {
     | "rate_limited"
     | "quota_exceeded";
   responsePayload: Record<string, unknown> | null;
+  retryAfterSeconds?: number;
 }
 
 interface RPCClient {
@@ -107,9 +108,9 @@ Deno.serve(async (req: Request) => {
       "service_paused",
     );
   }
-  const identity = authorizeBillableIdentity(req, controls);
+  const identity = authorizeBillableIdentity(req);
   if (identity instanceof Response) return identity;
-  const { userId, isAnonymous } = identity;
+  const { userId } = identity;
   let claimID: string | null = null;
 
   try {
@@ -117,10 +118,10 @@ Deno.serve(async (req: Request) => {
       "claim_generation_request",
       {
         p_user_id: userId,
-        p_operation_type: "capture_preparation",
+        p_operation_type: "text_preparation",
         p_client_request_id: validation.clientRequestId,
         p_minute_limit: CAPTURE_PREPARATION_MINUTE_LIMIT,
-        p_daily_limit: 1000000,
+        p_daily_limit: CAPTURE_PREPARATION_DAILY_LIMIT,
       },
     );
     if (error || !raw) {
@@ -149,6 +150,7 @@ Deno.serve(async (req: Request) => {
         "Request is still in progress",
         429,
         "request_in_progress",
+        { retryAfterSeconds: claim.retryAfterSeconds ?? 1 },
       );
     }
     if (
@@ -161,6 +163,7 @@ Deno.serve(async (req: Request) => {
           : "Daily preparation quota exceeded",
         429,
         claim.decision,
+        { retryAfterSeconds: claim.retryAfterSeconds ?? 1 },
       );
     }
     if (claim.decision !== "claimed") {
@@ -180,14 +183,13 @@ Deno.serve(async (req: Request) => {
         feature: "preparation",
         units: { itemCount: 1 },
         payloadHash: validation.rawTranscript,
-        isAnonymous,
         enforcementEnabled: controls.membershipEnforcementEnabled,
       },
     );
     if (!admission.allowed) {
       await supabase.rpc("fail_generation_request", {
         p_user_id: userId,
-        p_operation_type: "capture_preparation",
+        p_operation_type: "text_preparation",
         p_client_request_id: validation.clientRequestId,
       });
       return errorResponse(
@@ -304,7 +306,7 @@ Deno.serve(async (req: Request) => {
       "complete_generation_request",
       {
         p_user_id: userId,
-        p_operation_type: "capture_preparation",
+        p_operation_type: "text_preparation",
         p_client_request_id: validation.clientRequestId,
         p_response_payload: payload,
       },
@@ -409,7 +411,7 @@ async function failPreparationClaim(
 ): Promise<void> {
   await supabase.rpc("fail_generation_request", {
     p_user_id: userID,
-    p_operation_type: "capture_preparation",
+    p_operation_type: "text_preparation",
     p_client_request_id: clientRequestID,
   });
 }

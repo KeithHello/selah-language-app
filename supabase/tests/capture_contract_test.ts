@@ -115,7 +115,7 @@ Deno.test("preparation claims capacity before calling OpenAI", () => {
 });
 
 Deno.test("preparation uses a dedicated operation and service-role client", () => {
-  assertStringIncludes(PREPARATION_FUNCTION_SOURCE, "capture_preparation");
+  assertStringIncludes(PREPARATION_FUNCTION_SOURCE, "text_preparation");
   assertStringIncludes(
     PREPARATION_FUNCTION_SOURCE,
     "SUPABASE_SERVICE_ROLE_KEY",

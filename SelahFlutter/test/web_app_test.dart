@@ -427,35 +427,38 @@ void main() {
     expect(find.widgetWithText(OutlinedButton, '登录／注册'), findsOneWidget);
   });
 
-  testWidgets('unsigned generation starts anonymously without a login banner', (
-    tester,
-  ) async {
-    final gateway = _SignedOutConfiguredGateway()..fail = false;
-    platform.info['online'] = true;
-    final configuredController = LearningController(
-      gateway: gateway,
-      platform: platform,
-      seeds: List.generate(6, (index) => _seed(index + 1)),
-      polling: false,
-    );
-    addTearDown(configuredController.dispose);
-    await configuredController.initialize();
-    configuredController.state.preferences
-      ..onboarded = true
-      ..uiLocale = 'zh-Hans';
-    await configuredController.generate('今天想早点休息。');
+  testWidgets(
+    'unsigned generation prompts registration and preserves local access',
+    (tester) async {
+      final gateway = _SignedOutConfiguredGateway()..fail = false;
+      platform.info['online'] = true;
+      final configuredController = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: List.generate(6, (index) => _seed(index + 1)),
+        polling: false,
+      );
+      addTearDown(configuredController.dispose);
+      await configuredController.initialize();
+      configuredController.state.preferences
+        ..onboarded = true
+        ..uiLocale = 'zh-Hans';
+      await configuredController.generate('今天想早点休息。');
 
-    await tester.pumpWidget(WebLearningApp(controller: configuredController));
-    await tester.pumpAndSettle();
+      await tester.pumpWidget(WebLearningApp(controller: configuredController));
+      await tester.pumpAndSettle();
 
-    expect(configuredController.hasSession, isTrue);
-    expect(find.text('请先登录，便能生成自己的英文和语音。'), findsNothing);
-    await configuredController.sync();
-    await tester.pumpAndSettle();
-  });
+      expect(configuredController.hasSession, isFalse);
+      expect(configuredController.errorCode, 'login_required');
+      expect(find.text('注册／登录'), findsOneWidget);
+      expect(find.text('请先登录，便能生成自己的英文和语音。'), findsOneWidget);
+      await configuredController.sync();
+      await tester.pumpAndSettle();
+    },
+  );
 
   testWidgets(
-    'anonymous budget errors stay local without a login call to action',
+    'non-auth generation errors do not replace their own message with a login action',
     (tester) async {
       final gateway = _SignedOutConfiguredGateway()..fail = false;
       platform.info['online'] = true;
@@ -470,7 +473,6 @@ void main() {
       configuredController.state.preferences
         ..onboarded = true
         ..name = '小芽';
-      await configuredController.ensureCloudSession();
       configuredController.errorCode = 'service_budget_protected';
       configuredController.error = '今天的测试预算已用完，请明天再试。';
       configuredController.notifyListeners();
@@ -481,32 +483,32 @@ void main() {
     },
   );
 
-  testWidgets('production anonymous restriction keeps an inline login action', (
-    tester,
-  ) async {
-    final gateway = _SignedOutConfiguredGateway()..fail = false;
-    platform.info['online'] = true;
-    final configuredController = LearningController(
-      gateway: gateway,
-      platform: platform,
-      seeds: List.generate(6, (index) => _seed(index + 1)),
-      polling: false,
-    );
-    addTearDown(configuredController.dispose);
-    await configuredController.initialize();
-    configuredController.state.preferences
-      ..onboarded = true
-      ..name = '小芽'
-      ..uiLocale = 'zh-Hans';
-    await configuredController.ensureCloudSession();
-    configuredController.errorCode = 'anonymous_test_ended';
-    configuredController.error = '匿名测试已结束。';
-    configuredController.notifyListeners();
+  testWidgets(
+    'registered-account requirement offers inline registration and login',
+    (tester) async {
+      final gateway = _SignedOutConfiguredGateway()..fail = false;
+      platform.info['online'] = true;
+      final configuredController = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: List.generate(6, (index) => _seed(index + 1)),
+        polling: false,
+      );
+      addTearDown(configuredController.dispose);
+      await configuredController.initialize();
+      configuredController.state.preferences
+        ..onboarded = true
+        ..name = '小芽'
+        ..uiLocale = 'zh-Hans';
+      configuredController.errorCode = 'login_required';
+      configuredController.error = '请先登录，便能生成自己的英文和语音。';
+      configuredController.notifyListeners();
 
-    await tester.pumpWidget(WebLearningApp(controller: configuredController));
-    expect(find.text('注册／登录'), findsOneWidget);
-    expect(find.text('请登录'), findsOneWidget);
-  });
+      await tester.pumpWidget(WebLearningApp(controller: configuredController));
+      expect(find.text('注册／登录'), findsOneWidget);
+      expect(find.text('请登录'), findsOneWidget);
+    },
+  );
 
   testWidgets('registration dialog offers optional age and gender fields', (
     tester,

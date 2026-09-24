@@ -86,12 +86,7 @@ class _SignedOutGateway extends UnconfiguredGateway {
   String? user;
 
   @override
-  bool get isAnonymous => user != null;
-
-  @override
-  Future<void> signInAnonymously() async {
-    user = '33333333-3333-4333-8333-333333333333';
-  }
+  bool get isAnonymous => false;
 
   @override
   Future<LearningSnapshot> synchronize(LearningSnapshot local) async => local;
@@ -168,8 +163,8 @@ class _SignedInGateway extends _SignedOutGateway {
   Future<LearningSnapshot> synchronize(LearningSnapshot local) async => local;
 }
 
-class _AnonymousGeneratingGateway extends _GeneratingGateway {
-  _AnonymousGeneratingGateway() {
+class _UnregisteredGeneratingGateway extends _GeneratingGateway {
+  _UnregisteredGeneratingGateway() {
     user = null;
   }
 
@@ -177,7 +172,7 @@ class _AnonymousGeneratingGateway extends _GeneratingGateway {
   String? get userId => user;
 
   @override
-  bool get isAnonymous => user != null;
+  bool get isAnonymous => false;
 }
 
 LearnSentence _sentence({String? seedId}) => LearnSentence(
@@ -293,8 +288,7 @@ void main() {
     expect(platform.actions, contains('audioLoopStart'));
     expect(platform.actions, contains('audioUnlock'));
     expect(gateway.requests, isEmpty);
-    },
-  );
+  });
 
   test('unchanged loop reuses verified tracks on the next session', () async {
     final platform = _LoopPlatform();
@@ -322,7 +316,9 @@ void main() {
     expect(controller.loopSessionId, isNotNull);
   });
 
-  test('archived sentences leave the next loop and their orphan cache is deleted', () async {
+  test(
+    'archived sentences leave the next loop and their orphan cache is deleted',
+    () async {
       final platform = _LoopPlatform();
       final gateway = _GeneratingGateway();
       final controller = LearningController(
@@ -351,19 +347,21 @@ void main() {
       gateway.requests.clear();
       controller.state.sentences
               .firstWhere((sentence) => sentence.id == first.id)
-        .archived = true;
+              .archived =
+          true;
 
       await controller.startLoop();
 
       expect(platform.actions, contains('audioCacheDelete'));
       expect(gateway.requests, isEmpty);
       expect(controller.loopSessionId, isNotNull);
-  });
+    },
+  );
 
   test(
-    'guest personal sentences open an anonymous cloud session and generate audio',
+    'guest personal sentences require a registered account before cloud audio',
     () async {
-      final gateway = _AnonymousGeneratingGateway();
+      final gateway = _UnregisteredGeneratingGateway();
       final controller = LearningController(
         gateway: gateway,
         platform: _LoopPlatform(),
@@ -380,12 +378,9 @@ void main() {
       await controller.prepareLoop();
       await controller.startLoop();
 
-      // ignore: avoid_print
-      expect(controller.hasSession, isTrue);
-      expect(
-        gateway.requests.map((request) => request.function),
-        contains('audio-generate'),
-      );
+      expect(controller.hasSession, isFalse);
+      expect(controller.errorCode, 'login_required');
+      expect(gateway.requests, isEmpty);
     },
   );
 

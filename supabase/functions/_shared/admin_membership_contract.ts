@@ -21,6 +21,7 @@ export interface AdminUserListItem {
 export interface AdminMembershipActionRequest {
   action: AdminMembershipActionType;
   targetUserId: string;
+  plan?: "monthly" | "pro";
   months?: number;
   reason: string;
   clientRequestId: string;

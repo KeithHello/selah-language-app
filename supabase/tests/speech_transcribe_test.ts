@@ -239,10 +239,10 @@ Deno.test("authenticates, claims capture capacity, and sends OpenAI multipart wi
     name: "claim_generation_request",
     args: {
       p_user_id: USER_ID,
-      p_operation_type: "capture_preparation",
+      p_operation_type: "speech_transcription",
       p_client_request_id: REQUEST_ID,
       p_minute_limit: 2,
-      p_daily_limit: 1000000,
+      p_daily_limit: 10,
     },
   });
   assertEquals(calls.at(-1)?.name, "complete_generation_request");
@@ -306,6 +306,7 @@ Deno.test("maps quota decisions to safe 429 errors and does not call OpenAI", as
   assertEquals(await responseBody(response), {
     error: "quota_exceeded",
     message: "Daily speech transcription quota exceeded",
+    retryAfterSeconds: 60,
   });
   assertEquals(fetchCalls.length, 0);
 });
@@ -382,7 +383,7 @@ Deno.test("keeps the production listener behind import.meta.main", () => {
   );
 });
 
-Deno.test("claims the existing capture preparation budget before calling OpenAI", () => {
+Deno.test("claims the independent speech budget before calling OpenAI", () => {
   const claimIndex = FUNCTION_SOURCE.indexOf("claim_generation_request");
   const providerIndex = FUNCTION_SOURCE.indexOf(
     "https://api.openai.com/v1/audio/transcriptions",
@@ -390,6 +391,6 @@ Deno.test("claims the existing capture preparation budget before calling OpenAI"
   assertEquals(claimIndex >= 0, true);
   assertEquals(providerIndex > claimIndex, true);
   assertStringIncludes(FUNCTION_SOURCE, "p_operation_type: OPERATION_TYPE");
-  assertStringIncludes(FUNCTION_SOURCE, '"CAPTURE_PREPARATION_MINUTE_LIMIT"');
-  assertStringIncludes(FUNCTION_SOURCE, '"CAPTURE_PREPARATION_DAILY_LIMIT"');
+  assertStringIncludes(FUNCTION_SOURCE, '"SPEECH_TRANSCRIPTION_MINUTE_LIMIT"');
+  assertStringIncludes(FUNCTION_SOURCE, '"SPEECH_TRANSCRIPTION_DAILY_LIMIT"');
 });

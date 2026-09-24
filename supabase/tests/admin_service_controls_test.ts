@@ -93,10 +93,10 @@ Deno.test("service controls update requires operator and expected version", asyn
   const body = await response.json();
   assertEquals(body.membershipEnforcementEnabled, true);
   assertEquals(body.membershipSalesEnabled, true);
-  assertEquals(body.anonymousTestModeEnabled, true);
+  assertEquals("anonymousTestModeEnabled" in body, false);
   const update = setupData.calls.find((call) => call.name === "set_platform_service_controls");
   assertEquals(update?.args.p_reason, "launch_membership_mode");
-  assertEquals(update?.args.p_anonymous_test_mode_enabled, true);
+  assertEquals(update?.args.p_anonymous_test_mode_enabled, false);
 });
 
 Deno.test("service controls update is rejected for read-only admin", async () => {

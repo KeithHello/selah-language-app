@@ -233,10 +233,11 @@ class _Gateway implements LearningGateway {
   Future<void> signIn(String email, String password) async {}
 
   @override
-  Future<void> signInAnonymously() async {}
-
-  @override
-  Future<void> signUp(String email, String password, {String? emailRedirectTo}) async {}
+  Future<void> signUp(
+    String email,
+    String password, {
+    String? emailRedirectTo,
+  }) async {}
 
   @override
   Future<void> resetPassword(String email, {String? emailRedirectTo}) async {}

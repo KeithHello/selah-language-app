@@ -23,37 +23,31 @@ test('gateway identity reads a verified anonymous JWT claim', () => {
   });
 });
 
-test('anonymous identity is allowed only while the test switch is enabled', async () => {
-  const allowed = authorizeBillableIdentity(
+test('legacy anonymous identities are always rejected', async () => {
+  const deniedWithLegacySwitch = authorizeBillableIdentity(
     requestWithClaims({ sub: 'user-anon', is_anonymous: true }),
-    { anonymousTestModeEnabled: true },
   );
-  assert.equal(allowed.status, 'allowed');
-  assert.equal(allowed.userId, 'user-anon');
-  assert.equal(allowed.isAnonymous, true);
+  assert.equal(deniedWithLegacySwitch.status, 403);
+  assert.equal((await deniedWithLegacySwitch.json()).error, 'registered_account_required');
 
   const denied = authorizeBillableIdentity(
     requestWithClaims({ sub: 'user-anon', is_anonymous: true }),
-    { anonymousTestModeEnabled: false },
   );
   assert.equal(denied.status, 403);
   const body = await denied.json();
-  assert.equal(body.error, 'anonymous_test_ended');
+  assert.equal(body.error, 'registered_account_required');
 });
 
-test('registered identities are not controlled by the anonymous test switch', () => {
+test('registered identities pass the account gate', () => {
   const result = authorizeBillableIdentity(
     requestWithClaims({ sub: 'user-registered', is_anonymous: false }),
-    { anonymousTestModeEnabled: false },
   );
   assert.equal(result.status, 'allowed');
   assert.equal(result.isAnonymous, false);
 });
 
 test('missing or malformed identity remains unauthorized', async () => {
-  const missing = authorizeBillableIdentity(new Request('https://selah.test'), {
-    anonymousTestModeEnabled: true,
-  });
+  const missing = authorizeBillableIdentity(new Request('https://selah.test'));
   assert.equal(missing.status, 401);
   assert.equal((await missing.json()).error, 'unauthorized');
 
@@ -61,7 +55,6 @@ test('missing or malformed identity remains unauthorized', async () => {
     new Request('https://selah.test', {
       headers: { Authorization: 'Bearer not-a-jwt' },
     }),
-    { anonymousTestModeEnabled: true },
   );
   assert.equal(malformed.status, 401);
 });

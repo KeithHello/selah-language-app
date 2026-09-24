@@ -25,11 +25,16 @@ for (const [name, sourcePath] of functions) {
     if (name === 'audio-download') {
       assert.match(source, /requireAuth\(/);
     } else {
-      assert.match(source, /authorizeBillableIdentity\(/);
-      assert.match(
-        source,
-        /authorizeBillableIdentity\(req, controls\)|authorize\(req, controls\)/,
+      const authorizationIndex = source.search(
+        /authorizeBillableIdentity\(req\)|authorizeIdentity\(req\)|authorize\(req\)/,
       );
+      const providerIndex = source.search(
+        name === 'audio-generate' || name === 'speech-transcribe'
+          ? /await providerFetch\(/
+          : /await fetch\(/,
+      );
+      assert.notEqual(authorizationIndex, -1);
+      assert.ok(providerIndex > authorizationIndex);
     }
   });
 }

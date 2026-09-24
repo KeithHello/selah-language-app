@@ -7,13 +7,13 @@ import '../domain/admin_membership.dart';
 import '../domain/learning_models.dart';
 
 String _actionLabel(String action) => switch (action) {
-      'grant_membership' => '赠送会员',
-      'compensate_membership' => '客服补偿',
-      'revoke_grant' => '撤销误赠',
-      'replay_order' => '补发已购权益',
-      'record_manual_payment' => '登记人工收款',
-      _ => '会员操作',
-    };
+  'grant_membership' => '赠送会员',
+  'compensate_membership' => '客服补偿',
+  'revoke_grant' => '撤销误赠',
+  'replay_order' => '补发已购权益',
+  'record_manual_payment' => '登记人工收款',
+  _ => '会员操作',
+};
 
 class AdminUserDetailDialog extends StatefulWidget {
   const AdminUserDetailDialog({
@@ -33,14 +33,18 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
   bool _loading = true;
   AdminUserDetailData? _detail;
   String _selectedAction = 'grant_membership';
+  String _selectedPlan = 'monthly';
   int _selectedMonths = 1;
-  final TextEditingController _customMonthsController =
-      TextEditingController(text: '1');
+  final TextEditingController _customMonthsController = TextEditingController(
+    text: '1',
+  );
   final TextEditingController _reasonController = TextEditingController();
   final TextEditingController _orderController = TextEditingController();
   final TextEditingController _membershipController = TextEditingController();
   final TextEditingController _transactionController = TextEditingController();
-  final TextEditingController _channelController = TextEditingController(text: 'manual');
+  final TextEditingController _channelController = TextEditingController(
+    text: 'manual',
+  );
   bool _submitting = false;
 
   bool get isGrantAction =>
@@ -56,10 +60,9 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
   Future<void> _loadDetail() async {
     setState(() => _loading = true);
     try {
-      final res = await widget.gateway.invoke(
-        'admin-users',
-        {'userId': widget.user.userId},
-      );
+      final res = await widget.gateway.invoke('admin-users', {
+        'userId': widget.user.userId,
+      });
       if (mounted) {
         setState(() {
           _detail = AdminUserDetailData.fromJson(res);
@@ -74,46 +77,51 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
   Future<void> _submitAction() async {
     final reason = _reasonController.text.trim();
     if (reason.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写操作原因')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写操作原因')));
       return;
     }
-    if (_selectedAction == 'replay_order' && _orderController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写已核实订单号')),
-      );
+    if (_selectedAction == 'replay_order' &&
+        _orderController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写已核实订单号')));
       return;
     }
-    if (_selectedAction == 'revoke_grant' && _membershipController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写要撤销的会员记录 ID')),
-      );
+    if (_selectedAction == 'revoke_grant' &&
+        _membershipController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写要撤销的会员记录 ID')));
       return;
     }
     if (_selectedAction == 'record_manual_payment' &&
         _transactionController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请填写唯一交易编号')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('请填写唯一交易编号')));
       return;
     }
     final customMonths = int.tryParse(_customMonthsController.text.trim());
-    if (isGrantAction && (customMonths == null || customMonths < 1 || customMonths > 12)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('会员时长必须是 1—12 个月')),
-      );
+    if (isGrantAction &&
+        (customMonths == null || customMonths < 1 || customMonths > 12)) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('会员时长必须是 1—12 个月')));
       return;
     }
     if (isGrantAction) {
       _selectedMonths = customMonths!;
     }
+    final planLabel = _selectedPlan == 'pro' ? 'Pro' : 'Plus';
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('确认${_actionLabel(_selectedAction)}'),
         content: Text(
           '目标用户：${widget.user.emailMasked}\n'
+          '${_selectedAction == 'grant_membership' ? '会员方案：$planLabel\n' : ''}'
           '${isGrantAction ? '会员时长：$_selectedMonths 个月\n' : ''}'
           '操作原因：$reason\n\n'
           '提交后会由服务端重新校验权限、版本和预算。',
@@ -136,6 +144,7 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
       final body = <String, dynamic>{
         'action': _selectedAction,
         'targetUserId': widget.user.userId,
+        if (_selectedAction == 'grant_membership') 'plan': _selectedPlan,
         'months': _selectedMonths,
         'reason': reason,
         'clientRequestId': newId(),
@@ -158,9 +167,9 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('操作失败: $e')));
       }
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -180,7 +189,8 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final isGrant = _selectedAction == 'grant_membership' ||
+    final isGrant =
+        _selectedAction == 'grant_membership' ||
         _selectedAction == 'compensate_membership';
     return Dialog(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -189,15 +199,22 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
         child: Padding(
           padding: const EdgeInsets.all(SelahSpacing.xl),
           child: _loading
-              ? const SizedBox(height: 200, child: Center(child: CircularProgressIndicator()))
+              ? const SizedBox(
+                  height: 200,
+                  child: Center(child: CircularProgressIndicator()),
+                )
               : Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('用户会员管理', style: SelahTypography.headlineLarge()),
                     const SizedBox(height: SelahSpacing.sm),
-                    Text('用户: ${widget.user.emailMasked} (${widget.user.userId})',
-                        style: SelahTypography.bodyMedium(color: SelahColors.textSecondary)),
+                    Text(
+                      '用户: ${widget.user.emailMasked} (${widget.user.userId})',
+                      style: SelahTypography.bodyMedium(
+                        color: SelahColors.textSecondary,
+                      ),
+                    ),
                     const SizedBox(height: SelahSpacing.sm),
                     Text(
                       '当前：${widget.user.plan} · ${widget.user.status}${widget.user.expiresAt == null ? '' : ' · 有效至 ${widget.user.expiresAt!.toLocal().toString().substring(0, 10)}'}',
@@ -244,6 +261,30 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
                               }
                             },
                     ),
+                    if (_selectedAction == 'grant_membership') ...[
+                      const SizedBox(height: SelahSpacing.md),
+                      DropdownButtonFormField<String>(
+                        initialValue: _selectedPlan,
+                        decoration: const InputDecoration(
+                          labelText: '会员方案',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: const [
+                          DropdownMenuItem(
+                            value: 'monthly',
+                            child: Text('Plus'),
+                          ),
+                          DropdownMenuItem(value: 'pro', child: Text('Pro')),
+                        ],
+                        onChanged: _submitting
+                            ? null
+                            : (value) {
+                                if (value != null) {
+                                  setState(() => _selectedPlan = value);
+                                }
+                              },
+                      ),
+                    ],
                     if (isGrant) ...[
                       const SizedBox(height: SelahSpacing.md),
                       const Text('会员时长：'),
@@ -335,7 +376,9 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
                                 )
                               : const Text('确认操作'),
                         ),

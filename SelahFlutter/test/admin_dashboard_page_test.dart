@@ -37,7 +37,7 @@ AdminDashboardData _data() => AdminDashboardData(
 );
 
 void main() {
-  testWidgets('admin dashboard exposes one product mode control', (
+  testWidgets('admin dashboard explains registered-account access', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1600));
@@ -47,7 +47,6 @@ void main() {
       ..data = _data()
       ..controls = const AdminServiceControls(
         configured: true,
-        anonymousTestModeEnabled: true,
         membershipEnforcementEnabled: false,
       );
     addTearDown(controller.dispose);
@@ -61,13 +60,13 @@ void main() {
       ),
     );
 
-    expect(find.text('运行模式'), findsOneWidget);
-    expect(find.text('测试模式'), findsOneWidget);
+    expect(find.text('云端账户要求'), findsOneWidget);
+    expect(find.text('正式账户模式'), findsOneWidget);
+    expect(find.textContaining('生成、转写、个人音频、会员与同步均要求注册并登录'), findsOneWidget);
     expect(find.text('启用会员限制'), findsNothing);
-    expect(find.text('开放匿名测试'), findsNothing);
   });
 
-  testWidgets('admin dashboard explains and can normalize mixed mode flags', (
+  testWidgets('admin dashboard does not offer legacy test-mode controls', (
     tester,
   ) async {
     await tester.binding.setSurfaceSize(const Size(1200, 1600));
@@ -77,7 +76,6 @@ void main() {
       ..data = _data()
       ..controls = const AdminServiceControls(
         configured: true,
-        anonymousTestModeEnabled: true,
         membershipEnforcementEnabled: true,
       );
     addTearDown(controller.dispose);
@@ -91,7 +89,8 @@ void main() {
       ),
     );
 
-    expect(find.text('当前远端开关不是完整的测试或生产配置，匿名入口可能仍然开放。请先应用生产模式归一化。'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, '应用生产模式'), findsOneWidget);
+    expect(find.text('测试模式'), findsNothing);
+    expect(find.text('开放匿名测试'), findsNothing);
+    expect(find.text('应用生产模式'), findsNothing);
   });
 }

@@ -29,9 +29,11 @@ class _Gateway implements LearningGateway {
   Future<void> signIn(String email, String password) async {}
 
   @override
-  Future<void> signInAnonymously() async {}
-  @override
-  Future<void> signUp(String email, String password, {String? emailRedirectTo}) async {}
+  Future<void> signUp(
+    String email,
+    String password, {
+    String? emailRedirectTo,
+  }) async {}
   @override
   Future<void> resetPassword(String email, {String? emailRedirectTo}) async {}
   @override
@@ -49,9 +51,7 @@ class _Gateway implements LearningGateway {
 }
 
 void main() {
-  testWidgets('free mode renders no membership information', (
-    tester,
-  ) async {
+  testWidgets('free mode renders no membership information', (tester) async {
     final controller = MembershipController(
       gateway: _Gateway({
         'membershipModeEnabled': false,

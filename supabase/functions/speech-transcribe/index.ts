@@ -36,7 +36,7 @@ import {
 
 const DEFAULT_MINUTE_LIMIT = 2;
 const DEFAULT_DAILY_LIMIT = 10;
-const OPERATION_TYPE = "capture_preparation";
+const OPERATION_TYPE = "speech_transcription";
 
 export interface SpeechRpcResult {
   data: unknown;
@@ -75,7 +75,7 @@ export function createSpeechTranscribeHandler(
 ): (req: Request) => Promise<Response> {
   const env = dependencies.env ?? Deno.env;
   const authorize = dependencies.authorizeIdentity ??
-    ((req, controls) => {
+    ((req) => {
       if (dependencies.requireAuth) {
         const legacy = dependencies.requireAuth(req);
         if (legacy instanceof Response) return legacy;
@@ -85,7 +85,7 @@ export function createSpeechTranscribeHandler(
           isAnonymous: false,
         };
       }
-      return authorizeBillableIdentity(req, controls);
+      return authorizeBillableIdentity(req);
     });
   const providerFetch = dependencies.fetch ?? fetch;
   const makeSupabase = dependencies.createSupabase ??
@@ -93,11 +93,11 @@ export function createSpeechTranscribeHandler(
       createClient(url, key) as unknown as SpeechSupabaseClient);
 
   const minuteLimit = readPositiveInt(
-    env.get("CAPTURE_PREPARATION_MINUTE_LIMIT"),
+    env.get("SPEECH_TRANSCRIPTION_MINUTE_LIMIT"),
     DEFAULT_MINUTE_LIMIT,
   );
   const dailyLimit = readPositiveInt(
-    env.get("CAPTURE_PREPARATION_DAILY_LIMIT"),
+    env.get("SPEECH_TRANSCRIPTION_DAILY_LIMIT"),
     DEFAULT_DAILY_LIMIT,
   );
 
@@ -127,6 +127,13 @@ export function createSpeechTranscribeHandler(
     if (earlyIdentity instanceof Response) return earlyIdentity;
     if (!earlyIdentity) {
       return errorResponse("Unauthorized", 401, "unauthorized");
+    }
+    if (earlyIdentity.isAnonymous) {
+      return errorResponse(
+        "A registered account is required",
+        403,
+        "registered_account_required",
+      );
     }
 
     const contentType = req.headers.get("Content-Type") ?? "";
@@ -166,9 +173,9 @@ export function createSpeechTranscribeHandler(
         "service_paused",
       );
     }
-    const identity = authorize(req, controls);
+    const identity = authorize(req);
     if (identity instanceof Response) return identity;
-    const { userId, isAnonymous } = identity;
+    const { userId } = identity;
     let claimed = false;
 
     try {
@@ -178,7 +185,7 @@ export function createSpeechTranscribeHandler(
           p_operation_type: OPERATION_TYPE,
           p_client_request_id: input.clientRequestId,
           p_minute_limit: minuteLimit,
-          p_daily_limit: 1000000,
+          p_daily_limit: dailyLimit,
         }),
       );
       if (claimResult.error || !claimResult.data) {
@@ -207,6 +214,7 @@ export function createSpeechTranscribeHandler(
           "Request is still in progress",
           429,
           "request_in_progress",
+          { retryAfterSeconds: claim.retryAfterSeconds ?? 1 },
         );
       }
       if (claim.decision === "rate_limited") {
@@ -214,6 +222,7 @@ export function createSpeechTranscribeHandler(
           "Too many speech transcription requests",
           429,
           "rate_limited",
+          { retryAfterSeconds: claim.retryAfterSeconds ?? 1 },
         );
       }
       if (claim.decision === "quota_exceeded") {
@@ -221,6 +230,7 @@ export function createSpeechTranscribeHandler(
           "Daily speech transcription quota exceeded",
           429,
           "quota_exceeded",
+          { retryAfterSeconds: claim.retryAfterSeconds ?? 1 },
         );
       }
       if (claim.decision !== "claimed") {
@@ -240,7 +250,6 @@ export function createSpeechTranscribeHandler(
           feature: "transcription",
           units: { durationMs: input.durationMs },
           payloadHash: input.clientRequestId,
-          isAnonymous,
           enforcementEnabled: controls.membershipEnforcementEnabled,
         },
       );

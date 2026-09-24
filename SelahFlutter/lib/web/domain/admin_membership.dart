@@ -1,17 +1,10 @@
-/// The single product-level switch exposed to administrators.
-///
-/// The underlying service flags remain separate for compatibility, but the
-/// Web admin UI should reason about these two safe, complete configurations.
-enum ProductMode { test, production }
-
 class AdminServiceControls {
   const AdminServiceControls({
-    this.version = '2026-09-12-v1',
+    this.version = '2026-09-17-v1',
     this.membershipEnforcementEnabled = false,
     this.trialSignupsEnabled = false,
     this.membershipSalesEnabled = false,
     this.generationEnabled = true,
-    this.anonymousTestModeEnabled = false,
     this.configured = false,
     this.updatedAt,
   });
@@ -21,27 +14,8 @@ class AdminServiceControls {
   final bool trialSignupsEnabled;
   final bool membershipSalesEnabled;
   final bool generationEnabled;
-  final bool anonymousTestModeEnabled;
   final bool configured;
   final DateTime? updatedAt;
-
-  /// Mixed or incomplete remote configurations fail closed into production.
-  ProductMode get productMode =>
-      anonymousTestModeEnabled &&
-          !membershipEnforcementEnabled &&
-          generationEnabled
-      ? ProductMode.test
-      : ProductMode.production;
-
-  /// Whether the remote flags exactly describe one of the two product modes.
-  bool get productModeNeedsNormalization =>
-      configured &&
-      !((anonymousTestModeEnabled &&
-              !membershipEnforcementEnabled &&
-              generationEnabled) ||
-          (!anonymousTestModeEnabled &&
-              membershipEnforcementEnabled &&
-              generationEnabled));
 
   factory AdminServiceControls.fromJson(Map<String, dynamic> json) {
     bool flag(String camel, String snake, bool fallback) => json[camel] is bool
@@ -50,7 +24,7 @@ class AdminServiceControls {
         ? json[snake] as bool
         : fallback;
     return AdminServiceControls(
-      version: json['version']?.toString() ?? '2026-09-12-v1',
+      version: json['version']?.toString() ?? '2026-09-17-v1',
       membershipEnforcementEnabled: flag(
         'membershipEnforcementEnabled',
         'membership_enforcement_enabled',
@@ -67,11 +41,6 @@ class AdminServiceControls {
         false,
       ),
       generationEnabled: flag('generationEnabled', 'generation_enabled', true),
-      anonymousTestModeEnabled: flag(
-        'anonymousTestModeEnabled',
-        'anonymous_test_mode_enabled',
-        false,
-      ),
       configured: json['configured'] == true,
       updatedAt: json['updatedAt'] != null
           ? DateTime.tryParse(json['updatedAt'].toString())

@@ -24,7 +24,21 @@ export function errorResponse(
   code?: string,
   details?: Record<string, unknown>,
 ): Response {
-  return json({ error: code ?? message, message, ...details }, status);
+  const headers: Record<string, string> = { ...CORS_HEADERS };
+  const retryAfterSeconds = details?.retryAfterSeconds;
+  if (typeof retryAfterSeconds === "number" && retryAfterSeconds > 0) {
+    headers["Retry-After"] = String(Math.ceil(retryAfterSeconds));
+  }
+  return new Response(
+    JSON.stringify({ error: code ?? message, message, ...details }),
+    {
+      status,
+      headers: {
+        "Content-Type": "application/json",
+        ...headers,
+      },
+    },
+  );
 }
 
 export function handleOptions(): Response {
@@ -38,6 +52,12 @@ export function handleOptions(): Response {
  * deployed with `verify_jwt = true`; direct runtimes must verify upstream first.
  */
 export function getGatewayVerifiedUserId(req: Request): string | null {
+  return getGatewayVerifiedIdentity(req)?.userId ?? null;
+}
+
+function getGatewayVerifiedIdentity(
+  req: Request,
+): { userId: string; isAnonymous: boolean } | null {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return null;
@@ -48,10 +68,13 @@ export function getGatewayVerifiedUserId(req: Request): string | null {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
 
-    const payload = JSON.parse(atob(parts[1]));
-    if (!payload.sub) return null;
+    const payload = JSON.parse(atob(parts[1])) as Record<string, unknown>;
+    if (typeof payload.sub !== "string" || !payload.sub) return null;
 
-    return payload.sub as string;
+    return {
+      userId: payload.sub,
+      isAnonymous: payload.is_anonymous === true,
+    };
   } catch {
     return null;
   }
@@ -63,9 +86,16 @@ export function getGatewayVerifiedUserId(req: Request): string | null {
  * the Supabase gateway configured with `verify_jwt = true`.
  */
 export function requireAuth(req: Request): string | Response {
-  const userId = getGatewayVerifiedUserId(req);
-  if (!userId) {
+  const identity = getGatewayVerifiedIdentity(req);
+  if (!identity) {
     return errorResponse("Unauthorized", 401, "unauthorized");
   }
-  return userId;
+  if (identity.isAnonymous) {
+    return errorResponse(
+      "A registered account is required",
+      403,
+      "registered_account_required",
+    );
+  }
+  return identity.userId;
 }

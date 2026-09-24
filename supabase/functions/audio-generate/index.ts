@@ -187,7 +187,7 @@ export function createAudioGenerateHandler(
 ): (req: Request) => Promise<Response> {
   const env = dependencies.env ?? Deno.env;
   const authorize = dependencies.authorizeIdentity ??
-    ((req, controls) => {
+    ((req) => {
       if (dependencies.requireAuth) {
         const legacy = dependencies.requireAuth(req);
         if (legacy instanceof Response) return legacy;
@@ -197,7 +197,7 @@ export function createAudioGenerateHandler(
           isAnonymous: false,
         };
       }
-      return authorizeBillableIdentity(req, controls);
+      return authorizeBillableIdentity(req);
     });
   const providerFetch = dependencies.fetch ?? fetch;
   const sleep = dependencies.sleep ??
@@ -245,6 +245,13 @@ export function createAudioGenerateHandler(
     if (!earlyIdentity) {
       return errorResponse("Unauthorized", 401, "unauthorized");
     }
+    if (earlyIdentity.isAnonymous) {
+      return errorResponse(
+        "A registered account is required",
+        403,
+        "registered_account_required",
+      );
+    }
 
     let body: AudioGenerationInput;
     try {
@@ -288,7 +295,7 @@ export function createAudioGenerateHandler(
     }
 
     const supabase = makeSupabase(supabaseURL, serviceRoleKey);
-    const { userId, isAnonymous } = earlyIdentity;
+    const { userId } = earlyIdentity;
     const textHash = await textContentHash(text, route.language, AUDIO_FORMAT);
     const hash = audioCacheKey({
       provider: route.provider,
@@ -447,7 +454,7 @@ export function createAudioGenerateHandler(
         "service_paused",
       );
     }
-    const identity = authorize(req, controls);
+    const identity = authorize(req);
     if (identity instanceof Response) return identity;
 
     const claimResult = normalizeRpcResult(
@@ -501,7 +508,6 @@ export function createAudioGenerateHandler(
         feature: "tts",
         units: { characters: [...text].length },
         payloadHash: hash,
-        isAnonymous,
         enforcementEnabled: controls.membershipEnforcementEnabled,
       },
     );

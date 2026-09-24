@@ -43,6 +43,7 @@ const MINUTE_LIMIT = Math.max(
   1,
   Number.parseInt(Deno.env.get("SENTENCE_MINUTE_LIMIT") ?? "5", 10) || 5,
 );
+const ITEM_CLAIM_MINUTE_LIMIT = 1000000;
 const DAILY_LIMIT = Math.max(
   1,
   Number.parseInt(Deno.env.get("SENTENCE_DAILY_LIMIT") ?? "20", 10) || 20,
@@ -56,6 +57,7 @@ interface Claim {
     | "rate_limited"
     | "quota_exceeded";
   responsePayload: Record<string, unknown> | null;
+  retryAfterSeconds?: number;
 }
 
 interface BatchItem {
@@ -67,7 +69,7 @@ interface BatchItem {
 }
 
 interface RPCClient {
-  rpc(name: string, args: Record<string, string>): Promise<unknown>;
+  rpc(name: string, args: Record<string, unknown>): Promise<unknown>;
 }
 
 Deno.serve(async (req: Request) => {
@@ -110,9 +112,57 @@ Deno.serve(async (req: Request) => {
       "service_paused",
     );
   }
-  const identity = authorizeBillableIdentity(req, controls);
+  const identity = authorizeBillableIdentity(req);
   if (identity instanceof Response) return identity;
-  const { userId, isAnonymous } = identity;
+  const { userId } = identity;
+  const { data: batchClaimRaw, error: batchClaimError } = await supabase.rpc(
+    "claim_generation_request",
+    {
+      p_user_id: userId,
+      p_operation_type: "batch_generation",
+      p_client_request_id: validation.clientRequestId,
+      p_minute_limit: MINUTE_LIMIT,
+      p_daily_limit: DAILY_LIMIT,
+    },
+  );
+  if (batchClaimError || !batchClaimRaw) {
+    return errorResponse(
+      "Generation capacity unavailable",
+      503,
+      "generation_capacity_unavailable",
+    );
+  }
+  const batchClaim = batchClaimRaw as Claim;
+  if (batchClaim.decision === "replay" && batchClaim.responsePayload) {
+    return json(batchClaim.responsePayload);
+  }
+  if (
+    batchClaim.decision === "rate_limited" ||
+    batchClaim.decision === "quota_exceeded"
+  ) {
+    return errorResponse(
+      "Too many batch generation requests",
+      429,
+      batchClaim.decision,
+      { retryAfterSeconds: batchClaim.retryAfterSeconds ?? 1 },
+    );
+  }
+  if (batchClaim.decision === "in_progress") {
+    return errorResponse(
+      "Batch request is still in progress",
+      429,
+      "request_in_progress",
+      { retryAfterSeconds: batchClaim.retryAfterSeconds ?? 1 },
+    );
+  }
+  if (batchClaim.decision !== "claimed") {
+    return errorResponse(
+      "Generation capacity unavailable",
+      503,
+      "generation_capacity_unavailable",
+    );
+  }
+
   const replayed: BatchItem[] = [];
   const claimedIDs: string[] = [];
   for (const segment of validation.segments) {
@@ -122,8 +172,8 @@ Deno.serve(async (req: Request) => {
         p_user_id: userId,
         p_operation_type: "sentence_generation",
         p_client_request_id: segment.segmentId,
-        p_minute_limit: MINUTE_LIMIT,
-        p_daily_limit: 1000000,
+        p_minute_limit: ITEM_CLAIM_MINUTE_LIMIT,
+        p_daily_limit: DAILY_LIMIT,
       },
     );
     if (error || !raw) {
@@ -131,6 +181,11 @@ Deno.serve(async (req: Request) => {
         supabase as unknown as RPCClient,
         userId,
         claimedIDs,
+      );
+      await failBatchClaim(
+        supabase as unknown as RPCClient,
+        userId,
+        validation.clientRequestId,
       );
       return errorResponse(
         "Generation capacity unavailable",
@@ -147,12 +202,18 @@ Deno.serve(async (req: Request) => {
         userId,
         claimedIDs,
       );
+      await failBatchClaim(
+        supabase as unknown as RPCClient,
+        userId,
+        validation.clientRequestId,
+      );
       return errorResponse(
         claim.decision === "rate_limited"
           ? "Too many generation requests"
           : "Daily generation quota exceeded",
         429,
         claim.decision,
+        { retryAfterSeconds: claim.retryAfterSeconds ?? 1 },
       );
     }
     if (claim.decision === "in_progress") {
@@ -161,10 +222,16 @@ Deno.serve(async (req: Request) => {
         userId,
         claimedIDs,
       );
+      await failBatchClaim(
+        supabase as unknown as RPCClient,
+        userId,
+        validation.clientRequestId,
+      );
       return errorResponse(
         "Request is still in progress",
         429,
         "request_in_progress",
+        { retryAfterSeconds: claim.retryAfterSeconds ?? 1 },
       );
     }
     if (claim.decision === "replay" && claim.responsePayload) {
@@ -188,7 +255,26 @@ Deno.serve(async (req: Request) => {
         itemCount: replayed.length,
       },
     );
-    return json({ items: replayed.sort(sortBySegment) });
+    const responsePayload = { items: replayed.sort(sortBySegment) };
+    const completed = await completeBatchClaim(
+      supabase as unknown as RPCClient,
+      userId,
+      validation.clientRequestId,
+      responsePayload,
+    );
+    if (!completed) {
+      await failBatchClaim(
+        supabase as unknown as RPCClient,
+        userId,
+        validation.clientRequestId,
+      );
+      return errorResponse(
+        "Batch result could not be saved",
+        503,
+        "generation_completion_unavailable",
+      );
+    }
+    return json(responsePayload);
   }
 
   const admission = await requestGenerationAdmission(
@@ -199,7 +285,6 @@ Deno.serve(async (req: Request) => {
       feature: "batch",
       units: { itemCount: pending.length },
       payloadHash: JSON.stringify(pending),
-      isAnonymous,
       enforcementEnabled: controls.membershipEnforcementEnabled,
     },
   );
@@ -208,6 +293,11 @@ Deno.serve(async (req: Request) => {
       supabase as unknown as RPCClient,
       userId,
       claimedIDs,
+    );
+    await failBatchClaim(
+      supabase as unknown as RPCClient,
+      userId,
+      validation.clientRequestId,
     );
     return errorResponse(
       admission.errorMessage ?? "Feature limit reached",
@@ -361,7 +451,7 @@ Deno.serve(async (req: Request) => {
        admission.reservationScope ?? "membership",
      );
    }
-   return json({
+   const responsePayload = {
      items: [...replayed, ...enrichedItems].sort(sortBySegment),
      ...(completionResult.trialState !== undefined
        ? { trialState: completionResult.trialState }
@@ -372,7 +462,15 @@ Deno.serve(async (req: Request) => {
      ...(completionResult.trialExpiresAt !== undefined
        ? { trialExpiresAt: completionResult.trialExpiresAt }
        : {}),
-   });
+   };
+   const completed = await completeBatchClaim(
+     supabase as unknown as RPCClient,
+     userId,
+     validation.clientRequestId,
+     responsePayload,
+   );
+   if (!completed) throw new Error("batch_claim_completion_failed");
+   return json(responsePayload);
   } catch {
     if (admission.reservationId) {
       await settleGenerationAdmission(
@@ -384,6 +482,11 @@ Deno.serve(async (req: Request) => {
       );
     }
     await failClaims(supabase as unknown as RPCClient, userId, claimedIDs);
+    await failBatchClaim(
+      supabase as unknown as RPCClient,
+      userId,
+      validation.clientRequestId,
+    );
     console.error("Batch sentence generation failed");
     return errorResponse("Batch generation failed", 502, "generation_failed");
   }
@@ -437,4 +540,31 @@ async function failClaims(
       })
     ),
   );
+}
+
+async function failBatchClaim(
+  client: RPCClient,
+  userID: string,
+  clientRequestId: string,
+) {
+  await client.rpc("fail_generation_request", {
+    p_user_id: userID,
+    p_operation_type: "batch_generation",
+    p_client_request_id: clientRequestId,
+  });
+}
+
+async function completeBatchClaim(
+  client: RPCClient,
+  userID: string,
+  clientRequestId: string,
+  responsePayload: Record<string, unknown>,
+): Promise<boolean> {
+  const { data, error } = await client.rpc("complete_generation_request", {
+    p_user_id: userID,
+    p_operation_type: "batch_generation",
+    p_client_request_id: clientRequestId,
+    p_response_payload: responsePayload,
+  }) as { data: unknown; error: unknown };
+  return !error && data === true;
 }

@@ -57,6 +57,7 @@ class MemoryPlatform implements LearningPlatform {
 class FakeGateway extends UnconfiguredGateway {
   String? user = newId();
   bool fail = true;
+  bool failSignOut = false;
   final requests = <String>[];
   @override
   bool get configured => true;
@@ -66,16 +67,12 @@ class FakeGateway extends UnconfiguredGateway {
   bool get isAnonymous => anonymous;
 
   bool anonymous = false;
-  int anonymousCalls = 0;
-  Completer<void>? anonymousGate;
 
   @override
-  Future<void> signInAnonymously() async {
-    anonymousCalls += 1;
-    final gate = anonymousGate;
-    if (gate != null && !gate.isCompleted) await gate.future;
-    anonymous = true;
-    user = newId();
+  Future<void> signOut() async {
+    if (failSignOut) throw StateError('legacy session sign-out failed');
+    anonymous = false;
+    user = null;
   }
 
   @override
@@ -546,30 +543,36 @@ void main() {
     },
   );
 
-  test('concurrent anonymous cloud entry points share one sign-in', () async {
-    final gate = Completer<void>();
-    final gateway = FakeGateway()
-      ..user = null
-      ..anonymousGate = gate;
-    final controller = LearningController(
-      gateway: gateway,
-      platform: MemoryPlatform(),
-      seeds: const [],
-      polling: false,
-    );
-    addTearDown(controller.dispose);
-    await controller.initialize();
-
-    final first = controller.ensureCloudSession();
-    final second = controller.ensureCloudSession();
-    gate.complete();
-    await Future.wait([first, second]);
-
-    expect(gateway.anonymousCalls, 1);
-    expect(controller.accountId, 'guest');
-  });
   test(
-    'unsigned generation opens an anonymous cloud session and preserves guest input',
+    'unregistered cloud entry is rejected without creating a session',
+    () async {
+      final gateway = FakeGateway()..user = null;
+      final controller = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: const [],
+        polling: false,
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+
+      await expectLater(
+        controller.ensureRegisteredAccount(),
+        throwsA(
+          isA<LearningFailure>().having(
+            (failure) => failure.code,
+            'code',
+            'login_required',
+          ),
+        ),
+      );
+
+      expect(gateway.userId, isNull);
+      expect(controller.accountId, 'guest');
+    },
+  );
+  test(
+    'unregistered generation stays local and preserves guest input',
     () async {
       final gateway = FakeGateway()
         ..user = null
@@ -586,17 +589,35 @@ void main() {
       c.updateTodayInput('今天想早点休息。');
 
       expect(c.hasSession, isFalse);
-      await c.ensureCloudSession();
-      expect(c.accountId, 'guest');
-      expect(c.todayInput, '今天想早点休息。');
       await c.generate('今天想早点休息。');
 
-      expect(gateway.anonymousCalls, 1);
-      expect(c.hasSession, isTrue);
-      expect(gateway.isAnonymous, isTrue);
+      expect(gateway.userId, isNull);
+      expect(c.errorCode, 'login_required');
+      expect(c.hasSession, isFalse);
       expect(c.accountId, 'guest');
-      expect(c.todayInput, isEmpty);
-      expect(c.state.sentences, hasLength(1));
+      expect(c.todayInput, '今天想早点休息。');
+      expect(c.state.sentences, isEmpty);
+    },
+  );
+
+  test(
+    'unregistered speech input is gated before microphone capture',
+    () async {
+      final gateway = FakeGateway()..user = null;
+      final c = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+
+      await c.startRecording();
+
+      expect(c.errorCode, 'login_required');
+      expect(c.recording, isFalse);
+      expect(gateway.userId, isNull);
     },
   );
 
@@ -696,7 +717,9 @@ void main() {
       await writer.flushPendingLocalWritesForTest();
       writer.dispose();
 
-      final anonymousGateway = FakeGateway()..anonymous = true;
+      final anonymousGateway = FakeGateway()
+        ..anonymous = true
+        ..user = 'old-anonymous-user';
       final restored = LearningController(
         gateway: anonymousGateway,
         platform: platform,
@@ -709,8 +732,31 @@ void main() {
       expect(restored.initialized, isTrue);
       expect(restored.accountId, 'guest');
       expect(restored.todayInput, '刷新后仍要保留的本机内容');
+      expect(anonymousGateway.userId, isNull);
+      expect(anonymousGateway.isAnonymous, isFalse);
     },
   );
+
+  test('failed legacy anonymous sign-out keeps the local guest scope', () async {
+    final gateway = FakeGateway()
+      ..anonymous = true
+      ..user = 'old-anonymous-user'
+      ..failSignOut = true;
+    final controller = LearningController(
+      gateway: gateway,
+      platform: MemoryPlatform(),
+      seeds: seeds(),
+      polling: false,
+    );
+    addTearDown(controller.dispose);
+
+    await controller.initialize();
+
+    expect(controller.accountId, 'guest');
+    expect(controller.hasSession, isFalse);
+    expect(gateway.userId, 'old-anonymous-user');
+    expect(gateway.isAnonymous, isTrue);
+  });
 
   test('preview errors clear a stale authentication code', () async {
     final gateway = FakeGateway()
@@ -724,16 +770,16 @@ void main() {
     );
     addTearDown(c.dispose);
     await c.initialize();
-    c.errorCode = 'anonymous_test_ended';
+    c.errorCode = 'registered_account_required';
 
     await c.previewSeed(seeds().first);
 
-    expect(c.errorCode, isNot('anonymous_test_ended'));
+    expect(c.errorCode, isNot('registered_account_required'));
     expect(c.error, isNotNull);
   });
 
   test(
-    'retrying a local draft opens the anonymous cloud session first',
+    'retrying a local draft requires a registered account and keeps the draft',
     () async {
       final gateway = FakeGateway()
         ..user = null
@@ -751,10 +797,10 @@ void main() {
 
       await c.retryDraft(draft);
 
-      expect(gateway.anonymousCalls, 1);
-      expect(gateway.isAnonymous, isTrue);
-      expect(c.state.sentences, hasLength(1));
-      expect(c.state.drafts, isEmpty);
+      expect(gateway.userId, isNull);
+      expect(c.errorCode, 'login_required');
+      expect(c.state.sentences, isEmpty);
+      expect(c.state.drafts, hasLength(1));
     },
   );
 

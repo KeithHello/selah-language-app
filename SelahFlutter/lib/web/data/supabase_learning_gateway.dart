@@ -45,14 +45,6 @@ class SupabaseLearningGateway implements LearningGateway {
   }
 
   @override
-  Future<void> signInAnonymously() async {
-    await client.auth.signInAnonymously();
-    if (userId == null) {
-      throw const LearningFailure('暂时无法开始云端学习，请稍后重试。');
-    }
-  }
-
-  @override
   Future<void> signUp(
     String email,
     String password, {
@@ -156,8 +148,8 @@ class SupabaseLearningGateway implements LearningGateway {
         return membershipFailure('内容正在准备，请稍后刷新结果。');
       case 'service_paused':
         return membershipFailure('新增生成暂时暂停，已有内容仍可学习。');
-      case 'anonymous_test_ended':
-        return membershipFailure('当前为生产模式，请注册或登录正式账户后继续；本机内容仍保留。');
+      case 'registered_account_required':
+        return membershipFailure('请注册或登录正式账户后继续；本机内容仍保留。');
       case 'membership_sales_disabled':
         return membershipFailure('会员购买暂未开放，请稍后再试。');
       case 'payment_provider_unavailable':
@@ -208,7 +200,13 @@ class SupabaseLearningGateway implements LearningGateway {
       );
     }
     if (status == 429) {
-      return const LearningFailure('请求有些频繁，请稍后再试。', code: 'rate_limited');
+      return LearningFailure(
+        retryAfterSeconds == null || retryAfterSeconds <= 0
+            ? '请求有些频繁，请稍后再试。'
+            : '请求有些频繁，请在 $retryAfterSeconds 秒后重试。',
+        code: 'rate_limited',
+        retryAfterSeconds: retryAfterSeconds,
+      );
     }
     if (status == 404) {
       return const LearningFailure(

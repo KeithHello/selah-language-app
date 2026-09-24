@@ -157,9 +157,9 @@ Deno.serve(async (req: Request) => {
       "service_paused",
     );
   }
-  const identity = authorizeBillableIdentity(req, controls);
+  const identity = authorizeBillableIdentity(req);
   if (identity instanceof Response) return identity;
-  const { userId, isAnonymous } = identity;
+  const { userId } = identity;
   const { data: claimRaw, error: claimError } = await supabase.rpc(
     "claim_generation_request",
     {
@@ -167,7 +167,7 @@ Deno.serve(async (req: Request) => {
       p_operation_type: "sentence_generation",
       p_client_request_id: clientRequestId,
       p_minute_limit: SENTENCE_MINUTE_LIMIT,
-      p_daily_limit: 1000000,
+      p_daily_limit: SENTENCE_DAILY_LIMIT,
     },
   );
   if (claimError || !claimRaw) {
@@ -200,7 +200,12 @@ Deno.serve(async (req: Request) => {
     );
   }
   if (claim.decision === "rate_limited") {
-    return errorResponse("Too many generation requests", 429, "rate_limited");
+    return errorResponse(
+      "Too many generation requests",
+      429,
+      "rate_limited",
+      { retryAfterSeconds: claim.retryAfterSeconds ?? 1 },
+    );
   }
   if (claim.decision === "quota_exceeded") {
     return errorResponse(
@@ -218,7 +223,6 @@ Deno.serve(async (req: Request) => {
       feature: "sentence",
       units: { itemCount: 1 },
       payloadHash: sourceText,
-      isAnonymous,
       enforcementEnabled: controls.membershipEnforcementEnabled,
     },
   );

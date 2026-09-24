@@ -443,9 +443,7 @@ class _SidebarStatus extends StatelessWidget {
     final label = !configured
         ? strings.translateLegacy('本机学习中（云端未配置）')
         : !session
-        ? controller.isAnonymous
-              ? strings.text('sync.testMode')
-              : strings.translateLegacy('本机学习中（登录后可同步）')
+        ? strings.translateLegacy('本机学习中（登录后可同步）')
         : online == false
         ? strings.translateLegacy('离线学习中')
         : online == true
@@ -728,11 +726,11 @@ class _Content extends StatelessWidget {
   Widget build(BuildContext context) {
     final showFeedbackInvite =
         controller.tab != 4 &&
-        !controller.isAnonymous &&
+        controller.isRegistered &&
         controller.feedbackSurvey.canShowInvite;
     final showProfileInvite =
         controller.tab != 4 &&
-        !controller.isAnonymous &&
+        controller.isRegistered &&
         !controller.feedbackSurvey.blocksOtherInvites &&
         controller.researchProfile.canShowInvite;
     return Column(
@@ -811,7 +809,7 @@ class _MessageBar extends StatelessWidget {
     return const {
       'unauthorized',
       'login_required',
-      'anonymous_test_ended',
+      'registered_account_required',
     }.contains(controller.errorCode);
   }
 
@@ -890,7 +888,7 @@ class _MessageBar extends StatelessWidget {
                     : () => _showAuth(context, controller),
                 child: Text(
                   strings.translateLegacy(
-                    controller.isAnonymous ? '注册／登录' : '登录',
+                    controller.isRegistered ? '登录' : '注册／登录',
                   ),
                 ),
               ),
@@ -4182,23 +4180,7 @@ class _SettingsPageState extends State<_SettingsPage> {
             title: s.text('settings.account'),
             icon: Icons.cloud_outlined,
             children: [
-              if (c.hasSession && c.isAnonymous) ...[
-                ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(s.translateLegacy('测试访客')),
-                  subtitle: Text(
-                    s.translateLegacy('正在免登录测试云端学习，资料主要保存在当前浏览器。'),
-                  ),
-                  leading: const Icon(
-                    Icons.science_outlined,
-                    color: SelahColors.amber,
-                  ),
-                  trailing: TextButton(
-                    onPressed: c.busy ? null : () => _showAuth(context, c),
-                    child: Text(s.translateLegacy('注册／登录')),
-                  ),
-                ),
-              ] else if (c.hasSession) ...[
+              if (c.isRegistered) ...[
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   title: Text(c.email ?? s.translateLegacy('已登录')),
@@ -4276,7 +4258,7 @@ class _SettingsPageState extends State<_SettingsPage> {
               ),
             ],
           ),
-          if (c.membership.membershipModeEnabled && !c.isAnonymous) ...[
+          if (c.membership.membershipModeEnabled && c.isRegistered) ...[
             const SizedBox(height: 14),
             _SettingsSection(
               title: s.translateLegacy('会员与方案'),
@@ -4289,7 +4271,7 @@ class _SettingsPageState extends State<_SettingsPage> {
               ],
             ),
           ],
-          if (c.hasSession && !c.isAnonymous) ...[
+          if (c.isRegistered) ...[
             const SizedBox(height: 14),
             _SettingsSection(
               title: s.translateLegacy('关于你的学习'),

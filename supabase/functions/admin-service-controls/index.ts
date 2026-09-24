@@ -115,7 +115,6 @@ export function createAdminServiceControlsHandler(
       trialSignupsEnabled: booleanValue(body.trialSignupsEnabled),
       membershipSalesEnabled: booleanValue(body.membershipSalesEnabled),
       generationEnabled: booleanValue(body.generationEnabled),
-      anonymousTestModeEnabled: booleanValue(body.anonymousTestModeEnabled),
     };
     if (Object.values(flags).every((value) => value === undefined)) {
       return errorResponse("At least one service flag is required", 400, "missing_flags");
@@ -127,8 +126,6 @@ export function createAdminServiceControlsHandler(
       membershipSalesEnabled:
         flags.membershipSalesEnabled ?? current.membershipSalesEnabled,
       generationEnabled: flags.generationEnabled ?? current.generationEnabled,
-      anonymousTestModeEnabled:
-        flags.anonymousTestModeEnabled ?? current.anonymousTestModeEnabled,
     };
 
     const result = await supabase.rpc("set_platform_service_controls", {
@@ -139,7 +136,7 @@ export function createAdminServiceControlsHandler(
       p_trial_signups_enabled: updated.trialSignupsEnabled,
       p_membership_sales_enabled: updated.membershipSalesEnabled,
       p_generation_enabled: updated.generationEnabled,
-      p_anonymous_test_mode_enabled: updated.anonymousTestModeEnabled,
+      p_anonymous_test_mode_enabled: false,
       p_reason: stringValue(body.reason) ?? "service_control_update",
       p_client_request_id: stringValue(body.clientRequestId),
     });

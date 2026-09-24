@@ -7,10 +7,6 @@ export interface AuthorizedIdentity extends GatewayIdentity {
   status: "allowed";
 }
 
-export interface AnonymousTestControls {
-  anonymousTestModeEnabled: boolean;
-}
-
 export type IdentityOrResponse = AuthorizedIdentity | Response;
 
 function identityError(status: number, code: string, message: string): Response {
@@ -47,24 +43,19 @@ export function getGatewayVerifiedIdentity(req: Request): GatewayIdentity | null
 }
 
 /**
- * Anonymous identities are a temporary test channel. Registered users go on
- * to membership admission; anonymous identities are allowed only while the
- * server-controlled test switch is enabled. The switch gates provider work,
- * not seed playback or already-cached private audio delivery.
+ * Reject identities that predate the registered-account-only product flow.
+ * Account eligibility is never controlled by a service switch.
  */
-export function authorizeBillableIdentity(
-  req: Request,
-  controls: AnonymousTestControls,
-): IdentityOrResponse {
+export function authorizeBillableIdentity(req: Request): IdentityOrResponse {
   const identity = getGatewayVerifiedIdentity(req);
   if (!identity) {
     return identityError(401, "unauthorized", "Unauthorized");
   }
-  if (identity.isAnonymous && !controls.anonymousTestModeEnabled) {
+  if (identity.isAnonymous) {
     return identityError(
       403,
-      "anonymous_test_ended",
-      "Anonymous testing has ended",
+      "registered_account_required",
+      "A registered account is required",
     );
   }
   return { ...identity, status: "allowed" as const };

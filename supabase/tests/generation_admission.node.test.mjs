@@ -64,12 +64,12 @@ test('free mode bypasses membership reservation for registered users but still v
   assert.strictEqual(calls, 0);
 });
 
-test('anonymous test mode bypasses reservations when membership enforcement is off', async () => {
+test('registered membership mode reserves through membership entitlements', async () => {
   const calls = [];
   const res = await requestGenerationAdmission({
     rpc: async (name, args) => {
       calls.push({ name, args });
-      throw new Error('test mode must not require a budget ledger');
+      return { data: { reservationId: 'membership-reservation' }, error: null };
     },
   }, {
     userId: '11111111-1111-1111-1111-111111111111',
@@ -77,13 +77,12 @@ test('anonymous test mode bypasses reservations when membership enforcement is o
     feature: 'sentence',
     units: {},
     payloadHash: 'hash123',
-    isAnonymous: true,
-    enforcementEnabled: false,
+    enforcementEnabled: true,
   });
   assert.strictEqual(res.allowed, true);
-  assert.strictEqual(res.reservationId, undefined);
-  assert.strictEqual(res.reservationScope, undefined);
-  assert.deepStrictEqual(calls, []);
+  assert.strictEqual(res.reservationId, 'membership-reservation');
+  assert.strictEqual(res.reservationScope, 'membership');
+  assert.deepStrictEqual(calls.map(({ name }) => name), ['reserve_generation_allowance']);
 });
 
 test('free mode still rejects an unbounded request before any provider call', async () => {
@@ -106,15 +105,12 @@ test('free mode still rejects an unbounded request before any provider call', as
   assert.strictEqual(calls, 0);
 });
 
-test('anonymous test users reserve platform budget without membership quota', async () => {
+test('registered users must reserve membership entitlement when enforcement is on', async () => {
   const calls = [];
   const res = await requestGenerationAdmission({
     rpc: async (name, args) => {
       calls.push({ name, args });
-      return {
-        data: { reservationId: 'platform-reservation', status: 'reserved' },
-        error: null,
-      };
+      return { data: null, error: { message: 'membership_required' } };
     },
   }, {
     userId: '11111111-1111-1111-1111-111111111111',
@@ -122,15 +118,13 @@ test('anonymous test users reserve platform budget without membership quota', as
     feature: 'tts',
     units: { characters: 12 },
     payloadHash: 'hash123',
-    isAnonymous: true,
     enforcementEnabled: true,
   });
 
-  assert.strictEqual(res.allowed, true);
-  assert.strictEqual(res.reservationId, 'platform-reservation');
+  assert.strictEqual(res.allowed, false);
+  assert.strictEqual(res.errorCode, 'membership_required');
   assert.strictEqual(calls.length, 1);
-  assert.strictEqual(calls[0].name, 'reserve_platform_generation_allowance');
-  assert.strictEqual(calls[0].args.p_nano_usd, String(12 * 15000));
+  assert.strictEqual(calls[0].name, 'reserve_generation_allowance');
 });
 
 test('requestGenerationAdmission translates RPC error codes accurately', async () => {

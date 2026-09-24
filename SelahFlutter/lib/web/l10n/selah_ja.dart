@@ -261,7 +261,6 @@ const selahJaOverrides = <String, String>{
   'sync.savingLocalDetail': '内容はまずこのブラウザに保存され、保存後はオフラインでも続けられます。',
   'sync.localOnly': '端末で学習中',
   'sync.localOnlyDetail': '内容はこのブラウザに保存されます。ログインするとアカウントに同期できます。',
-  'sync.testMode': 'テストモード：機能を使えます。データはこのブラウザに保存されます。',
   'sync.syncing': '同期中',
   'sync.syncingDetail': '端末とクラウドの学習記録を確認しています。',
   'sync.syncFailed': '同期未完了',

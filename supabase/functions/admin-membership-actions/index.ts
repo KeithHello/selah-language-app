@@ -50,6 +50,12 @@ export function validateAdminMembershipAction(
   if (!actions.includes(body.action as AdminMembershipActionType)) {
     return { ok: false, status: 400, code: "unsupported_action", message: "Unsupported action" };
   }
+  if (
+    body.plan != null &&
+    (body.action !== "grant_membership" || !["monthly", "pro"].includes(body.plan))
+  ) {
+    return { ok: false, status: 400, code: "invalid_plan", message: "plan must be monthly or pro for a membership grant" };
+  }
   if (body.reason.trim().length < 3 || body.reason.trim().length > 500) {
     return { ok: false, status: 400, code: "invalid_reason", message: "A concise reason is required" };
   }
@@ -121,23 +127,33 @@ Deno.serve(async (req: Request) => {
     return errorResponse(validation.message, validation.status, validation.code);
   }
   const { action, targetUserId, months, reason, clientRequestId } = body;
+  const plan = body.plan ?? "monthly";
 
   // All high-impact changes should be committed by one database transaction
   // that reserves future capacity and writes its audit row atomically. The
   // legacy direct insert is opt-in for local migration previews only.
-  const atomic = await supabase.rpc("admin_apply_membership_action", {
-    p_admin_user_id: operatorId,
-    p_target_user_id: targetUserId,
-    p_action: action,
-    p_months: months ?? 1,
-    p_reason: reason.trim(),
-    p_client_request_id: clientRequestId,
-    p_order_id: body.orderId ?? null,
-    p_membership_id: body.membershipId ?? null,
-    p_channel: body.channel ?? null,
-    p_transaction_id: body.transactionId ?? null,
-    p_amount_fen_cny: body.amountFenCny ?? null,
-  });
+  const atomic = action === "grant_membership"
+    ? await supabase.rpc("admin_grant_membership_plan", {
+      p_admin_user_id: operatorId,
+      p_target_user_id: targetUserId,
+      p_plan: plan,
+      p_months: months ?? 1,
+      p_reason: reason.trim(),
+      p_client_request_id: clientRequestId,
+    })
+    : await supabase.rpc("admin_apply_membership_action", {
+      p_admin_user_id: operatorId,
+      p_target_user_id: targetUserId,
+      p_action: action,
+      p_months: months ?? 1,
+      p_reason: reason.trim(),
+      p_client_request_id: clientRequestId,
+      p_order_id: body.orderId ?? null,
+      p_membership_id: body.membershipId ?? null,
+      p_channel: body.channel ?? null,
+      p_transaction_id: body.transactionId ?? null,
+      p_amount_fen_cny: body.amountFenCny ?? null,
+    });
   if (!atomic.error && atomic.data != null) {
     return json({ success: true, action, result: atomic.data });
   }
@@ -169,7 +185,7 @@ Deno.serve(async (req: Request) => {
     const periods = calculateMonthlyPeriods(startDate, grantMonths);
     const insertedRows = periods.map((p, idx) => ({
       user_id: targetUserId,
-      plan: "monthly",
+      plan: action === "grant_membership" ? plan : "monthly",
       status: "active",
       source,
       started_at: p.startsAt.toISOString(),

@@ -36,9 +36,9 @@ class PlanEntitlements {
       );
 }
 
-/// Pro is deliberately a product contract until the corresponding server
-/// migration and payment adapter are approved.  The client never enables it
-/// from these constants alone.
+/// The client uses these Pro entitlements for display; only the server grants
+/// them. Self-service purchase stays disabled until the migration and a
+/// verified payment adapter are live.
 const proPlanSku = 'selah_membership_pro';
 const proPriceFenCnyValue = 9990;
 const proPriceFenCny = proPriceFenCnyValue;

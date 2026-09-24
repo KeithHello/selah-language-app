@@ -149,9 +149,6 @@ class LearningController extends ChangeNotifier {
   bool _polling = false;
   int _accountGeneration = 0;
   Future<void> _accountLoad = Future.value();
-  // Concurrent cloud entry points share this Future so a double click cannot
-  // create more than one temporary anonymous Supabase identity.
-  Future<void>? _cloudSessionLoad;
   String? _remindedDay;
   String? _activitySessionId;
   DateTime? _lastActivityAt;
@@ -189,12 +186,10 @@ class LearningController extends ChangeNotifier {
         'paused',
         'ready',
       }.contains(loopPlayback['state']);
-  bool get hasSession => gateway.userId != null;
+  bool get hasSession => gateway.userId != null && !gateway.isAnonymous;
   bool get isAnonymous => gateway.isAnonymous;
 
-  /// Anonymous Supabase sessions authenticate API calls but never become a
-  /// cloud account scope; only a formal account can sync or use membership.
-  bool get isRegistered => hasSession && !isAnonymous;
+  bool get isRegistered => hasSession;
   bool get hasPendingRecording => _pendingRecording != null;
   String? get pendingPracticeSignal => _pendingPracticeSignal;
   String? get pendingPracticeSentenceId => _pendingPracticeSentenceId;
@@ -418,14 +413,14 @@ class LearningController extends ChangeNotifier {
       }
       final isSeed = sentence.seedId != null;
       if (!hasSession) {
-        await ensureCloudSession();
+        if (isSeed) {
+          throw const LearningFailure(
+            '例句的母语音频尚未随应用包就绪，请更新包含例句母语音频的版本。',
+            code: 'seed_native_audio_missing',
+          );
+        }
+        await ensureRegisteredAccount();
         _ensureCurrent(generation);
-      }
-      if (!hasSession) {
-        throw LearningFailure(
-          isSeed ? '例句的母语音频尚未随应用包就绪，请更新包含例句母语音频的版本。' : '登录后即可为自己的句子补齐音频。',
-          code: isSeed ? 'seed_native_audio_missing' : 'login_required',
-        );
       }
       if (!gateway.configured) {
         throw const LearningFailure(
@@ -859,18 +854,7 @@ class LearningController extends ChangeNotifier {
     }
   }
 
-  Future<void> ensureCloudSession() {
-    if (hasSession) return Future<void>.value();
-    final existing = _cloudSessionLoad;
-    if (existing != null) return existing;
-    final load = _ensureCloudSession().whenComplete(() {
-      _cloudSessionLoad = null;
-    });
-    _cloudSessionLoad = load;
-    return load;
-  }
-
-  Future<void> _ensureCloudSession() async {
+  Future<void> ensureRegisteredAccount() async {
     if (!configured) {
       throw const LearningFailure(
         '在线服务尚未配置。你可以继续学习种子句和已保存的内容。',
@@ -880,26 +864,28 @@ class LearningController extends ChangeNotifier {
     if (platformInfo['online'] == false) {
       throw const LearningFailure('现在处于离线状态，联网后可继续生成。');
     }
-    _localInputTimer?.cancel();
-    await _writes;
-    await store.save('guest', state.copy());
-    // Keep the browser's guest scope while using the anonymous identity only
-    // as a short-lived credential for protected Edge Function requests.
-    await gateway.signInAnonymously();
-    if (gateway.userId == null) {
-      throw const LearningFailure('暂时无法开始云端学习，请稍后重试。');
+    if (!isRegistered) {
+      throw const LearningFailure('请先登录，便能生成自己的英文和语音。', code: 'login_required');
     }
-    _ensureCurrent(_accountGeneration);
+  }
+
+  Future<void> _signOutLegacyAnonymous() async {
+    if (!gateway.isAnonymous) return;
+    try {
+      await gateway.signOut();
+    } catch (_) {
+      // Legacy anonymous tokens are rejected server-side; keep local guest data usable.
+    }
   }
 
   Future<void> initialize() async {
     if (initialized) return;
     try {
+      await _signOutLegacyAnonymous();
       _auth ??= gateway.accountChanges.listen((id) {
         if (gateway.isAnonymous) {
-          // Anonymous cloud calls share the local guest scope. Establishing a
-          // temporary Supabase identity must not clear the current page.
-          notifyListeners();
+          if (_accountId != 'guest') unawaited(_switchAccount('guest'));
+          unawaited(_signOutLegacyAnonymous());
           return;
         }
         if ((id ?? 'guest') != _accountId) {
@@ -908,7 +894,7 @@ class LearningController extends ChangeNotifier {
       });
       final initialAccount = gateway.isAnonymous
           ? 'guest'
-          : (gateway.userId ?? 'guest');
+          : gateway.userId ?? 'guest';
       await _switchAccount(initialAccount, force: true);
       platformInfo = objectMap(await platform.invoke('platformInfo'));
       if (polling) {
@@ -1482,7 +1468,7 @@ class LearningController extends ChangeNotifier {
 
   void _online() {
     if (!configured) throw const LearningFailure('在线服务尚未配置。你可以继续学习种子句和已保存的内容。');
-    if (!hasSession) {
+    if (!isRegistered) {
       throw const LearningFailure('请先登录，便能生成自己的英文和语音。', code: 'login_required');
     }
     if (platformInfo['online'] == false) {
@@ -1491,7 +1477,7 @@ class LearningController extends ChangeNotifier {
   }
 
   Future<void> _ensureOnlineSession() async {
-    await ensureCloudSession();
+    await ensureRegisteredAccount();
     _online();
   }
 
@@ -1592,7 +1578,7 @@ class LearningController extends ChangeNotifier {
       max: 500,
     );
     final submittedInputVersion = _inputVersion;
-    await ensureCloudSession();
+    await ensureRegisteredAccount();
     generation = _accountGeneration;
     _ensureCurrent(generation);
     legacySentence = null;
@@ -2815,7 +2801,7 @@ class LearningController extends ChangeNotifier {
       }, generation: generation);
   Future<void> importGuest() => _run((generation) async {
     if (!isRegistered) {
-      notice = '测试模式下已直接使用本机资料。';
+      notice = '请注册或登录正式账户后，再选择导入本机资料。';
       return;
     }
     await _ensureOnlineSession();

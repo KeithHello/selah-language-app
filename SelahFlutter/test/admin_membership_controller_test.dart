@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/web/admin/admin_controller.dart';
 import 'package:selah/web/data/learning_gateway.dart';
 import 'package:selah/web/domain/admin_audience.dart';
-import 'package:selah/web/domain/admin_membership.dart';
 import 'package:selah/web/domain/learning_models.dart';
 
 class _AdminGateway implements LearningGateway {
@@ -63,9 +62,6 @@ class _AdminGateway implements LearningGateway {
         'trialSignupsEnabled': false,
         'membershipSalesEnabled': false,
         'generationEnabled': true,
-        'anonymousTestModeEnabled': update
-            ? body['anonymousTestModeEnabled'] ?? false
-            : false,
       };
     }
     if (function == 'admin-users') {
@@ -90,8 +86,6 @@ class _AdminGateway implements LearningGateway {
   @override
   Future<void> signIn(String email, String password) async {}
 
-  @override
-  Future<void> signInAnonymously() async {}
   @override
   Future<void> signUp(
     String email,
@@ -150,64 +144,23 @@ void main() {
     },
   );
 
-  test('updates the anonymous test switch with its own service flag', () async {
-    final gateway = _AdminGateway();
-    final controller = AdminController(gateway: gateway);
-    addTearDown(controller.dispose);
-    await controller.load();
+  test(
+    'updates registered-account service flags without a guest mode switch',
+    () async {
+      final gateway = _AdminGateway();
+      final controller = AdminController(gateway: gateway);
+      addTearDown(controller.dispose);
+      await controller.load();
 
-    final success = await controller.updateControls(
-      anonymousTestModeEnabled: true,
-      reason: 'dashboard_anonymousTest_toggle',
-    );
-
-    expect(success, isTrue);
-    expect(controller.controls.anonymousTestModeEnabled, isTrue);
-  });
-
-  test('derives production as the safe fallback for mixed service flags', () {
-    const controls = AdminServiceControls(
-      configured: true,
-      anonymousTestModeEnabled: true,
-      membershipEnforcementEnabled: true,
-    );
-    expect(controls.productMode, ProductMode.production);
-    expect(controls.productModeNeedsNormalization, isTrue);
-    expect(
-      const AdminServiceControls(
-        configured: true,
-        anonymousTestModeEnabled: true,
-        membershipEnforcementEnabled: false,
-        generationEnabled: true,
-      ).productModeNeedsNormalization,
-      isFalse,
-    );
-    expect(
-      const AdminServiceControls(
-        configured: true,
-        anonymousTestModeEnabled: false,
+      final success = await controller.updateControls(
         membershipEnforcementEnabled: true,
-        generationEnabled: true,
-      ).productModeNeedsNormalization,
-      isFalse,
-    );
-  });
+        reason: 'dashboard_membership_toggle',
+      );
 
-  test('sets test mode as one coherent service configuration', () async {
-    final gateway = _AdminGateway();
-    final controller = AdminController(gateway: gateway);
-    addTearDown(controller.dispose);
-    await controller.load();
-
-    final success = await controller.setProductMode(
-      ProductMode.test,
-      reason: 'dashboard_product_mode_toggle',
-    );
-
-    expect(success, isTrue);
-    final request = gateway.requestBodies.last;
-    expect(request['anonymousTestModeEnabled'], isTrue);
-    expect(request['membershipEnforcementEnabled'], isFalse);
-    expect(request['generationEnabled'], isTrue);
-  });
+      expect(success, isTrue);
+      final request = gateway.requestBodies.last;
+      expect(request['membershipEnforcementEnabled'], isTrue);
+      expect(request.containsKey('anonymousTestModeEnabled'), isFalse);
+    },
+  );
 }

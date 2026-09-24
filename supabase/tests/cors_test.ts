@@ -76,6 +76,13 @@ Deno.test("errorResponse() includes CORS headers", () => {
   assertEquals(response.headers.get("Access-Control-Allow-Origin"), "*");
 });
 
+Deno.test("errorResponse() exposes retry delay to HTTP clients", () => {
+  const response = errorResponse("Too many requests", 429, "rate_limited", {
+    retryAfterSeconds: 2.4,
+  });
+  assertEquals(response.headers.get("Retry-After"), "3");
+});
+
 // ============================================================
 // handleOptions()
 // ============================================================
@@ -147,6 +154,25 @@ Deno.test("requireAuth() returns userId string for valid token", () => {
   });
   const result = requireAuth(req);
   assertEquals(result, "user-456");
+});
+
+Deno.test("requireAuth() rejects a legacy anonymous session", async () => {
+  const header = btoa(JSON.stringify({ alg: "HS256", typ: "JWT" }));
+  const payload = btoa(
+    JSON.stringify({
+      sub: "old-anonymous-user",
+      exp: 9999999999,
+      is_anonymous: true,
+    }),
+  );
+  const req = new Request("https://example.com", {
+    headers: { Authorization: `Bearer ${header}.${payload}.sig` },
+  });
+
+  const result = requireAuth(req);
+  assertTrue(result instanceof Response);
+  assertEquals((result as Response).status, 403);
+  assertEquals((await (result as Response).json()).error, "registered_account_required");
 });
 
 // ============================================================

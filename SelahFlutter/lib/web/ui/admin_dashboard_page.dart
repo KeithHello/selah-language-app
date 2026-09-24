@@ -415,91 +415,20 @@ class _ServiceControlsCard extends StatelessWidget {
   final AdminController controller;
   final String uiLocale;
 
-  Future<void> _toggleMode(BuildContext context, bool testMode) async {
-    String copy(String name) => _adminCopy(uiLocale, name);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(copy('confirmTitle')),
-        content: Text(
-          copy(testMode ? 'testModeOnConfirm' : 'testModeOffConfirm'),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(copy('cancel')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(copy('confirm')),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !context.mounted) return;
-    final success = await controller.setProductMode(
-      testMode ? ProductMode.test : ProductMode.production,
-      reason: 'dashboard_product_mode_toggle',
-    );
-    if (!context.mounted || success) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(controller.controlsError ?? copy('updateFailed'))),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     String copy(String name) => _adminCopy(uiLocale, name);
     final controls = controller.controls;
-    final testMode = controls.productMode == ProductMode.test;
     return _Card(
       title: copy('productModeTitle'),
       child: Column(
         children: [
-          SwitchListTile.adaptive(
+          ListTile(
             contentPadding: EdgeInsets.zero,
-            title: Text(testMode ? copy('testMode') : copy('productionMode')),
-            subtitle: Text(
-              copy(testMode ? 'testModeDetail' : 'productionModeDetail'),
-            ),
-            value: testMode,
-            onChanged: controller.controlsLoading
-                ? null
-                : (value) => _toggleMode(context, value),
+            leading: const Icon(Icons.verified_user_outlined),
+            title: Text(copy('registeredOnly')),
+            subtitle: Text(copy('registeredOnlyDetail')),
           ),
-          if (controls.productModeNeedsNormalization)
-            Align(
-              alignment: Alignment.centerLeft,
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: SelahColors.warning.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: SelahColors.warning.withValues(alpha: 0.35),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      copy('productModeMixedWarning'),
-                      style: SelahTypography.bodySmall(
-                        color: SelahColors.textPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    OutlinedButton(
-                      onPressed: controller.controlsLoading
-                          ? null
-                          : () => _toggleMode(context, false),
-                      child: Text(copy('normalizeProduction')),
-                    ),
-                  ],
-                ),
-              ),
-            ),
           if (controller.controlsError != null)
             Align(
               alignment: Alignment.centerLeft,
@@ -800,15 +729,9 @@ String _adminCopy(String locale, String key) {
 
 const _adminCopies = <String, Map<String, String>>{
   'zh-Hans': {
-    'productModeTitle': '运行模式',
-    'testMode': '测试模式',
-    'testModeDetail': '免登录开放 Web 功能；匿名请求仍受每日平台预算保护。',
-    'productionMode': '生产模式',
-    'productionModeDetail': '按正式账户、会员权益和服务端限制运行。',
-    'productModeMixedWarning': '当前远端开关不是完整的测试或生产配置，匿名入口可能仍然开放。请先应用生产模式归一化。',
-    'normalizeProduction': '应用生产模式',
-    'testModeOnConfirm': '开启测试模式？测试用户可以免登录使用功能，费用仍受每日平台预算保护。',
-    'testModeOffConfirm': '切换到生产模式？匿名用户将需要注册或登录后才能继续新增云端内容。',
+    'productModeTitle': '云端账户要求',
+    'registeredOnly': '正式账户模式',
+    'registeredOnlyDetail': '生成、转写、个人音频、会员与同步均要求注册并登录。访客仍可使用本机学习和示例内容。',
     'controlsTitle': '服务与会员开关',
     'membershipSwitch': '启用会员限制',
     'membershipSwitchDetail': '关闭时不检查会员额度；打开后所有新增生成都走服务端限额。',
@@ -818,8 +741,6 @@ const _adminCopies = <String, Map<String, String>>{
     'salesSwitchDetail': '只允许创建新的 39.9 元订单，不会直接发放权益。',
     'generationSwitch': '允许新增生成',
     'generationSwitchDetail': '关闭时保留已有内容学习，暂停新的模型与配音调用。',
-    'anonymousTestSwitch': '开放匿名测试',
-    'anonymousTestSwitchDetail': '临时身份可测试云端生成，但不享有会员额度；仍受每日平台预算保护。',
     'membershipOnConfirm': '打开后，新生成会按会员方案检查额度；请确认预算与数据库迁移已就绪。',
     'membershipOffConfirm': '关闭后将进入公开体验模式，不再执行会员额度限制。',
     'trialOnConfirm': '开放新的 7 天试用入口？试用仍会在第一条个人表达成功后开始。',
@@ -828,8 +749,6 @@ const _adminCopies = <String, Map<String, String>>{
     'salesOffConfirm': '关闭购买入口？已有订单和有效会员不会被撤销。',
     'generationOnConfirm': '恢复新增生成？系统仍会保留预算与会员限制。',
     'generationOffConfirm': '暂停新增生成？已有内容和草稿仍可使用。',
-    'anonymousTestOnConfirm': '开放匿名测试？临时用户可调用收费功能，费用会占用每日平台预算。',
-    'anonymousTestOffConfirm': '立即结束匿名测试？已有匿名身份将不能新增生成，但本机内容仍保留。',
     'confirmTitle': '确认变更服务开关',
     'cancel': '取消',
     'confirm': '确认',
@@ -852,15 +771,9 @@ const _adminCopies = <String, Map<String, String>>{
     'audienceInsufficient': '样本不足',
   },
   'zh-Hant': {
-    'productModeTitle': '執行模式',
-    'testMode': '測試模式',
-    'testModeDetail': '免登入開放 Web 功能；匿名請求仍受每日平台預算保護。',
-    'productionMode': '生產模式',
-    'productionModeDetail': '按正式帳戶、會員權益和伺服器限制執行。',
-    'productModeMixedWarning': '目前遠端開關不是完整的測試或生產設定，匿名入口可能仍然開放。請先套用生產模式。',
-    'normalizeProduction': '套用生產模式',
-    'testModeOnConfirm': '開啟測試模式？測試使用者可以免登入使用功能，費用仍受每日平台預算保護。',
-    'testModeOffConfirm': '切換到生產模式？匿名使用者將需要註冊或登入後才能繼續新增雲端內容。',
+    'productModeTitle': '雲端帳戶要求',
+    'registeredOnly': '正式帳戶模式',
+    'registeredOnlyDetail': '生成、轉寫、個人音訊、會員與同步均須註冊並登入。訪客仍可使用本機學習與範例內容。',
     'controlsTitle': '服務與會員開關',
     'membershipSwitch': '啟用會員限制',
     'membershipSwitchDetail': '關閉時不檢查會員額度；開啟後所有新增產生都走伺服器限額。',
@@ -870,8 +783,6 @@ const _adminCopies = <String, Map<String, String>>{
     'salesSwitchDetail': '只允許建立新的 39.9 元訂單，不會直接發放權益。',
     'generationSwitch': '允許新增產生',
     'generationSwitchDetail': '關閉時保留已有內容學習，暫停新的模型與配音呼叫。',
-    'anonymousTestSwitch': '開放匿名測試',
-    'anonymousTestSwitchDetail': '臨時身分可測試雲端產生，但不享有會員額度；仍受每日平台預算保護。',
     'membershipOnConfirm': '開啟後，新產生會按會員方案檢查額度；請確認預算與資料庫 migration 已就緒。',
     'membershipOffConfirm': '關閉後將進入公開體驗模式，不再執行會員額度限制。',
     'trialOnConfirm': '開放新的 7 天試用入口？試用仍會在第一條個人表達成功後開始。',
@@ -880,8 +791,6 @@ const _adminCopies = <String, Map<String, String>>{
     'salesOffConfirm': '關閉購買入口？已有訂單和有效會員不會被撤銷。',
     'generationOnConfirm': '恢復新增產生？系統仍會保留預算與會員限制。',
     'generationOffConfirm': '暫停新增產生？已有內容和草稿仍可使用。',
-    'anonymousTestOnConfirm': '開放匿名測試？臨時使用者可呼叫收費功能，費用會占用每日平台預算。',
-    'anonymousTestOffConfirm': '立即結束匿名測試？已有匿名身分將不能新增產生，但本機內容仍保留。',
     'confirmTitle': '確認變更服務開關',
     'cancel': '取消',
     'confirm': '確認',
@@ -904,15 +813,10 @@ const _adminCopies = <String, Map<String, String>>{
     'audienceInsufficient': '樣本不足',
   },
   'ja': {
-    'productModeTitle': '実行モード',
-    'testMode': 'テストモード',
-    'testModeDetail': 'ログインなしで Web 機能を使えます。匿名リクエストも毎日の予算で保護します。',
-    'productionMode': '本番モード',
-    'productionModeDetail': '正式アカウント、会員権限、サーバー制限で動作します。',
-    'productModeMixedWarning': 'リモート設定がテスト／本番の完全な構成ではなく、匿名入口が開いたままの可能性があります。まず本番モードを適用してください。',
-    'normalizeProduction': '本番モードを適用',
-    'testModeOnConfirm': 'テストモードを開きますか？ログインなしで使えますが、毎日の予算保護は有効です。',
-    'testModeOffConfirm': '本番モードに切り替えますか？匿名ユーザーは登録またはログインが必要になります。',
+    'productModeTitle': 'クラウド利用条件',
+    'registeredOnly': '登録アカウントのみ',
+    'registeredOnlyDetail':
+        '生成、文字起こし、個人音声、会員機能、同期には登録とログインが必要です。ゲストは端末内の学習と例文を利用できます。',
     'controlsTitle': 'サービスと会員設定',
     'membershipSwitch': '会員制限を有効にする',
     'membershipSwitchDetail': 'オフでは会員上限を確認せず、オンでは全生成をサーバー上限で管理します。',
@@ -922,8 +826,6 @@ const _adminCopies = <String, Map<String, String>>{
     'salesSwitchDetail': '新しい注文を作成できます。支払い確認前に会員権限は付与しません。',
     'generationSwitch': '新しい生成を許可',
     'generationSwitchDetail': 'オフでも保存済みの内容と下書きは利用できます。',
-    'anonymousTestSwitch': '匿名テストを開く',
-    'anonymousTestSwitchDetail': '一時的な本人確認なしでも生成を試せます。会員枠はなく、毎日の予算で保護します。',
     'membershipOnConfirm': '会員制限を有効にしますか？データベースと予算の準備を確認してください。',
     'membershipOffConfirm': '公開体験モードに戻しますか？会員上限は適用されません。',
     'trialOnConfirm': '新しいトライアルを開きますか？最初の生成成功から開始します。',
@@ -932,8 +834,6 @@ const _adminCopies = <String, Map<String, String>>{
     'salesOffConfirm': '購入入口を閉じますか？既存注文と会員期間は維持されます。',
     'generationOnConfirm': '新しい生成を再開しますか？予算と会員制限は維持されます。',
     'generationOffConfirm': '新しい生成を一時停止しますか？保存済み内容は利用できます。',
-    'anonymousTestOnConfirm': '匿名テストを開きますか？一時ユーザーの有料機能利用は毎日の予算を消費します。',
-    'anonymousTestOffConfirm': '匿名テストを終了しますか？既存の一時アカウントは生成できなくなり、ローカル内容は残ります。',
     'confirmTitle': 'サービス設定を変更',
     'cancel': 'キャンセル',
     'confirm': '確認',

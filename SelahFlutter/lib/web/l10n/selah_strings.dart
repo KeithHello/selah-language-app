@@ -264,7 +264,6 @@ const _baseStrings = <String, String>{
   'sync.savingLocalDetail': '内容会先保存在此浏览器，保存成功后才可离线继续。',
   'sync.localOnly': '本机学习中',
   'sync.localOnlyDetail': '内容保存在此浏览器；登录后才能同步到你的账户。',
-  'sync.testMode': '测试模式：功能已开放，资料保存在此浏览器。',
   'sync.syncing': '正在同步',
   'sync.syncingDetail': '正在核对本机与云端学习记录。',
   'sync.syncFailed': '同步未完成',

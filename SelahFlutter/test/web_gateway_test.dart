@@ -310,6 +310,24 @@ void main() {
     },
   );
 
+  test('rate limits keep the server retry delay for an actionable message', () {
+    final failure = SupabaseLearningGateway.functionFailure(429, {
+      'error': 'rate_limited',
+      'retryAfterSeconds': 7,
+    });
+    expect(failure.code, 'rate_limited');
+    expect(failure.retryAfterSeconds, 7);
+    expect(failure.message, contains('7 秒后重试'));
+  });
+
+  test('legacy anonymous account denial maps to registration guidance', () {
+    final failure = SupabaseLearningGateway.functionFailure(403, {
+      'error': 'registered_account_required',
+    });
+    expect(failure.code, 'registered_account_required');
+    expect(failure.message, contains('注册或登录正式账户'));
+  });
+
   test('sentence sync preserves language and generation provenance', () {
     final id = newId();
     final sentence = LearnSentence(

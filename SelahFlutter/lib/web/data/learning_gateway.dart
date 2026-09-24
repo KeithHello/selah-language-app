@@ -30,7 +30,6 @@ abstract class LearningGateway {
   bool get isAnonymous;
   Stream<String?> get accountChanges;
   Future<void> signIn(String email, String password);
-  Future<void> signInAnonymously();
   Future<void> signUp(String email, String password, {String? emailRedirectTo});
   Future<void> resetPassword(String email, {String? emailRedirectTo});
   Future<void> signOut();
@@ -62,11 +61,14 @@ class UnconfiguredGateway implements LearningGateway {
   @override
   Future<void> signIn(String email, String password) async => _missing();
   @override
-  Future<void> signInAnonymously() async => _missing();
+  Future<void> signUp(
+    String email,
+    String password, {
+    String? emailRedirectTo,
+  }) async => _missing();
   @override
-  Future<void> signUp(String email, String password, {String? emailRedirectTo}) async => _missing();
-  @override
-  Future<void> resetPassword(String email, {String? emailRedirectTo}) async => _missing();
+  Future<void> resetPassword(String email, {String? emailRedirectTo}) async =>
+      _missing();
   @override
   Future<void> signOut() async {}
   @override
