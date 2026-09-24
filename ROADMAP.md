@@ -8,13 +8,13 @@
 
 ## 当前阶段
 
-### 2026-09-24 通知、登录弹窗与同步状态 UX（本地实现已验证；预览部署待确认）
+### 2026-09-24 通知、登录弹窗与同步状态 UX（已提交、推送并部署预览）
 
 - [x] 一般成功／操作提示改为可关闭的浮动 Toast，默认约 5 秒消失；尊重系统减少干扰／无障碍导航偏好，不自动消失时仍可手动关闭。
 - [x] 邮箱确认、注册待确认、存储风险等需要用户后续处理的信息保留在页面；正式账户受限时直接打开登录弹窗，并避免弹窗和页面重复显示同一错误。
 - [x] 登录认证成功即关闭弹窗并显示本地化 Toast，首次账户云端快照仍按原流程等待；侧栏和设置页统一展示本机保存、待同步、同步中、已同步、离线与失败状态。
 - [x] 新增 Toast、登录弹窗、后台认证错误与同步状态回归测试；Flutter 全量 299 项通过，`flutter analyze --no-pub` 无问题，`flutter build web --release --no-pub` 成功。
-- [ ] Cloudflare Pages 预览部署待主人确认；不包含生产环境、数据库或密钥变更。
+- [x] Cloudflare Pages 预览部署完成：项目 `selah-language-app-preview`，部署版本 <https://9e6adc6f.selah-language-app-preview.pages.dev>，共享预览别名 <https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>；Build ID `830718d9a8acff6c`，关联 commit `173550f`。两个地址首页与 `main.dart.js` 均 HTTP 200；未改生产环境、数据库或密钥。
 
 ### 2026-09-24 正式账户、会员分级与分段限流（核心函数已部署；账户端到端验收待续）
 
