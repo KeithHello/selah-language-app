@@ -56,7 +56,9 @@ function invalid(message: string): never {
 }
 
 function validateInput(input: PersonalGenerationCompletionInput): void {
-  if (!input || typeof input !== "object") invalid("Completion input is required");
+  if (!input || typeof input !== "object") {
+    invalid("Completion input is required");
+  }
   if (!input.userId || typeof input.userId !== "string") {
     invalid("Completion user is required");
   }
@@ -71,10 +73,14 @@ function validateInput(input: PersonalGenerationCompletionInput): void {
   }
   const seen = new Set<string>();
   for (const item of input.items) {
-    if (!item || typeof item.requestId !== "string" || item.requestId.length === 0) {
+    if (
+      !item || typeof item.requestId !== "string" || item.requestId.length === 0
+    ) {
       invalid("Completion item request is invalid");
     }
-    if (seen.has(item.requestId)) invalid("Completion item request is duplicated");
+    if (seen.has(item.requestId)) {
+      invalid("Completion item request is duplicated");
+    }
     seen.add(item.requestId);
     if (!item.responsePayload || typeof item.responsePayload !== "object") {
       invalid("Completion item payload is invalid");

@@ -53,7 +53,10 @@ Deno.test("System prompt skips basic function words", () => {
 });
 
 Deno.test("System prompt follows the requested source language", () => {
-  assertStringIncludes(FUNCTION_SOURCE, "never assume that the source is Chinese");
+  assertStringIncludes(
+    FUNCTION_SOURCE,
+    "never assume that the source is Chinese",
+  );
   assertStringIncludes(FUNCTION_SOURCE, "Source language: ${sourceName}");
   assertStringIncludes(
     FUNCTION_SOURCE,
@@ -205,6 +208,9 @@ Deno.test("Completes or fails the request ledger", () => {
 
 Deno.test("Uses the atomic personal completion path for trial activation", () => {
   assertStringIncludes(FUNCTION_SOURCE, "completePersonalGeneration");
-  assertStringIncludes(FUNCTION_SOURCE, "reservationId: admission.reservationId ?? null");
+  assertStringIncludes(
+    FUNCTION_SOURCE,
+    "reservationId: admission.reservationId ?? null",
+  );
   assertEquals(FUNCTION_SOURCE.includes("activate_trial_with_result"), false);
 });

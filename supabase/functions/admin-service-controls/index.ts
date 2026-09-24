@@ -45,7 +45,8 @@ export function createAdminServiceControlsHandler(
   const env = dependencies.env ?? Deno.env;
   const authenticate = dependencies.requireAuth ?? requireAuth;
   const makeSupabase = dependencies.createSupabase ??
-    ((url: string, key: string) => createClient(url, key) as unknown as ServiceControlsClient);
+    ((url: string, key: string) =>
+      createClient(url, key) as unknown as ServiceControlsClient);
 
   return async (req: Request) => {
     if (req.method === "OPTIONS") return handleOptions();
@@ -59,7 +60,11 @@ export function createAdminServiceControlsHandler(
     const supabaseUrl = env.get("SUPABASE_URL") ?? "";
     const serviceKey = env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     if (!supabaseUrl || !serviceKey) {
-      return errorResponse("Admin service unavailable", 503, "admin_unavailable");
+      return errorResponse(
+        "Admin service unavailable",
+        503,
+        "admin_unavailable",
+      );
     }
     const supabase = makeSupabase(supabaseUrl, serviceKey);
     const adminResult = await supabase.rpc("is_admin_member", {
@@ -85,7 +90,11 @@ export function createAdminServiceControlsHandler(
     }
     const action = parseAction(body.action ?? "update");
     if (action !== "update") {
-      return errorResponse("Only the update action is supported", 400, "invalid_action");
+      return errorResponse(
+        "Only the update action is supported",
+        400,
+        "invalid_action",
+      );
     }
 
     // A separate RPC is intentional: membership allowlisting grants read
@@ -94,7 +103,11 @@ export function createAdminServiceControlsHandler(
       p_user_id: operatorId,
     });
     if (writeResult.error || writeResult.data !== true) {
-      return errorResponse("Management permission required", 403, "admin_write_forbidden");
+      return errorResponse(
+        "Management permission required",
+        403,
+        "admin_write_forbidden",
+      );
     }
 
     const current = await readServiceControls(
@@ -111,20 +124,27 @@ export function createAdminServiceControlsHandler(
     }
 
     const flags = {
-      membershipEnforcementEnabled: booleanValue(body.membershipEnforcementEnabled),
+      membershipEnforcementEnabled: booleanValue(
+        body.membershipEnforcementEnabled,
+      ),
       trialSignupsEnabled: booleanValue(body.trialSignupsEnabled),
       membershipSalesEnabled: booleanValue(body.membershipSalesEnabled),
       generationEnabled: booleanValue(body.generationEnabled),
     };
     if (Object.values(flags).every((value) => value === undefined)) {
-      return errorResponse("At least one service flag is required", 400, "missing_flags");
+      return errorResponse(
+        "At least one service flag is required",
+        400,
+        "missing_flags",
+      );
     }
     const updated = {
-      membershipEnforcementEnabled:
-        flags.membershipEnforcementEnabled ?? current.membershipEnforcementEnabled,
-      trialSignupsEnabled: flags.trialSignupsEnabled ?? current.trialSignupsEnabled,
-      membershipSalesEnabled:
-        flags.membershipSalesEnabled ?? current.membershipSalesEnabled,
+      membershipEnforcementEnabled: flags.membershipEnforcementEnabled ??
+        current.membershipEnforcementEnabled,
+      trialSignupsEnabled: flags.trialSignupsEnabled ??
+        current.trialSignupsEnabled,
+      membershipSalesEnabled: flags.membershipSalesEnabled ??
+        current.membershipSalesEnabled,
       generationEnabled: flags.generationEnabled ?? current.generationEnabled,
     };
 

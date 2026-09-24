@@ -42,7 +42,9 @@ test("rejects unknown values and overlong self-described gender atomically", () 
     genderDescription: "😀".repeat(41),
   });
   assert.equal(invalidLength.ok, false);
-  if (!invalidLength.ok) assert.equal(invalidLength.code, "profile_invalid_input");
+  if (!invalidLength.ok) {
+    assert.equal(invalidLength.code, "profile_invalid_input");
+  }
 });
 
 test("requires explicit notice and consent only when saving answers", () => {

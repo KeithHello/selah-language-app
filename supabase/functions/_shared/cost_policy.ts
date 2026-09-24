@@ -61,11 +61,15 @@ export function calculatePreparationMaxCost(): bigint {
 }
 
 export function calculateBatchMaxCost(itemCount: number): bigint {
-  if (!Number.isInteger(itemCount) || itemCount < 1 || itemCount > MAX_BATCH_ITEMS) {
+  if (
+    !Number.isInteger(itemCount) || itemCount < 1 || itemCount > MAX_BATCH_ITEMS
+  ) {
     throw new RangeError(`itemCount must be between 1 and ${MAX_BATCH_ITEMS}`);
   }
   const inputTokens = BigInt(Math.min(itemCount * 2048 + 1024, 8192));
-  const outputTokens = BigInt(Math.min(itemCount * 2048, Number(BATCH_MAX_OUTPUT_TOKENS)));
+  const outputTokens = BigInt(
+    Math.min(itemCount * 2048, Number(BATCH_MAX_OUTPUT_TOKENS)),
+  );
   return (
     inputTokens * TEXT_INPUT_NANO_USD_PER_TOKEN +
     outputTokens * TEXT_OUTPUT_NANO_USD_PER_TOKEN
@@ -105,7 +109,9 @@ export function calculateOperationMaxCost(
       return calculateTtsMaxCost(units.characters ?? 1);
     case "transcription":
       if ((units.durationMs ?? 1) > MAX_TRANSCRIPTION_DURATION_MS) {
-        throw new RangeError(`durationMs exceeds single-call max of ${MAX_TRANSCRIPTION_DURATION_MS}`);
+        throw new RangeError(
+          `durationMs exceeds single-call max of ${MAX_TRANSCRIPTION_DURATION_MS}`,
+        );
       }
       return calculateTranscriptionMaxCost(units.durationMs ?? 1);
     default: {
@@ -126,7 +132,8 @@ export function createCostQuote(
   validityMinutes: number = 10,
 ): CostQuote {
   const maxNanoUsd = calculateOperationMaxCost(feature, units);
-  const validUntil = new Date(now.getTime() + validityMinutes * 60_000).toISOString();
+  const validUntil = new Date(now.getTime() + validityMinutes * 60_000)
+    .toISOString();
   return {
     currency: "USD",
     maxNanoUsd: maxNanoUsd.toString(),
@@ -146,19 +153,39 @@ export function verifyCostQuote(
     durationMs?: number;
   } = {},
   now: Date = new Date(),
-): { ok: true; maxNanoUsd: bigint } | { ok: false; code: string; message: string } {
+): { ok: true; maxNanoUsd: bigint } | {
+  ok: false;
+  code: string;
+  message: string;
+} {
   if (quote.currency !== "USD") {
-    return { ok: false, code: "invalid_currency", message: "Quote currency must be USD" };
+    return {
+      ok: false,
+      code: "invalid_currency",
+      message: "Quote currency must be USD",
+    };
   }
   if (quote.priceVersion !== PRICE_POLICY_VERSION) {
-    return { ok: false, code: "stale_price_version", message: "Price policy version is outdated" };
+    return {
+      ok: false,
+      code: "stale_price_version",
+      message: "Price policy version is outdated",
+    };
   }
   if (quote.fxGuardVersion !== FX_GUARD_VERSION) {
-    return { ok: false, code: "stale_fx_guard", message: "FX guard version is outdated" };
+    return {
+      ok: false,
+      code: "stale_fx_guard",
+      message: "FX guard version is outdated",
+    };
   }
   const validUntilTime = new Date(quote.validUntil).getTime();
   if (Number.isNaN(validUntilTime) || now.getTime() > validUntilTime) {
-    return { ok: false, code: "quote_expired", message: "Price quote has expired" };
+    return {
+      ok: false,
+      code: "quote_expired",
+      message: "Price quote has expired",
+    };
   }
   let expectedMax: bigint;
   try {
@@ -170,13 +197,18 @@ export function verifyCostQuote(
   try {
     claimedMax = BigInt(quote.maxNanoUsd);
   } catch {
-    return { ok: false, code: "invalid_quote_amount", message: "maxNanoUsd is not a valid integer" };
+    return {
+      ok: false,
+      code: "invalid_quote_amount",
+      message: "maxNanoUsd is not a valid integer",
+    };
   }
   if (claimedMax < expectedMax) {
     return {
       ok: false,
       code: "insufficient_quote_ceiling",
-      message: `Quote ceiling ${claimedMax} is below required conservative ceiling ${expectedMax}`,
+      message:
+        `Quote ceiling ${claimedMax} is below required conservative ceiling ${expectedMax}`,
     };
   }
   return { ok: true, maxNanoUsd: claimedMax };
@@ -217,7 +249,8 @@ export function calculateFullPackageCost(plan: "trial" | "monthly"): {
   const prepCount = plan === "trial" ? 3 : 30;
   const ttsChars = plan === "trial" ? 3000 : 30000;
   const transMs = plan === "trial" ? 300_000 : 3_600_000;
-  const sentenceCost = BigInt(sentencesCount) * calculateSingleSentenceMaxCost();
+  const sentenceCost = BigInt(sentencesCount) *
+    calculateSingleSentenceMaxCost();
   const prepCost = BigInt(prepCount) * calculatePreparationMaxCost();
   const ttsCost = calculateTtsMaxCost(ttsChars);
   const transCost = calculateTranscriptionMaxCost(transMs);

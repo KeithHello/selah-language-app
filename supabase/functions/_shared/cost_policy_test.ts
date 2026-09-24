@@ -75,7 +75,9 @@ Deno.test("transcription cost calculation respects ms rates and ceiling", () => 
   assertEquals(calculateTranscriptionMaxCost(60_000), 3_000_000n);
   // 180,000 ms (3 min max single call) * 50 = 9,000,000 nano USD ($0.009)
   assertEquals(calculateTranscriptionMaxCost(180_000), 9_000_000n);
-  assertThrows(() => calculateOperationMaxCost("transcription", { durationMs: 180_001 }));
+  assertThrows(() =>
+    calculateOperationMaxCost("transcription", { durationMs: 180_001 })
+  );
   assertThrows(() => calculateTranscriptionMaxCost(0));
 });
 

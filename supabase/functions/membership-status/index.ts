@@ -9,15 +9,15 @@ import {
   requireAuth,
 } from "../_shared/cors.ts";
 import {
+  entitlementVersionForPlan,
   FREE_ENTITLEMENTS,
+  type MembershipStatusResponse,
   MONTHLY_ENTITLEMENTS,
   PRO_ENTITLEMENTS,
   PRO_PRICE_FEN_CNY,
   TRIAL_ENTITLEMENTS,
-  entitlementVersionForPlan,
-  trialStateFromMembership,
   type TrialState,
-  type MembershipStatusResponse,
+  trialStateFromMembership,
 } from "../_shared/membership_contract.ts";
 import {
   environmentFallback,
@@ -27,7 +27,8 @@ import {
 import { paymentProviderConfigured } from "../_shared/payment_contract.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -40,7 +41,11 @@ Deno.serve(async (req: Request) => {
   const userId = auth;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Service unavailable", 503, "membership_service_unavailable");
+    return errorResponse(
+      "Service unavailable",
+      503,
+      "membership_service_unavailable",
+    );
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
@@ -62,7 +67,11 @@ Deno.serve(async (req: Request) => {
       };
       return json(buildResponse(record, controls));
     }
-    return errorResponse("Failed to query membership status", 500, "membership_query_failed");
+    return errorResponse(
+      "Failed to query membership status",
+      500,
+      "membership_query_failed",
+    );
   }
 
   const record = data as Record<string, unknown>;
@@ -103,14 +112,13 @@ function buildResponse(
     ? record.periodEndsAt
     : null;
 
-  const staticEntitlements =
-    plan === "monthly" && status === "active"
-      ? MONTHLY_ENTITLEMENTS
-      : plan === "pro" && status === "active"
-      ? PRO_ENTITLEMENTS
-      : plan === "trial" && status === "trial"
-      ? TRIAL_ENTITLEMENTS
-      : FREE_ENTITLEMENTS;
+  const staticEntitlements = plan === "monthly" && status === "active"
+    ? MONTHLY_ENTITLEMENTS
+    : plan === "pro" && status === "active"
+    ? PRO_ENTITLEMENTS
+    : plan === "trial" && status === "trial"
+    ? TRIAL_ENTITLEMENTS
+    : FREE_ENTITLEMENTS;
 
   return {
     membershipModeEnabled: controls.membershipEnforcementEnabled,

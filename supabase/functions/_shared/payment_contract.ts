@@ -18,8 +18,10 @@ function envFlag(value: string | undefined): boolean {
 export function paymentProviderConfigured(
   env: Pick<typeof Deno.env, "get"> = Deno.env,
 ): boolean {
-  const provider = env.get("MEMBERSHIP_PAYMENT_PROVIDER")?.trim().toLowerCase() ?? "";
-  const webhookSecret = env.get("MEMBERSHIP_PAYMENT_WEBHOOK_SECRET")?.trim() ?? "";
+  const provider =
+    env.get("MEMBERSHIP_PAYMENT_PROVIDER")?.trim().toLowerCase() ?? "";
+  const webhookSecret = env.get("MEMBERSHIP_PAYMENT_WEBHOOK_SECRET")?.trim() ??
+    "";
   return envFlag(env.get("MEMBERSHIP_PAYMENT_ADAPTER_READY")) &&
     SUPPORTED_PAYMENT_PROVIDERS.has(provider) && webhookSecret.length >= 16;
 }
@@ -80,7 +82,12 @@ export function validateWebhookNotification(
   nowMs: number = Date.now(),
 ): WebhookValidationResult {
   if (!body || typeof body !== "object") {
-    return { ok: false, status: 400, code: "invalid_body", message: "Body must be an object" };
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_body",
+      message: "Body must be an object",
+    };
   }
   const candidate = body as Record<string, unknown>;
   const channel = typeof candidate.channel === "string"
@@ -89,9 +96,10 @@ export function validateWebhookNotification(
   const orderId = typeof candidate.orderId === "string"
     ? candidate.orderId.trim()
     : "";
-  const channelTransactionId = typeof candidate.channelTransactionId === "string"
-    ? candidate.channelTransactionId.trim()
-    : "";
+  const channelTransactionId =
+    typeof candidate.channelTransactionId === "string"
+      ? candidate.channelTransactionId.trim()
+      : "";
   const signature = typeof candidate.signature === "string"
     ? candidate.signature.trim()
     : "";
@@ -103,13 +111,16 @@ export function validateWebhookNotification(
     ? candidate.currency.trim().toUpperCase()
     : "";
 
-  if (!channel || channel.length > 100 || !orderId || orderId.length > 200 ||
-      !channelTransactionId || channelTransactionId.length > 200 || !signature) {
+  if (
+    !channel || channel.length > 100 || !orderId || orderId.length > 200 ||
+    !channelTransactionId || channelTransactionId.length > 200 || !signature
+  ) {
     return {
       ok: false,
       status: 400,
       code: "invalid_webhook_fields",
-      message: "channel, orderId, channelTransactionId and signature are required",
+      message:
+        "channel, orderId, channelTransactionId and signature are required",
     };
   }
   if (candidate.amountFenCny !== MONTHLY_PRICE_FEN_CNY || currency !== "CNY") {
@@ -120,12 +131,28 @@ export function validateWebhookNotification(
       message: "Only the configured CNY membership amount is accepted",
     };
   }
-  if (typeof event !== "string" || !WEBHOOK_EVENTS.has(event as WebhookNotificationInput["event"])) {
-    return { ok: false, status: 400, code: "unsupported_payment_event", message: "Unsupported payment event" };
+  if (
+    typeof event !== "string" ||
+    !WEBHOOK_EVENTS.has(event as WebhookNotificationInput["event"])
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      code: "unsupported_payment_event",
+      message: "Unsupported payment event",
+    };
   }
   const timestampMs = Date.parse(timestamp);
-  if (!timestamp || Number.isNaN(timestampMs) || Math.abs(nowMs - timestampMs) > WEBHOOK_MAX_CLOCK_SKEW_MS) {
-    return { ok: false, status: 400, code: "stale_payment_event", message: "Payment event timestamp is invalid or stale" };
+  if (
+    !timestamp || Number.isNaN(timestampMs) ||
+    Math.abs(nowMs - timestampMs) > WEBHOOK_MAX_CLOCK_SKEW_MS
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      code: "stale_payment_event",
+      message: "Payment event timestamp is invalid or stale",
+    };
   }
 
   return {
@@ -166,7 +193,9 @@ function decodeHex(value: string): Uint8Array | null {
 }
 
 function encodeHex(value: Uint8Array): string {
-  return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join(
+    "",
+  );
 }
 
 /**
@@ -214,24 +243,43 @@ export function validateCreateOrderInput(body: unknown): {
   };
 } | { ok: false; status: number; code: string; message: string } {
   if (!body || typeof body !== "object") {
-    return { ok: false, status: 400, code: "invalid_body", message: "Body must be an object" };
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_body",
+      message: "Body must be an object",
+    };
   }
   const candidate = body as Record<string, unknown>;
   const clientRequestId = typeof candidate.clientRequestId === "string"
     ? candidate.clientRequestId.trim().toLowerCase()
     : "";
-  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(clientRequestId)) {
-    return { ok: false, status: 400, code: "invalid_client_request_id", message: "Valid clientRequestId is required" };
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+      .test(clientRequestId)
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_client_request_id",
+      message: "Valid clientRequestId is required",
+    };
   }
   const sku = typeof candidate.sku === "string" && candidate.sku.trim()
     ? candidate.sku.trim()
     : MONTHLY_SKU;
   if (sku !== MONTHLY_SKU) {
-    return { ok: false, status: 400, code: "invalid_sku", message: `Only SKU ${MONTHLY_SKU} is supported` };
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_sku",
+      message: `Only SKU ${MONTHLY_SKU} is supported`,
+    };
   }
-  const channel = typeof candidate.channel === "string" && candidate.channel.trim()
-    ? candidate.channel.trim().toLowerCase()
-    : "mock_channel";
+  const channel =
+    typeof candidate.channel === "string" && candidate.channel.trim()
+      ? candidate.channel.trim().toLowerCase()
+      : "mock_channel";
 
   return {
     ok: true,

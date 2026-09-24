@@ -1,9 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  errorResponse,
-  handleOptions,
-  json,
-} from "../_shared/cors.ts";
+import { errorResponse, handleOptions, json } from "../_shared/cors.ts";
 import { authorizeBillableIdentity } from "../_shared/anonymous_test_mode.ts";
 import {
   buildCapturePreparationRequest,

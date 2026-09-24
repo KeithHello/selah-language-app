@@ -2,18 +2,15 @@
 // Verifies channel payment signature and idempotently activates membership.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  errorResponse,
-  handleOptions,
-  json,
-} from "../_shared/cors.ts";
+import { errorResponse, handleOptions, json } from "../_shared/cors.ts";
 import {
   validateWebhookNotification,
   verifyWebhookHmacSha256,
 } from "../_shared/payment_contract.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -22,7 +19,11 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Service unavailable", 503, "webhook_service_unavailable");
+    return errorResponse(
+      "Service unavailable",
+      503,
+      "webhook_service_unavailable",
+    );
   }
 
   let body: unknown;
@@ -34,10 +35,15 @@ Deno.serve(async (req: Request) => {
 
   const validation = validateWebhookNotification(body);
   if (!validation.ok) {
-    return errorResponse(validation.message, validation.status, validation.code);
+    return errorResponse(
+      validation.message,
+      validation.status,
+      validation.code,
+    );
   }
 
-  const webhookSecret = Deno.env.get("MEMBERSHIP_PAYMENT_WEBHOOK_SECRET")?.trim() ?? "";
+  const webhookSecret =
+    Deno.env.get("MEMBERSHIP_PAYMENT_WEBHOOK_SECRET")?.trim() ?? "";
   if (!webhookSecret) {
     return errorResponse(
       "Payment webhook verification is not configured",
@@ -46,7 +52,11 @@ Deno.serve(async (req: Request) => {
     );
   }
   if (!(await verifyWebhookHmacSha256(validation.data, webhookSecret))) {
-    return errorResponse("Invalid payment webhook signature", 401, "webhook_signature_invalid");
+    return errorResponse(
+      "Invalid payment webhook signature",
+      401,
+      "webhook_signature_invalid",
+    );
   }
 
   const { orderId, channelTransactionId, event } = validation.data;
@@ -61,7 +71,11 @@ Deno.serve(async (req: Request) => {
 
     if (error) {
       console.error("apply_verified_payment failed", error);
-      return errorResponse("Payment reconciliation failed", 500, "reconciliation_failed");
+      return errorResponse(
+        "Payment reconciliation failed",
+        500,
+        "reconciliation_failed",
+      );
     }
 
     return json({ success: true, result: data });
@@ -70,7 +84,10 @@ Deno.serve(async (req: Request) => {
   if (event === "payment_failed") {
     await supabase
       .from("membership_orders")
-      .update({ status: "failed", channel_transaction_id: channelTransactionId })
+      .update({
+        status: "failed",
+        channel_transaction_id: channelTransactionId,
+      })
       .eq("id", orderId)
       .eq("status", "pending");
     return json({ success: true, status: "failed" });

@@ -12,7 +12,10 @@ export interface RangeHeaderParseResult {
 /**
  * Safely parse HTTP Range header. Rejects multi-range requests to prevent amplification attacks.
  */
-export function parseSingleByteRange(rangeHeader: string | null, totalSize: number): RangeHeaderParseResult {
+export function parseSingleByteRange(
+  rangeHeader: string | null,
+  totalSize: number,
+): RangeHeaderParseResult {
   if (!rangeHeader) {
     return { valid: true, start: 0, end: totalSize - 1, isMultiRange: false };
   }

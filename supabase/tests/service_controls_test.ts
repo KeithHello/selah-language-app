@@ -1,4 +1,7 @@
-import { assert, assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assert,
+  assertEquals,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   environmentFallback,
   parseServiceControls,
@@ -29,9 +32,13 @@ Deno.test("service controls parse strict flags and database metadata", () => {
 Deno.test("environment fallback accepts explicit bootstrap values", () => {
   const fallback = environmentFallback({
     get(name: string) {
-      return name === "MEMBERSHIP_ENFORCEMENT_ENABLED" ? "on" :
-        name === "GENERATION_SERVICE_ENABLED" ? "off" :
-        name === "ANONYMOUS_TEST_MODE_ENABLED" ? "on" : undefined;
+      return name === "MEMBERSHIP_ENFORCEMENT_ENABLED"
+        ? "on"
+        : name === "GENERATION_SERVICE_ENABLED"
+        ? "off"
+        : name === "ANONYMOUS_TEST_MODE_ENABLED"
+        ? "on"
+        : undefined;
     },
   });
   assertEquals(fallback.membershipEnforcementEnabled, true);

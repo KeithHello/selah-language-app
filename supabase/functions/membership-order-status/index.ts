@@ -10,7 +10,8 @@ import {
 } from "../_shared/cors.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -23,7 +24,11 @@ Deno.serve(async (req: Request) => {
   const userId = auth;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Service unavailable", 503, "order_status_service_unavailable");
+    return errorResponse(
+      "Service unavailable",
+      503,
+      "order_status_service_unavailable",
+    );
   }
 
   let orderId: string | null = null;
@@ -37,14 +42,20 @@ Deno.serve(async (req: Request) => {
     try {
       const body = await req.json() as Record<string, unknown>;
       orderId = typeof body.orderId === "string" ? body.orderId : null;
-      clientRequestId = typeof body.clientRequestId === "string" ? body.clientRequestId : null;
+      clientRequestId = typeof body.clientRequestId === "string"
+        ? body.clientRequestId
+        : null;
     } catch {
       // Fall through
     }
   }
 
   if (!orderId && !clientRequestId) {
-    return errorResponse("orderId or clientRequestId is required", 400, "missing_identifier");
+    return errorResponse(
+      "orderId or clientRequestId is required",
+      400,
+      "missing_identifier",
+    );
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);

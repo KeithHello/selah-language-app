@@ -9,7 +9,11 @@ export interface AuthorizedIdentity extends GatewayIdentity {
 
 export type IdentityOrResponse = AuthorizedIdentity | Response;
 
-function identityError(status: number, code: string, message: string): Response {
+function identityError(
+  status: number,
+  code: string,
+  message: string,
+): Response {
   return new Response(
     JSON.stringify({ error: code, message }),
     {
@@ -23,7 +27,9 @@ function identityError(status: number, code: string, message: string): Response 
  * Read claims from a JWT already verified by the Supabase Edge gateway.
  * Direct runtimes must still verify the token before calling this helper.
  */
-export function getGatewayVerifiedIdentity(req: Request): GatewayIdentity | null {
+export function getGatewayVerifiedIdentity(
+  req: Request,
+): GatewayIdentity | null {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) return null;
 

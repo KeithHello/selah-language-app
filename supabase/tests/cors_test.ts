@@ -172,7 +172,10 @@ Deno.test("requireAuth() rejects a legacy anonymous session", async () => {
   const result = requireAuth(req);
   assertTrue(result instanceof Response);
   assertEquals((result as Response).status, 403);
-  assertEquals((await (result as Response).json()).error, "registered_account_required");
+  assertEquals(
+    (await (result as Response).json()).error,
+    "registered_account_required",
+  );
 });
 
 // ============================================================

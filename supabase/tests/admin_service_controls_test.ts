@@ -4,14 +4,19 @@ import { createAdminServiceControlsHandler } from "../functions/admin-service-co
 const USER_ID = "5a9b8d4c-6e2f-4c7a-9b1d-2e3f4a5b6c7d";
 
 function request(method: "GET" | "POST", body?: Record<string, unknown>) {
-  return new Request("https://example.test/functions/v1/admin-service-controls", {
-    method,
-    headers: {
-      Authorization: `Bearer token.${btoa(JSON.stringify({ sub: USER_ID }))}.token`,
-      "Content-Type": "application/json",
+  return new Request(
+    "https://example.test/functions/v1/admin-service-controls",
+    {
+      method,
+      headers: {
+        Authorization: `Bearer token.${
+          btoa(JSON.stringify({ sub: USER_ID }))
+        }.token`,
+        "Content-Type": "application/json",
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
     },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
+  );
 }
 
 function setup(options: {
@@ -26,7 +31,9 @@ function setup(options: {
       requireAuth: () => USER_ID,
       env: {
         get(name: string) {
-          return name === "SUPABASE_URL" ? "https://example.test" : "service-key";
+          return name === "SUPABASE_URL"
+            ? "https://example.test"
+            : "service-key";
         },
       },
       createSupabase: () => ({
@@ -53,15 +60,18 @@ function setup(options: {
             };
           }
           if (name === "set_platform_service_controls") {
-            return { data: options.updateResult ?? {
-              version: "2026-09-17-v1",
-              configured: true,
-              membership_enforcement_enabled: true,
-              trial_signups_enabled: true,
-              membership_sales_enabled: true,
-              generation_enabled: true,
-              anonymous_test_mode_enabled: true,
-            }, error: null };
+            return {
+              data: options.updateResult ?? {
+                version: "2026-09-17-v1",
+                configured: true,
+                membership_enforcement_enabled: true,
+                trial_signups_enabled: true,
+                membership_sales_enabled: true,
+                generation_enabled: true,
+                anonymous_test_mode_enabled: true,
+              },
+              error: null,
+            };
           }
           return { data: null, error: new Error("unexpected rpc") };
         },
@@ -72,13 +82,17 @@ function setup(options: {
 
 Deno.test("service controls read is admin-only", async () => {
   const setupData = setup({ isAdmin: false });
-  const response = await createAdminServiceControlsHandler(setupData.dependencies)(request("GET"));
+  const response = await createAdminServiceControlsHandler(
+    setupData.dependencies,
+  )(request("GET"));
   assertEquals(response.status, 403);
   assertEquals(setupData.calls.map((call) => call.name), ["is_admin_member"]);
 });
 Deno.test("service controls update requires operator and expected version", async () => {
   const setupData = setup({ isOperator: true });
-  const response = await createAdminServiceControlsHandler(setupData.dependencies)(
+  const response = await createAdminServiceControlsHandler(
+    setupData.dependencies,
+  )(
     request("POST", {
       action: "update",
       expectedVersion: "2026-09-17-v1",
@@ -94,14 +108,18 @@ Deno.test("service controls update requires operator and expected version", asyn
   assertEquals(body.membershipEnforcementEnabled, true);
   assertEquals(body.membershipSalesEnabled, true);
   assertEquals("anonymousTestModeEnabled" in body, false);
-  const update = setupData.calls.find((call) => call.name === "set_platform_service_controls");
+  const update = setupData.calls.find((call) =>
+    call.name === "set_platform_service_controls"
+  );
   assertEquals(update?.args.p_reason, "launch_membership_mode");
   assertEquals(update?.args.p_anonymous_test_mode_enabled, false);
 });
 
 Deno.test("service controls update is rejected for read-only admin", async () => {
   const setupData = setup({ isOperator: false });
-  const response = await createAdminServiceControlsHandler(setupData.dependencies)(
+  const response = await createAdminServiceControlsHandler(
+    setupData.dependencies,
+  )(
     request("POST", {
       action: "update",
       membershipEnforcementEnabled: true,

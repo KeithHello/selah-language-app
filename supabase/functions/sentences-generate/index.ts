@@ -3,11 +3,7 @@
 // Calls GPT-4o-mini with the v8 translation system prompt.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  errorResponse,
-  handleOptions,
-  json,
-} from "../_shared/cors.ts";
+import { errorResponse, handleOptions, json } from "../_shared/cors.ts";
 import { authorizeBillableIdentity } from "../_shared/anonymous_test_mode.ts";
 import {
   buildTranslationRequest,
@@ -258,7 +254,9 @@ Deno.serve(async (req: Request) => {
     const settleUnknown = async () => {
       if (admission.reservationId) {
         await settleGenerationAdmission(
-          supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
+          supabase as unknown as Parameters<
+            typeof settleGenerationAdmission
+          >[0],
           admission.reservationId,
           "unknown",
           undefined,
@@ -458,7 +456,9 @@ Deno.serve(async (req: Request) => {
       });
       if (admission.reservationId) {
         await settleGenerationAdmission(
-          supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
+          supabase as unknown as Parameters<
+            typeof settleGenerationAdmission
+          >[0],
           admission.reservationId,
           "unknown",
           undefined,

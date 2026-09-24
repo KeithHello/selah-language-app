@@ -14,7 +14,7 @@
 - [x] Edge Function 拒绝旧匿名 JWT；RLS 身份条件要求 `auth.uid()` 存在且 JWT 不是匿名身份。本地 `supabase/config.toml` 禁止匿名注册；新增 `009_registered_accounts_pro_and_rate_limits.sql` 仅为本地迁移草稿，未连接或修改远端数据库。
 - [x] 服务端会员计划支持试用、Plus（月会员）与 Pro。管理员可在用户详情中按计划授予 Plus／Pro，走服务端权限校验、幂等请求和审计记录；真实支付及 webhook 验签未接入，Pro 自助购买继续关闭。
 - [x] 分句批量请求只计一次请求级频控，单句 claim 保留幂等与逐句额度核算；长文整理与语音转写使用独立频控类别，429 返回 `Retry-After` 与可展示的重试秒数。
-- [x] 本地验证：Flutter 全量 295 项、Supabase Node 全量 60 项、Deno 全量 347 项通过；7 个改动过的 Edge Function 类型检查通过；`flutter analyze --no-pub` 无问题；`flutter build web --release --no-pub` 成功。未部署 Web 或 Edge Function。
+- [x] 本地验证与预览发布：Flutter 全量 295 项、Supabase Node 全量 60 项、Deno 全量 331 项通过；`flutter analyze` 0 issues；`tool/web.ps1 -Action build` 成功，Build ID 为 `0c431db544f89d7c`；代码已 push 到 GitHub `main` 分支；Cloudflare Pages 预览已发布到别名 <https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>（版本：<https://ba7c717d.selah-language-app-preview.pages.dev>）。
 - [ ] 远端应用 `009` migration，并单独核实关闭 Supabase Anonymous Sign-ins；迁移前后需用真实普通账户验收注册、登录、邮件确认、Plus／Pro 额度、语音转写与跨设备同步。
 - [ ] 本轮未创建远端测试用户或发放实际 Pro 权益；需要测试账户身份和管理员操作环境后再做真实账户验收。SMTP／邮箱确认和支付渠道状态仍待核实；未配置真实支付前不得开放自助购买。
 - [ ] 盘点历史匿名云端资料的归属、保留期限和清理方式；当前不自动合并或删除旧匿名数据。

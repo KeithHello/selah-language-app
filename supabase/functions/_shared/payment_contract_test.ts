@@ -7,8 +7,8 @@ import {
   paymentProviderConfigured,
   validateWebhookNotification,
   verifyWebhookHmacSha256,
-  webhookSigningPayload,
   type WebhookNotificationInput,
+  webhookSigningPayload,
 } from "./payment_contract.ts";
 
 const NOW = Date.parse("2026-09-12T00:00:00.000Z");
@@ -54,7 +54,10 @@ function input(
 }
 
 Deno.test("webhook validation requires the configured amount and currency", () => {
-  const amount = validateWebhookNotification(input({ amountFenCny: 3989 }), NOW);
+  const amount = validateWebhookNotification(
+    input({ amountFenCny: 3989 }),
+    NOW,
+  );
   assertEquals(amount.ok, false);
   if (!amount.ok) assertEquals(amount.code, "payment_amount_mismatch");
 
@@ -64,9 +67,14 @@ Deno.test("webhook validation requires the configured amount and currency", () =
 });
 
 Deno.test("webhook validation rejects missing signatures and stale events", () => {
-  const missingSignature = validateWebhookNotification(input({ signature: "" }), NOW);
+  const missingSignature = validateWebhookNotification(
+    input({ signature: "" }),
+    NOW,
+  );
   assertEquals(missingSignature.ok, false);
-  if (!missingSignature.ok) assertEquals(missingSignature.code, "invalid_webhook_fields");
+  if (!missingSignature.ok) {
+    assertEquals(missingSignature.code, "invalid_webhook_fields");
+  }
 
   const stale = validateWebhookNotification(
     input({ timestamp: "2026-09-11T23:00:00.000Z" }),
@@ -102,24 +110,33 @@ Deno.test("webhook HMAC verification uses the stable canonical payload", async (
       new TextEncoder().encode(webhookSigningPayload(unsigned)),
     ),
   );
-  const signature = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");
+  const signature = Array.from(
+    digest,
+    (byte) => byte.toString(16).padStart(2, "0"),
+  ).join("");
   const checked = validateWebhookNotification(
     input({ signature: `sha256=${signature}` }),
     NOW,
   );
   assert(checked.ok);
   assert(await verifyWebhookHmacSha256(checked.data, secret));
-  assertEquals(await verifyWebhookHmacSha256(checked.data, "wrong-secret-value"), false);
+  assertEquals(
+    await verifyWebhookHmacSha256(checked.data, "wrong-secret-value"),
+    false,
+  );
 });
 
 Deno.test("public webhook is closed before verification and refund support exists only when wired", async () => {
   const source = await Deno.readTextFile(
     "supabase/functions/membership-payment-webhook/index.ts",
   );
-  assert(source.indexOf("validateWebhookNotification") < source.indexOf("const supabase = createClient"));
+  assert(
+    source.indexOf("validateWebhookNotification") <
+      source.indexOf("const supabase = createClient"),
+  );
   assert(
     source.indexOf("MEMBERSHIP_PAYMENT_WEBHOOK_SECRET") <
-      source.indexOf("supabase.rpc(\"apply_verified_payment\""),
+      source.indexOf('supabase.rpc("apply_verified_payment"'),
   );
   assertStringIncludes(source, "webhook_verification_unavailable");
   assertStringIncludes(source, "refund_reconciliation_unavailable");

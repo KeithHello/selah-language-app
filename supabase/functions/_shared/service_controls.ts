@@ -161,7 +161,9 @@ export async function readServiceControls(
   };
 }
 
-export function publicServiceControls(controls: ServiceControls): Record<string, unknown> {
+export function publicServiceControls(
+  controls: ServiceControls,
+): Record<string, unknown> {
   return {
     version: controls.version,
     membershipEnforcementEnabled: controls.membershipEnforcementEnabled,

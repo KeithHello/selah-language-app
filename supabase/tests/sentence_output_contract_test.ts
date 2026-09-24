@@ -135,7 +135,10 @@ Deno.test("accepts Japanese source language for a new generation", () => {
       "Source language: ja. Target language: English.",
       result.sourceText,
     );
-    assertEquals((request.messages as Array<{ content: string }>)[1].content, "今日はいい天気です。");
+    assertEquals(
+      (request.messages as Array<{ content: string }>)[1].content,
+      "今日はいい天気です。",
+    );
   }
 });
 
@@ -171,7 +174,11 @@ Deno.test("request builders carry explicit output token budgets", () => {
     Math.min(1 * 2048, OUTPUT_TOKEN_BUDGET.batch),
   );
   assertEquals(
-    (buildBatchTranslationRequest([segment, segment, segment, segment, segment], "zh-Hant", "en") as {
+    (buildBatchTranslationRequest(
+      [segment, segment, segment, segment, segment],
+      "zh-Hant",
+      "en",
+    ) as {
       max_tokens: number;
     }).max_tokens,
     OUTPUT_TOKEN_BUDGET.batch,

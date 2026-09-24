@@ -21,7 +21,8 @@ interface RequestBody {
   metadata?: Record<string, unknown>;
 }
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -51,8 +52,10 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  if (body.id !== undefined &&
-    (typeof body.id !== "string" || !UUID.test(body.id))) {
+  if (
+    body.id !== undefined &&
+    (typeof body.id !== "string" || !UUID.test(body.id))
+  ) {
     return errorResponse("Invalid event id", 400, "invalid_event_id");
   }
 

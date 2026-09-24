@@ -24,7 +24,9 @@ export interface AdminUsersClient {
   from(table: string): any;
   auth?: {
     admin?: {
-      listUsers(options: { page: number; perPage: number }): Promise<QueryResult>;
+      listUsers(
+        options: { page: number; perPage: number },
+      ): Promise<QueryResult>;
     };
   };
 }
@@ -37,7 +39,9 @@ export interface AdminUsersDependencies {
 
 function parseLimit(value: unknown): number {
   const number = Number(value ?? 100);
-  return Number.isSafeInteger(number) ? Math.min(Math.max(number, 1), 100) : 100;
+  return Number.isSafeInteger(number)
+    ? Math.min(Math.max(number, 1), 100)
+    : 100;
 }
 
 function parseCursor(value: unknown): number {
@@ -130,7 +134,9 @@ async function listUsers(
     }
     authUsers = Array.isArray(result.data?.users) ? result.data.users : [];
     const lastPage = result.data?.lastPage;
-    if (typeof lastPage === "number" && Math.floor(cursor / limit) + 1 < lastPage) {
+    if (
+      typeof lastPage === "number" && Math.floor(cursor / limit) + 1 < lastPage
+    ) {
       nextCursor = cursor + authUsers.length;
     }
   }
@@ -147,7 +153,9 @@ async function listUsers(
     }
     const items = (result.data ?? []).map((row: any) => ({
       userId: row.user_id,
-      emailMasked: maskEmail(`user-${String(row.user_id).slice(0, 6)}@selah.app`),
+      emailMasked: maskEmail(
+        `user-${String(row.user_id).slice(0, 6)}@selah.app`,
+      ),
       plan: row.plan ?? "free",
       status: row.status ?? "none",
       expiresAt: row.expires_at ?? null,
@@ -179,9 +187,11 @@ async function listUsers(
   const items = authUsers.flatMap((user) => {
     const id = typeof user.id === "string" ? user.id : "";
     const email = typeof user.email === "string" ? user.email : "";
-    if (!id || (normalizedSearch &&
-      !id.toLowerCase().includes(normalizedSearch) &&
-      !email.toLowerCase().includes(normalizedSearch))) {
+    if (
+      !id || (normalizedSearch &&
+        !id.toLowerCase().includes(normalizedSearch) &&
+        !email.toLowerCase().includes(normalizedSearch))
+    ) {
       return [];
     }
     const membership = latestMembership(byUser.get(id) ?? []);
@@ -192,7 +202,8 @@ async function listUsers(
       status: membership?.status ?? "none",
       expiresAt: membership?.expires_at ?? null,
       serviceStatus: "active",
-      createdAt: user.created_at ?? membership?.created_at ?? new Date().toISOString(),
+      createdAt: user.created_at ?? membership?.created_at ??
+        new Date().toISOString(),
     }];
   });
   return json({ users: items.slice(0, limit), nextCursor });
@@ -204,7 +215,8 @@ export function createAdminUsersHandler(
   const env = dependencies.env ?? Deno.env;
   const authenticate = dependencies.requireAuth ?? requireAuth;
   const makeSupabase = dependencies.createSupabase ??
-    ((url: string, key: string) => createClient(url, key) as unknown as AdminUsersClient);
+    ((url: string, key: string) =>
+      createClient(url, key) as unknown as AdminUsersClient);
 
   return async (req: Request) => {
     if (req.method === "OPTIONS") return handleOptions();
@@ -224,10 +236,16 @@ export function createAdminUsersHandler(
     const supabaseUrl = env.get("SUPABASE_URL") ?? "";
     const serviceKey = env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     if (!supabaseUrl || !serviceKey) {
-      return errorResponse("Admin service unavailable", 503, "admin_unavailable");
+      return errorResponse(
+        "Admin service unavailable",
+        503,
+        "admin_unavailable",
+      );
     }
     const supabase = makeSupabase(supabaseUrl, serviceKey);
-    const adminResult = await supabase.rpc("is_admin_member", { p_user_id: auth });
+    const adminResult = await supabase.rpc("is_admin_member", {
+      p_user_id: auth,
+    });
     if (adminResult.error || adminResult.data !== true) {
       return errorResponse("Admin access required", 403, "admin_forbidden");
     }

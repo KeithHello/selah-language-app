@@ -19,7 +19,10 @@ Deno.test("sentence provenance migration accepts supported language codes", () =
   assertStringIncludes(SQL, "'zh-Hant'");
   assertStringIncludes(SQL, "'zh-Hans'");
   assertStringIncludes(SQL, "'ja'");
-  assertStringIncludes(SQL, "target_language IS NULL OR target_language = 'en'");
+  assertStringIncludes(
+    SQL,
+    "target_language IS NULL OR target_language = 'en'",
+  );
 });
 
 Deno.test("sentence provenance migration does not infer legacy language", () => {

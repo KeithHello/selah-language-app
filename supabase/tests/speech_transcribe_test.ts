@@ -288,7 +288,10 @@ Deno.test("returns an idempotent replay without calling OpenAI", async () => {
   assertEquals(response.status, 200);
   assertEquals(await responseBody(response), replayPayload);
   assertEquals(fetchCalls.length, 0);
-  assertEquals(calls.filter((call) => call.name === "claim_generation_request").length, 1);
+  assertEquals(
+    calls.filter((call) => call.name === "claim_generation_request").length,
+    1,
+  );
 });
 
 Deno.test("maps quota decisions to safe 429 errors and does not call OpenAI", async () => {

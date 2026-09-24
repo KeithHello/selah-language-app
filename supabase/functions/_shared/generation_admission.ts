@@ -69,7 +69,11 @@ export function prepareAdmissionQuote(
   },
   providedQuote?: CostQuote,
   now: Date = new Date(),
-): { ok: true; quote: CostQuote } | { ok: false; code: MembershipErrorCode; message: string } {
+): { ok: true; quote: CostQuote } | {
+  ok: false;
+  code: MembershipErrorCode;
+  message: string;
+} {
   if (providedQuote) {
     const verification = verifyCostQuote(providedQuote, feature, units, now);
     if (!verification.ok) {
@@ -142,16 +146,32 @@ export async function requestGenerationAdmission(
         : String(result.error);
 
       if (errStr.includes("trial_expired")) {
-        return { allowed: false, errorCode: "trial_expired", errorMessage: "Trial has expired" };
+        return {
+          allowed: false,
+          errorCode: "trial_expired",
+          errorMessage: "Trial has expired",
+        };
       }
       if (errStr.includes("feature_limit_reached")) {
-        return { allowed: false, errorCode: "feature_limit_reached", errorMessage: "Feature limit reached" };
+        return {
+          allowed: false,
+          errorCode: "feature_limit_reached",
+          errorMessage: "Feature limit reached",
+        };
       }
       if (errStr.includes("membership_required")) {
-        return { allowed: false, errorCode: "membership_required", errorMessage: "Membership required" };
+        return {
+          allowed: false,
+          errorCode: "membership_required",
+          errorMessage: "Membership required",
+        };
       }
       if (errStr.includes("rate_limited")) {
-        return { allowed: false, errorCode: "rate_limited", errorMessage: "Rate limit reached" };
+        return {
+          allowed: false,
+          errorCode: "rate_limited",
+          errorMessage: "Rate limit reached",
+        };
       }
       return {
         allowed: false,
@@ -162,7 +182,8 @@ export async function requestGenerationAdmission(
 
     const reservationId = typeof result.data === "string"
       ? result.data
-      : (result.data as { reservationId?: string })?.reservationId || "mock-res-id";
+      : (result.data as { reservationId?: string })?.reservationId ||
+        "mock-res-id";
 
     return {
       allowed: true,
@@ -192,9 +213,11 @@ export async function settleGenerationAdmission(
         ? "settle_platform_generation_allowance"
         : "settle_generation_allowance",
       {
-      p_reservation_id: reservationId,
-      p_status: status,
-      p_actual_nano_usd: actualNanoUsd != null ? actualNanoUsd.toString() : null,
+        p_reservation_id: reservationId,
+        p_status: status,
+        p_actual_nano_usd: actualNanoUsd != null
+          ? actualNanoUsd.toString()
+          : null,
       },
     );
   } catch (err) {

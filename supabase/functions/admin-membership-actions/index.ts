@@ -15,7 +15,8 @@ import {
 import { calculateMonthlyPeriods } from "../_shared/membership_contract.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -23,7 +24,9 @@ const UUID_PATTERN =
 export function validateAdminMembershipAction(
   body: Partial<AdminMembershipActionRequest>,
 ): { ok: true } | { ok: false; status: number; code: string; message: string } {
-  if (!body.action || !body.targetUserId || !body.reason || !body.clientRequestId) {
+  if (
+    !body.action || !body.targetUserId || !body.reason || !body.clientRequestId
+  ) {
     return {
       ok: false,
       status: 400,
@@ -31,7 +34,10 @@ export function validateAdminMembershipAction(
       message: "action, targetUserId, reason, and clientRequestId are required",
     };
   }
-  if (!UUID_PATTERN.test(body.targetUserId) || !UUID_PATTERN.test(body.clientRequestId)) {
+  if (
+    !UUID_PATTERN.test(body.targetUserId) ||
+    !UUID_PATTERN.test(body.clientRequestId)
+  ) {
     return {
       ok: false,
       status: 400,
@@ -48,33 +54,70 @@ export function validateAdminMembershipAction(
     "toggle_generation_service",
   ];
   if (!actions.includes(body.action as AdminMembershipActionType)) {
-    return { ok: false, status: 400, code: "unsupported_action", message: "Unsupported action" };
+    return {
+      ok: false,
+      status: 400,
+      code: "unsupported_action",
+      message: "Unsupported action",
+    };
   }
   if (
     body.plan != null &&
-    (body.action !== "grant_membership" || !["monthly", "pro"].includes(body.plan))
+    (body.action !== "grant_membership" ||
+      !["monthly", "pro"].includes(body.plan))
   ) {
-    return { ok: false, status: 400, code: "invalid_plan", message: "plan must be monthly or pro for a membership grant" };
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_plan",
+      message: "plan must be monthly or pro for a membership grant",
+    };
   }
   if (body.reason.trim().length < 3 || body.reason.trim().length > 500) {
-    return { ok: false, status: 400, code: "invalid_reason", message: "A concise reason is required" };
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_reason",
+      message: "A concise reason is required",
+    };
   }
-  if (body.months != null && (!Number.isInteger(body.months) || body.months < 1 || body.months > 12)) {
-    return { ok: false, status: 400, code: "invalid_months", message: "months must be between 1 and 12" };
+  if (
+    body.months != null &&
+    (!Number.isInteger(body.months) || body.months < 1 || body.months > 12)
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      code: "invalid_months",
+      message: "months must be between 1 and 12",
+    };
   }
   if (body.action === "replay_order" && !body.orderId) {
-    return { ok: false, status: 400, code: "missing_order_id", message: "orderId is required" };
+    return {
+      ok: false,
+      status: 400,
+      code: "missing_order_id",
+      message: "orderId is required",
+    };
   }
   if (body.action === "revoke_grant" && !body.membershipId) {
-    return { ok: false, status: 400, code: "missing_membership_id", message: "membershipId is required" };
+    return {
+      ok: false,
+      status: 400,
+      code: "missing_membership_id",
+      message: "membershipId is required",
+    };
   }
-  if (body.action === "record_manual_payment" &&
-      (!body.channel || !body.transactionId || body.amountFenCny !== 3990)) {
+  if (
+    body.action === "record_manual_payment" &&
+    (!body.channel || !body.transactionId || body.amountFenCny !== 3990)
+  ) {
     return {
       ok: false,
       status: 400,
       code: "invalid_manual_payment",
-      message: "A verified channel, unique transactionId and exact amount are required",
+      message:
+        "A verified channel, unique transactionId and exact amount are required",
     };
   }
   if (body.action === "toggle_generation_service") {
@@ -103,7 +146,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
-  const { data: isAdmin } = await supabase.rpc("is_admin_member", { p_user_id: operatorId });
+  const { data: isAdmin } = await supabase.rpc("is_admin_member", {
+    p_user_id: operatorId,
+  });
   if (isAdmin !== true) {
     return errorResponse("Admin access required", 403, "admin_forbidden");
   }
@@ -112,7 +157,11 @@ Deno.serve(async (req: Request) => {
     { p_user_id: operatorId },
   );
   if (operatorError || isOperator !== true) {
-    return errorResponse("Management permission required", 403, "admin_write_forbidden");
+    return errorResponse(
+      "Management permission required",
+      403,
+      "admin_write_forbidden",
+    );
   }
 
   let body: AdminMembershipActionRequest;
@@ -124,7 +173,11 @@ Deno.serve(async (req: Request) => {
 
   const validation = validateAdminMembershipAction(body);
   if (!validation.ok) {
-    return errorResponse(validation.message, validation.status, validation.code);
+    return errorResponse(
+      validation.message,
+      validation.status,
+      validation.code,
+    );
   }
   const { action, targetUserId, months, reason, clientRequestId } = body;
   const plan = body.plan ?? "monthly";
@@ -167,7 +220,9 @@ Deno.serve(async (req: Request) => {
 
   if (action === "grant_membership" || action === "compensate_membership") {
     const grantMonths = Math.max(1, Math.min(months ?? 1, 12));
-    const source = action === "compensate_membership" ? "compensation" : "grant";
+    const source = action === "compensate_membership"
+      ? "compensation"
+      : "grant";
 
     // Find current active/queued periods to determine start date
     const { data: latest } = await supabase
@@ -225,10 +280,13 @@ Deno.serve(async (req: Request) => {
   }
 
   if (action === "replay_order" && body.orderId) {
-    const { data: replayed, error: replayError } = await supabase.rpc("apply_verified_payment", {
-      p_order_id: body.orderId,
-      p_channel_transaction_id: body.transactionId ?? "manual_replay",
-    });
+    const { data: replayed, error: replayError } = await supabase.rpc(
+      "apply_verified_payment",
+      {
+        p_order_id: body.orderId,
+        p_channel_transaction_id: body.transactionId ?? "manual_replay",
+      },
+    );
     if (replayError) {
       return errorResponse("Failed to replay order", 500, "replay_failed");
     }

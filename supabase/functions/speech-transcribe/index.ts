@@ -3,11 +3,7 @@
 // and database boundaries injectable so contract tests never call the network.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  errorResponse,
-  handleOptions,
-  json,
-} from "../_shared/cors.ts";
+import { errorResponse, handleOptions, json } from "../_shared/cors.ts";
 import {
   authorizeBillableIdentity,
   getGatewayVerifiedIdentity,
@@ -119,11 +115,14 @@ export function createSpeechTranscribeHandler(
     }
 
     const legacyIdentity = dependencies.requireAuth?.(req);
-    const earlyIdentity: { userId: string; isAnonymous: boolean } | Response | null = legacyIdentity !== undefined
-      ? legacyIdentity instanceof Response
-        ? legacyIdentity
-        : { userId: legacyIdentity, isAnonymous: false }
-      : getGatewayVerifiedIdentity(req);
+    const earlyIdentity:
+      | { userId: string; isAnonymous: boolean }
+      | Response
+      | null = legacyIdentity !== undefined
+        ? legacyIdentity instanceof Response
+          ? legacyIdentity
+          : { userId: legacyIdentity, isAnonymous: false }
+        : getGatewayVerifiedIdentity(req);
     if (earlyIdentity instanceof Response) return earlyIdentity;
     if (!earlyIdentity) {
       return errorResponse("Unauthorized", 401, "unauthorized");
@@ -394,7 +393,9 @@ export function createSpeechTranscribeHandler(
       );
       if (admission.reservationId) {
         await settleGenerationAdmission(
-          supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
+          supabase as unknown as Parameters<
+            typeof settleGenerationAdmission
+          >[0],
           admission.reservationId,
           "settled",
           undefined,

@@ -7,8 +7,8 @@ import {
 } from "../_shared/cors.ts";
 import {
   PROFILE_NOTICE_VERSION,
-  validateProfileOperation,
   type ProfileOperation,
+  validateProfileOperation,
 } from "../_shared/research_profile_contract.ts";
 
 export interface UserResearchProfileRpcClient {
@@ -27,7 +27,9 @@ interface RpcResult {
 }
 
 function normalizeRpcResult(value: unknown): RpcResult {
-  if (value && typeof value === "object" && "data" in value && "error" in value) {
+  if (
+    value && typeof value === "object" && "data" in value && "error" in value
+  ) {
     const result = value as { data: unknown; error: unknown };
     return { data: result.data, error: result.error };
   }
@@ -85,7 +87,11 @@ export function createUserResearchProfileHandler(
     const supabaseUrl = env.get("SUPABASE_URL") ?? "";
     const serviceRoleKey = env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     if (!supabaseUrl || !serviceRoleKey) {
-      return errorResponse("Research profile unavailable", 503, "profile_unavailable");
+      return errorResponse(
+        "Research profile unavailable",
+        503,
+        "profile_unavailable",
+      );
     }
     const supabase = makeSupabase(supabaseUrl, serviceRoleKey);
 
@@ -96,10 +102,18 @@ export function createUserResearchProfileHandler(
           await supabase.rpc("get_user_research_profile", { p_user_id: auth }),
         );
       } catch {
-        return errorResponse("Research profile unavailable", 503, "profile_unavailable");
+        return errorResponse(
+          "Research profile unavailable",
+          503,
+          "profile_unavailable",
+        );
       }
       if (result.error || !isRecord(result.data)) {
-        return errorResponse("Research profile unavailable", 503, "profile_unavailable");
+        return errorResponse(
+          "Research profile unavailable",
+          503,
+          "profile_unavailable",
+        );
       }
       return json(result.data);
     }
@@ -110,7 +124,11 @@ export function createUserResearchProfileHandler(
       if (!isRecord(parsed)) throw new Error("invalid body");
       body = parsed;
     } catch {
-      return errorResponse("Invalid profile request", 400, "profile_invalid_input");
+      return errorResponse(
+        "Invalid profile request",
+        400,
+        "profile_invalid_input",
+      );
     }
     const allowed = new Set([
       "operation",
@@ -120,7 +138,11 @@ export function createUserResearchProfileHandler(
       "expectedRevision",
     ]);
     if (Object.keys(body).some((key) => !allowed.has(key))) {
-      return errorResponse("Invalid profile request", 400, "profile_invalid_input");
+      return errorResponse(
+        "Invalid profile request",
+        400,
+        "profile_invalid_input",
+      );
     }
     const validation = validateProfileOperation({
       operation: body.operation,
@@ -149,7 +171,11 @@ export function createUserResearchProfileHandler(
         !Number.isSafeInteger(expectedRevision) ||
         expectedRevision < 0)
     ) {
-      return errorResponse("Invalid profile revision", 400, "profile_invalid_input");
+      return errorResponse(
+        "Invalid profile revision",
+        400,
+        "profile_invalid_input",
+      );
     }
     const args: Record<string, unknown> = {
       p_user_id: auth,
@@ -165,18 +191,28 @@ export function createUserResearchProfileHandler(
         await supabase.rpc("update_user_research_profile", args),
       );
     } catch {
-      return errorResponse("Research profile unavailable", 503, "profile_unavailable");
+      return errorResponse(
+        "Research profile unavailable",
+        503,
+        "profile_unavailable",
+      );
     }
     if (result.error || !isRecord(result.data)) {
       const details = profileError(rpcErrorMessage(result.error));
-      return errorResponse("Research profile unavailable", details.status, details.code);
+      return errorResponse(
+        "Research profile unavailable",
+        details.status,
+        details.code,
+      );
     }
     return json(result.data);
   };
 }
 
 function isEnabled(value: string | undefined): boolean {
-  return ["1", "true", "yes", "on"].includes((value ?? "").trim().toLowerCase());
+  return ["1", "true", "yes", "on"].includes(
+    (value ?? "").trim().toLowerCase(),
+  );
 }
 
 if (import.meta.main) {

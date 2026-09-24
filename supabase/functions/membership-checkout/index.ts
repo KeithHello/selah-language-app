@@ -23,7 +23,8 @@ import {
 } from "../_shared/service_controls.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
+  "";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -36,7 +37,11 @@ Deno.serve(async (req: Request) => {
   const userId = auth;
 
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    return errorResponse("Service unavailable", 503, "checkout_service_unavailable");
+    return errorResponse(
+      "Service unavailable",
+      503,
+      "checkout_service_unavailable",
+    );
   }
 
   let body: unknown;
@@ -48,7 +53,11 @@ Deno.serve(async (req: Request) => {
 
   const validation = validateCreateOrderInput(body);
   if (!validation.ok) {
-    return errorResponse(validation.message, validation.status, validation.code);
+    return errorResponse(
+      validation.message,
+      validation.status,
+      validation.code,
+    );
   }
 
   const { clientRequestId, channel } = validation.data;
@@ -113,7 +122,11 @@ Deno.serve(async (req: Request) => {
 
   if (insertError || !inserted) {
     console.error("Order insert failed", insertError);
-    return errorResponse("Failed to create order", 500, "order_creation_failed");
+    return errorResponse(
+      "Failed to create order",
+      500,
+      "order_creation_failed",
+    );
   }
 
   return json({

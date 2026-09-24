@@ -154,10 +154,14 @@ export function trialStateFromMembership(raw: {
   if (raw.plan !== "trial") return "not_started";
   if (raw.status === "expired") return "expired";
   const started = raw.trialStartedAt ?? raw.trial_started_at ??
-    raw.startedAt ?? raw.started_at ?? raw.periodStartsAt ?? raw.period_starts_at;
+    raw.startedAt ?? raw.started_at ?? raw.periodStartsAt ??
+    raw.period_starts_at;
   const expires = raw.trialExpiresAt ?? raw.trial_expires_at ??
     raw.expiresAt ?? raw.expires_at ?? raw.periodEndsAt ?? raw.period_ends_at;
-  if (typeof started === "string" && started && typeof expires === "string" && expires) {
+  if (
+    typeof started === "string" && started && typeof expires === "string" &&
+    expires
+  ) {
     return "active";
   }
   return "preparing";

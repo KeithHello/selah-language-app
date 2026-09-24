@@ -2,14 +2,39 @@
 // This module is pure so it can be tested without a Supabase or provider client.
 
 export const PROFILE_NOTICE_VERSION = "2026-09-12-v1";
-export const PROFILE_OPERATIONS = ["offer", "save", "skip", "withdraw"] as const;
+export const PROFILE_OPERATIONS = [
+  "offer",
+  "save",
+  "skip",
+  "withdraw",
+] as const;
 export type ProfileOperation = (typeof PROFILE_OPERATIONS)[number];
 
 export const PROFILE_ENUMS = {
   learningGoal: ["work", "daily", "travel", "exam", "other", "prefer_not_say"],
-  englishLevel: ["starter", "reading_stronger", "conversational", "not_sure", "prefer_not_say"],
-  ageGroup: ["under_14", "age_14_17", "age_18_24", "age_25_34", "age_35_44", "age_45_plus", "prefer_not_say"],
-  lifeStage: ["student", "employee", "self_employed", "other", "prefer_not_say"],
+  englishLevel: [
+    "starter",
+    "reading_stronger",
+    "conversational",
+    "not_sure",
+    "prefer_not_say",
+  ],
+  ageGroup: [
+    "under_14",
+    "age_14_17",
+    "age_18_24",
+    "age_25_34",
+    "age_35_44",
+    "age_45_plus",
+    "prefer_not_say",
+  ],
+  lifeStage: [
+    "student",
+    "employee",
+    "self_employed",
+    "other",
+    "prefer_not_say",
+  ],
   gender: ["male", "female", "self_described", "prefer_not_say"],
 } as const;
 
@@ -27,7 +52,10 @@ export interface ResearchProfile {
 
 export interface ProfileValidationError {
   ok: false;
-  code: "profile_invalid_input" | "profile_consent_required" | "profile_notice_changed";
+  code:
+    | "profile_invalid_input"
+    | "profile_consent_required"
+    | "profile_notice_changed";
   message: string;
   field?: string;
 }
@@ -50,7 +78,10 @@ function normalizeEnum(
 ): string | null | ProfileValidationError {
   const value = input[key];
   if (value == null || value === "") return null;
-  if (typeof value !== "string" || !(PROFILE_ENUMS[key] as readonly string[]).includes(value)) {
+  if (
+    typeof value !== "string" ||
+    !(PROFILE_ENUMS[key] as readonly string[]).includes(value)
+  ) {
     return {
       ok: false,
       code: "profile_invalid_input",
@@ -65,9 +96,15 @@ function codePointLength(value: string): number {
   return [...value].length;
 }
 
-export function normalizeResearchProfile(input: unknown): ProfileValidationResult {
+export function normalizeResearchProfile(
+  input: unknown,
+): ProfileValidationResult {
   if (!isRecord(input)) {
-    return { ok: false, code: "profile_invalid_input", message: "Profile must be an object" };
+    return {
+      ok: false,
+      code: "profile_invalid_input",
+      message: "Profile must be an object",
+    };
   }
   const allowed = new Set([
     "learningGoal",
@@ -79,7 +116,12 @@ export function normalizeResearchProfile(input: unknown): ProfileValidationResul
   ]);
   for (const key of Object.keys(input)) {
     if (!allowed.has(key)) {
-      return { ok: false, code: "profile_invalid_input", field: key, message: `Unknown profile field: ${key}` };
+      return {
+        ok: false,
+        code: "profile_invalid_input",
+        field: key,
+        message: `Unknown profile field: ${key}`,
+      };
     }
   }
 
@@ -138,16 +180,31 @@ export function validateProfileOperation(input: {
   noticeVersion?: unknown;
   researchConsent?: unknown;
 }): ProfileOperationValidationResult {
-  if (typeof input.operation !== "string" || !(PROFILE_OPERATIONS as readonly string[]).includes(input.operation)) {
-    return { ok: false, code: "profile_invalid_input", message: "Unknown profile operation" };
+  if (
+    typeof input.operation !== "string" ||
+    !(PROFILE_OPERATIONS as readonly string[]).includes(input.operation)
+  ) {
+    return {
+      ok: false,
+      code: "profile_invalid_input",
+      message: "Unknown profile operation",
+    };
   }
   const operation = input.operation as ProfileOperation;
   if (operation !== "save") return { ok: true, operation, profile: null };
   if (input.noticeVersion !== PROFILE_NOTICE_VERSION) {
-    return { ok: false, code: "profile_notice_changed", message: "The privacy notice has changed" };
+    return {
+      ok: false,
+      code: "profile_notice_changed",
+      message: "The privacy notice has changed",
+    };
   }
   if (input.researchConsent !== true) {
-    return { ok: false, code: "profile_consent_required", message: "Research consent is required" };
+    return {
+      ok: false,
+      code: "profile_consent_required",
+      message: "Research consent is required",
+    };
   }
   const profile = normalizeResearchProfile(input.profile);
   if (!profile.ok) return profile;

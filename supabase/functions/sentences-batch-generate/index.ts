@@ -1,9 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import {
-  errorResponse,
-  handleOptions,
-  json,
-} from "../_shared/cors.ts";
+import { errorResponse, handleOptions, json } from "../_shared/cors.ts";
 import { authorizeBillableIdentity } from "../_shared/anonymous_test_mode.ts";
 import {
   BatchTranslationInput,
@@ -401,7 +397,9 @@ Deno.serve(async (req: Request) => {
       sourceLanguage: validation.sourceLanguage,
       targetLanguage: validation.targetLanguage,
     }));
-    let completionResult: Awaited<ReturnType<typeof completePersonalGeneration>>;
+    let completionResult: Awaited<
+      ReturnType<typeof completePersonalGeneration>
+    >;
     try {
       completionResult = await completePersonalGeneration(
         supabase as unknown as Parameters<typeof completePersonalGeneration>[0],
@@ -438,39 +436,39 @@ Deno.serve(async (req: Request) => {
         userId,
         feature: "batch",
         clientRequestId: validation.clientRequestId,
-      outcome: "completed",
-      itemCount: pending.length,
-    },
-  );
-   if (admission.reservationId) {
-     await settleGenerationAdmission(
-       supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
-       admission.reservationId,
-       "settled",
-       undefined,
-       admission.reservationScope ?? "membership",
-     );
-   }
-   const responsePayload = {
-     items: [...replayed, ...enrichedItems].sort(sortBySegment),
-     ...(completionResult.trialState !== undefined
-       ? { trialState: completionResult.trialState }
-       : {}),
-     ...(completionResult.trialStartedAt !== undefined
-       ? { trialStartedAt: completionResult.trialStartedAt }
-       : {}),
-     ...(completionResult.trialExpiresAt !== undefined
-       ? { trialExpiresAt: completionResult.trialExpiresAt }
-       : {}),
-   };
-   const completed = await completeBatchClaim(
-     supabase as unknown as RPCClient,
-     userId,
-     validation.clientRequestId,
-     responsePayload,
-   );
-   if (!completed) throw new Error("batch_claim_completion_failed");
-   return json(responsePayload);
+        outcome: "completed",
+        itemCount: pending.length,
+      },
+    );
+    if (admission.reservationId) {
+      await settleGenerationAdmission(
+        supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
+        admission.reservationId,
+        "settled",
+        undefined,
+        admission.reservationScope ?? "membership",
+      );
+    }
+    const responsePayload = {
+      items: [...replayed, ...enrichedItems].sort(sortBySegment),
+      ...(completionResult.trialState !== undefined
+        ? { trialState: completionResult.trialState }
+        : {}),
+      ...(completionResult.trialStartedAt !== undefined
+        ? { trialStartedAt: completionResult.trialStartedAt }
+        : {}),
+      ...(completionResult.trialExpiresAt !== undefined
+        ? { trialExpiresAt: completionResult.trialExpiresAt }
+        : {}),
+    };
+    const completed = await completeBatchClaim(
+      supabase as unknown as RPCClient,
+      userId,
+      validation.clientRequestId,
+      responsePayload,
+    );
+    if (!completed) throw new Error("batch_claim_completion_failed");
+    return json(responsePayload);
   } catch {
     if (admission.reservationId) {
       await settleGenerationAdmission(

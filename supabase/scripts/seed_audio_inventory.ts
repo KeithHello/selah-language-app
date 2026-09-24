@@ -72,14 +72,18 @@ const byVoice = Object.fromEntries(
   ]),
 );
 
-console.log(JSON.stringify({
-  rows: rows.length,
-  ready: ready.length,
-  expected: seeds.length * voices.length,
-  present: seeds.length * voices.length - missing.length,
-  missing: missing.length,
-  malformed: malformed.length,
-  missingList: missing,
-  malformedList: malformed,
-  byVoice,
-}, null, 2));
+console.log(JSON.stringify(
+  {
+    rows: rows.length,
+    ready: ready.length,
+    expected: seeds.length * voices.length,
+    present: seeds.length * voices.length - missing.length,
+    missing: missing.length,
+    malformed: malformed.length,
+    missingList: missing,
+    malformedList: malformed,
+    byVoice,
+  },
+  null,
+  2,
+));

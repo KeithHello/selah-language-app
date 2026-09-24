@@ -38,5 +38,7 @@ export function maskEmail(email: string): string {
   const name = email.slice(0, atIndex);
   const domain = email.slice(atIndex);
   if (name.length <= 2) return `${name[0]}*${domain}`;
-  return `${name[0]}${"*".repeat(name.length - 2)}${name[name.length - 1]}${domain}`;
+  return `${name[0]}${"*".repeat(name.length - 2)}${
+    name[name.length - 1]
+  }${domain}`;
 }
