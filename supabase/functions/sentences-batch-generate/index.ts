@@ -387,7 +387,11 @@ Deno.serve(async (req: Request) => {
         providerRequestId: providerResponse.headers.get("x-request-id"),
         usage: providerUsage,
       });
-      throw new Error("provider_items_mismatch");
+      throw new Error(
+        `provider_items_mismatch: items=${items.length}, pending=${pending.length}, raw=${
+          JSON.stringify(parsed)
+        }`,
+      );
     }
 
     const enrichedItems = items.map((item) => ({
@@ -469,7 +473,7 @@ Deno.serve(async (req: Request) => {
     );
     if (!completed) throw new Error("batch_claim_completion_failed");
     return json(responsePayload);
-  } catch {
+  } catch (error) {
     if (admission.reservationId) {
       await settleGenerationAdmission(
         supabase as unknown as Parameters<typeof settleGenerationAdmission>[0],
@@ -486,7 +490,12 @@ Deno.serve(async (req: Request) => {
       validation.clientRequestId,
     );
     console.error("Batch sentence generation failed");
-    return errorResponse("Batch generation failed", 502, "generation_failed");
+    return errorResponse(
+      "Batch generation failed: " +
+        (error instanceof Error ? error.message : String(error)),
+      502,
+      "generation_failed",
+    );
   }
 });
 

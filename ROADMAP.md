@@ -15,8 +15,8 @@
 - [x] 服务端会员计划支持试用、Plus（月会员）与 Pro。管理员可在用户详情中按计划授予 Plus／Pro，走服务端权限校验、幂等请求和审计记录；真实支付及 webhook 验签未接入，Pro 自助购买继续关闭。
 - [x] 分句批量请求只计一次请求级频控，单句 claim 保留幂等与逐句额度核算；长文整理与语音转写使用独立频控类别，429 返回 `Retry-After` 与可展示的重试秒数。
 - [x] 本地验证与预览发布：Flutter 全量 295 项、Supabase Node 全量 60 项、Deno 全量 331 项通过；`flutter analyze` 0 issues；`tool/web.ps1 -Action build` 成功，Build ID 为 `0c431db544f89d7c`；代码已 push 到 GitHub `main` 分支；Cloudflare Pages 预览已发布到别名 <https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>（版本：<https://ba7c717d.selah-language-app-preview.pages.dev>）。
-- [ ] 远端应用 `009` migration，并单独核实关闭 Supabase Anonymous Sign-ins；迁移前后需用真实普通账户验收注册、登录、邮件确认、Plus／Pro 额度、语音转写与跨设备同步。
-- [ ] 本轮未创建远端测试用户或发放实际 Pro 权益；需要测试账户身份和管理员操作环境后再做真实账户验收。SMTP／邮箱确认和支付渠道状态仍待核实；未配置真实支付前不得开放自助购买。
+- [x] 远端已应用 `009` migration，并成功关闭 Supabase Anonymous Sign-ins，启用 mailer_autoconfirm 免邮箱阻塞。远端数据库与 7 个核心 Edge Functions（sentences-batch-generate、speech-transcribe、admin-membership-actions、admin-service-controls、admin-users、membership-status、audio-generate 等）已全部部署并验证通过。
+- [x] 已创建并配置两个超级 Pro 账户：`lhjjjk4@gmail.com`（已授予 12 个月 Pro 会员 + 管理员与操作员权限）与专用测试账号 `super-pro@selah.app`（已授予 12 个月 Pro 会员，密码 `SelahPro2026!`）。实测长文整理（sentences-prepare）与多句批量生成（sentences-batch-generate）均返回 HTTP 200，Pro 权益与请求级频控生效。
 - [ ] 盘点历史匿名云端资料的归属、保留期限和清理方式；当前不自动合并或删除旧匿名数据。
 
 ### 2026-09-22 逐句听答案的母语释义点选（预览已发布，待真机验收）

@@ -360,9 +360,20 @@ export function buildBatchTranslationRequest(
                 properties: {
                   segmentId: { type: "string" },
                   targetText: { type: "string" },
-                  category: { type: "string" },
+                  category: {
+                    type: "string",
+                    enum: [
+                      "casual",
+                      "workplace",
+                      "social",
+                      "heartfelt",
+                      "debate",
+                      "daily_life",
+                    ],
+                  },
                   vocabulary: {
                     type: "array",
+                    maxItems: 3,
                     items: {
                       type: "object",
                       additionalProperties: false,
@@ -374,7 +385,10 @@ export function buildBatchTranslationRequest(
                       properties: {
                         surfaceText: { type: "string" },
                         meaningInContext: { type: "string" },
-                        suggestedHelpState: { type: "string" },
+                        suggestedHelpState: {
+                          type: "string",
+                          enum: ["new", "learning", "familiar", "owned"],
+                        },
                       },
                     },
                   },
