@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-09-24 正式账户、会员分级与分段限流（本地实现完成；远端验收待执行）
+### 2026-09-24 正式账户、会员分级与分段限流（核心函数已部署；账户端到端验收待续）
 
 - [x] 移除客户端匿名登录。未登录访客继续使用 `guest` 本机资料；启动时尝试退出遗留匿名会话，退出失败时仍保持访客本机范围。云端生成、长文整理、转写、个人音频、同步与会员资料要求正式账户；登录后导入本机资料仍由用户主动触发。
 - [x] Edge Function 拒绝旧匿名 JWT；RLS 身份条件要求 `auth.uid()` 存在且 JWT 不是匿名身份。本地 `supabase/config.toml` 禁止匿名注册；新增 `009_registered_accounts_pro_and_rate_limits.sql` 仅为本地迁移草稿，未连接或修改远端数据库。
@@ -18,8 +18,9 @@
 - [x] 远端已应用 `009` migration，并成功关闭 Supabase Anonymous Sign-ins，启用 mailer_autoconfirm 免邮箱阻塞。远端数据库与 7 个核心 Edge Functions（sentences-batch-generate、speech-transcribe、admin-membership-actions、admin-service-controls、admin-users、membership-status、audio-generate 等）已全部部署并验证通过。
 - [x] 已创建并配置管理员 Pro 账户与专用 Pro 测试账户。2026-09-24 浏览器登录与云端同步成功，`membership-status` 返回 `plan=pro`、`status=active`；当前周期结束日为 2026-10-24，与此前记录的 12 个月期限不一致，待核实。账户邮箱不保存在公开仓库。
 - [x] 2026-09-24 真实浏览器首次引导完成，3 条种子句成功写入专用测试账户；长文输入 602 字后在页面拆成 10 段，并进入首批 5 段生成。
-- [ ] 浏览器批量生成首批 5 段时，`sentences-batch-generate` 返回 502：模型 schema 输出 `workplace`／`social` 等类别，但规范化器只接受 `work`／`friends`／`vent` 等存储类别；页面还曾显示完整模型原文。已按统一类别常量修正本地 Edge Function，并新增两项回归测试；完整 Deno 测试 333 项与 lint 已通过，远端函数部署和同一流程复测待完成。
-- [ ] 登录后 `user-research-profile` 的 CORS 预检失败，`events` 多次返回 400；不阻断登录、会员读取和句子同步，原因待查。
+- [x] 浏览器批量生成首批 5 段时，`sentences-batch-generate` 返回 502：模型 schema 输出 `workplace`／`social` 等类别，但规范化器只接受 `work`／`friends`／`vent` 等存储类别；页面还曾显示完整模型原文。已按统一类别常量修正并隐藏原始模型输出，回归测试通过；2026-09-24 已部署修复版本。
+- [x] `user-research-profile` 预检返回 404，确认远端函数此前未部署；`events` 远端允许事件列表落后于本地合约，导致 `activity_heartbeat` 返回 400。新增定向部署脚本 `supabase/scripts/deploy-account-e2e-fixes.ps1`，并于 2026-09-24 部署 `sentences-batch-generate`、`events`、`user-research-profile`；三者均通过 `OPTIONS 200` 与未登录 `POST 401` 零费用路由检查，未运行 migration、修改 secrets 或导入数据。
+- [ ] 使用已轮换凭据的正式 Pro 测试账户复测批量生成、心跳事件与用户研究资料 CORS／读写；此前测试账号密码曾出现在公开 Git 历史中，停止使用旧凭据，轮换与历史清理待主人确认。
 - [ ] GitHub 仓库为公开仓库，旧公开提交曾包含专用测试账号明文密码。当前路线图已移除明文；密码轮换和公开 Git 历史清理待主人确认。
 - [ ] 盘点历史匿名云端资料的归属、保留期限和清理方式；当前不自动合并或删除旧匿名数据。
 
