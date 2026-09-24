@@ -16,6 +16,7 @@ import {
   MAX_TARGET_TEXT_LENGTH,
   normalizeTeachingOutput,
   OUTPUT_TOKEN_BUDGET,
+  TEACHING_CATEGORIES,
   TRANSLATION_MODEL,
   validateSentenceGenerationInput,
 } from "../functions/_shared/sentence_contract.ts";
@@ -30,6 +31,9 @@ const segment = {
 };
 const FUNCTION_SOURCE = await Deno.readTextFile(
   "supabase/functions/sentences-generate/index.ts",
+);
+const BATCH_FUNCTION_SOURCE = await Deno.readTextFile(
+  "supabase/functions/sentences-batch-generate/index.ts",
 );
 
 Deno.test("accepts a complete teaching output", () => {
@@ -99,6 +103,40 @@ Deno.test("accepts an omitted optional category using the existing default", () 
   const result = normalizeTeachingOutput({ targetText: "Hello." });
   assert(result.ok);
   if (result.ok) assertEquals(result.value.category, "daily_life");
+});
+
+Deno.test("batch category schema matches the categories accepted by storage", () => {
+  const request = buildBatchTranslationRequest([segment], "zh-Hant", "en") as {
+    response_format: {
+      json_schema: {
+        schema: {
+          properties: {
+            items: {
+              items: { properties: { category: { enum: string[] } } };
+            };
+          };
+        };
+      };
+    };
+  };
+  const categoryValues = request.response_format.json_schema.schema.properties
+    .items.items.properties.category.enum;
+
+  assertEquals(categoryValues, [...TEACHING_CATEGORIES]);
+  for (const category of categoryValues) {
+    assert(
+      normalizeTeachingOutput({ targetText: "Hello.", category }).ok,
+      `batch category ${category} must pass the shared teaching contract`,
+    );
+  }
+});
+
+Deno.test("batch failures do not expose the provider response to clients", () => {
+  assertStringIncludes(
+    BATCH_FUNCTION_SOURCE,
+    '"Batch generation failed. Please retry."',
+  );
+  assertFalse(BATCH_FUNCTION_SOURCE.includes("JSON.stringify(parsed)"));
 });
 
 Deno.test("exposes stable provenance for generated sentence reuse", () => {

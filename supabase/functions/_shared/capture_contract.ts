@@ -2,6 +2,7 @@ import {
   GENERATION_SOURCE_LANGUAGE,
   GENERATION_TARGET_LANGUAGE,
   OUTPUT_TOKEN_BUDGET,
+  TEACHING_CATEGORIES,
   TRANSLATION_MODEL,
   TRANSLATION_TEMPERATURE,
 } from "./sentence_contract.ts";
@@ -362,14 +363,7 @@ export function buildBatchTranslationRequest(
                   targetText: { type: "string" },
                   category: {
                     type: "string",
-                    enum: [
-                      "casual",
-                      "workplace",
-                      "social",
-                      "heartfelt",
-                      "debate",
-                      "daily_life",
-                    ],
+                    enum: [...TEACHING_CATEGORIES],
                   },
                   vocabulary: {
                     type: "array",

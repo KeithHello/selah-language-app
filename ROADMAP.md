@@ -16,7 +16,11 @@
 - [x] 分句批量请求只计一次请求级频控，单句 claim 保留幂等与逐句额度核算；长文整理与语音转写使用独立频控类别，429 返回 `Retry-After` 与可展示的重试秒数。
 - [x] 本地验证与预览发布：Flutter 全量 295 项、Supabase Node 全量 60 项、Deno 全量 331 项通过；`flutter analyze` 0 issues；`tool/web.ps1 -Action build` 成功，Build ID 为 `0c431db544f89d7c`；代码已 push 到 GitHub `main` 分支；Cloudflare Pages 预览已发布到别名 <https://codex-web-ux-reliability.selah-language-app-preview.pages.dev>（版本：<https://ba7c717d.selah-language-app-preview.pages.dev>）。
 - [x] 远端已应用 `009` migration，并成功关闭 Supabase Anonymous Sign-ins，启用 mailer_autoconfirm 免邮箱阻塞。远端数据库与 7 个核心 Edge Functions（sentences-batch-generate、speech-transcribe、admin-membership-actions、admin-service-controls、admin-users、membership-status、audio-generate 等）已全部部署并验证通过。
-- [x] 已创建并配置两个超级 Pro 账户：`lhjjjk4@gmail.com`（已授予 12 个月 Pro 会员 + 管理员与操作员权限）与专用测试账号 `super-pro@selah.app`（已授予 12 个月 Pro 会员，密码 `SelahPro2026!`）。实测长文整理（sentences-prepare）与多句批量生成（sentences-batch-generate）均返回 HTTP 200，Pro 权益与请求级频控生效。
+- [x] 已创建并配置管理员 Pro 账户与专用 Pro 测试账户。2026-09-24 浏览器登录与云端同步成功，`membership-status` 返回 `plan=pro`、`status=active`；当前周期结束日为 2026-10-24，与此前记录的 12 个月期限不一致，待核实。账户邮箱不保存在公开仓库。
+- [x] 2026-09-24 真实浏览器首次引导完成，3 条种子句成功写入专用测试账户；长文输入 602 字后在页面拆成 10 段，并进入首批 5 段生成。
+- [ ] 浏览器批量生成首批 5 段时，`sentences-batch-generate` 返回 502：模型 schema 输出 `workplace`／`social` 等类别，但规范化器只接受 `work`／`friends`／`vent` 等存储类别；页面还曾显示完整模型原文。已按统一类别常量修正本地 Edge Function，并新增两项回归测试；完整 Deno 测试 333 项与 lint 已通过，远端函数部署和同一流程复测待完成。
+- [ ] 登录后 `user-research-profile` 的 CORS 预检失败，`events` 多次返回 400；不阻断登录、会员读取和句子同步，原因待查。
+- [ ] GitHub 仓库为公开仓库，旧公开提交曾包含专用测试账号明文密码。当前路线图已移除明文；密码轮换和公开 Git 历史清理待主人确认。
 - [ ] 盘点历史匿名云端资料的归属、保留期限和清理方式；当前不自动合并或删除旧匿名数据。
 
 ### 2026-09-22 逐句听答案的母语释义点选（预览已发布，待真机验收）
