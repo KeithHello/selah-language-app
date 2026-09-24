@@ -1,3 +1,4 @@
+// deno-lint-ignore-file require-await
 import assert from "node:assert/strict";
 import { test } from "node:test";
 

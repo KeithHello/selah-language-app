@@ -28,16 +28,8 @@ import {
   addCalendarMonthsUtc,
   calculateMonthlyPeriods,
   MONTHLY_ENTITLEMENTS,
-  MONTHLY_MAX_PREPARATIONS,
-  MONTHLY_MAX_SENTENCES,
-  MONTHLY_MAX_TRANSCRIPTION_MS,
-  MONTHLY_MAX_TTS_CHARACTERS,
   MONTHLY_PRICE_FEN_CNY,
   TRIAL_ENTITLEMENTS,
-  TRIAL_MAX_PREPARATIONS,
-  TRIAL_MAX_SENTENCES,
-  TRIAL_MAX_TRANSCRIPTION_MS,
-  TRIAL_MAX_TTS_CHARACTERS,
 } from "./membership_contract.ts";
 
 Deno.test("single sentence max cost matches token upper bounds", () => {

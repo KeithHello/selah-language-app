@@ -1,7 +1,6 @@
 // Unified admission control, idempotency, atomic reservation and settlement for billable generation.
 
 import {
-  calculateOperationMaxCost,
   type CostQuote,
   createCostQuote,
   type GenerationFeature,

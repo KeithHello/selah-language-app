@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 // Edge Function: /v1/admin/users
 // Lists users and retrieves detailed membership timelines for authorized
 // administrators. Email addresses are masked before leaving the function.

@@ -192,7 +192,7 @@ function decodeHex(value: string): Uint8Array | null {
   return bytes;
 }
 
-function encodeHex(value: Uint8Array): string {
+function _encodeHex(value: Uint8Array): string {
   return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join(
     "",
   );

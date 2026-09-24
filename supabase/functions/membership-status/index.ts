@@ -1,3 +1,4 @@
+// deno-lint-ignore-file no-explicit-any
 // Edge Function: /v1/membership/status
 // Returns membership status, dates, and immutable static entitlements without returning live usage balances.
 
