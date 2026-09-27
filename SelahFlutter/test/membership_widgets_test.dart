@@ -148,4 +148,85 @@ void main() {
     expect(find.textContaining('首次个人表达成功保存后开始计时'), findsOneWidget);
     controller.dispose();
   });
+
+  testWidgets('active membership displays each server-confirmed usage bucket', (
+    tester,
+  ) async {
+    final controller = MembershipController(
+      gateway: _Gateway({
+        'membershipModeEnabled': true,
+        'plan': 'monthly',
+        'status': 'active',
+        'staticEntitlements': {
+          'maxSentences': 300,
+          'maxTtsCharacters': 30000,
+          'maxTranscriptionMs': 3600000,
+          'maxPreparations': 30,
+        },
+        'usage': {
+          'sentence': {'used': 12, 'reserved': 2},
+          'batch': {'used': 7, 'reserved': 1},
+          'ttsCharacters': {'used': 900, 'reserved': 100},
+          'transcriptionMs': {'used': 30000, 'reserved': 15000},
+          'preparations': {'used': 1, 'reserved': 0},
+        },
+      }),
+    );
+    await controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: MembershipCenter(
+              controller: controller,
+              uiLocale: 'zh-Hans',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('本期用量'), findsOneWidget);
+    expect(find.text('单句生成'), findsOneWidget);
+    expect(find.text('批量生成'), findsOneWidget);
+    expect(find.textContaining('已用 12 / 300'), findsOneWidget);
+    expect(find.textContaining('处理中 2'), findsOneWidget);
+    expect(find.text('录音转写'), findsOneWidget);
+    controller.dispose();
+  });
+
+  testWidgets('active membership never presents missing usage as zero', (
+    tester,
+  ) async {
+    final controller = MembershipController(
+      gateway: _Gateway({
+        'membershipModeEnabled': true,
+        'plan': 'monthly',
+        'status': 'active',
+        'staticEntitlements': {
+          'maxSentences': 300,
+          'maxTtsCharacters': 30000,
+          'maxTranscriptionMs': 3600000,
+          'maxPreparations': 30,
+        },
+      }),
+    );
+    await controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: MembershipCenter(
+              controller: controller,
+              uiLocale: 'zh-Hans',
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.textContaining('暂时无法读取用量'), findsOneWidget);
+    expect(find.text('已用 0 / 300'), findsNothing);
+    controller.dispose();
+  });
 }

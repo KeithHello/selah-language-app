@@ -9,6 +9,10 @@ import 'package:selah/web/platform/learning_platform.dart';
 
 class MemoryPlatform implements LearningPlatform {
   final snapshots = <String, Object?>{};
+  final audioCacheChecks = <String>[];
+  final playedAudioKeys = <String>[];
+  final ensuredAudioKeys = <String>{};
+  bool cachedAudioByDefault = true;
   bool failSave = false;
   Map<String, dynamic> audio = {
     'state': 'idle',
@@ -32,12 +36,15 @@ class MemoryPlatform implements LearningPlatform {
       case 'platformInfo':
         return {'online': true};
       case 'audioCached':
-        return true;
+        final key = payload['key'] as String;
+        audioCacheChecks.add(key);
+        return cachedAudioByDefault || ensuredAudioKeys.contains(key);
       case 'contentHash':
         return 'a' * 64;
       case 'audioStatus':
         return audio;
       case 'audioPlay':
+        playedAudioKeys.add(payload['key'] as String);
         audio = {
           'state': 'playing',
           'key': payload['key'],
@@ -45,6 +52,9 @@ class MemoryPlatform implements LearningPlatform {
           'positionMs': 0,
         };
         return null;
+      case 'audioEnsure':
+        ensuredAudioKeys.add(payload['key'] as String);
+        return true;
       case 'audioStop':
         audio = {'state': 'idle', 'durationMs': 0, 'positionMs': 0};
         return null;
@@ -233,6 +243,82 @@ class CaptureGateway extends FakeGateway {
               },
             )
             .toList(),
+      };
+    }
+    return super.invoke(function, body, get: get);
+  }
+}
+
+class PendingAudioGateway extends CaptureGateway {
+  int audioGenerateCalls = 0;
+  int audioStatusCalls = 0;
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    if (function == 'audio-generate') {
+      audioGenerateCalls++;
+      return {'status': 'generating', 'manifestId': 'audio-manifest-1'};
+    }
+    if (function == 'audio-download-url') {
+      audioStatusCalls++;
+      if (audioStatusCalls == 1) {
+        return {'status': 'generating', 'manifestId': 'audio-manifest-1'};
+      }
+      return {
+        'status': 'ready',
+        'manifestId': 'audio-manifest-1',
+        'downloadUrl': 'https://audio.example.test/generated.mp3',
+        'sha256': 'a' * 64,
+      };
+    }
+    return super.invoke(function, body, get: get);
+  }
+}
+
+class DelayedAudioStatusGateway extends PendingAudioGateway {
+  final statusRequestStarted = Completer<void>();
+  final allowStatusResponse = Completer<void>();
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    if (function == 'audio-download-url') {
+      if (!statusRequestStarted.isCompleted) statusRequestStarted.complete();
+      await allowStatusResponse.future;
+    }
+    return super.invoke(function, body, get: get);
+  }
+}
+
+class RetryFailedAudioGateway extends CaptureGateway {
+  final generatedRequestIds = <String>[];
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    if (function == 'audio-download-url') {
+      return {
+        'status': 'failed',
+        'manifestId': body['manifestId'],
+        'errorCode': 'provider_failed',
+      };
+    }
+    if (function == 'audio-generate') {
+      generatedRequestIds.add(body['clientRequestId'] as String);
+      return {
+        'status': 'ready',
+        'downloadUrl': 'https://audio.example.test/retry.mp3',
+        'sha256': 'b' * 64,
       };
     }
     return super.invoke(function, body, get: get);
@@ -737,26 +823,29 @@ void main() {
     },
   );
 
-  test('failed legacy anonymous sign-out keeps the local guest scope', () async {
-    final gateway = FakeGateway()
-      ..anonymous = true
-      ..user = 'old-anonymous-user'
-      ..failSignOut = true;
-    final controller = LearningController(
-      gateway: gateway,
-      platform: MemoryPlatform(),
-      seeds: seeds(),
-      polling: false,
-    );
-    addTearDown(controller.dispose);
+  test(
+    'failed legacy anonymous sign-out keeps the local guest scope',
+    () async {
+      final gateway = FakeGateway()
+        ..anonymous = true
+        ..user = 'old-anonymous-user'
+        ..failSignOut = true;
+      final controller = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(controller.dispose);
 
-    await controller.initialize();
+      await controller.initialize();
 
-    expect(controller.accountId, 'guest');
-    expect(controller.hasSession, isFalse);
-    expect(gateway.userId, 'old-anonymous-user');
-    expect(gateway.isAnonymous, isTrue);
-  });
+      expect(controller.accountId, 'guest');
+      expect(controller.hasSession, isFalse);
+      expect(gateway.userId, 'old-anonymous-user');
+      expect(gateway.isAnonymous, isTrue);
+    },
+  );
 
   test('preview errors clear a stale authentication code', () async {
     final gateway = FakeGateway()
@@ -1067,7 +1156,7 @@ void main() {
   );
 
   test(
-    'short multi-sentence input uses the batch contract without preparation',
+    'short multi-sentence input waits for confirmation before batch generation',
     () async {
       final gateway = CaptureGateway();
       final c = LearningController(
@@ -1081,10 +1170,215 @@ void main() {
       c.updateTodayInput('第一句。第二句？');
       await c.generateSplitSentences(['第一句。', '第二句？'], sourceText: '第一句。第二句？');
       expect(gateway.prepareCalls, 0);
+      expect(gateway.batchSegmentCounts, isEmpty);
+      expect(c.state.sentences, isEmpty);
+      expect(c.preparationDraft?.segments, hasLength(2));
+      expect(c.todayInput, '第一句。第二句？');
+
+      await c.generatePreparedSegments();
       expect(gateway.batchSegmentCounts, [2]);
       expect(c.state.sentences, hasLength(2));
       expect(c.recentGeneratedSentences, hasLength(2));
       expect(c.todayInput, isEmpty);
+    },
+  );
+
+  test(
+    'Today and loop listening share the same target audio cache key',
+    () async {
+      final platform = MemoryPlatform();
+      final sentence = seeds().first;
+      final c = LearningController(
+        gateway: UnconfiguredGateway(),
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      c.state.sentences.add(sentence);
+
+      await c.prepareLoop();
+      final preparedTargetKey = platform.audioCacheChecks.first;
+      await c.play(sentence);
+
+      expect(platform.playedAudioKeys.single, preparedTargetKey);
+    },
+  );
+
+  test(
+    'sentence playback waits for an in-progress audio manifest to become ready',
+    () async {
+      final gateway = PendingAudioGateway();
+      final platform = MemoryPlatform()..cachedAudioByDefault = false;
+      final c = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      final sentence = LearnSentence(
+        id: newId(),
+        source: '今天想早点休息。',
+        target: 'I want to get some rest early today.',
+        category: 'daily_life',
+      );
+      c.state.sentences.add(sentence);
+
+      await c.play(sentence);
+
+      expect(gateway.audioGenerateCalls, 1);
+      expect(gateway.audioStatusCalls, 2);
+      expect(c.playback['state'], 'playing');
+      expect(platform.playedAudioKeys.single, platform.ensuredAudioKeys.single);
+    },
+  );
+
+  test(
+    'sentence playback exposes its preparing state while polling audio',
+    () async {
+      final gateway = DelayedAudioStatusGateway();
+      final c = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform()..cachedAudioByDefault = false,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      final sentence = LearnSentence(
+        id: newId(),
+        source: '今天想早点休息。',
+        target: 'I want to get some rest early today.',
+        category: 'daily_life',
+      );
+      c.state.sentences.add(sentence);
+
+      final playback = c.play(sentence);
+      await gateway.statusRequestStarted.future;
+      expect(c.playback['state'], 'loading');
+      expect(c.isPlaybackFor(sentence), isTrue);
+      gateway.allowStatusResponse.complete();
+      await playback;
+      expect(c.playback['state'], 'playing');
+    },
+  );
+
+  test(
+    'sentence playback retries a failed manifest with a fresh request ID',
+    () async {
+      final gateway = RetryFailedAudioGateway();
+      final platform = MemoryPlatform()..cachedAudioByDefault = false;
+      final c = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      final sentence = LearnSentence(
+        id: newId(),
+        source: '今天想早点休息。',
+        target: 'I want to get some rest early today.',
+        category: 'daily_life',
+      );
+      c.state.sentences.add(sentence);
+      await c.isAudioCached(sentence);
+      final key = platform.audioCacheChecks.last;
+      c.state.audio[key] = {
+        'manifestId': 'failed-manifest',
+        'requestId': 'failed-request',
+        'status': 'failed',
+      };
+
+      await c.play(sentence);
+
+      expect(gateway.generatedRequestIds, hasLength(1));
+      expect(gateway.generatedRequestIds.single, isNot('failed-request'));
+      expect(c.playback['state'], 'playing');
+    },
+  );
+
+  test(
+    'a single short sentence also waits in an editable confirmation draft',
+    () async {
+      final gateway = CaptureGateway();
+      final c = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      c.updateTodayInput('今天想早点休息。');
+
+      await c.generateSplitSentences(['今天想早点休息。'], sourceText: '今天想早点休息。');
+
+      expect(gateway.batchCalls, 0);
+      expect(c.state.sentences, isEmpty);
+      expect(c.preparationDraft?.segments.single.sourceText, '今天想早点休息。');
+    },
+  );
+
+  test(
+    'preparation segments can be added, split, reordered, merged and removed',
+    () async {
+      final c = LearningController(
+        gateway: CaptureGateway(),
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      await c.generateSplitSentences(['今天想休息。', '明天再继续。']);
+
+      c.addPreparationSegment();
+      expect(c.preparationDraft!.segments, hasLength(3));
+      expect(c.preparationDraft!.segments.last.sourceText, isEmpty);
+      c.updatePreparationSegment(2, '新增的一句。');
+      c.splitPreparationSegment(0, 3);
+      expect(
+        c.preparationDraft!.segments.take(2).map((item) => item.sourceText),
+        ['今天想', '休息。'],
+      );
+      c.movePreparationSegment(0, 1);
+      expect(c.preparationDraft!.segments[0].sourceText, '休息。');
+      c.mergePreparationSegments(0);
+      expect(c.preparationDraft!.segments[0].sourceText, '休息。今天想');
+      c.removePreparationSegment(1);
+      expect(c.preparationDraft!.segments, hasLength(2));
+      expect(c.preparationDraft!.segments.map((item) => item.sourceText), [
+        '休息。今天想',
+        '新增的一句。',
+      ]);
+    },
+  );
+
+  test(
+    'an empty added segment cannot be submitted to batch generation',
+    () async {
+      final gateway = CaptureGateway();
+      final c = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      await c.generateSplitSentences(['今天想休息。']);
+      c.addPreparationSegment();
+
+      await c.generatePreparedSegments();
+
+      expect(gateway.batchCalls, 0);
+      expect(c.error, '请补全每一个分句，再继续生成。');
+      expect(c.preparationDraft?.segments, hasLength(2));
     },
   );
 

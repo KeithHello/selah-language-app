@@ -902,6 +902,29 @@ void main() {
   });
 
   testWidgets(
+    'Today shows an editable confirmation stage before English results',
+    (tester) async {
+      controller.state.preferences.onboarded = true;
+      controller.state.preparationDraft = PreparationDraft(
+        id: newId(),
+        sourceText: '今天想早点休息。',
+        segments: [PreparationSegment(id: newId(), sourceText: '今天想早点休息。')],
+      );
+      await tester.pumpWidget(WebLearningApp(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(find.text('先整理成几句'), findsOneWidget);
+      expect(find.text('今天想早点休息。'), findsWidgets);
+      expect(find.widgetWithText(FilledButton, '确认并生成'), findsOneWidget);
+      expect(find.text('从光标处分句'), findsOneWidget);
+      expect(find.text('与下一句合并'), findsNothing);
+      expect(find.text('02'), findsOneWidget);
+      expect(find.text('03'), findsOneWidget);
+      expect(controller.state.sentences, isEmpty);
+    },
+  );
+
+  testWidgets(
     'today preparation editor refreshes text when segment count stays the same',
     (tester) async {
       controller.state.preferences.onboarded = true;
@@ -954,7 +977,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('请补全每一个分句，再继续生成。'), findsOneWidget);
-    expect(controller.state.preparationDraft!.segments.first.sourceText, '第一段');
+    expect(
+      controller.state.preparationDraft!.segments.first.sourceText,
+      isEmpty,
+    );
   });
 
   testWidgets(

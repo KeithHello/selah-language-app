@@ -1,6 +1,7 @@
 // deno-lint-ignore-file no-explicit-any
 // Edge Function: /v1/membership/status
-// Returns membership status, dates, and immutable static entitlements without returning live usage balances.
+// Returns membership status and static entitlements; active users also receive
+// server-confirmed usage for their current period.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
@@ -20,6 +21,7 @@ import {
   type TrialState,
   trialStateFromMembership,
 } from "../_shared/membership_contract.ts";
+import { aggregateMembershipUsage } from "../_shared/membership_usage.ts";
 import {
   environmentFallback,
   readServiceControls,
@@ -76,8 +78,57 @@ Deno.serve(async (req: Request) => {
   }
 
   const record = data as Record<string, unknown>;
-  return json(buildResponse(record, controls));
+  const response = buildResponse(record, controls);
+  if (
+    (record.plan === "trial" && record.status === "trial") ||
+    ((record.plan === "monthly" || record.plan === "pro") &&
+      record.status === "active")
+  ) {
+    try {
+      response.usage = await readMembershipUsage(supabase, userId, record);
+      response.usageStatus = "available";
+    } catch {
+      response.usage = null;
+      response.usageStatus = "unavailable";
+    }
+  }
+  return json(response);
 });
+
+async function readMembershipUsage(
+  supabase: any,
+  userId: string,
+  record: Record<string, unknown>,
+): Promise<NonNullable<MembershipStatusResponse["usage"]>> {
+  const plan = record.plan;
+  const status = record.status;
+  if (typeof plan !== "string" || typeof status !== "string") {
+    throw new Error("membership period unavailable");
+  }
+  const now = new Date().toISOString();
+  const { data: membership, error: membershipError } = await supabase
+    .from("user_memberships")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("plan", plan)
+    .eq("status", status)
+    .lte("started_at", now)
+    .gt("expires_at", now)
+    .order("expires_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (membershipError || typeof membership?.id !== "string") {
+    throw new Error("membership period not found");
+  }
+
+  const { data: rows, error: usageError } = await supabase
+    .from("membership_reservations")
+    .select("feature, units_reserved, status")
+    .eq("user_id", userId)
+    .eq("membership_id", membership.id);
+  if (usageError || !rows) throw new Error("membership usage unavailable");
+  return aggregateMembershipUsage(rows);
+}
 
 function isMissingRpcError(error: unknown): boolean {
   const message = typeof error === "object" && error !== null
@@ -147,5 +198,7 @@ function buildResponse(
     entitlementVersion: entitlementVersionForPlan(plan, status),
     modelDisclosure: "openai-gpt-4o-mini-v1",
     staticEntitlements,
+    usage: null,
+    usageStatus: "not_applicable",
   };
 }

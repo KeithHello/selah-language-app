@@ -36,6 +36,67 @@ class PlanEntitlements {
       );
 }
 
+class MembershipUsageCounter {
+  const MembershipUsageCounter({required this.used, required this.reserved});
+
+  final int used;
+  final int reserved;
+
+  static MembershipUsageCounter? tryParse(Object? value) {
+    if (value is! Map<String, dynamic>) return null;
+    final used = value['used'];
+    final reserved = value['reserved'];
+    if (used is! num || reserved is! num || used < 0 || reserved < 0) {
+      return null;
+    }
+    return MembershipUsageCounter(
+      used: used.toInt(),
+      reserved: reserved.toInt(),
+    );
+  }
+}
+
+class MembershipUsage {
+  const MembershipUsage({
+    required this.sentence,
+    required this.batch,
+    required this.ttsCharacters,
+    required this.transcriptionMs,
+    required this.preparations,
+  });
+
+  final MembershipUsageCounter sentence;
+  final MembershipUsageCounter batch;
+  final MembershipUsageCounter ttsCharacters;
+  final MembershipUsageCounter transcriptionMs;
+  final MembershipUsageCounter preparations;
+
+  static MembershipUsage? tryParse(Object? value) {
+    if (value is! Map<String, dynamic>) return null;
+    final sentence = MembershipUsageCounter.tryParse(value['sentence']);
+    final batch = MembershipUsageCounter.tryParse(value['batch']);
+    final tts = MembershipUsageCounter.tryParse(value['ttsCharacters']);
+    final transcription = MembershipUsageCounter.tryParse(
+      value['transcriptionMs'],
+    );
+    final preparations = MembershipUsageCounter.tryParse(value['preparations']);
+    if (sentence == null ||
+        batch == null ||
+        tts == null ||
+        transcription == null ||
+        preparations == null) {
+      return null;
+    }
+    return MembershipUsage(
+      sentence: sentence,
+      batch: batch,
+      ttsCharacters: tts,
+      transcriptionMs: transcription,
+      preparations: preparations,
+    );
+  }
+}
+
 /// The client uses these Pro entitlements for display; only the server grants
 /// them. Self-service purchase stays disabled until the migration and a
 /// verified payment adapter are live.
@@ -71,6 +132,8 @@ class MembershipSummary {
     this.renewalMode = 'manual',
     this.entitlementVersion = 'monthly-v1',
     this.modelDisclosure = 'openai-gpt-4o-mini-v1',
+    this.usage,
+    this.usageStatus = 'not_applicable',
     required this.staticEntitlements,
   });
 
@@ -103,7 +166,34 @@ class MembershipSummary {
   final String renewalMode;
   final String entitlementVersion;
   final String modelDisclosure;
+  final MembershipUsage? usage;
+  final String usageStatus;
   final PlanEntitlements staticEntitlements;
+
+  MembershipSummary withoutUsage() => MembershipSummary(
+    plan: plan,
+    status: status,
+    membershipModeEnabled: membershipModeEnabled,
+    trialSignupsEnabled: trialSignupsEnabled,
+    membershipSalesEnabled: membershipSalesEnabled,
+    paymentProviderConfigured: paymentProviderConfigured,
+    proSalesEnabled: proSalesEnabled,
+    proPriceFenCny: proPriceFenCny,
+    proEntitlements: proEntitlements,
+    trialState: trialState,
+    trialStartedAt: trialStartedAt,
+    trialExpiresAt: trialExpiresAt,
+    periodStartsAt: periodStartsAt,
+    periodEndsAt: periodEndsAt,
+    membershipSource: membershipSource,
+    nextPeriodStartsAt: nextPeriodStartsAt,
+    nextPeriodSource: nextPeriodSource,
+    renewalMode: renewalMode,
+    entitlementVersion: entitlementVersion,
+    modelDisclosure: modelDisclosure,
+    usageStatus: 'unavailable',
+    staticEntitlements: staticEntitlements,
+  );
 
   bool get isPaidActive =>
       (plan == MembershipPlan.monthly || plan == MembershipPlan.pro) &&
@@ -203,6 +293,8 @@ class MembershipSummary {
           json['entitlementVersion']?.toString() ?? 'monthly-v1',
       modelDisclosure:
           json['modelDisclosure']?.toString() ?? 'openai-gpt-4o-mini-v1',
+      usage: MembershipUsage.tryParse(json['usage']),
+      usageStatus: json['usageStatus']?.toString() ?? 'not_applicable',
       staticEntitlements: json['staticEntitlements'] is Map<String, dynamic>
           ? PlanEntitlements.fromJson(
               json['staticEntitlements'] as Map<String, dynamic>,

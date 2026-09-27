@@ -26,3 +26,9 @@ Deno.test("membership status fails closed when membership mode is enabled but sc
     true,
   );
 });
+
+Deno.test("membership status returns server usage and does not report unreadable data as zero", () => {
+  assertStringIncludes(SOURCE, 'from("membership_reservations")');
+  assertStringIncludes(SOURCE, 'response.usageStatus = "unavailable"');
+  assertStringIncludes(SOURCE, "aggregateMembershipUsage");
+});

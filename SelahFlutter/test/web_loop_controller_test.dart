@@ -154,7 +154,10 @@ class _SignedInGateway extends _SignedOutGateway {
   }) async {
     requests.add((function: function, get: get));
     if (function == 'audio-download-url') {
-      return {'downloadUrl': 'http://127.0.0.1:5180/audio.mp3'};
+      return {
+        'status': 'ready',
+        'downloadUrl': 'http://127.0.0.1:5180/audio.mp3',
+      };
     }
     throw StateError('unexpected cloud function');
   }

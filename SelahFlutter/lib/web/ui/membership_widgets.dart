@@ -177,7 +177,8 @@ class MembershipCenter extends StatelessWidget {
         }
         final summary = controller.summary;
         final children = <Widget>[
-          if (controller.error != null)
+          if (controller.error != null &&
+              !(summary.hasActiveEntitlements && summary.usage == null))
             _MembershipNotice(
               icon: Icons.info_outline_rounded,
               color: SelahColors.amber,
@@ -185,6 +186,12 @@ class MembershipCenter extends StatelessWidget {
             ),
           if (summary.hasActiveEntitlements) ...[
             ActiveMembershipBanner(summary: summary, uiLocale: uiLocale),
+            const SizedBox(height: SelahSpacing.lg),
+            _MembershipUsageCard(
+              controller: controller,
+              summary: summary,
+              uiLocale: uiLocale,
+            ),
             const SizedBox(height: SelahSpacing.lg),
           ],
         ];
@@ -249,6 +256,172 @@ class MembershipCenter extends StatelessWidget {
           children: children,
         );
       },
+    );
+  }
+}
+
+class _MembershipUsageCard extends StatelessWidget {
+  const _MembershipUsageCard({
+    required this.controller,
+    required this.summary,
+    required this.uiLocale,
+  });
+
+  final MembershipController controller;
+  final MembershipSummary summary;
+  final String uiLocale;
+
+  @override
+  Widget build(BuildContext context) {
+    String copy(String key) => _membershipCopy(uiLocale, key);
+    final usage = summary.usage;
+    if (usage == null) {
+      return _MembershipNotice(
+        icon: Icons.sync_problem_rounded,
+        color: SelahColors.amber,
+        title: copy('usageTitle'),
+        text: copy('usageUnavailable'),
+        actionLabel: copy('usageRefresh'),
+        onAction: controller.loading ? null : controller.load,
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(SelahSpacing.lg),
+      decoration: BoxDecoration(
+        color: SelahColors.cardPrimary,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: SelahColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(copy('usageTitle'), style: SelahTypography.headlineLarge()),
+          const SizedBox(height: 4),
+          Text(
+            copy('usageScope'),
+            style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
+          ),
+          const SizedBox(height: SelahSpacing.lg),
+          _MembershipUsageMetric(
+            title: copy('usageSentenceSingle'),
+            usedLabel: copy('usageUsed'),
+            reservedLabel: copy('usageReserved'),
+            counter: usage.sentence,
+            limit: summary.staticEntitlements.maxSentences,
+            unit: copy('usageSentencesUnit'),
+          ),
+          const SizedBox(height: SelahSpacing.md),
+          _MembershipUsageMetric(
+            title: copy('usageSentenceBatch'),
+            usedLabel: copy('usageUsed'),
+            reservedLabel: copy('usageReserved'),
+            counter: usage.batch,
+            limit: summary.staticEntitlements.maxSentences,
+            unit: copy('usageSentencesUnit'),
+          ),
+          const SizedBox(height: SelahSpacing.md),
+          _MembershipUsageMetric(
+            title: copy('usageTts'),
+            usedLabel: copy('usageUsed'),
+            reservedLabel: copy('usageReserved'),
+            counter: usage.ttsCharacters,
+            limit: summary.staticEntitlements.maxTtsCharacters,
+            unit: copy('usageCharactersUnit'),
+          ),
+          const SizedBox(height: SelahSpacing.md),
+          _MembershipUsageMetric(
+            title: copy('usageTranscription'),
+            usedLabel: copy('usageUsed'),
+            reservedLabel: copy('usageReserved'),
+            counter: usage.transcriptionMs,
+            limit: summary.staticEntitlements.maxTranscriptionMs,
+            unit: copy('usageMinutesUnit'),
+            milliseconds: true,
+          ),
+          const SizedBox(height: SelahSpacing.md),
+          _MembershipUsageMetric(
+            title: copy('usagePreparation'),
+            usedLabel: copy('usageUsed'),
+            reservedLabel: copy('usageReserved'),
+            counter: usage.preparations,
+            limit: summary.staticEntitlements.maxPreparations,
+            unit: copy('usageTimesUnit'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MembershipUsageMetric extends StatelessWidget {
+  const _MembershipUsageMetric({
+    required this.title,
+    required this.usedLabel,
+    required this.reservedLabel,
+    required this.counter,
+    required this.limit,
+    required this.unit,
+    this.milliseconds = false,
+  });
+
+  final String title;
+  final String usedLabel;
+  final String reservedLabel;
+  final MembershipUsageCounter counter;
+  final int limit;
+  final String unit;
+  final bool milliseconds;
+
+  String _format(int value) {
+    if (!milliseconds) return '$value';
+    final minutes = value / 60000;
+    return minutes == minutes.roundToDouble()
+        ? minutes.toInt().toString()
+        : minutes.toStringAsFixed(1);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final limitValue = milliseconds ? _format(limit) : '$limit';
+    final usedValue = _format(counter.used);
+    final reservedValue = _format(counter.reserved);
+    final progress = limit <= 0
+        ? 0.0
+        : ((counter.used + counter.reserved) / limit).clamp(0.0, 1.0);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(child: Text(title, style: SelahTypography.labelLarge())),
+            Text(
+              '$usedLabel $usedValue / $limitValue $unit',
+              style: SelahTypography.bodySmall(
+                color: SelahColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        if (counter.reserved > 0) ...[
+          const SizedBox(height: 3),
+          Text(
+            '$reservedLabel $reservedValue $unit',
+            style: SelahTypography.bodySmall(color: SelahColors.amber),
+          ),
+        ],
+        const SizedBox(height: 7),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(99),
+          child: LinearProgressIndicator(
+            value: progress,
+            minHeight: 6,
+            backgroundColor: SelahColors.borderLight,
+            color: SelahColors.lavender,
+          ),
+        ),
+      ],
     );
   }
 }
@@ -614,6 +787,21 @@ const _membershipCopies = <String, Map<String, String>>{
     'proTranscription': '录音转写 180 分钟',
     'proPreparation': '长文整理 90 次',
     'modelDisclosure': '使用 OpenAI GPT 模型生成和整理学习内容，语音由 AI 合成。',
+    'usageTitle': '本期用量',
+    'usageUnavailable': '服务器暂时无法读取用量；请刷新重试。未知用量不会显示为 0。',
+    'usageRefresh': '刷新用量',
+    'usageScope': '单句与批量生成目前分别核算；下方显示各自用量和方案上限。',
+    'usageSentenceSingle': '单句生成',
+    'usageSentenceBatch': '批量生成',
+    'usageTts': 'AI 配音',
+    'usageTranscription': '录音转写',
+    'usagePreparation': '长文整理',
+    'usageUsed': '已用',
+    'usageReserved': '处理中',
+    'usageSentencesUnit': '句',
+    'usageCharactersUnit': '字符',
+    'usageMinutesUnit': '分钟',
+    'usageTimesUnit': '次',
     'freeModeTitle': '当前为公开体验模式',
     'freeModeBody': '会员限制尚未开启。已有内容和示例可以继续学习，开关启用后才会显示购买与试用入口。',
     'trialPreparingTitle': '试用准备中',
@@ -667,6 +855,21 @@ const _membershipCopies = <String, Map<String, String>>{
     'proTranscription': '錄音轉寫 180 分鐘',
     'proPreparation': '長文整理 90 次',
     'modelDisclosure': '使用 OpenAI GPT 模型產生與整理學習內容，語音由 AI 合成。',
+    'usageTitle': '本期用量',
+    'usageUnavailable': '伺服器暫時無法讀取用量；請重新整理。未知用量不會顯示為 0。',
+    'usageRefresh': '重新整理用量',
+    'usageScope': '單句與批次產生目前分別計算；下方顯示各自用量和方案上限。',
+    'usageSentenceSingle': '單句產生',
+    'usageSentenceBatch': '批次產生',
+    'usageTts': 'AI 配音',
+    'usageTranscription': '錄音轉寫',
+    'usagePreparation': '長文整理',
+    'usageUsed': '已用',
+    'usageReserved': '處理中',
+    'usageSentencesUnit': '句',
+    'usageCharactersUnit': '字元',
+    'usageMinutesUnit': '分鐘',
+    'usageTimesUnit': '次',
     'freeModeTitle': '目前為公開體驗模式',
     'freeModeBody': '會員限制尚未開啟。已有內容和範例可以繼續學習，開關啟用後才會顯示購買與試用入口。',
     'trialPreparingTitle': '試用準備中',
@@ -720,6 +923,21 @@ const _membershipCopies = <String, Map<String, String>>{
     'proTranscription': '文字起こし 180 分',
     'proPreparation': '長文整理 90 回',
     'modelDisclosure': 'OpenAI GPT モデルで学習内容を生成・整理し、音声は AI 合成です。',
+    'usageTitle': '今期の使用量',
+    'usageUnavailable': '使用量を読み取れません。再読み込みしてください。不明な使用量を 0 と表示しません。',
+    'usageRefresh': '使用量を更新',
+    'usageScope': '通常生成と一括生成は別々に計上しています。各上限と使用量を表示します。',
+    'usageSentenceSingle': '通常の文生成',
+    'usageSentenceBatch': '一括文生成',
+    'usageTts': 'AI 音声',
+    'usageTranscription': '録音の文字起こし',
+    'usagePreparation': '長文整理',
+    'usageUsed': '使用済み',
+    'usageReserved': '処理中',
+    'usageSentencesUnit': '文',
+    'usageCharactersUnit': '文字',
+    'usageMinutesUnit': '分',
+    'usageTimesUnit': '回',
     'freeModeTitle': '現在は公開体験モードです',
     'freeModeBody': '会員制限はまだ有効ではありません。保存済みの内容とサンプルは学習できます。',
     'trialPreparingTitle': 'トライアル準備中',

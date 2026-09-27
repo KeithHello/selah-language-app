@@ -57,6 +57,19 @@ export interface PlanEntitlements {
   maxPreparations: number;
 }
 
+export interface MembershipUsageBucket {
+  used: number;
+  reserved: number;
+}
+
+export interface MembershipUsage {
+  sentence: MembershipUsageBucket;
+  batch: MembershipUsageBucket;
+  ttsCharacters: MembershipUsageBucket;
+  transcriptionMs: MembershipUsageBucket;
+  preparations: MembershipUsageBucket;
+}
+
 export const FREE_ENTITLEMENTS: PlanEntitlements = Object.freeze({
   maxSentences: 0,
   maxTtsCharacters: 0,
@@ -118,6 +131,8 @@ export interface MembershipStatusResponse {
   entitlementVersion: string;
   modelDisclosure: string;
   staticEntitlements: PlanEntitlements;
+  usage: MembershipUsage | null;
+  usageStatus: "available" | "unavailable" | "not_applicable";
 }
 
 export function entitlementVersionForPlan(

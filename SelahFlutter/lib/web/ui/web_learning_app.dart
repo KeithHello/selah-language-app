@@ -12,6 +12,7 @@ import '../../design/selah_typography.dart';
 import '../../domain/selah_enums.dart';
 import '../domain/learning_engine.dart';
 import '../domain/learning_models.dart';
+import '../data/learning_gateway.dart';
 import '../domain/listen_peek.dart';
 import '../domain/sentence_splitter.dart';
 import '../domain/research_profile.dart';
@@ -1220,14 +1221,20 @@ class _UpdateBannerState extends State<_UpdateBanner> {
 }
 
 class _PageFrame extends StatelessWidget {
-  const _PageFrame({required this.child, this.maxWidth = 820});
+  const _PageFrame({
+    required this.child,
+    this.maxWidth = 820,
+    this.scrollController,
+  });
 
   final Widget child;
   final double maxWidth;
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      controller: scrollController,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
       child: Center(
         child: ConstrainedBox(
@@ -1251,8 +1258,12 @@ class _TodayPage extends StatefulWidget {
 class _TodayPageState extends State<_TodayPage> {
   final _input = TextEditingController();
   final _segments = <TextEditingController>[];
+  final _scrollController = ScrollController();
+  final _reviewSectionKey = GlobalKey();
+  final _learnSectionKey = GlobalKey();
   bool _applyingControllerText = false;
   bool _syncingSegments = false;
+  bool _reviewWasVisible = false;
   DateTime? _recordingStartedAt;
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
@@ -1274,6 +1285,7 @@ class _TodayPageState extends State<_TodayPage> {
     c.removeListener(_onControllerChanged);
     _input.removeListener(_onInputChanged);
     _input.dispose();
+    _scrollController.dispose();
     _disposeSegments();
     _recordingTimer?.cancel();
     super.dispose();
@@ -1286,6 +1298,18 @@ class _TodayPageState extends State<_TodayPage> {
 
   void _onControllerChanged() {
     if (!mounted) return;
+    final hasDraft = c.preparationDraft != null;
+    if (hasDraft && !_reviewWasVisible) {
+      _reviewWasVisible = true;
+      _scrollTo(_reviewSectionKey);
+    } else if (!hasDraft &&
+        _reviewWasVisible &&
+        c.recentGeneratedSentences.isNotEmpty) {
+      _reviewWasVisible = false;
+      _scrollTo(_learnSectionKey);
+    } else if (!hasDraft) {
+      _reviewWasVisible = false;
+    }
     if (c.todayInput != _input.text) {
       _applyingControllerText = true;
       _input.value = TextEditingValue(
@@ -1296,6 +1320,21 @@ class _TodayPageState extends State<_TodayPage> {
     }
     _syncSegments();
     setState(() {});
+  }
+
+  void _scrollTo(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final target = key.currentContext;
+      if (!mounted || target == null) return;
+      Scrollable.ensureVisible(
+        target,
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 320),
+        curve: Curves.easeOutCubic,
+        alignment: 0.04,
+      );
+    });
   }
 
   void _disposeSegments() {
@@ -1344,20 +1383,17 @@ class _TodayPageState extends State<_TodayPage> {
     if (text.isEmpty || c.busy) return;
     c.clearMessage();
     final segments = splitSourceSentences(text);
-    if (segments.length > 1 &&
+    if (text.length <= 500 &&
+        segments.isNotEmpty &&
         segments.length <= PreparationDraft.maxSegments) {
       await c.generateSplitSentences(segments, sourceText: text);
       if (mounted && c.error == null) {
         c.showToast(
-          c.strings.message('today.splitNotice', {
+          c.strings.message('today.splitReady', {
             'count': '${segments.length}',
           }),
         );
       }
-      return;
-    }
-    if (text.length <= 500) {
-      await c.generate(text);
       return;
     }
     await _prepare(text);
@@ -1390,6 +1426,15 @@ class _TodayPageState extends State<_TodayPage> {
       return;
     }
     await c.generatePreparedSegments();
+  }
+
+  void _editSegments(VoidCallback edit) {
+    c.clearMessage();
+    try {
+      edit();
+    } on LearningFailure catch (failure) {
+      setState(() => c.error = failure.message);
+    }
   }
 
   Future<void> _cancelSegments() async {
@@ -1469,9 +1514,16 @@ class _TodayPageState extends State<_TodayPage> {
     final strings = c.strings;
     return _PageFrame(
       maxWidth: 760,
+      scrollController: _scrollController,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          _TodayStageHeading(
+            number: '01',
+            title: strings.text('today.stage.inputTitle'),
+            detail: strings.text('today.stage.inputDetail'),
+          ),
+          const SizedBox(height: 14),
           _TodayGreeting(controller: c),
           const SizedBox(height: 12),
           _ExpressionComposer(
@@ -1490,13 +1542,29 @@ class _TodayPageState extends State<_TodayPage> {
           const SizedBox(height: 8),
           _ModelDisclosure(strings: strings),
           if (_segments.isNotEmpty) ...[
+            Container(key: _reviewSectionKey),
             const SizedBox(height: 18),
+            _TodayStageHeading(
+              number: '02',
+              title: strings.text('today.stage.reviewTitle'),
+              detail: strings.text('today.stage.reviewDetail'),
+            ),
+            const SizedBox(height: 12),
             _SegmentEditor(
               segments: _segments,
               strings: strings,
               busy: c.busy,
               onGenerate: _generateSegments,
               onCancel: _cancelSegments,
+              onAdd: () => _editSegments(c.addPreparationSegment),
+              onSplit: (index, offset) =>
+                  _editSegments(() => c.splitPreparationSegment(index, offset)),
+              onMerge: (index) =>
+                  _editSegments(() => c.mergePreparationSegments(index)),
+              onRemove: (index) =>
+                  _editSegments(() => c.removePreparationSegment(index)),
+              onMove: (from, to) =>
+                  _editSegments(() => c.movePreparationSegment(from, to)),
             ),
           ],
           if (c.legacySentence != null) ...[
@@ -1510,7 +1578,14 @@ class _TodayPageState extends State<_TodayPage> {
             ),
           ],
           if (sentences.isNotEmpty) ...[
+            Container(key: _learnSectionKey),
             const SizedBox(height: 22),
+            _TodayStageHeading(
+              number: '03',
+              title: strings.text('today.stage.learnTitle'),
+              detail: strings.text('today.stage.learnDetail'),
+            ),
+            const SizedBox(height: 12),
             ...sentences.map(
               (sentence) => Padding(
                 padding: const EdgeInsets.only(bottom: 14),
@@ -1519,6 +1594,31 @@ class _TodayPageState extends State<_TodayPage> {
                   sentence: sentence,
                 ),
               ),
+            ),
+          ],
+          if (_segments.isNotEmpty && sentences.isEmpty) ...[
+            const SizedBox(height: 12),
+            Container(
+              key: _learnSectionKey,
+              child: _TodayStagePreview(
+                number: '03',
+                title: strings.text('today.stage.learnTitle'),
+                detail: strings.text('today.stage.learnEmpty'),
+              ),
+            ),
+          ],
+          if (_segments.isEmpty && sentences.isEmpty) ...[
+            const SizedBox(height: 20),
+            _TodayStagePreview(
+              number: '02',
+              title: strings.text('today.stage.reviewTitle'),
+              detail: strings.text('today.stage.reviewEmpty'),
+            ),
+            const SizedBox(height: 12),
+            _TodayStagePreview(
+              number: '03',
+              title: strings.text('today.stage.learnTitle'),
+              detail: strings.text('today.stage.learnEmpty'),
             ),
           ],
           if (c.hasPendingRecording && !c.recording) ...[
@@ -1541,6 +1641,78 @@ class _TodayPageState extends State<_TodayPage> {
       ),
     );
   }
+}
+
+class _TodayStageHeading extends StatelessWidget {
+  const _TodayStageHeading({
+    required this.number,
+    required this.title,
+    required this.detail,
+  });
+
+  final String number;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        decoration: const BoxDecoration(
+          color: SelahColors.coralSoft,
+          shape: BoxShape.circle,
+        ),
+        child: Text(
+          number,
+          style: SelahTypography.labelSmall(color: SelahColors.coral),
+        ),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: SelahTypography.headlineMedium()),
+            const SizedBox(height: 2),
+            Text(
+              detail,
+              style: SelahTypography.bodySmall(
+                color: SelahColors.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+}
+
+class _TodayStagePreview extends StatelessWidget {
+  const _TodayStagePreview({
+    required this.number,
+    required this.title,
+    required this.detail,
+  });
+
+  final String number;
+  final String title;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: SelahColors.cardSoft,
+      borderRadius: BorderRadius.circular(18),
+      border: Border.all(color: SelahColors.borderLight),
+    ),
+    child: _TodayStageHeading(number: number, title: title, detail: detail),
+  );
 }
 
 class _TodayGreeting extends StatelessWidget {
@@ -1834,6 +2006,11 @@ class _SegmentEditor extends StatelessWidget {
     required this.busy,
     required this.onGenerate,
     required this.onCancel,
+    required this.onAdd,
+    required this.onSplit,
+    required this.onMerge,
+    required this.onRemove,
+    required this.onMove,
   });
 
   final List<TextEditingController> segments;
@@ -1841,6 +2018,11 @@ class _SegmentEditor extends StatelessWidget {
   final bool busy;
   final VoidCallback onGenerate;
   final VoidCallback onCancel;
+  final VoidCallback onAdd;
+  final void Function(int index, int offset) onSplit;
+  final ValueChanged<int> onMerge;
+  final ValueChanged<int> onRemove;
+  final void Function(int from, int to) onMove;
 
   @override
   Widget build(BuildContext context) {
@@ -1874,25 +2056,97 @@ class _SegmentEditor extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              strings.translateLegacy('确认每一段都是你想练习的完整表达；系统会按每 5 段一批继续生成。'),
+              strings.text('today.stage.reviewHint'),
               style: SelahTypography.bodySmall(),
             ),
             const SizedBox(height: 14),
             ...segments.asMap().entries.map(
               (entry) => Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: TextField(
-                  controller: entry.value,
-                  enabled: !busy,
-                  maxLength: 500,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: strings.segmentLabel(entry.key + 1),
-                    counterText: '',
-                  ),
+                padding: const EdgeInsets.only(bottom: 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            strings.segmentLabel(entry.key + 1),
+                            style: SelahTypography.labelLarge(),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: strings.text('today.moveUp'),
+                          onPressed: busy || entry.key == 0
+                              ? null
+                              : () => onMove(entry.key, entry.key - 1),
+                          icon: const Icon(Icons.arrow_upward_rounded),
+                        ),
+                        IconButton(
+                          tooltip: strings.text('today.moveDown'),
+                          onPressed: busy || entry.key == segments.length - 1
+                              ? null
+                              : () => onMove(entry.key, entry.key + 1),
+                          icon: const Icon(Icons.arrow_downward_rounded),
+                        ),
+                        IconButton(
+                          tooltip: strings.text('today.removeSentence'),
+                          onPressed: busy || segments.length == 1
+                              ? null
+                              : () => onRemove(entry.key),
+                          icon: const Icon(Icons.delete_outline_rounded),
+                        ),
+                      ],
+                    ),
+                    TextField(
+                      controller: entry.value,
+                      enabled: !busy,
+                      maxLength: 500,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        hintText: strings.text('today.emptySegment'),
+                        counterText: '',
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: Wrap(
+                        spacing: 4,
+                        children: [
+                          TextButton.icon(
+                            onPressed: busy
+                                ? null
+                                : () => onSplit(
+                                    entry.key,
+                                    entry.value.selection.baseOffset,
+                                  ),
+                            icon: const Icon(
+                              Icons.call_split_rounded,
+                              size: 16,
+                            ),
+                            label: Text(strings.text('today.splitAtCursor')),
+                          ),
+                          if (entry.key < segments.length - 1)
+                            TextButton.icon(
+                              onPressed: busy ? null : () => onMerge(entry.key),
+                              icon: const Icon(Icons.merge_rounded, size: 16),
+                              label: Text(strings.text('today.mergeNext')),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: OutlinedButton.icon(
+                onPressed: busy ? null : onAdd,
+                icon: const Icon(Icons.add_rounded),
+                label: Text(strings.text('today.addSentence')),
+              ),
+            ),
+            const SizedBox(height: 8),
             Row(
               children: [
                 TextButton(
@@ -2867,6 +3121,9 @@ class _PlaybackControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(controller.uiLocale);
+    final preparing =
+        controller.isPlaybackFor(sentence) &&
+        controller.playback['state'] == 'loading';
     return Column(
       children: [
         Row(
@@ -2912,11 +3169,21 @@ class _PlaybackControls extends StatelessWidget {
                         await controller.play(sentence);
                       }
                     },
-              icon: Icon(
-                playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                size: 20,
+              icon: preparing
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
+                    )
+                  : Icon(
+                      playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                      size: 20,
+                    ),
+              label: Text(
+                preparing
+                    ? strings.text('today.preparing')
+                    : strings.translateLegacy(playing ? '暂停' : '播放'),
               ),
-              label: Text(strings.translateLegacy(playing ? '暂停' : '播放')),
             ),
             const SizedBox(width: 9),
             IconButton(

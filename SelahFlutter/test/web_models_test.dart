@@ -122,18 +122,21 @@ void main() {
     expect(restored.speed, 1.0);
   });
 
-  test('native voice preference round trips independently of English voice', () {
-    final preferences = LearnPreferences.fromJson({
-      'voice': 'elegant-british',
-      'nativeVoice': 'native-calm',
-      'speed': 1.0,
-    });
-    expect(preferences.voice, 'elegant-british');
-    expect(preferences.nativeVoice, 'native-calm');
-    final restored = LearnPreferences.fromJson(preferences.toJson());
-    expect(restored.voice, 'elegant-british');
-    expect(restored.nativeVoice, 'native-calm');
-  });
+  test(
+    'native voice preference round trips independently of English voice',
+    () {
+      final preferences = LearnPreferences.fromJson({
+        'voice': 'elegant-british',
+        'nativeVoice': 'native-calm',
+        'speed': 1.0,
+      });
+      expect(preferences.voice, 'elegant-british');
+      expect(preferences.nativeVoice, 'native-calm');
+      final restored = LearnPreferences.fromJson(preferences.toJson());
+      expect(restored.voice, 'elegant-british');
+      expect(restored.nativeVoice, 'native-calm');
+    },
+  );
 
   test('custom playback speeds stay within the supported range', () {
     final preferences = LearnPreferences.fromJson({'speed': .65});
@@ -267,13 +270,15 @@ void main() {
               sourceText: '已完成分句',
               status: 'succeeded',
             ),
+            PreparationSegment(id: newId(), sourceText: ''),
           ],
         );
       final restored = LearningSnapshot.importBackup(
         jsonEncode(state.toBackup()),
       );
       expect(restored.preparationDraft!.inputVersion, 7);
-      expect(restored.preparationDraft!.segments.single.status, 'succeeded');
+      expect(restored.preparationDraft!.segments.first.status, 'succeeded');
+      expect(restored.preparationDraft!.segments.last.sourceText, isEmpty);
     },
   );
 

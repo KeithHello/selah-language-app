@@ -84,6 +84,36 @@ void main() {
     expect(summary.staticEntitlements.maxTtsCharacters, 30000);
   });
 
+  test(
+    'parses server-confirmed usage and in-flight reservations separately',
+    () {
+      final summary = MembershipSummary.fromJson({
+        'plan': 'monthly',
+        'status': 'active',
+        'staticEntitlements': {
+          'maxSentences': 300,
+          'maxTtsCharacters': 30000,
+          'maxTranscriptionMs': 3600000,
+          'maxPreparations': 30,
+        },
+        'usage': {
+          'sentence': {'used': 12, 'reserved': 2},
+          'batch': {'used': 7, 'reserved': 1},
+          'ttsCharacters': {'used': 900, 'reserved': 100},
+          'transcriptionMs': {'used': 30000, 'reserved': 15000},
+          'preparations': {'used': 1, 'reserved': 0},
+        },
+        'usageStatus': 'available',
+      });
+
+      expect(summary.usage!.sentence.used, 12);
+      expect(summary.usage!.sentence.reserved, 2);
+      expect(summary.usage!.batch.used, 7);
+      expect(summary.usage!.transcriptionMs.reserved, 15000);
+      expect(summary.usageStatus, 'available');
+    },
+  );
+
   test('MembershipController loads status and updates state', () async {
     final gateway = MockGateway(
       mockResponse: {

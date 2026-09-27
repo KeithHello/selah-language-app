@@ -83,10 +83,12 @@ class MembershipController extends ChangeNotifier {
       checked = true;
     } on LearningFailure catch (f) {
       if (!_isCurrent(expectedAccountId, requestGeneration)) return;
+      summary = summary.withoutUsage();
       error = f.message;
       checked = true;
     } catch (_) {
       if (!_isCurrent(expectedAccountId, requestGeneration)) return;
+      summary = summary.withoutUsage();
       error = '会员状态暂时无法读取，请稍后重试。';
       checked = true;
     } finally {

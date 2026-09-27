@@ -378,6 +378,7 @@ class LearningController extends ChangeNotifier {
     int generation,
   ) async {
     if (!_current(generation)) return;
+    if (failure is LearningFailure && failure.code == 'audio_pending') return;
     final previous = state.audio[reference.key];
     try {
       await _change(
@@ -441,29 +442,30 @@ class LearningController extends ChangeNotifier {
         );
       }
       final savedManifest = state.audio[reference.key];
-      if (savedManifest?['manifestId'] != null) {
-        final response = await gateway.invoke('audio-download-url', {
-          'manifestId': savedManifest!['manifestId'],
+      var requestId = savedManifest?['requestId'] as String? ?? newId();
+      Map<String, dynamic> response;
+      final manifestId = savedManifest?['manifestId'];
+      if (manifestId is String && manifestId.isNotEmpty) {
+        response = await gateway.invoke('audio-download-url', {
+          'manifestId': manifestId,
         });
-        await _ensureLoopAudio(
-          account,
-          reference.key,
-          requiredText(response['downloadUrl'], '音频地址'),
-        );
       } else {
-        final requestId = savedManifest?['requestId'] as String? ?? newId();
+        if (savedManifest?['status'] == 'failed') requestId = newId();
+        response = const {};
+      }
+      if (manifestId is! String ||
+          manifestId.isEmpty ||
+          response['status'] == 'failed') {
+        if (response['status'] == 'failed') requestId = newId();
         await _change(
-          (next) {
-            next.audio[reference.key] = {
-              ...?next.audio[reference.key],
-              'requestId': requestId,
-              'status': 'pending',
-            };
+          (next) => next.audio[reference.key] = {
+            'requestId': requestId,
+            'status': 'pending',
           },
           sync: false,
           generation: generation,
         );
-        final response = await gateway.invoke('audio-generate', {
+        response = await gateway.invoke('audio-generate', {
           'sentenceId': reference.sentenceId,
           'contractVersion': 2,
           'text': reference.text,
@@ -475,29 +477,80 @@ class LearningController extends ChangeNotifier {
           'reason': 'audio_preparation',
           'clientRequestId': requestId,
         });
-        final stored = {
-          ...response,
-          'requestId': requestId,
-          'status': response['status'] ?? 'ready',
-        };
-        await _change(
-          (next) => next.audio[reference.key] = stored,
-          sync: false,
-          generation: generation,
-        );
-        if (response['status'] != 'ready' || response['downloadUrl'] == null) {
-          throw const LearningFailure('音频正在准备，请稍后重试。', code: 'audio_pending');
-        }
-        await _ensureLoopAudio(
-          account,
-          reference.key,
-          requiredText(response['downloadUrl'], '音频地址'),
-        );
       }
+      await _change(
+        (next) =>
+            next.audio[reference.key] = {...response, 'requestId': requestId},
+        sync: false,
+        generation: generation,
+      );
+      final ready = await _waitForAudioReady(reference, response, generation);
+      final stored = {...ready, 'requestId': requestId};
+      await _change(
+        (next) => next.audio[reference.key] = stored,
+        sync: false,
+        generation: generation,
+      );
+      await _ensureLoopAudio(
+        account,
+        reference.key,
+        requiredText(ready['downloadUrl'], '音频地址'),
+      );
       cached = true;
     }
     if (!cached) throw const LearningFailure('音频缓存不存在，请先联网获取。');
     _loopVerifiedKeys.add(reference.key);
+  }
+
+  Future<Map<String, dynamic>> _waitForAudioReady(
+    AudioTrackRef reference,
+    Map<String, dynamic> initial,
+    int generation,
+  ) async {
+    var response = Map<String, dynamic>.from(initial);
+    for (var attempt = 0; attempt < 25; attempt++) {
+      _ensureCurrent(generation);
+      if (response['status'] == 'ready' &&
+          response['downloadUrl'] is String &&
+          (response['downloadUrl'] as String).isNotEmpty) {
+        final uri = Uri.tryParse(response['downloadUrl'] as String);
+        final isLocalHttp =
+            uri != null &&
+            uri.scheme == 'http' &&
+            const {'localhost', '127.0.0.1'}.contains(uri.host);
+        if (uri == null || (uri.scheme != 'https' && !isLocalHttp)) {
+          throw const FormatException('音频地址无效。');
+        }
+        return response;
+      }
+      if (response['status'] == 'failed') {
+        throw LearningFailure(
+          '语音生成失败，请稍后重试。',
+          code: response['errorCode']?.toString() ?? 'audio_generation_failed',
+        );
+      }
+      final manifestId = response['manifestId'];
+      if (manifestId is! String || manifestId.isEmpty) {
+        throw const LearningFailure('语音仍在准备，请稍后重试。', code: 'audio_pending');
+      }
+      if (attempt == 24) break;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      _ensureCurrent(generation);
+      response = await gateway.invoke('audio-download-url', {
+        'manifestId': manifestId,
+      });
+      _ensureCurrent(generation);
+      final requestId = state.audio[reference.key]?['requestId'];
+      await _change(
+        (next) => next.audio[reference.key] = {
+          ...response,
+          if (requestId is String) 'requestId': requestId,
+        },
+        sync: false,
+        generation: generation,
+      );
+    }
+    throw const LearningFailure('语音仍在准备，请稍后重试。', code: 'audio_pending');
   }
 
   Future<void> _prepareSentenceAudio(
@@ -1179,7 +1232,7 @@ class LearningController extends ChangeNotifier {
       return;
     }
     final source = text.trim();
-    if (source.isEmpty || source.length > 500) return;
+    if (source.length > 500) return;
     final segment = preparation.segments[index];
     if (segment.sourceText == source) return;
     segment
@@ -1190,6 +1243,128 @@ class LearningController extends ChangeNotifier {
     preparation.updatedAt = DateTime.now();
     _queueInputSave();
     preparation.inputVersion = _inputVersion;
+  }
+
+  void addPreparationSegment() {
+    final preparation = state.preparationDraft;
+    if (!_canEditPreparation(preparation)) return;
+    if (preparation!.segments.length >= PreparationDraft.maxSegments) {
+      throw const LearningFailure('最多保留二十句，请先移除其他句子。');
+    }
+    preparation.segments.add(PreparationSegment(id: newId(), sourceText: ''));
+    _markPreparationEdited(preparation);
+  }
+
+  void removePreparationSegment(int index) {
+    final preparation = state.preparationDraft;
+    if (!_canEditPreparation(preparation)) return;
+    if (preparation!.segments.length <= 1) {
+      throw const LearningFailure('至少保留一句；如要重新整理，请取消这份草稿。');
+    }
+    if (index < 0 || index >= preparation.segments.length) return;
+    preparation.segments.removeAt(index);
+    _markPreparationEdited(preparation);
+  }
+
+  void movePreparationSegment(int from, int to) {
+    final preparation = state.preparationDraft;
+    if (!_canEditPreparation(preparation)) return;
+    if (from < 0 ||
+        from >= preparation!.segments.length ||
+        to < 0 ||
+        to >= preparation.segments.length ||
+        from == to) {
+      return;
+    }
+    final segment = preparation.segments.removeAt(from);
+    preparation.segments.insert(to, segment);
+    _markPreparationEdited(preparation);
+  }
+
+  void splitPreparationSegment(int index, int offset) {
+    final preparation = state.preparationDraft;
+    if (!_canEditPreparation(preparation)) return;
+    if (index < 0 || index >= preparation!.segments.length) return;
+    final original = preparation.segments[index];
+    final source = original.sourceText;
+    if (offset <= 0 ||
+        offset >= source.length ||
+        _splitsSurrogate(source, offset)) {
+      throw const LearningFailure('请把光标放在句子中间再拆分。');
+    }
+    final before = source.substring(0, offset).trim();
+    final after = source.substring(offset).trim();
+    if (before.isEmpty || after.isEmpty) {
+      throw const LearningFailure('拆分后的两句都需要有内容。');
+    }
+    if (preparation.segments.length >= PreparationDraft.maxSegments) {
+      throw const LearningFailure('最多保留二十句，请先移除其他句子。');
+    }
+    original
+      ..id = newId()
+      ..sourceText = before
+      ..status = 'pending'
+      ..updatedAt = DateTime.now();
+    preparation.segments.insert(
+      index + 1,
+      PreparationSegment(id: newId(), sourceText: after),
+    );
+    _markPreparationEdited(preparation);
+  }
+
+  void mergePreparationSegments(int index) {
+    final preparation = state.preparationDraft;
+    if (!_canEditPreparation(preparation)) return;
+    if (index < 0 || index + 1 >= preparation!.segments.length) return;
+    final first = preparation.segments[index];
+    final second = preparation.segments[index + 1];
+    final merged = _joinSourceText(first.sourceText, second.sourceText);
+    if (merged.isEmpty || merged.length > 500) {
+      throw const LearningFailure('合并后不能超过五百字，请先精简内容。');
+    }
+    first
+      ..id = newId()
+      ..sourceText = merged
+      ..status = 'pending'
+      ..updatedAt = DateTime.now();
+    preparation.segments.removeAt(index + 1);
+    _markPreparationEdited(preparation);
+  }
+
+  bool _canEditPreparation(PreparationDraft? preparation) {
+    if (!initialized || preparation == null) return false;
+    if (busy) {
+      showToast('生成中，请等待完成后再编辑分句。');
+      notifyListeners();
+      return false;
+    }
+    return true;
+  }
+
+  void _markPreparationEdited(PreparationDraft preparation) {
+    preparation.updatedAt = DateTime.now();
+    _queueInputSave();
+    preparation.inputVersion = _inputVersion;
+  }
+
+  bool _splitsSurrogate(String value, int offset) {
+    final before = value.codeUnitAt(offset - 1);
+    final after = value.codeUnitAt(offset);
+    return before >= 0xD800 &&
+        before <= 0xDBFF &&
+        after >= 0xDC00 &&
+        after <= 0xDFFF;
+  }
+
+  String _joinSourceText(String first, String second) {
+    final left = first.trimRight();
+    final right = second.trimLeft();
+    if (left.isEmpty) return right;
+    if (right.isEmpty) return left;
+    final asciiWord =
+        RegExp(r'[A-Za-z0-9]$').hasMatch(left) &&
+        RegExp(r'^[A-Za-z0-9]').hasMatch(right);
+    return '$left${asciiWord ? ' ' : ''}$right';
   }
 
   PreparationSegment _copyPreparationSegment(PreparationSegment segment) =>
@@ -1448,7 +1623,11 @@ class LearningController extends ChangeNotifier {
             }.contains(errorCode)) {
           _requestAuthPrompt(error!, promotesError: true);
         }
-        if (playback['state'] == 'loading') playback['state'] = 'idle';
+        if (playback['state'] == 'loading') {
+          playback['state'] = 'idle';
+          _playKey = null;
+          _playSentenceId = null;
+        }
       }
     } finally {
       if (_current(generation)) {
@@ -1730,7 +1909,7 @@ class LearningController extends ChangeNotifier {
     String? sourceText,
   }) => _run((generation) async {
     final cleaned = segments.map((segment) => segment.trim()).toList();
-    if (cleaned.length < 2 ||
+    if (cleaned.isEmpty ||
         cleaned.length > PreparationDraft.maxSegments ||
         cleaned.any((segment) => segment.isEmpty || segment.length > 500)) {
       throw const LearningFailure('分句数量或长度无效，请修改后重试。');
@@ -1754,7 +1933,6 @@ class LearningController extends ChangeNotifier {
       sync: false,
       generation: generation,
     );
-    await _generatePreparedSegments(generation);
   });
 
   void openLegacySentence() {
@@ -1938,6 +2116,13 @@ class LearningController extends ChangeNotifier {
       if (preparation.segments.isEmpty) {
         throw const LearningFailure('请先整理并确认要生成的分句。');
       }
+      if (preparation.segments.any(
+        (segment) =>
+            segment.sourceText.trim().isEmpty ||
+            segment.sourceText.length > 500,
+      )) {
+        throw const LearningFailure('请补全每一个分句，再继续生成。');
+      }
       final batch = preparation.pendingSegments.take(5).toList();
       if (batch.isEmpty) break;
       final submittedInputVersion = _inputVersion;
@@ -2051,6 +2236,10 @@ class LearningController extends ChangeNotifier {
   }
 
   Future<String> _audioKey(LearnSentence s) async {
+    return (await _loopTrackReference(s, LoopTrackRole.target)).key;
+  }
+
+  Future<String> _legacySingleAudioKey(LearnSentence s) async {
     final hash = await platform.invoke('contentHash', {'text': s.target});
     if (hash is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)) {
       throw const LearningFailure('浏览器无法校验音频内容。');
@@ -2064,8 +2253,7 @@ class LearningController extends ChangeNotifier {
   }
 
   bool isPlaybackFor(LearnSentence sentence) =>
-      _playSentenceId == sentence.id &&
-      (_playKey?.startsWith('audio:v2:sentence:${sentence.id}:') ?? false);
+      _playSentenceId == sentence.id && _playKey != null;
 
   LearnSentence? get playingSentence {
     final id = _playSentenceId;
@@ -2172,124 +2360,67 @@ class LearningController extends ChangeNotifier {
     final selected = sentence ?? activeSentence ?? state.sentences.firstOrNull;
     if (selected == null) throw const LearningFailure('先选一句想听的英文。');
     final account = _accountId;
-    final key = await _audioKey(selected);
+    final reference = await _loopTrackReference(selected, LoopTrackRole.target);
+    final key = reference.key;
     ensurePlayback();
-    final voice = state.preferences.voice;
     _clearCompanionCue();
     _playSession = null;
     await platform.invoke('audioStop');
     ensurePlayback();
     activeSentence = selected;
+    _playKey = key;
+    _playSentenceId = selected.id;
     playback = {'state': 'loading', 'positionMs': 0, 'durationMs': 0};
     notifyListeners();
     var cached = await isAudioCached(selected);
     ensurePlayback();
-    final bundled = bundledAudio['${selected.seedId}:$voice'];
-    if (!cached && bundled is Map) {
-      final relative = bundled['path'];
-      if (relative is String &&
-          relative.startsWith('assets/audio/') &&
-          !relative.contains('..')) {
-        await platform.invoke('audioEnsure', {
-          'accountId': account,
-          'key': key,
-          'url': Uri.base.resolve('assets/$relative').toString(),
-          'sha256': bundled['sha256'],
-        });
-        cached = true;
-      }
-    }
     if (!cached) {
       ensurePlayback();
-      await _ensureOnlineSession();
-      _ensureCurrent(generation);
-      var manifest = state.audio[key];
-      if (manifest?['manifestId'] != null) {
-        manifest = await gateway.invoke('audio-download-url', {
-          'manifestId': manifest!['manifestId'],
-        });
-      } else if (selected.seedId != null) {
-        manifest = await gateway.seedAudio(selected.seedId!, voice);
-      }
-      if (manifest == null || manifest['status'] != 'ready') {
-        ensurePlayback();
-        final requestId = state.audio[key]?['requestId'] as String? ?? newId();
+      final legacyKey = await _legacySingleAudioKey(selected);
+      final legacyManifest = state.audio[legacyKey];
+      if (legacyManifest != null && state.audio[key] == null) {
         await _change(
-          (next) => next.audio[key] = {'requestId': requestId},
+          (next) => next.audio[key] = Map<String, dynamic>.from(legacyManifest),
           sync: false,
           generation: generation,
         );
         ensurePlayback();
-        manifest = await gateway.invoke('audio-generate', {
-          'sentenceId': selected.id,
-          'contractVersion': 2,
-          'text': selected.target,
-          'audioRole': 'target',
-          'sourceLanguage': selected.sourceLanguage ?? currentSourceLanguage,
-          'targetLanguage': selected.targetLanguage ?? currentTargetLanguage,
-          'accent': audioAccentFor(
-            voice: voice,
-            language: selected.targetLanguage ?? currentTargetLanguage,
-          ),
-          'voiceProfile': voice,
-          'reason': 'initial_generation',
-          'clientRequestId': requestId,
-        });
-        manifest['requestId'] = requestId;
       }
+      await _audioPreparation.ensure(
+        reference,
+        (track) => _ensureAudioTrack(track, generation),
+      );
       _sameAccount(account);
       ensurePlayback();
-      final response = manifest;
-      await _change(
-        (next) => next.audio[key] = response,
-        sync: false,
-        generation: generation,
-      );
-      ensurePlayback();
-      if (response['status'] != 'ready' || response['downloadUrl'] == null) {
-        throw const LearningFailure('音频正在准备，请稍后再次播放。', code: 'audio_pending');
-      }
-      final url = requiredText(response['downloadUrl'], '音频地址');
-      final uri = Uri.tryParse(url);
-      if (uri == null || uri.scheme != 'https') {
-        throw const FormatException('音频地址无效。');
-      }
-      await platform.invoke('audioEnsure', {
-        'accountId': account,
-        'key': key,
-        'url': url,
-        'sha256': response['sha256'],
-      });
-      cached = true;
+      cached = await isAudioCached(selected);
     }
     ensurePlayback();
-    if (cached) {
-      try {
-        await platform.invoke('audioPlay', {
-          'accountId': account,
-          'key': key,
-          'speed': state.preferences.speed,
-        });
-      } on LearningFailure catch (failure) {
-        if (failure.code == 'autoplay_blocked') {
-          throw const LearningFailure(
-            '音频已准备好，请再点一次播放。',
-            code: 'autoplay_blocked',
-          );
-        }
-        rethrow;
-      }
-      ensurePlayback();
-      _playSession = newId();
-      _playKey = key;
-      _playSentenceId = selected.id;
-      playback = {
-        'state': 'playing',
+    if (!cached) throw const LearningFailure('音频缓存不存在，请重试准备。');
+    try {
+      await platform.invoke('audioPlay', {
+        'accountId': account,
         'key': key,
-        'positionMs': 0,
-        'durationMs': 0,
-      };
+        'speed': state.preferences.speed,
+      });
+    } on LearningFailure catch (failure) {
+      if (failure.code == 'autoplay_blocked') {
+        throw const LearningFailure(
+          '音频已准备好，请再点一次播放。',
+          code: 'autoplay_blocked',
+        );
+      }
+      rethrow;
     }
+    ensurePlayback();
+    _playSession = newId();
+    _playKey = key;
+    _playSentenceId = selected.id;
+    playback = {
+      'state': 'playing',
+      'key': key,
+      'positionMs': 0,
+      'durationMs': 0,
+    };
   });
   Future<void> togglePlayback() async {
     if (playback['state'] == 'playing') {
