@@ -16,7 +16,8 @@
 - [x] 会员中心展示服务端权益、已使用量和处理中预留量，覆盖单句、批量、配音、转写和长文整理；单句与批量目前由服务端分开累计／拦截，页面明确分别显示，不假称共享余额。
 - [x] 本地验证：Flutter 静态分析通过，全量测试 310 项通过，Web Release 构建成功；Supabase Deno 全量测试 338 项通过，会员状态 Edge Function 类型检查及本轮改动文件格式检查通过。改动文件的其他 lint 规则通过；全仓 Deno lint 仍受既有远程 URL 导入规则影响，全仓 fmt 检查在 Windows 上受行尾差异影响。
 - [ ] 完整桌面浏览器视觉验收未完成：Computer Use 无法可靠判定当前浏览器 URL 后停止；Flutter 页面测试覆盖主要状态与布局。iPhone Safari／真实音频服务验收待进行。
-- [ ] 仅在 `codex/toast-feedback` 工作分支实施；未创建或应用数据库迁移，未提交、推送、修改 Cloudflare 配置或部署。线上会员用量须在获准部署 Edge Function 后才会生效。
+- [x] 仅在 `codex/toast-feedback` 工作分支实施；提交 `e16ed79` 已推送到 `origin`。未创建或应用数据库迁移，也未修改 Cloudflare 配置。
+- [ ] Cloudflare Pages 预览与 Supabase `membership-status` Edge Function 尚未部署；会员用量的服务端数据须在获准部署该函数后才会生效。
 
 ### 2026-09-24 通知、登录弹窗与同步状态 UX（已提交、推送并部署预览）
 
