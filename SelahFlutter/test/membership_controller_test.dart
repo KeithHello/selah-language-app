@@ -56,6 +56,47 @@ class MockGateway implements LearningGateway {
 }
 
 void main() {
+  test('missing server usage remains null instead of becoming zero', () {
+    final summary = MembershipSummary.fromJson({
+      'plan': 'monthly',
+      'status': 'active',
+      'usage': null,
+    });
+
+    expect(summary.usage, isNull);
+  });
+
+  test('membership usage keeps the server remaining value', () {
+    final summary = MembershipSummary.fromJson({
+      'plan': 'monthly',
+      'status': 'active',
+      'usage': {
+        'asOf': '2026-09-28T00:00:00.000Z',
+        'sentences': {'used': 5, 'limit': 30, 'remaining': 19},
+        'ttsCharacters': {'used': 150, 'limit': 3000, 'remaining': 2850},
+        'transcriptionMs': {
+          'used': 60000,
+          'limit': 300000,
+          'remaining': 240000,
+        },
+        'preparations': {'used': 1, 'limit': 3, 'remaining': 2},
+      },
+      'futurePeriods': [
+        {
+          'id': 'future-1',
+          'plan': 'monthly',
+          'source': 'grant',
+          'startsAt': '2026-10-01T00:00:00.000Z',
+          'endsAt': '2026-11-01T00:00:00.000Z',
+        },
+      ],
+    });
+
+    expect(summary.usage!.sentences.remaining, 19);
+    expect(summary.futurePeriods.single.plan, MembershipPlan.monthly);
+    expect(summary.futurePeriods.single.source, MembershipSource.grant);
+  });
+
   test('parses active monthly membership summary cleanly', () {
     final summary = MembershipSummary.fromJson({
       'plan': 'monthly',

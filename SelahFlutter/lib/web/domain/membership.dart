@@ -36,6 +36,50 @@ class PlanEntitlements {
       );
 }
 
+class MembershipFeatureUsage {
+  const MembershipFeatureUsage({
+    required this.used,
+    required this.limit,
+    required this.remaining,
+  });
+
+  final int used;
+  final int limit;
+  final int remaining;
+}
+
+class MembershipUsage {
+  const MembershipUsage({
+    required this.asOf,
+    required this.sentences,
+    required this.ttsCharacters,
+    required this.transcriptionMs,
+    required this.preparations,
+  });
+
+  final DateTime? asOf;
+  final MembershipFeatureUsage sentences;
+  final MembershipFeatureUsage ttsCharacters;
+  final MembershipFeatureUsage transcriptionMs;
+  final MembershipFeatureUsage preparations;
+}
+
+class MembershipFuturePeriod {
+  const MembershipFuturePeriod({
+    required this.id,
+    required this.plan,
+    required this.source,
+    required this.startsAt,
+    required this.endsAt,
+  });
+
+  final String id;
+  final MembershipPlan plan;
+  final MembershipSource source;
+  final DateTime startsAt;
+  final DateTime endsAt;
+}
+
 /// The client uses these Pro entitlements for display; only the server grants
 /// them. Self-service purchase stays disabled until the migration and a
 /// verified payment adapter are live.
@@ -71,6 +115,8 @@ class MembershipSummary {
     this.renewalMode = 'manual',
     this.entitlementVersion = 'monthly-v1',
     this.modelDisclosure = 'openai-gpt-4o-mini-v1',
+    this.usage,
+    this.futurePeriods = const [],
     required this.staticEntitlements,
   });
 
@@ -104,6 +150,8 @@ class MembershipSummary {
   final String entitlementVersion;
   final String modelDisclosure;
   final PlanEntitlements staticEntitlements;
+  final MembershipUsage? usage;
+  final List<MembershipFuturePeriod> futurePeriods;
 
   bool get isPaidActive =>
       (plan == MembershipPlan.monthly || plan == MembershipPlan.pro) &&
@@ -140,6 +188,8 @@ class MembershipSummary {
     final rawNextSource = json['nextPeriodSource']?.toString();
     final rawTrialState =
         json['trialState']?.toString() ?? json['trial_state']?.toString();
+    final usage = _membershipUsage(json['usage']);
+    final futurePeriods = _membershipFuturePeriods(json['futurePeriods']);
 
     return MembershipSummary(
       plan: MembershipPlan.values.firstWhere(
@@ -203,6 +253,8 @@ class MembershipSummary {
           json['entitlementVersion']?.toString() ?? 'monthly-v1',
       modelDisclosure:
           json['modelDisclosure']?.toString() ?? 'openai-gpt-4o-mini-v1',
+      usage: usage,
+      futurePeriods: futurePeriods,
       staticEntitlements: json['staticEntitlements'] is Map<String, dynamic>
           ? PlanEntitlements.fromJson(
               json['staticEntitlements'] as Map<String, dynamic>,
@@ -215,6 +267,91 @@ class MembershipSummary {
             ),
     );
   }
+}
+
+MembershipUsage? _membershipUsage(Object? value) {
+  final json = _jsonMap(value);
+  if (json == null) return null;
+  final sentences = _membershipFeatureUsage(json['sentences']);
+  final ttsCharacters = _membershipFeatureUsage(json['ttsCharacters']);
+  final transcriptionMs = _membershipFeatureUsage(json['transcriptionMs']);
+  final preparations = _membershipFeatureUsage(json['preparations']);
+  if (sentences == null ||
+      ttsCharacters == null ||
+      transcriptionMs == null ||
+      preparations == null) {
+    return null;
+  }
+  return MembershipUsage(
+    asOf: _date(json['asOf']),
+    sentences: sentences,
+    ttsCharacters: ttsCharacters,
+    transcriptionMs: transcriptionMs,
+    preparations: preparations,
+  );
+}
+
+MembershipFeatureUsage? _membershipFeatureUsage(Object? value) {
+  final json = _jsonMap(value);
+  if (json == null) return null;
+  final used = _nonNegativeInt(json['used']);
+  final limit = _nonNegativeInt(json['limit']);
+  final remaining = _nonNegativeInt(json['remaining']);
+  if (used == null || limit == null || remaining == null) return null;
+  return MembershipFeatureUsage(used: used, limit: limit, remaining: remaining);
+}
+
+List<MembershipFuturePeriod> _membershipFuturePeriods(Object? value) {
+  if (value is! List) return const [];
+  return value
+      .map(_membershipFuturePeriod)
+      .whereType<MembershipFuturePeriod>()
+      .toList();
+}
+
+MembershipFuturePeriod? _membershipFuturePeriod(Object? value) {
+  final json = _jsonMap(value);
+  if (json == null) return null;
+  final id = json['id']?.toString();
+  final rawPlan = json['plan']?.toString();
+  final rawSource = json['source']?.toString();
+  final startsAt = _date(json['startsAt'] ?? json['starts_at']);
+  final endsAt = _date(json['endsAt'] ?? json['expires_at']);
+  if (id == null ||
+      id.isEmpty ||
+      rawPlan == null ||
+      rawSource == null ||
+      startsAt == null ||
+      endsAt == null) {
+    return null;
+  }
+  final plan = MembershipPlan.values.where((item) => item.name == rawPlan);
+  final knownSource =
+      rawSource == 'system_trial' ||
+      MembershipSource.values.any((item) => item.name == rawSource);
+  if (plan.isEmpty || plan.single == MembershipPlan.free || !knownSource) {
+    return null;
+  }
+  return MembershipFuturePeriod(
+    id: id,
+    plan: plan.single,
+    source: _parseMembershipSource(rawSource),
+    startsAt: startsAt,
+    endsAt: endsAt,
+  );
+}
+
+Map<String, dynamic>? _jsonMap(Object? value) {
+  if (value is Map<String, dynamic>) return value;
+  if (value is Map) return Map<String, dynamic>.from(value);
+  return null;
+}
+
+int? _nonNegativeInt(Object? value) {
+  if (value is! num) return null;
+  final integer = value.toInt();
+  if (integer < 0 || integer != value) return null;
+  return integer;
 }
 
 String _trialStateName(String? raw, Map<String, dynamic> json) {
