@@ -26,3 +26,10 @@ Deno.test("membership status fails closed when membership mode is enabled but sc
     true,
   );
 });
+
+Deno.test("membership status returns aggregated usage and future periods", () => {
+  assertStringIncludes(SOURCE, "aggregateUsage");
+  assertStringIncludes(SOURCE, "futurePeriods");
+  assertStringIncludes(SOURCE, "released_unsent");
+  assertStringIncludes(SOURCE, "usage: null");
+});

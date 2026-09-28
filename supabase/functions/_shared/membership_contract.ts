@@ -1,3 +1,5 @@
+import type { FuturePeriod, UsageSnapshot } from "./membership_usage.ts";
+
 // Immutable membership and trial entitlement contract for Selah.
 // Pricing, quotas, and period boundaries are defined here.
 
@@ -118,6 +120,8 @@ export interface MembershipStatusResponse {
   entitlementVersion: string;
   modelDisclosure: string;
   staticEntitlements: PlanEntitlements;
+  usage: UsageSnapshot | null;
+  futurePeriods: FuturePeriod[];
 }
 
 export function entitlementVersionForPlan(

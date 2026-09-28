@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 // Edge Function: /v1/membership/status
-// Returns membership status, dates, and immutable static entitlements without returning live usage balances.
+// Returns membership status, dates, entitlements, and current period usage.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import {
@@ -26,6 +26,12 @@ import {
   type ServiceControlsClient,
 } from "../_shared/service_controls.ts";
 import { paymentProviderConfigured } from "../_shared/payment_contract.ts";
+import {
+  aggregateUsage,
+  type FuturePeriod,
+  limitsForPlan,
+  type UsageSnapshot,
+} from "../_shared/membership_usage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
@@ -76,8 +82,92 @@ Deno.serve(async (req: Request) => {
   }
 
   const record = data as Record<string, unknown>;
-  return json(buildResponse(record, controls));
+  if (!controls.membershipEnforcementEnabled) {
+    return json(buildResponse(record, controls));
+  }
+
+  const liveUsage = await loadLiveUsage(supabase, userId, record);
+  if (!liveUsage) {
+    return errorResponse(
+      "Failed to query membership status",
+      500,
+      "membership_query_failed",
+    );
+  }
+  return json(
+    buildResponse(record, controls, liveUsage.usage, liveUsage.futurePeriods),
+  );
 });
+
+async function loadLiveUsage(
+  supabase: any,
+  userId: string,
+  record: Record<string, unknown>,
+): Promise<
+  { usage: UsageSnapshot | null; futurePeriods: FuturePeriod[] } | null
+> {
+  const asOf = new Date().toISOString();
+  const { data: current, error: currentError } = await supabase
+    .from("user_memberships")
+    .select("id")
+    .eq("user_id", userId)
+    .in("status", ["trial", "active"])
+    .lte("started_at", asOf)
+    .gt("expires_at", asOf)
+    .order("expires_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (currentError) return null;
+
+  const { data: scheduled, error: scheduledError } = await supabase
+    .from("user_memberships")
+    .select("id, plan, source, started_at, expires_at")
+    .eq("user_id", userId)
+    .in("status", ["trial", "active"])
+    .gt("started_at", asOf)
+    .order("started_at", { ascending: true });
+  if (scheduledError || !scheduled) return null;
+
+  const futureRows = scheduled as Array<{
+    id: string;
+    plan: string;
+    source: string;
+    started_at: string;
+    expires_at: string;
+  }>;
+  const futurePeriods: FuturePeriod[] = futureRows.map((period) => ({
+    id: period.id,
+    plan: period.plan as FuturePeriod["plan"],
+    source: period.source as FuturePeriod["source"],
+    startsAt: period.started_at,
+    endsAt: period.expires_at,
+  }));
+
+  if (!current) return { usage: null, futurePeriods };
+
+  const { data: reservations, error: reservationsError } = await supabase
+    .from("membership_reservations")
+    .select("feature, status, units_reserved")
+    .eq("membership_id", current.id);
+  if (reservationsError || !reservations) return null;
+
+  // aggregateUsage counts reserved, dispatch_claimed, settled, and unknown; released_unsent is excluded.
+  const reservationRows = reservations as Array<{
+    feature: string;
+    status: string;
+    units_reserved: number;
+  }>;
+  const usage = aggregateUsage(
+    reservationRows.map((reservation) => ({
+      feature: reservation.feature,
+      status: reservation.status,
+      units: reservation.units_reserved,
+    })),
+    limitsForPlan(String(record.plan ?? "free")),
+    asOf,
+  );
+  return { usage, futurePeriods };
+}
 
 function isMissingRpcError(error: unknown): boolean {
   const message = typeof error === "object" && error !== null
@@ -94,6 +184,8 @@ function isMissingRpcError(error: unknown): boolean {
 function buildResponse(
   record: Record<string, unknown>,
   controls: Awaited<ReturnType<typeof readServiceControls>>,
+  usage: UsageSnapshot | null = null,
+  futurePeriods: FuturePeriod[] = [],
 ): MembershipStatusResponse {
   const plan = (record.plan as string) || "free";
   const status = (record.status as string) || "none";
@@ -121,6 +213,7 @@ function buildResponse(
     ? TRIAL_ENTITLEMENTS
     : FREE_ENTITLEMENTS;
 
+  // Without a current membership period, return usage: null rather than a zero balance.
   return {
     membershipModeEnabled: controls.membershipEnforcementEnabled,
     trialSignupsEnabled: controls.trialSignupsEnabled,
@@ -147,5 +240,7 @@ function buildResponse(
     entitlementVersion: entitlementVersionForPlan(plan, status),
     modelDisclosure: "openai-gpt-4o-mini-v1",
     staticEntitlements,
+    usage,
+    futurePeriods,
   };
 }
