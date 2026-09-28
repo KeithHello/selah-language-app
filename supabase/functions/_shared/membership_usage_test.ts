@@ -1,6 +1,14 @@
-import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
+import {
+  assertEquals,
+  assertStringIncludes,
+  assertThrows,
+} from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { PRO_ENTITLEMENTS } from "./membership_contract.ts";
-import { aggregateUsage, legalPlanQuotes } from "./membership_usage.ts";
+import {
+  aggregateUsage,
+  assertQuoteAction,
+  legalPlanQuotes,
+} from "./membership_usage.ts";
 
 const startedAt = "2026-09-01T00:00:00.000Z";
 const expiresAt = "2026-09-11T00:00:00.000Z";
@@ -107,6 +115,33 @@ Deno.test("active Pro only offers another Pro period and keeps future periods", 
   assertEquals(quotes[0].effectiveAt, "2026-10-11T00:00:00.000Z");
   assertEquals(quotes[0].unavailableReason, "sales_disabled");
   assertEquals(quotes[0].warnings, ["future_periods_unchanged"]);
+});
+
+Deno.test("explicit unavailable action is rejected instead of quoted", () => {
+  const quotes = legalPlanQuotes({
+    now: startedAt,
+    current: { plan: "pro", startedAt, expiresAt },
+    usage: zeroUsage(startedAt),
+    futurePeriods: [],
+    salesEnabled: true,
+    paymentConfigured: true,
+    proSalesEnabled: false,
+  });
+  assertThrows(
+    () => assertQuoteAction(quotes, "buy_monthly"),
+    Error,
+    "plan_change_not_available",
+  );
+});
+
+Deno.test("plan preview endpoint reads quotes without database writes", async () => {
+  const source = await Deno.readTextFile(
+    "supabase/functions/membership-plan-preview/index.ts",
+  );
+  assertStringIncludes(source, "legalPlanQuotes");
+  assertStringIncludes(source, "assertQuoteAction");
+  assertEquals(/\.(insert|update|upsert)\s*\(/i.test(source), false);
+  assertEquals(source.includes("membership_orders"), false);
 });
 
 function zeroUsage(asOf: string) {

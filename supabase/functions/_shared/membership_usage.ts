@@ -145,6 +145,15 @@ export function legalPlanQuotes(input: PlanQuoteInput): PlanChangeQuote[] {
   ];
 }
 
+export function assertQuoteAction(
+  quotes: readonly PlanChangeQuote[],
+  action: string,
+): PlanChangeQuote {
+  const quote = quotes.find((item) => item.action === action);
+  if (!quote) throw new Error("plan_change_not_available");
+  return quote;
+}
+
 function upgradeNow(
   input: PlanQuoteInput,
   total: number,
