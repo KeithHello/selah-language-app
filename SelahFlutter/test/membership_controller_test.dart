@@ -6,7 +6,11 @@ import 'package:selah/web/domain/membership.dart';
 import 'package:selah/web/membership_controller.dart';
 
 class MockGateway implements LearningGateway {
-  MockGateway({this.userId = 'user-123', this.mockResponse});
+  MockGateway({
+    this.userId = 'user-123',
+    this.mockResponse,
+    this.previewFails = false,
+  });
   @override
   bool get configured => true;
   @override
@@ -14,8 +18,10 @@ class MockGateway implements LearningGateway {
   @override
   String? get email => 'test@example.com';
   @override
-  Stream<String?> get accountChanges => Stream.value(userId);
+  Stream<String?> get accountChanges => const Stream.empty();
   final Map<String, dynamic>? mockResponse;
+  bool previewFails;
+  final calls = <({String function, Map<String, dynamic> body, bool get})>[];
 
   @override
   Future<Map<String, dynamic>> invoke(
@@ -23,6 +29,10 @@ class MockGateway implements LearningGateway {
     Map<String, dynamic> body, {
     bool get = false,
   }) async {
+    calls.add((function: function, body: body, get: get));
+    if (function == 'membership-plan-preview' && previewFails) {
+      throw const LearningFailure('Network error', code: 'network_error');
+    }
     if (mockResponse != null) return mockResponse!;
     throw const LearningFailure('Network error', code: 'network_error');
   }
@@ -95,6 +105,85 @@ void main() {
     expect(summary.usage!.sentences.remaining, 19);
     expect(summary.futurePeriods.single.plan, MembershipPlan.monthly);
     expect(summary.futurePeriods.single.source, MembershipSource.grant);
+  });
+
+  test('loads server-owned plan quotes with an empty request body', () async {
+    final gateway = MockGateway(
+      mockResponse: {
+        'quotes': [
+          {
+            'action': 'upgrade_pro_now',
+            'chargeFenCny': 601,
+            'effectiveAt': '2026-09-28T00:00:00.000Z',
+            'currentPeriodEffect': 'replace_remainder',
+            'limitsAfter': {
+              'maxSentences': 90,
+              'maxTtsCharacters': 9007,
+              'maxTranscriptionMs': 1080900,
+              'maxPreparations': 9,
+            },
+            'usageAfter': {
+              'asOf': '2026-09-28T00:00:00.000Z',
+              'sentences': {'used': 10, 'limit': 90, 'remaining': 80},
+              'ttsCharacters': {'used': 150, 'limit': 9007, 'remaining': 8857},
+              'transcriptionMs': {
+                'used': 60000,
+                'limit': 1080900,
+                'remaining': 1020900,
+              },
+              'preparations': {'used': 1, 'limit': 9, 'remaining': 8},
+            },
+            'futurePeriods': [],
+            'warnings': ['future_periods_unchanged'],
+            'unavailableReason': 'pro_sales_disabled',
+          },
+        ],
+      },
+    );
+    final controller = MembershipController(gateway: gateway);
+
+    await controller.loadPlanPreview();
+
+    expect(gateway.calls.single.function, 'membership-plan-preview');
+    expect(gateway.calls.single.body, isEmpty);
+    expect(gateway.calls.single.get, isFalse);
+    expect(controller.planPreviewFailed, isFalse);
+    expect(controller.planQuotes.single.action, 'upgrade_pro_now');
+    expect(controller.planQuotes.single.chargeFenCny, 601);
+    expect(controller.planQuotes.single.usageAfter!.sentences.remaining, 80);
+    expect(
+      controller.planQuotes.single.unavailableReason,
+      'pro_sales_disabled',
+    );
+    controller.dispose();
+  });
+
+  test('preview failure clears prior quote data', () async {
+    final gateway = MockGateway(
+      mockResponse: {
+        'quotes': [
+          {
+            'action': 'extend_monthly',
+            'chargeFenCny': 3990,
+            'effectiveAt': '2026-10-28T00:00:00.000Z',
+            'currentPeriodEffect': 'schedule_after',
+            'futurePeriods': [],
+            'warnings': [],
+            'unavailableReason': null,
+          },
+        ],
+      },
+    );
+    final controller = MembershipController(gateway: gateway);
+    await controller.loadPlanPreview();
+    expect(controller.planQuotes, hasLength(1));
+
+    gateway.previewFails = true;
+    await controller.loadPlanPreview();
+
+    expect(controller.planPreviewFailed, isTrue);
+    expect(controller.planQuotes, isEmpty);
+    controller.dispose();
   });
 
   test('parses active monthly membership summary cleanly', () {

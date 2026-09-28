@@ -1,163 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../../design/selah_colors.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
 import '../domain/membership.dart';
+import '../domain/membership_quota_format.dart';
 import '../membership_controller.dart';
 
-class MembershipPlansView extends StatelessWidget {
-  const MembershipPlansView({
-    required this.controller,
-    required this.uiLocale,
-    this.onStartTrial,
-    this.onBuyMonthly,
-    this.onBuyPro,
-    super.key,
-  });
-
-  final MembershipController controller;
-  final String uiLocale;
-  final VoidCallback? onStartTrial;
-  final VoidCallback? onBuyMonthly;
-  final VoidCallback? onBuyPro;
-
-  @override
-  Widget build(BuildContext context) {
-    String copy(String key) => _membershipCopy(uiLocale, key);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(copy('headline'), style: SelahTypography.headlineLarge()),
-        const SizedBox(height: SelahSpacing.xs),
-        Text(
-          copy('subtitle'),
-          style: SelahTypography.bodyMedium(color: SelahColors.textSecondary),
-        ),
-        const SizedBox(height: SelahSpacing.xl),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 640;
-            final children = [
-              Expanded(
-                flex: isNarrow ? 0 : 1,
-                child: _PlanCard(
-                  title: copy('trialTitle'),
-                  tag: copy('trialTag'),
-                  price: copy('free'),
-                  subtitle: copy('trialSubtitle'),
-                  buttonLabel: copy('trialButton'),
-                  footerLabel: copy('trialFooter'),
-                  onPressed: onStartTrial,
-                  items: [
-                    copy('trialSentences'),
-                    copy('trialTts'),
-                    copy('trialTranscription'),
-                    copy('trialPreparation'),
-                  ],
-                ),
-              ),
-              SizedBox(
-                width: isNarrow ? 0 : SelahSpacing.lg,
-                height: isNarrow ? SelahSpacing.lg : 0,
-              ),
-              Expanded(
-                flex: isNarrow ? 0 : 1,
-                child: _PlanCard(
-                  title: copy('monthlyTitle'),
-                  tag: copy('monthlyTag'),
-                  price: '¥ 39.9',
-                  priceUnit: copy('monthlyUnit'),
-                  subtitle: copy('monthlySubtitle'),
-                  buttonLabel: controller.summary.paymentProviderConfigured
-                      ? copy('monthlyButton')
-                      : copy('paymentPlannedButton'),
-                  footerLabel: controller.summary.paymentProviderConfigured
-                      ? copy('monthlyFooter')
-                      : copy('paymentPlannedFooter'),
-                  isPrimary: true,
-                  onPressed: onBuyMonthly,
-                  items: [
-                    copy('monthlySentences'),
-                    copy('monthlyTts'),
-                    copy('monthlyTranscription'),
-                    copy('monthlyPreparation'),
-                  ],
-                ),
-              ),
-              SizedBox(
-                width: isNarrow ? 0 : SelahSpacing.lg,
-                height: isNarrow ? SelahSpacing.lg : 0,
-              ),
-              Expanded(
-                flex: isNarrow ? 0 : 1,
-                child: _PlanCard(
-                  title: copy('proTitle'),
-                  tag: copy('proTag'),
-                  price:
-                      '¥ ${(controller.summary.proPriceFenCny / 100).toStringAsFixed(1)}',
-                  priceUnit: copy('monthlyUnit'),
-                  subtitle: copy('proSubtitle'),
-                  buttonLabel: controller.proSalesAvailable
-                      ? copy('proButton')
-                      : copy('proPlannedButton'),
-                  footerLabel: controller.proSalesAvailable
-                      ? copy('proFooter')
-                      : copy('proPlannedFooter'),
-                  onPressed: onBuyPro,
-                  items: [
-                    copy('proSentences'),
-                    copy('proTts'),
-                    copy('proTranscription'),
-                    copy('proPreparation'),
-                  ],
-                ),
-              ),
-            ];
-            return isNarrow
-                ? Column(children: children)
-                : Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: children,
-                  );
-          },
-        ),
-        const SizedBox(height: SelahSpacing.xl),
-        Container(
-          padding: const EdgeInsets.all(SelahSpacing.md),
-          decoration: BoxDecoration(
-            color: SelahColors.cardPrimary,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: SelahColors.border),
-          ),
-          child: Row(
-            children: [
-              const Icon(
-                Icons.auto_awesome,
-                size: 20,
-                color: SelahColors.coral,
-              ),
-              const SizedBox(width: SelahSpacing.sm),
-              Expanded(
-                child: Text(
-                  copy('modelDisclosure'),
-                  style: SelahTypography.bodySmall(
-                    color: SelahColors.textSecondary,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-/// The server controls whether this product gate is active. Keeping the
-/// public free-mode message explicit prevents an offline or unconfigured
-/// client from accidentally presenting a fake quota balance.
-class MembershipCenter extends StatelessWidget {
-  const MembershipCenter({
+class MembershipStatusCard extends StatelessWidget {
+  const MembershipStatusCard({
     required this.controller,
     required this.uiLocale,
     super.key,
@@ -171,137 +24,580 @@ class MembershipCenter extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        String copy(String key) => _membershipCopy(uiLocale, key);
-        if (controller.loading && !controller.checked) {
-          return const Center(child: CircularProgressIndicator());
-        }
         final summary = controller.summary;
-        final children = <Widget>[
-          if (controller.error != null)
-            _MembershipNotice(
-              icon: Icons.info_outline_rounded,
-              color: SelahColors.amber,
-              text: controller.error!,
-            ),
-          if (summary.hasActiveEntitlements) ...[
-            ActiveMembershipBanner(summary: summary, uiLocale: uiLocale),
-            const SizedBox(height: SelahSpacing.lg),
-          ],
-        ];
+        if (!summary.membershipModeEnabled) return const SizedBox.shrink();
 
-        if (!summary.membershipModeEnabled) {
-          return const SizedBox.shrink();
-        }
-
-        final trialNotice = _trialNotice(summary, copy);
-        if (trialNotice != null) {
-          children.addAll([
-            trialNotice,
-            const SizedBox(height: SelahSpacing.lg),
-          ]);
-        }
-
-        children.add(
-          MembershipPlansView(
-            controller: controller,
-            uiLocale: uiLocale,
-            onStartTrial: controller.trialSignupsAvailable
-                ? controller.showTrialInfo
-                : null,
-            onBuyMonthly:
-                controller.membershipSalesAvailable &&
-                    !controller.checkoutLoading
-                ? () => controller.startMonthlyCheckout()
-                : null,
-            onBuyPro:
-                controller.proSalesAvailable && !controller.checkoutLoading
-                ? () => controller.startProCheckout(uiLocale: uiLocale)
-                : null,
+        final activePeriod =
+            summary.isPaidActive ||
+            (summary.isTrialActive && summary.trialState == TrialState.active);
+        final trialNotice = _trialNoticeFor(summary, uiLocale);
+        return Card(
+          margin: EdgeInsets.zero,
+          color: SelahColors.cardPrimary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+            side: const BorderSide(color: SelahColors.border),
           ),
-        );
-        if (controller.pendingOrderId != null ||
-            controller.pendingClientRequestId != null) {
-          children.addAll([
-            const SizedBox(height: SelahSpacing.lg),
-            _MembershipNotice(
-              icon: Icons.receipt_long_outlined,
-              color: SelahColors.lavender,
-              title: copy('pendingTitle'),
-              text: controller.checkoutStatus ?? copy('pendingBody'),
-              actionLabel: copy('checkOrder'),
-              onAction: controller.checkoutLoading
-                  ? null
-                  : controller.refreshPendingOrder,
+          child: Padding(
+            padding: const EdgeInsets.all(17),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.workspace_premium_outlined,
+                      size: 19,
+                      color: SelahColors.coral,
+                    ),
+                    const SizedBox(width: SelahSpacing.sm),
+                    Text(
+                      _membershipCopy(uiLocale, 'memberTitle'),
+                      style: SelahTypography.headlineMedium(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: SelahSpacing.md),
+                if (controller.loading)
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(vertical: 20),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                else if (controller.statusError != null)
+                  _MembershipNotice(
+                    text: _membershipCopy(uiLocale, 'statusError'),
+                    color: SelahColors.amber,
+                  )
+                else ...[
+                  _planDetails(summary, activePeriod),
+                  if (trialNotice != null) ...[
+                    const SizedBox(height: SelahSpacing.md),
+                    trialNotice,
+                  ],
+                  if (activePeriod && summary.usage != null) ...[
+                    const SizedBox(height: SelahSpacing.lg),
+                    _UsageRows(
+                      usage: summary.usage!,
+                      uiLocale: uiLocale,
+                      title: _membershipCopy(uiLocale, 'cycleRemaining'),
+                      exhaustedLabel: _membershipCopy(uiLocale, 'exhausted'),
+                    ),
+                  ],
+                  if (summary.futurePeriods.isNotEmpty) ...[
+                    const SizedBox(height: SelahSpacing.md),
+                    Text(
+                      _membershipCopy(uiLocale, 'nextPeriod', {
+                        'date': _formatMembershipDate(
+                          summary.futurePeriods.first.startsAt,
+                          uiLocale,
+                        ),
+                        'plan': _planName(
+                          summary.futurePeriods.first.plan,
+                          uiLocale,
+                        ),
+                      }),
+                      style: SelahTypography.bodySmall(
+                        color: SelahColors.textSecondary,
+                      ),
+                    ),
+                  ],
+                ],
+                const SizedBox(height: SelahSpacing.lg),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: OutlinedButton(
+                    onPressed: () => _showPlanChangeSheet(context),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: SelahColors.textPrimary,
+                      side: const BorderSide(color: SelahColors.border),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: Text(_membershipCopy(uiLocale, 'changePlan')),
+                  ),
+                ),
+              ],
             ),
-          ]);
-        } else if (controller.checkoutStatus != null) {
-          children.addAll([
-            const SizedBox(height: SelahSpacing.lg),
-            _MembershipNotice(
-              icon: Icons.check_circle_outline_rounded,
-              color: SelahColors.sage,
-              text: controller.checkoutStatus!,
-            ),
-          ]);
-        }
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: children,
+          ),
         );
       },
     );
   }
+
+  Widget _planDetails(MembershipSummary summary, bool activePeriod) {
+    final planLabel = activePeriod
+        ? _planName(summary.plan, uiLocale)
+        : summary.plan == MembershipPlan.trial &&
+              summary.trialState == TrialState.expired
+        ? _membershipCopy(uiLocale, 'trialExpiredTitle')
+        : summary.plan == MembershipPlan.trial &&
+              (summary.trialState == TrialState.preparing ||
+                  summary.trialState == TrialState.notStarted)
+        ? _membershipCopy(uiLocale, 'trialTitle')
+        : _membershipCopy(uiLocale, 'notEnrolled');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(planLabel, style: SelahTypography.headlineLarge()),
+        if (activePeriod) ...[
+          const SizedBox(height: SelahSpacing.xs),
+          Wrap(
+            spacing: SelahSpacing.md,
+            runSpacing: SelahSpacing.xs,
+            children: [
+              if (summary.membershipSource != null)
+                Text(
+                  _sourceName(summary.membershipSource!, uiLocale),
+                  style: SelahTypography.bodySmall(
+                    color: SelahColors.textSecondary,
+                  ),
+                ),
+              if (summary.periodEndsAt != null)
+                Text(
+                  _membershipCopy(uiLocale, 'expiresAt', {
+                    'date': _formatMembershipDate(
+                      summary.periodEndsAt!,
+                      uiLocale,
+                    ),
+                  }),
+                  style: SelahTypography.bodySmall(
+                    color: SelahColors.textSecondary,
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: SelahSpacing.xs),
+          Text(
+            _membershipCopy(uiLocale, 'noAutoRenew'),
+            style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
+          ),
+        ],
+      ],
+    );
+  }
+
+  void _showPlanChangeSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _MembershipPlanChangeSheet(
+        controller: controller,
+        uiLocale: uiLocale,
+      ),
+    );
+  }
 }
 
-Widget? _trialNotice(
-  MembershipSummary summary,
-  String Function(String key) copy,
-) {
-  return switch (summary.trialState) {
-    TrialState.notStarted => _MembershipNotice(
-      icon: Icons.hourglass_empty_rounded,
-      color: SelahColors.lavender,
-      title: copy('trialNotStartedTitle'),
-      text: copy('trialNotStartedBody'),
-    ),
-    TrialState.preparing => _MembershipNotice(
-      icon: Icons.pending_actions_rounded,
-      color: SelahColors.lavender,
-      title: copy('trialPreparingTitle'),
-      text: copy('trialPreparingBody'),
-    ),
-    TrialState.expired => _MembershipNotice(
-      icon: Icons.lock_clock_outlined,
-      color: SelahColors.amber,
-      title: copy('trialExpiredTitle'),
-      text: copy('trialExpiredBody'),
-    ),
-    TrialState.unavailable => _MembershipNotice(
-      icon: Icons.warning_amber_rounded,
-      color: SelahColors.amber,
-      title: copy('trialUnavailableTitle'),
-      text: copy('trialUnavailableBody'),
-    ),
-    TrialState.active => null,
-  };
+class _UsageRows extends StatelessWidget {
+  const _UsageRows({
+    required this.usage,
+    required this.uiLocale,
+    required this.title,
+    required this.exhaustedLabel,
+    this.preview = false,
+  });
+
+  final MembershipUsage usage;
+  final String uiLocale;
+  final String title;
+  final String exhaustedLabel;
+  final bool preview;
+
+  @override
+  Widget build(BuildContext context) {
+    final rows = [
+      (
+        _membershipCopy(uiLocale, 'sentences'),
+        usage.sentences,
+        QuotaUnit.sentences,
+      ),
+      (
+        _membershipCopy(uiLocale, 'ttsCharacters'),
+        usage.ttsCharacters,
+        QuotaUnit.characters,
+      ),
+      (
+        _membershipCopy(uiLocale, 'transcription'),
+        usage.transcriptionMs,
+        QuotaUnit.transcriptionMs,
+      ),
+      (
+        _membershipCopy(uiLocale, 'preparations'),
+        usage.preparations,
+        QuotaUnit.preparations,
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: SelahTypography.headlineSmall()),
+        const SizedBox(height: SelahSpacing.xs),
+        for (var index = 0; index < rows.length; index++) ...[
+          if (index > 0)
+            const Divider(height: 17, color: SelahColors.borderLight),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  rows[index].$1,
+                  style: SelahTypography.bodyMedium(
+                    color: SelahColors.textSecondary,
+                  ),
+                ),
+              ),
+              const SizedBox(width: SelahSpacing.md),
+              Text(
+                rows[index].$2.remaining == 0
+                    ? preview
+                          ? _membershipCopy(uiLocale, 'noNewQuota')
+                          : exhaustedLabel
+                    : formatQuotaValue(
+                        rows[index].$2.remaining,
+                        rows[index].$3,
+                        uiLocale,
+                      ),
+                textAlign: TextAlign.end,
+                style: SelahTypography.bodyMedium().copyWith(
+                  color: rows[index].$2.remaining == 0
+                      ? SelahColors.textTertiary
+                      : null,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _MembershipPlanChangeSheet extends StatefulWidget {
+  const _MembershipPlanChangeSheet({
+    required this.controller,
+    required this.uiLocale,
+  });
+
+  final MembershipController controller;
+  final String uiLocale;
+
+  @override
+  State<_MembershipPlanChangeSheet> createState() =>
+      _MembershipPlanChangeSheetState();
+}
+
+class _MembershipPlanChangeSheetState
+    extends State<_MembershipPlanChangeSheet> {
+  MembershipController get controller => widget.controller;
+  String get uiLocale => widget.uiLocale;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(controller.loadPlanPreview());
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
+    return SafeArea(
+      top: false,
+      child: Align(
+        alignment: Alignment.bottomCenter,
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: 560, maxHeight: maxHeight),
+          child: Material(
+            color: SelahColors.cardPrimary,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+            clipBehavior: Clip.antiAlias,
+            child: AnimatedBuilder(
+              animation: controller,
+              builder: (context, _) {
+                final summary = controller.summary;
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  _membershipCopy(uiLocale, 'changePlan'),
+                                  style: SelahTypography.headlineLarge(),
+                                ),
+                                const SizedBox(height: SelahSpacing.xs),
+                                Text(
+                                  _membershipCopy(uiLocale, 'currentPlan', {
+                                    'plan': _currentPlanName(summary, uiLocale),
+                                  }),
+                                  style: SelahTypography.bodySmall(
+                                    color: SelahColors.textSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            tooltip: _membershipCopy(uiLocale, 'close'),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const Divider(height: 1, color: SelahColors.borderLight),
+                    Flexible(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(SelahSpacing.lg),
+                        child: _previewBody(),
+                      ),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _previewBody() {
+    if (controller.planPreviewLoading) {
+      return const SizedBox(
+        height: 180,
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (controller.planPreviewFailed) {
+      return _MembershipNotice(
+        text: _membershipCopy(uiLocale, 'previewError'),
+        color: SelahColors.amber,
+        action: TextButton(
+          onPressed: () => unawaited(controller.loadPlanPreview()),
+          child: Text(_membershipCopy(uiLocale, 'retry')),
+        ),
+      );
+    }
+    if (controller.planQuotes.isEmpty) {
+      return _MembershipNotice(
+        text: _membershipCopy(uiLocale, 'noAvailableActions'),
+        color: SelahColors.lavender,
+      );
+    }
+
+    final futurePeriods = controller.planQuotes
+        .map((quote) => quote.futurePeriods)
+        .firstWhere((periods) => periods.isNotEmpty, orElse: () => const []);
+    final hasUnchangedFuturePeriods = controller.planQuotes.any(
+      (quote) => quote.warnings.contains('future_periods_unchanged'),
+    );
+    final hasTrialWarning = controller.planQuotes.any(
+      (quote) => quote.warnings.contains('trial_remainder_dropped'),
+    );
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final quote in controller.planQuotes) ...[
+          _QuoteCard(quote: quote, controller: controller, uiLocale: uiLocale),
+          const SizedBox(height: SelahSpacing.md),
+        ],
+        if (hasTrialWarning)
+          _MembershipNotice(
+            text: _membershipCopy(uiLocale, 'trialRemainderDropped'),
+            color: SelahColors.lavender,
+          ),
+        if (futurePeriods.isNotEmpty) ...[
+          if (hasTrialWarning) const SizedBox(height: SelahSpacing.md),
+          Text(
+            _membershipCopy(uiLocale, 'futurePeriods'),
+            style: SelahTypography.headlineSmall(),
+          ),
+          const SizedBox(height: SelahSpacing.xs),
+          for (final period in futurePeriods)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: SelahSpacing.xs),
+              child: Text(
+                '${_planName(period.plan, uiLocale)} · '
+                '${_sourceName(period.source, uiLocale)} · '
+                '${_formatMembershipDate(period.startsAt, uiLocale)}—'
+                '${_formatMembershipDate(period.endsAt, uiLocale)}',
+                style: SelahTypography.bodySmall(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
+        if (hasUnchangedFuturePeriods) ...[
+          const SizedBox(height: SelahSpacing.sm),
+          Text(
+            _membershipCopy(uiLocale, 'futureUnchanged'),
+            style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
+          ),
+        ],
+        if (controller.checkoutStatus != null) ...[
+          const SizedBox(height: SelahSpacing.md),
+          _MembershipNotice(
+            text: controller.checkoutStatus!,
+            color: SelahColors.sage,
+          ),
+        ],
+        if (controller.error != null) ...[
+          const SizedBox(height: SelahSpacing.md),
+          _MembershipNotice(text: controller.error!, color: SelahColors.amber),
+        ],
+      ],
+    );
+  }
+}
+
+class _QuoteCard extends StatelessWidget {
+  const _QuoteCard({
+    required this.quote,
+    required this.controller,
+    required this.uiLocale,
+  });
+
+  final MembershipPlanQuote quote;
+  final MembershipController controller;
+  final String uiLocale;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = _actionLabel(quote.action, uiLocale);
+    final monthlyAction =
+        quote.action == 'buy_monthly' || quote.action == 'extend_monthly';
+    final canBuyMonthly =
+        monthlyAction &&
+        quote.unavailableReason == null &&
+        controller.membershipSalesAvailable &&
+        quote.chargeFenCny != null &&
+        quote.effectiveAt != null &&
+        !controller.checkoutLoading;
+    final reason = _unavailableReason(quote, controller, uiLocale);
+    final validPreview =
+        quote.chargeFenCny != null && quote.effectiveAt != null;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(SelahSpacing.md),
+      decoration: BoxDecoration(
+        color: SelahColors.cardPrimary,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: SelahColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: SelahTypography.headlineMedium()),
+          const SizedBox(height: SelahSpacing.xs),
+          if (quote.chargeFenCny != null)
+            Text(
+              '${_membershipCopy(uiLocale, 'amountDue')}  '
+              '${_formatCny(quote.chargeFenCny!)}',
+              style: SelahTypography.headlineLarge(color: SelahColors.coral),
+            ),
+          if (quote.effectiveAt != null) ...[
+            const SizedBox(height: SelahSpacing.xs),
+            Text(
+              _membershipCopy(uiLocale, 'effectiveAt', {
+                'date': _formatMembershipDate(quote.effectiveAt!, uiLocale),
+              }),
+              style: SelahTypography.bodySmall(
+                color: SelahColors.textSecondary,
+              ),
+            ),
+          ],
+          if (quote.usageAfter != null) ...[
+            const SizedBox(height: SelahSpacing.md),
+            _UsageRows(
+              usage: quote.usageAfter!,
+              uiLocale: uiLocale,
+              title: _membershipCopy(
+                uiLocale,
+                quote.action == 'upgrade_pro_now'
+                    ? 'postUpgradeRemaining'
+                    : 'newPeriodQuota',
+              ),
+              exhaustedLabel: _membershipCopy(uiLocale, 'noNewQuota'),
+              preview: true,
+            ),
+          ],
+          if (quote.warnings.contains('feature_remaining_zero')) ...[
+            const SizedBox(height: SelahSpacing.sm),
+            Text(
+              _membershipCopy(uiLocale, 'someQuotaUnchanged'),
+              style: SelahTypography.bodySmall(
+                color: SelahColors.textSecondary,
+              ),
+            ),
+          ],
+          if (reason != null) ...[
+            const SizedBox(height: SelahSpacing.sm),
+            Text(
+              reason,
+              style: SelahTypography.bodySmall(color: SelahColors.amber),
+            ),
+          ],
+          const SizedBox(height: SelahSpacing.md),
+          SizedBox(
+            width: double.infinity,
+            height: 48,
+            child: OutlinedButton(
+              onPressed: canBuyMonthly
+                  ? () => unawaited(controller.startMonthlyCheckout())
+                  : null,
+              style: OutlinedButton.styleFrom(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Text(
+                controller.checkoutLoading && monthlyAction
+                    ? _membershipCopy(uiLocale, 'processing')
+                    : label,
+              ),
+            ),
+          ),
+          if (!validPreview)
+            Padding(
+              padding: const EdgeInsets.only(top: SelahSpacing.xs),
+              child: Text(
+                _membershipCopy(uiLocale, 'previewIncomplete'),
+                style: SelahTypography.bodySmall(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 }
 
 class _MembershipNotice extends StatelessWidget {
   const _MembershipNotice({
-    required this.icon,
-    required this.color,
     required this.text,
+    required this.color,
+    this.action,
     this.title,
-    this.actionLabel,
-    this.onAction,
   });
 
-  final IconData icon;
-  final Color color;
   final String text;
+  final Color color;
+  final Widget? action;
   final String? title;
-  final String? actionLabel;
-  final VoidCallback? onAction;
 
   @override
   Widget build(BuildContext context) {
@@ -311,24 +607,25 @@ class _MembershipNotice extends StatelessWidget {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: color.withValues(alpha: 0.25)),
+        border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: color),
+          Icon(Icons.info_outline_rounded, size: 19, color: color),
           const SizedBox(width: SelahSpacing.sm),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (title != null)
-                  Text(title!, style: SelahTypography.headlineMedium()),
-                if (title != null) const SizedBox(height: 4),
+                if (title != null) ...[
+                  Text(title!, style: SelahTypography.headlineSmall()),
+                  const SizedBox(height: SelahSpacing.xs),
+                ],
                 Text(text, style: SelahTypography.bodySmall()),
-                if (actionLabel != null) ...[
-                  const SizedBox(height: 8),
-                  TextButton(onPressed: onAction, child: Text(actionLabel!)),
+                if (action != null) ...[
+                  const SizedBox(height: SelahSpacing.xs),
+                  action!,
                 ],
               ],
             ),
@@ -339,403 +636,318 @@ class _MembershipNotice extends StatelessWidget {
   }
 }
 
-class _PlanCard extends StatelessWidget {
-  const _PlanCard({
-    required this.title,
-    required this.tag,
-    required this.price,
-    this.priceUnit,
-    required this.subtitle,
-    required this.buttonLabel,
-    required this.footerLabel,
-    required this.items,
-    this.isPrimary = false,
-    this.onPressed,
-  });
+Widget? _trialNotice(TrialState state, String locale) => switch (state) {
+  TrialState.notStarted => _MembershipNotice(
+    text: _membershipCopy(locale, 'trialNotStartedBody'),
+    color: SelahColors.lavender,
+    title: _membershipCopy(locale, 'trialNotStartedTitle'),
+  ),
+  TrialState.preparing => _MembershipNotice(
+    text: _membershipCopy(locale, 'trialPreparingBody'),
+    color: SelahColors.lavender,
+    title: _membershipCopy(locale, 'trialPreparingTitle'),
+  ),
+  TrialState.expired => _MembershipNotice(
+    text: _membershipCopy(locale, 'trialExpiredBody'),
+    color: SelahColors.amber,
+    title: _membershipCopy(locale, 'trialExpiredTitle'),
+  ),
+  TrialState.unavailable => _MembershipNotice(
+    text: _membershipCopy(locale, 'trialUnavailableBody'),
+    color: SelahColors.amber,
+    title: _membershipCopy(locale, 'trialUnavailableTitle'),
+  ),
+  TrialState.active => null,
+};
 
-  final String title;
-  final String tag;
-  final String price;
-  final String? priceUnit;
-  final String subtitle;
-  final String buttonLabel;
-  final String footerLabel;
-  final List<String> items;
-  final bool isPrimary;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(SelahSpacing.lg),
-      decoration: BoxDecoration(
-        color: SelahColors.cardPrimary,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: isPrimary
-              ? SelahColors.coral.withValues(alpha: 0.5)
-              : SelahColors.border,
-          width: isPrimary ? 1.5 : 1.0,
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: SelahTypography.headlineLarge(),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Flexible(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: isPrimary
-                        ? SelahColors.coral.withValues(alpha: 0.1)
-                        : SelahColors.border.withValues(alpha: 0.5),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Text(
-                    tag,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: SelahTypography.bodySmall(),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: SelahSpacing.md),
-          Wrap(
-            crossAxisAlignment: WrapCrossAlignment.end,
-            spacing: 4,
-            children: [
-              Text(price, style: SelahTypography.displayLarge()),
-              if (priceUnit != null) ...[
-                Text(
-                  priceUnit!,
-                  style: SelahTypography.bodySmall(
-                    color: SelahColors.textSecondary,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          Text(
-            subtitle,
-            style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
-          ),
-          const SizedBox(height: SelahSpacing.lg),
-          const Divider(),
-          const SizedBox(height: SelahSpacing.sm),
-          ...items.map(
-            (item) => Padding(
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: Row(
-                children: [
-                  const Icon(Icons.check, size: 16, color: SelahColors.coral),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      item,
-                      softWrap: true,
-                      style: SelahTypography.bodyMedium(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: SelahSpacing.xl),
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: isPrimary
-                ? FilledButton(
-                    onPressed: onPressed,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: SelahColors.coral,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(
-                      buttonLabel,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  )
-                : OutlinedButton(
-                    onPressed: onPressed,
-                    style: OutlinedButton.styleFrom(
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    child: Text(buttonLabel),
-                  ),
-          ),
-          const SizedBox(height: SelahSpacing.xs),
-          Center(
-            child: Text(
-              footerLabel,
-              style: SelahTypography.bodySmall(
-                color: SelahColors.textSecondary,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+Widget? _trialNoticeFor(MembershipSummary summary, String locale) {
+  if (summary.plan == MembershipPlan.trial) {
+    return _trialNotice(summary.trialState, locale);
   }
+  if (summary.plan == MembershipPlan.free &&
+      !summary.hasActiveEntitlements &&
+      summary.membershipModeEnabled &&
+      summary.trialSignupsEnabled &&
+      summary.trialState == TrialState.notStarted) {
+    return _trialNotice(TrialState.notStarted, locale);
+  }
+  return null;
 }
 
-class ActiveMembershipBanner extends StatelessWidget {
-  const ActiveMembershipBanner({
-    required this.summary,
-    required this.uiLocale,
-    this.onViewPlans,
-    super.key,
-  });
+String _planName(MembershipPlan plan, String locale) => switch (plan) {
+  MembershipPlan.free => _membershipCopy(locale, 'notEnrolled'),
+  MembershipPlan.trial => _membershipCopy(locale, 'trialTitle'),
+  MembershipPlan.monthly => _membershipCopy(locale, 'monthlyTitle'),
+  MembershipPlan.pro => _membershipCopy(locale, 'proTitle'),
+};
 
-  final MembershipSummary summary;
-  final String uiLocale;
-  final VoidCallback? onViewPlans;
-
-  @override
-  Widget build(BuildContext context) {
-    if (!summary.membershipModeEnabled || !summary.hasActiveEntitlements) {
-      return const SizedBox.shrink();
-    }
-
-    final planName = summary.plan == MembershipPlan.monthly
-        ? _membershipCopy(uiLocale, 'monthlyTitle')
-        : summary.plan == MembershipPlan.pro
-        ? _membershipCopy(uiLocale, 'proTitle')
-        : _membershipCopy(uiLocale, 'trialTitle');
-    final expiresText = summary.periodEndsAt != null
-        ? _formatDate(summary.periodEndsAt!, uiLocale)
-        : '';
-
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: SelahSpacing.md,
-        vertical: SelahSpacing.sm,
-      ),
-      decoration: BoxDecoration(
-        color: SelahColors.cardPrimary,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: SelahColors.border),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.star_outline, size: 18, color: SelahColors.coral),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              '$planName · ${_membershipCopy(uiLocale, 'expires')} $expiresText',
-              style: SelahTypography.bodyMedium(),
-            ),
-          ),
-          const Spacer(),
-          if (onViewPlans != null)
-            TextButton(
-              onPressed: onViewPlans,
-              child: Text(_membershipCopy(uiLocale, 'viewPlans')),
-            ),
-        ],
-      ),
-    );
+String _currentPlanName(MembershipSummary summary, String locale) {
+  if (summary.isPaidActive ||
+      (summary.isTrialActive && summary.trialState == TrialState.active)) {
+    return _planName(summary.plan, locale);
   }
+  if (summary.plan == MembershipPlan.trial &&
+      (summary.trialState == TrialState.preparing ||
+          summary.trialState == TrialState.notStarted)) {
+    return _membershipCopy(locale, 'trialTitle');
+  }
+  if (summary.plan == MembershipPlan.trial &&
+      summary.trialState == TrialState.expired) {
+    return _membershipCopy(locale, 'trialExpiredTitle');
+  }
+  return _membershipCopy(locale, 'notEnrolled');
 }
 
-String _formatDate(DateTime date, String locale) {
+String _sourceName(MembershipSource source, String locale) => switch (source) {
+  MembershipSource.paid => _membershipCopy(locale, 'sourcePaid'),
+  MembershipSource.grant => _membershipCopy(locale, 'sourceGrant'),
+  MembershipSource.compensation => _membershipCopy(
+    locale,
+    'sourceCompensation',
+  ),
+  MembershipSource.systemTrial => _membershipCopy(locale, 'sourceTrial'),
+};
+
+String _actionLabel(String action, String locale) => switch (action) {
+  'upgrade_pro_now' => _membershipCopy(locale, 'upgradePro'),
+  'schedule_pro' => _membershipCopy(locale, 'schedulePro'),
+  'buy_monthly' => _membershipCopy(locale, 'buyMonthly'),
+  'buy_pro' => _membershipCopy(locale, 'buyPro'),
+  'extend_monthly' => _membershipCopy(locale, 'extendMonthly'),
+  'extend_pro' => _membershipCopy(locale, 'extendPro'),
+  _ => _membershipCopy(locale, 'unavailableAction'),
+};
+
+String? _unavailableReason(
+  MembershipPlanQuote quote,
+  MembershipController controller,
+  String locale,
+) {
+  final reason = quote.unavailableReason;
+  if (reason == 'sales_disabled' ||
+      (reason == null &&
+          (quote.action == 'buy_monthly' || quote.action == 'extend_monthly') &&
+          !controller.summary.membershipSalesEnabled)) {
+    return _membershipCopy(locale, 'salesDisabled');
+  }
+  if (reason == 'payment_not_configured' ||
+      (reason == null &&
+          (quote.action == 'buy_monthly' || quote.action == 'extend_monthly') &&
+          !controller.summary.paymentProviderConfigured)) {
+    return _membershipCopy(locale, 'paymentUnavailable');
+  }
+  if (reason == 'pro_sales_disabled' ||
+      (reason == null &&
+          quote.action != 'buy_monthly' &&
+          quote.action != 'extend_monthly')) {
+    return _membershipCopy(locale, 'proUnavailable');
+  }
+  if (reason != null) return _membershipCopy(locale, 'previewIncomplete');
+  return null;
+}
+
+String _formatCny(int fen) => '¥ ${(fen / 100).toStringAsFixed(2)}';
+
+String _formatMembershipDate(DateTime date, String locale) {
   final local = date.toLocal();
-  if (locale == 'ja') return '${local.year}/${local.month}/${local.day}';
-  return locale == 'zh-Hant'
-      ? '${local.year} 年 ${local.month} 月 ${local.day} 日'
-      : '${local.year} 年 ${local.month} 月 ${local.day} 日';
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  if (locale == 'ja') {
+    return '${local.year}/$month/$day $hour:$minute';
+  }
+  return '${local.year}年$month月$day日 $hour:$minute';
 }
 
-String _membershipCopy(String locale, String key) {
+String _membershipCopy(
+  String locale,
+  String key, [
+  Map<String, String> arguments = const {},
+]) {
   final language = locale == 'ja'
       ? 'ja'
       : locale == 'zh-Hant'
       ? 'zh-Hant'
       : 'zh-Hans';
-  return _membershipCopies[language]?[key] ??
-      _membershipCopies['zh-Hans']![key]!;
+  var result =
+      _membershipCopies[language]![key] ??
+      _membershipCopies['zh-Hans']![key] ??
+      key;
+  for (final entry in arguments.entries) {
+    result = result.replaceAll('{${entry.key}}', entry.value);
+  }
+  return result;
 }
 
 const _membershipCopies = <String, Map<String, String>>{
   'zh-Hans': {
-    'headline': '把想说的话，变成每天的小进步。',
-    'subtitle': '先记下一句，再选择适合你的学习方式。',
+    'memberTitle': '会员',
+    'notEnrolled': '未开通',
     'trialTitle': '个人试用',
-    'trialTag': '7 天体验',
-    'free': '免费',
-    'trialSubtitle': '首次个人表达生成成功后开始',
-    'trialButton': '开始我的第一句',
-    'trialFooter': '每个账户一次，无需付款',
-    'trialSentences': '新增个人表达 30 条',
-    'trialTts': '新增 AI 配音 3000 字符',
-    'trialTranscription': '录音转写 5 分钟',
-    'trialPreparation': '长文整理 3 次',
-    'monthlyTitle': '月会员',
-    'monthlyTag': '持续练习',
-    'monthlyUnit': '人民币／月',
-    'monthlySubtitle': '每个付费账期，给日常表达留些空间',
-    'monthlyButton': '开通月会员',
-    'paymentPlannedButton': '支付渠道待接入',
-    'monthlyFooter': '主动续购，不自动扣款',
-    'paymentPlannedFooter': '真实支付渠道配置完成后开放',
-    'monthlySentences': '新增个人表达 300 条',
-    'monthlyTts': '新增 AI 配音 30000 字符',
-    'monthlyTranscription': '录音转写 60 分钟',
-    'monthlyPreparation': '长文整理 30 次',
-    'proTitle': 'Pro 会员',
-    'proTag': '高频使用',
-    'proSubtitle': '给高频生成、配音和转写更多空间',
-    'proButton': '开通 Pro',
-    'proPlannedButton': '即将开放',
-    'proFooter': '主动续购，不自动扣款',
-    'proPlannedFooter': '支付渠道与权益核验完成后开放',
-    'proSentences': '新增个人表达 900 条',
-    'proTts': '新增 AI 配音 90000 字符',
-    'proTranscription': '录音转写 180 分钟',
-    'proPreparation': '长文整理 90 次',
-    'modelDisclosure': '使用 OpenAI GPT 模型生成和整理学习内容，语音由 AI 合成。',
-    'freeModeTitle': '当前为公开体验模式',
-    'freeModeBody': '会员限制尚未开启。已有内容和示例可以继续学习，开关启用后才会显示购买与试用入口。',
-    'trialPreparingTitle': '试用准备中',
-    'trialPreparingBody': '已为这次账户请求保留试用额度；首次个人表达成功保存后开始计时。',
     'trialNotStartedTitle': '试用尚未开始',
-    'trialNotStartedBody': '7 天试用从第一条个人表达成功并由服务器保存后开始，不会因注册或登录提前计时。',
+    'trialPreparingTitle': '试用准备中',
     'trialExpiredTitle': '试用已结束',
-    'trialExpiredBody': '已有内容仍可学习，开通月会员后可继续新增生成。',
     'trialUnavailableTitle': '试用状态暂不可用',
+    'monthlyTitle': '月会员',
+    'proTitle': 'Pro 会员',
+    'sourcePaid': '付费',
+    'sourceGrant': '赠送',
+    'sourceCompensation': '补偿',
+    'sourceTrial': '试用',
+    'expiresAt': '有效至 {date}',
+    'noAutoRenew': '到期后不会自动扣款',
+    'cycleRemaining': '本账期剩余',
+    'sentences': '个人表达',
+    'ttsCharacters': '新增 AI 配音',
+    'transcription': '录音转写',
+    'preparations': '长文整理',
+    'exhausted': '本账期已用完',
+    'noNewQuota': '本项本账期没有新增额度',
+    'changePlan': '更改方案',
+    'nextPeriod': '下一账期从 {date} 开始 · {plan}',
+    'statusError': '会员状态暂时无法读取，请稍后重试。',
+    'previewError': '方案预览暂时无法读取，请稍后重试。',
+    'retry': '重试',
+    'close': '关闭',
+    'currentPlan': '当前：{plan}',
+    'noAvailableActions': '当前没有可更改的方案。',
+    'upgradePro': '升级到 Pro',
+    'schedulePro': '购买下一个 Pro 账期',
+    'buyMonthly': '开通月会员',
+    'buyPro': '开通 Pro',
+    'extendMonthly': '再购买一个月会员',
+    'extendPro': '再购买一个月 Pro',
+    'unavailableAction': '暂不可用的方案',
+    'amountDue': '应付金额',
+    'effectiveAt': '生效时间：{date}',
+    'postUpgradeRemaining': '升级后本账期剩余',
+    'newPeriodQuota': '新账期额度',
+    'someQuotaUnchanged': '部分项目本账期没有新增额度。',
+    'previewIncomplete': '当前无法确认此方案，请稍后重试。',
+    'salesDisabled': '会员购买暂未开放，请稍后再试。',
+    'paymentUnavailable': '支付渠道尚未配置，暂未开放。',
+    'proUnavailable': 'Pro 购买尚未开放。',
+    'processing': '正在处理…',
+    'trialRemainderDropped': '付款核实后付费账期立即开始，试用剩余额度不结转。',
+    'futurePeriods': '已排期账期',
+    'futureUnchanged': '其后已排期的账期保持原样。',
+    'trialNotStartedBody': '7 天试用从第一条个人表达成功并由服务器保存后开始，不会因注册或登录提前计时。',
+    'trialPreparingBody': '已为这次账户请求保留试用额度；首次个人表达成功保存后开始计时。',
+    'trialExpiredBody': '已有内容仍可学习，开通月会员后可继续新增生成。',
     'trialUnavailableBody': '暂时无法确认权益，请稍后重试；不会把读取失败当作免费额度。',
-    'pendingTitle': '订单等待核验',
-    'pendingBody': '完成付款后查询原订单，查询期间不会重复创建或重复扣款。',
-    'checkOrder': '查询订单状态',
-    'expires': '有效至',
-    'viewPlans': '查看方案说明',
   },
   'zh-Hant': {
-    'headline': '把想說的話，變成每天的小進步。',
-    'subtitle': '先記下一句，再選擇適合你的學習方式。',
+    'memberTitle': '會員',
+    'notEnrolled': '未開通',
     'trialTitle': '個人試用',
-    'trialTag': '7 天體驗',
-    'free': '免費',
-    'trialSubtitle': '首次個人表達產生成功後開始',
-    'trialButton': '開始我的第一句',
-    'trialFooter': '每個帳戶一次，無須付款',
-    'trialSentences': '新增個人表達 30 條',
-    'trialTts': '新增 AI 配音 3000 字元',
-    'trialTranscription': '錄音轉寫 5 分鐘',
-    'trialPreparation': '長文整理 3 次',
-    'monthlyTitle': '月會員',
-    'monthlyTag': '持續練習',
-    'monthlyUnit': '人民幣／月',
-    'monthlySubtitle': '每個付費帳期，給日常表達留些空間',
-    'monthlyButton': '開通月會員',
-    'paymentPlannedButton': '支付渠道待接入',
-    'monthlyFooter': '主動續購，不自動扣款',
-    'paymentPlannedFooter': '真實支付渠道設定完成後開放',
-    'monthlySentences': '新增個人表達 300 條',
-    'monthlyTts': '新增 AI 配音 30000 字元',
-    'monthlyTranscription': '錄音轉寫 60 分鐘',
-    'monthlyPreparation': '長文整理 30 次',
-    'proTitle': 'Pro 會員',
-    'proTag': '高頻使用',
-    'proSubtitle': '給高頻產生、配音和轉寫更多空間',
-    'proButton': '開通 Pro',
-    'proPlannedButton': '即將開放',
-    'proFooter': '主動續購，不自動扣款',
-    'proPlannedFooter': '支付渠道與權益核驗完成後開放',
-    'proSentences': '新增個人表達 900 條',
-    'proTts': '新增 AI 配音 90000 字元',
-    'proTranscription': '錄音轉寫 180 分鐘',
-    'proPreparation': '長文整理 90 次',
-    'modelDisclosure': '使用 OpenAI GPT 模型產生與整理學習內容，語音由 AI 合成。',
-    'freeModeTitle': '目前為公開體驗模式',
-    'freeModeBody': '會員限制尚未開啟。已有內容和範例可以繼續學習，開關啟用後才會顯示購買與試用入口。',
-    'trialPreparingTitle': '試用準備中',
-    'trialPreparingBody': '已為這次帳戶請求保留試用額度；首次個人表達成功儲存後開始計時。',
     'trialNotStartedTitle': '試用尚未開始',
-    'trialNotStartedBody': '7 天試用從第一條個人表達成功並由伺服器儲存後開始，不會因註冊或登入提前計時。',
+    'trialPreparingTitle': '試用準備中',
     'trialExpiredTitle': '試用已結束',
-    'trialExpiredBody': '已有內容仍可學習，開通月會員後可繼續新增生成。',
     'trialUnavailableTitle': '試用狀態暫不可用',
+    'monthlyTitle': '月會員',
+    'proTitle': 'Pro 會員',
+    'sourcePaid': '付費',
+    'sourceGrant': '贈送',
+    'sourceCompensation': '補償',
+    'sourceTrial': '試用',
+    'expiresAt': '有效至 {date}',
+    'noAutoRenew': '到期後不會自動扣款',
+    'cycleRemaining': '本帳期剩餘',
+    'sentences': '個人表達',
+    'ttsCharacters': '新增 AI 配音',
+    'transcription': '錄音轉寫',
+    'preparations': '長文整理',
+    'exhausted': '本帳期已用完',
+    'noNewQuota': '本項本帳期沒有新增額度',
+    'changePlan': '更改方案',
+    'nextPeriod': '下一帳期從 {date} 開始 · {plan}',
+    'statusError': '會員狀態暫時無法讀取，請稍後重試。',
+    'previewError': '方案預覽暫時無法讀取，請稍後重試。',
+    'retry': '重試',
+    'close': '關閉',
+    'currentPlan': '目前：{plan}',
+    'noAvailableActions': '目前沒有可更改的方案。',
+    'upgradePro': '升級到 Pro',
+    'schedulePro': '購買下一個 Pro 帳期',
+    'buyMonthly': '開通月會員',
+    'buyPro': '開通 Pro',
+    'extendMonthly': '再購買一個月會員',
+    'extendPro': '再購買一個月 Pro',
+    'unavailableAction': '暫不可用的方案',
+    'amountDue': '應付金額',
+    'effectiveAt': '生效時間：{date}',
+    'postUpgradeRemaining': '升級後本帳期剩餘',
+    'newPeriodQuota': '新帳期額度',
+    'someQuotaUnchanged': '部分項目本帳期沒有新增額度。',
+    'previewIncomplete': '目前無法確認此方案，請稍後重試。',
+    'salesDisabled': '會員購買暫未開放，請稍後再試。',
+    'paymentUnavailable': '支付渠道尚未設定，暫未開放。',
+    'proUnavailable': 'Pro 購買尚未開放。',
+    'processing': '正在處理…',
+    'trialRemainderDropped': '付款核實後付費帳期立即開始，試用剩餘額度不結轉。',
+    'futurePeriods': '已排期帳期',
+    'futureUnchanged': '其後已排期的帳期保持原樣。',
+    'trialNotStartedBody': '7 天試用從第一條個人表達成功並由伺服器儲存後開始，不會因註冊或登入提前計時。',
+    'trialPreparingBody': '已為這次帳戶請求保留試用額度；首次個人表達成功儲存後開始計時。',
+    'trialExpiredBody': '已有內容仍可學習，開通月會員後可繼續新增生成。',
     'trialUnavailableBody': '暫時無法確認權益，請稍後重試；不會把讀取失敗當作免費額度。',
-    'pendingTitle': '訂單等待核驗',
-    'pendingBody': '完成付款後查詢原訂單，查詢期間不會重複建立或重複扣款。',
-    'checkOrder': '查詢訂單狀態',
-    'expires': '有效至',
-    'viewPlans': '查看方案說明',
   },
   'ja': {
-    'headline': '思いを、毎日の小さな前進へ。',
-    'subtitle': 'まず一文を書いて、自分に合う学び方を選びましょう。',
+    'memberTitle': 'メンバーシップ',
+    'notEnrolled': '未加入',
     'trialTitle': '個人トライアル',
-    'trialTag': '7日間',
-    'free': '無料',
-    'trialSubtitle': '最初の個人表現の生成成功から開始',
-    'trialButton': '最初の一文を始める',
-    'trialFooter': '1アカウント1回、支払い不要',
-    'trialSentences': '個人表現 30 文',
-    'trialTts': 'AI音声 3000 文字',
-    'trialTranscription': '文字起こし 5 分',
-    'trialPreparation': '長文整理 3 回',
-    'monthlyTitle': '月額メンバー',
-    'monthlyTag': '継続練習',
-    'monthlyUnit': '人民元／月',
-    'monthlySubtitle': '毎月の学びに、日々の表現の余白を。',
-    'monthlyButton': '月額を開く',
-    'paymentPlannedButton': '決済チャネル準備中',
-    'monthlyFooter': '手動更新、自動請求なし',
-    'paymentPlannedFooter': '実際の決済チャネルの設定後に公開',
-    'monthlySentences': '個人表現 300 文',
-    'monthlyTts': 'AI音声 30000 文字',
-    'monthlyTranscription': '文字起こし 60 分',
-    'monthlyPreparation': '長文整理 30 回',
-    'proTitle': 'Pro メンバー',
-    'proTag': '高頻度向け',
-    'proSubtitle': '生成・音声・文字起こしをたくさん使う人へ',
-    'proButton': 'Pro を開く',
-    'proPlannedButton': '近日公開',
-    'proFooter': '手動更新、自動請求なし',
-    'proPlannedFooter': '決済と権益の確認が整い次第公開',
-    'proSentences': '個人表現 900 文',
-    'proTts': 'AI音声 90000 文字',
-    'proTranscription': '文字起こし 180 分',
-    'proPreparation': '長文整理 90 回',
-    'modelDisclosure': 'OpenAI GPT モデルで学習内容を生成・整理し、音声は AI 合成です。',
-    'freeModeTitle': '現在は公開体験モードです',
-    'freeModeBody': '会員制限はまだ有効ではありません。保存済みの内容とサンプルは学習できます。',
-    'trialPreparingTitle': 'トライアル準備中',
-    'trialPreparingBody': 'アカウントのトライアル枠を確保しました。最初の個人表現が保存された時点から計測します。',
     'trialNotStartedTitle': 'トライアルは未開始です',
-    'trialNotStartedBody':
-        '7日間は、最初の個人表現が成功してサーバーに保存された時点から始まります。登録やログインでは始まりません。',
+    'trialPreparingTitle': 'トライアル準備中',
     'trialExpiredTitle': 'トライアル終了',
-    'trialExpiredBody': '保存済みの内容は学習できます。新しい生成を続けるには月額メンバーを開いてください。',
     'trialUnavailableTitle': 'トライアル状態を確認できません',
-    'trialUnavailableBody':
-        '権益を確認できませんでした。しばらくしてから再試行してください。読み取り失敗を無料枠として扱いません。',
-    'pendingTitle': '注文を確認中',
-    'pendingBody': '支払い後に同じ注文を確認します。確認中に重複注文は作成しません。',
-    'checkOrder': '注文状況を確認',
-    'expires': '有効期限',
-    'viewPlans': 'プランを見る',
+    'monthlyTitle': '月額メンバー',
+    'proTitle': 'Pro メンバー',
+    'sourcePaid': '購入',
+    'sourceGrant': '付与',
+    'sourceCompensation': '補償',
+    'sourceTrial': 'トライアル',
+    'expiresAt': '有効期限：{date}',
+    'noAutoRenew': '期限後に自動請求されません',
+    'cycleRemaining': '今期の残り',
+    'sentences': '個人表現',
+    'ttsCharacters': 'AI音声',
+    'transcription': '文字起こし',
+    'preparations': '長文整理',
+    'exhausted': '今期は使い切りました',
+    'noNewQuota': '今期この項目の追加枠はありません',
+    'changePlan': 'プランを変更',
+    'nextPeriod': '次の期間：{date} · {plan}',
+    'statusError': 'メンバー状態を読み込めません。しばらくしてから再試行してください。',
+    'previewError': 'プランを確認できません。しばらくしてから再試行してください。',
+    'retry': '再試行',
+    'close': '閉じる',
+    'currentPlan': '現在：{plan}',
+    'noAvailableActions': '現在変更できるプランはありません。',
+    'upgradePro': 'Pro にアップグレード',
+    'schedulePro': '次期 Pro を購入',
+    'buyMonthly': '月額メンバーに加入',
+    'buyPro': 'Pro に加入',
+    'extendMonthly': '月額メンバーをもう1か月購入',
+    'extendPro': 'Pro をもう1か月購入',
+    'unavailableAction': '利用できないプラン',
+    'amountDue': 'お支払い額',
+    'effectiveAt': '適用日時：{date}',
+    'postUpgradeRemaining': 'アップグレード後の今期残り',
+    'newPeriodQuota': '新しい期間の枠',
+    'someQuotaUnchanged': '今期、一部の項目に追加枠はありません。',
+    'previewIncomplete': 'このプランを確認できません。後でもう一度お試しください。',
+    'salesDisabled': 'メンバー購入は現在利用できません。後でもう一度お試しください。',
+    'paymentUnavailable': '決済チャネルはまだ設定されていません。',
+    'proUnavailable': 'Pro の購入はまだ利用できません。',
+    'processing': '処理中…',
+    'trialRemainderDropped': '支払い確認後に有料期間が始まり、トライアルの残り枠は引き継がれません。',
+    'futurePeriods': '予定済みの期間',
+    'futureUnchanged': 'その後に予定された期間は変更されません。',
+    'trialNotStartedBody':
+        '7日間のトライアルは、最初の個人表現が成功してサーバーに保存された時点から始まります。登録やログインでは始まりません。',
+    'trialPreparingBody': 'このアカウントのトライアル枠を確保しました。最初の個人表現が保存された時点から計測します。',
+    'trialExpiredBody': '保存済みの内容は学習できます。月額メンバーに加入すると新しい生成を続けられます。',
+    'trialUnavailableBody': '権益を確認できませんでした。後でもう一度お試しください。読み込み失敗を無料枠として扱いません。',
   },
 };

@@ -3962,6 +3962,19 @@ class _SettingsPageState extends State<_SettingsPage> {
             s.text('settings.subtitle'),
             style: SelahTypography.bodyMedium(),
           ),
+          AnimatedBuilder(
+            animation: c.membership,
+            builder: (context, _) =>
+                c.isRegistered && c.membership.membershipModeEnabled
+                ? Padding(
+                    padding: const EdgeInsets.only(top: 20),
+                    child: MembershipStatusCard(
+                      controller: c.membership,
+                      uiLocale: c.uiLocale,
+                    ),
+                  )
+                : const SizedBox.shrink(),
+          ),
           const SizedBox(height: 20),
           _SettingsSection(
             title: s.languageTitle(),
@@ -4258,19 +4271,6 @@ class _SettingsPageState extends State<_SettingsPage> {
               ),
             ],
           ),
-          if (c.membership.membershipModeEnabled && c.isRegistered) ...[
-            const SizedBox(height: 14),
-            _SettingsSection(
-              title: s.translateLegacy('会员与方案'),
-              icon: Icons.workspace_premium_outlined,
-              children: [
-                MembershipCenter(
-                  controller: c.membership,
-                  uiLocale: c.uiLocale,
-                ),
-              ],
-            ),
-          ],
           if (c.isRegistered) ...[
             const SizedBox(height: 14),
             _SettingsSection(

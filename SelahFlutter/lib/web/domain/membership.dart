@@ -80,6 +80,48 @@ class MembershipFuturePeriod {
   final DateTime endsAt;
 }
 
+class MembershipPlanQuote {
+  const MembershipPlanQuote({
+    required this.action,
+    required this.chargeFenCny,
+    required this.effectiveAt,
+    required this.currentPeriodEffect,
+    required this.limitsAfter,
+    required this.usageAfter,
+    required this.futurePeriods,
+    required this.warnings,
+    required this.unavailableReason,
+  });
+
+  final String action;
+  final int? chargeFenCny;
+  final DateTime? effectiveAt;
+  final String currentPeriodEffect;
+  final PlanEntitlements? limitsAfter;
+  final MembershipUsage? usageAfter;
+  final List<MembershipFuturePeriod> futurePeriods;
+  final List<String> warnings;
+  final String? unavailableReason;
+
+  factory MembershipPlanQuote.fromJson(Map<String, dynamic> json) {
+    final limits = _jsonMap(json['limitsAfter']);
+    final warnings = json['warnings'];
+    return MembershipPlanQuote(
+      action: json['action']?.toString() ?? '',
+      chargeFenCny: _nonNegativeInt(json['chargeFenCny']),
+      effectiveAt: _date(json['effectiveAt']),
+      currentPeriodEffect: json['currentPeriodEffect']?.toString() ?? '',
+      limitsAfter: limits == null ? null : PlanEntitlements.fromJson(limits),
+      usageAfter: _membershipUsage(json['usageAfter']),
+      futurePeriods: _membershipFuturePeriods(json['futurePeriods']),
+      warnings: warnings is List
+          ? warnings.map((item) => item.toString()).toList()
+          : const [],
+      unavailableReason: json['unavailableReason']?.toString(),
+    );
+  }
+}
+
 /// The client uses these Pro entitlements for display; only the server grants
 /// them. Self-service purchase stays disabled until the migration and a
 /// verified payment adapter are live.

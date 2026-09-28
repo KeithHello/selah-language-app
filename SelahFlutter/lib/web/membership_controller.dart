@@ -24,6 +24,11 @@ class MembershipController extends ChangeNotifier {
   bool loading = false;
   bool checked = false;
   String? error;
+  String? statusError;
+  bool planPreviewLoading = false;
+  bool planPreviewChecked = false;
+  bool planPreviewFailed = false;
+  List<MembershipPlanQuote> planQuotes = const [];
   bool checkoutLoading = false;
   String? checkoutStatus;
   String? pendingOrderId;
@@ -31,6 +36,7 @@ class MembershipController extends ChangeNotifier {
   bool _disposed = false;
   String? _accountId;
   int _accountGeneration = 0;
+  int _planPreviewRequest = 0;
 
   bool get membershipModeEnabled => summary.membershipModeEnabled;
   bool get trialSignupsAvailable =>
@@ -75,23 +81,80 @@ class MembershipController extends ChangeNotifier {
     }
     loading = true;
     error = null;
+    statusError = null;
     if (!_disposed) notifyListeners();
     try {
       final response = await gateway.invoke('membership-status', {}, get: true);
       if (!_isCurrent(expectedAccountId, requestGeneration)) return;
       summary = MembershipSummary.fromJson(response);
       checked = true;
+      statusError = null;
     } on LearningFailure catch (f) {
       if (!_isCurrent(expectedAccountId, requestGeneration)) return;
       error = f.message;
+      statusError = f.message;
       checked = true;
     } catch (_) {
       if (!_isCurrent(expectedAccountId, requestGeneration)) return;
       error = '会员状态暂时无法读取，请稍后重试。';
+      statusError = error;
       checked = true;
     } finally {
       if (_isCurrent(expectedAccountId, requestGeneration)) {
         loading = false;
+        if (!_disposed) notifyListeners();
+      }
+    }
+  }
+
+  Future<void> loadPlanPreview() async {
+    if (_disposed) return;
+    if (planPreviewLoading) return;
+    final accountId = gateway.userId;
+    if (!gateway.configured || accountId == null) {
+      planPreviewLoading = false;
+      planPreviewChecked = true;
+      planPreviewFailed = true;
+      planQuotes = const [];
+      if (!_disposed) notifyListeners();
+      return;
+    }
+    final accountGeneration = _accountGeneration;
+    final request = ++_planPreviewRequest;
+    planPreviewLoading = true;
+    planPreviewChecked = false;
+    planPreviewFailed = false;
+    planQuotes = const [];
+    if (!_disposed) notifyListeners();
+    try {
+      final response = await gateway.invoke('membership-plan-preview', {});
+      if (!_isCurrent(accountId, accountGeneration) ||
+          request != _planPreviewRequest) {
+        return;
+      }
+      final rawQuotes = response['quotes'];
+      if (rawQuotes is! List) throw const FormatException();
+      planQuotes = rawQuotes
+          .whereType<Map>()
+          .map(
+            (quote) =>
+                MembershipPlanQuote.fromJson(Map<String, dynamic>.from(quote)),
+          )
+          .where((quote) => quote.action.isNotEmpty)
+          .toList();
+      planPreviewChecked = true;
+    } catch (_) {
+      if (!_isCurrent(accountId, accountGeneration) ||
+          request != _planPreviewRequest) {
+        return;
+      }
+      planQuotes = const [];
+      planPreviewChecked = true;
+      planPreviewFailed = true;
+    } finally {
+      if (_isCurrent(accountId, accountGeneration) &&
+          request == _planPreviewRequest) {
+        planPreviewLoading = false;
         if (!_disposed) notifyListeners();
       }
     }
@@ -223,10 +286,16 @@ class MembershipController extends ChangeNotifier {
       generation == _accountGeneration;
 
   void _resetAccountScopedState() {
+    _planPreviewRequest++;
     summary = MembershipSummary.empty();
     loading = false;
     checked = false;
     error = null;
+    statusError = null;
+    planPreviewLoading = false;
+    planPreviewChecked = false;
+    planPreviewFailed = false;
+    planQuotes = const [];
     checkoutLoading = false;
     checkoutStatus = null;
     _clearPendingOrder();
