@@ -19,6 +19,7 @@ import '../domain/research_profile.dart';
 import '../domain/web_status.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
+import '../platform/listen_route.dart';
 import 'membership_widgets.dart';
 import 'research_profile_widgets.dart';
 import 'feedback_survey_widgets.dart';
@@ -116,10 +117,32 @@ class _WebLearningAppState extends State<WebLearningApp> {
 
   void _applyDeepLink() {
     if (_deepLinkApplied || !mounted || !widget.controller.initialized) return;
-    if (Uri.base.fragment == '/admin' &&
+    final route = ListenRouteHistory.instance.current;
+    if (route.fragment == '/admin' &&
         widget.controller.state.preferences.onboarded) {
       _deepLinkApplied = true;
       widget.controller.navigate(5);
+      return;
+    }
+    if (route.sentenceId != null &&
+        widget.controller.state.preferences.onboarded) {
+      _deepLinkApplied = true;
+      final sentence = widget.controller.state.sentences
+          .where(
+            (candidate) =>
+                candidate.id == route.sentenceId && !candidate.archived,
+          )
+          .firstOrNull;
+      if (sentence == null) {
+        ListenRouteHistory.instance.clear();
+      } else {
+        widget.controller.openDetail(1, sentence);
+      }
+    } else if (route.fragment.startsWith('/listen/') &&
+        widget.controller.state.preferences.onboarded) {
+      _deepLinkApplied = true;
+      ListenRouteHistory.instance.clear();
+      widget.controller.showToast('这句内容已不可用。', isError: true);
     }
   }
 
@@ -194,13 +217,20 @@ class _WebRootState extends State<_WebRoot> {
   int _seenToastRevision = 0;
   int _seenAuthPromptRevision = 0;
   bool _authDialogOpen = false;
+  StreamSubscription<ListenRouteLocation>? _listenRouteSubscription;
+  String? _lastListenDetailId;
+  int _lastTab = 0;
 
   LearningController get controller => widget.controller;
 
   @override
   void initState() {
     super.initState();
+    _lastTab = controller.tab;
     controller.addListener(_controllerChanged);
+    _listenRouteSubscription = ListenRouteHistory.instance.changes.listen(
+      _routeChanged,
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) => _controllerChanged());
   }
 
@@ -209,7 +239,13 @@ class _WebRootState extends State<_WebRoot> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.controller == controller) return;
     oldWidget.controller.removeListener(_controllerChanged);
+    _listenRouteSubscription?.cancel();
     controller.addListener(_controllerChanged);
+    _lastListenDetailId = null;
+    _lastTab = controller.tab;
+    _listenRouteSubscription = ListenRouteHistory.instance.changes.listen(
+      _routeChanged,
+    );
     _seenToastRevision = 0;
     _seenAuthPromptRevision = 0;
     WidgetsBinding.instance.addPostFrameCallback((_) => _controllerChanged());
@@ -217,6 +253,7 @@ class _WebRootState extends State<_WebRoot> {
 
   void _controllerChanged() {
     if (!mounted) return;
+    _syncListenRoute();
     if (controller.toastRevision > _seenToastRevision) {
       _seenToastRevision = controller.toastRevision;
       final message = controller.toastMessage;
@@ -230,6 +267,64 @@ class _WebRootState extends State<_WebRoot> {
       _seenAuthPromptRevision = controller.authPromptRevision;
       final reason = controller.takeAuthPromptReason();
       if (reason != null) _showAuthPrompt(reason);
+    }
+  }
+
+  void _syncListenRoute() {
+    final route = ListenRouteHistory.instance;
+    final detailId = controller.detailTab == 1
+        ? controller.detailSentenceId
+        : null;
+    if (detailId != null) {
+      final available = controller.state.sentences.any(
+        (sentence) => sentence.id == detailId && !sentence.archived,
+      );
+      if (!available) {
+        _lastListenDetailId = detailId;
+        route.clear();
+        controller.closeDetail();
+        controller.showToast('这句内容已不可用。', isError: true);
+        return;
+      }
+      if (route.current.sentenceId != detailId) {
+        if (_lastListenDetailId == null) {
+          route.openDetail(detailId, originTab: _lastTab);
+        } else {
+          route.replaceDetail(detailId);
+        }
+      }
+    } else if (_lastListenDetailId != null) {
+      route.clear();
+    }
+    _lastListenDetailId = detailId;
+    _lastTab = controller.tab;
+  }
+
+  void _routeChanged(ListenRouteLocation location) {
+    if (!mounted || !controller.initialized) return;
+    if (location.sentenceId != null) {
+      final sentence = controller.state.sentences
+          .where(
+            (candidate) =>
+                candidate.id == location.sentenceId && !candidate.archived,
+          )
+          .firstOrNull;
+      if (sentence == null) {
+        ListenRouteHistory.instance.clear();
+        if (controller.detailTab == 1) controller.closeDetail();
+        controller.showToast('这句内容已不可用。', isError: true);
+        return;
+      }
+      if (controller.detailSentenceId != sentence.id ||
+          controller.detailTab != 1) {
+        controller.openDetail(1, sentence);
+      }
+      return;
+    }
+    if (controller.detailTab == 1) {
+      controller.closeDetail();
+      final destination = location.originTab ?? 1;
+      if (controller.tab != destination) controller.navigate(destination);
     }
   }
 
@@ -310,6 +405,7 @@ class _WebRootState extends State<_WebRoot> {
   @override
   void dispose() {
     controller.removeListener(_controllerChanged);
+    _listenRouteSubscription?.cancel();
     _toastTimer?.cancel();
     super.dispose();
   }
@@ -478,29 +574,33 @@ class _WebShell extends StatelessWidget {
   }
 
   Widget _mobileLayout(BuildContext context, List<_TabSpec> tabs) {
+    final listenDetail = controller.tab == 1 && controller.detailTab == 1;
     return Scaffold(
       body: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            _MobileTopBar(controller: controller, tabs: tabs),
+            if (!listenDetail)
+              _MobileTopBar(controller: controller, tabs: tabs),
             Expanded(child: _Content(controller: controller)),
           ],
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: controller.tab.clamp(0, tabs.length - 1),
-        onDestinationSelected: controller.navigate,
-        destinations: tabs
-            .map(
-              (tab) => NavigationDestination(
-                icon: Icon(tab.icon),
-                selectedIcon: Icon(tab.icon),
-                label: tab.label,
-              ),
-            )
-            .toList(),
-      ),
+      bottomNavigationBar: listenDetail
+          ? null
+          : NavigationBar(
+              selectedIndex: controller.tab.clamp(0, tabs.length - 1),
+              onDestinationSelected: controller.navigate,
+              destinations: tabs
+                  .map(
+                    (tab) => NavigationDestination(
+                      icon: Icon(tab.icon),
+                      selectedIcon: Icon(tab.icon),
+                      label: tab.label,
+                    ),
+                  )
+                  .toList(),
+            ),
     );
   }
 }
@@ -1031,7 +1131,8 @@ class _Content extends StatelessWidget {
             ],
           ),
         ),
-        if (controller.loopSessionVisible)
+        if (controller.loopSessionVisible &&
+            !(controller.tab == 1 && controller.detailTab == 1))
           LoopListeningMiniPlayer(controller: controller),
       ],
     );
@@ -2249,13 +2350,11 @@ class _GeneratedSentenceCard extends StatelessWidget {
               children: [
                 Expanded(
                   child: FilledButton.icon(
-                    onPressed: controller.busy
-                        ? null
-                        : () async {
-                            controller.clearMessage();
-                            controller.selectSentence(sentence);
-                            await controller.play(sentence);
-                          },
+                    onPressed: () async {
+                      controller.clearMessage();
+                      controller.selectSentence(sentence);
+                      await controller.play(sentence);
+                    },
                     icon: const Icon(Icons.headphones_rounded, size: 18),
                     label: Text(strings.translateLegacy('去聆听这句')),
                   ),
@@ -2452,139 +2551,127 @@ class _ListenPage extends StatefulWidget {
 }
 
 class _ListenPageState extends State<_ListenPage> {
-  LearnSentence? _selected;
   bool _revealed = false;
-  bool _loopMode = false;
+  String? _lastSentenceId;
+  final ScrollController _listScroll = ScrollController();
+  final ScrollController _detailScroll = ScrollController();
 
   LearningController get c => widget.controller;
 
   @override
+  void initState() {
+    super.initState();
+    _lastSentenceId = c.detailTab == 1 ? c.detailSentenceId : null;
+  }
+
+  @override
   void didUpdateWidget(covariant _ListenPage oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (c.activeSentence != null && c.activeSentence!.id != _selected?.id) {
-      _selected = c.activeSentence;
+    final sentenceId = c.detailTab == 1 ? c.detailSentenceId : null;
+    if (sentenceId != _lastSentenceId) {
+      _lastSentenceId = sentenceId;
       _revealed = false;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _detailScroll.hasClients) _detailScroll.jumpTo(0);
+      });
     }
+  }
+
+  @override
+  void dispose() {
+    _listScroll.dispose();
+    _detailScroll.dispose();
+    super.dispose();
+  }
+
+  void _openSentence(LearnSentence sentence) {
+    final sameSentence = c.detailTab == 1 && c.detailSentenceId == sentence.id;
+    final isAlreadyPlaying =
+        c.isPlaybackFor(sentence) &&
+        const {'playing', 'paused', 'loading'}.contains(c.playback['state']);
+    if (sameSentence && isAlreadyPlaying) return;
+    c.selectSentence(sentence);
+    unawaited(c.play(sentence));
+  }
+
+  void _backToListenList() {
+    final route = ListenRouteHistory.instance;
+    if (route.back()) return;
+    route.clear();
+    c.closeDetail();
+    if (c.tab != 1) c.navigate(1);
   }
 
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
-    final loopMode = _loopMode || c.loopSessionVisible;
+    final loopMode = c.listenLoopMode;
     final sentences = c.state.sentences
         .where((sentence) => !sentence.archived)
         .toList();
-    final selected =
-        _selected != null &&
-            sentences.any((sentence) => sentence.id == _selected!.id)
-        ? sentences.firstWhere((sentence) => sentence.id == _selected!.id)
-        : (c.activeSentence != null &&
-                  sentences.any(
-                    (sentence) => sentence.id == c.activeSentence!.id,
-                  )
-              ? sentences.firstWhere(
-                  (sentence) => sentence.id == c.activeSentence!.id,
-                )
-              : (sentences.isNotEmpty ? sentences.first : null));
-    return _PageFrame(
-      maxWidth: 980,
-      child: sentences.isEmpty
-          ? _EmptyState(
-              icon: Icons.headphones_outlined,
-              title: strings.translateLegacy('还没有可聆听的句子'),
-              message: strings.translateLegacy('先在 Today 写下一句，或完成开场的三句种子。'),
-              actionLabel: strings.translateLegacy('去 Today 写一句'),
-              onAction: () => c.navigate(0),
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                if (loopMode) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ListenHeader(controller: c, count: sentences.length),
-                      const SizedBox(height: 14),
-                      _ListenModeSwitch(
-                        loopMode: loopMode,
-                        uiLocale: c.uiLocale,
-                        onChanged: (value) => setState(() => _loopMode = value),
+    final detailId = c.detailTab == 1 ? c.detailSentenceId : null;
+    final selected = sentences
+        .where((sentence) => sentence.id == detailId)
+        .firstOrNull;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final split = constraints.maxWidth >= 760;
+        final inDetail = !split && detailId != null;
+        final desktopSelected =
+            selected ??
+            sentences
+                .where((sentence) => sentence.id == c.activeSentence?.id)
+                .firstOrNull ??
+            sentences.firstOrNull;
+        final selectedIndex = desktopSelected == null
+            ? -1
+            : sentences.indexWhere(
+                (sentence) => sentence.id == desktopSelected.id,
+              );
+        final frame = Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: 980,
+              minHeight: constraints.maxHeight,
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
+              child: sentences.isEmpty
+                  ? _EmptyState(
+                      icon: Icons.headphones_outlined,
+                      title: strings.translateLegacy('还没有可聆听的句子'),
+                      message: strings.translateLegacy(
+                        '先在 Today 写下一句，或完成开场的三句种子。',
                       ),
-                      const SizedBox(height: 16),
-                      LoopListeningPanel(controller: c),
-                    ],
-                  );
-                }
-                final split = constraints.maxWidth >= 680;
-                if (!split) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ListenHeader(controller: c, count: sentences.length),
-                      const SizedBox(height: 14),
-                      _ListenModeSwitch(
-                        loopMode: loopMode,
-                        uiLocale: c.uiLocale,
-                        onChanged: (value) => setState(() => _loopMode = value),
-                      ),
-                      const SizedBox(height: 16),
-                      _SentencePicker(
-                        sentences: sentences,
-                        selected: selected,
-                        uiLocale: c.uiLocale,
-                        onSelect: (sentence) {
-                          c.selectSentence(sentence);
-                          setState(() {
-                            _selected = sentence;
-                            _revealed = false;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      if (selected != null)
-                        _ListenDetail(
-                          key: ValueKey(selected.id),
-                          controller: c,
-                          sentence: selected,
-                          revealed: _revealed,
-                          onReveal: () => setState(() => _revealed = true),
-                        ),
-                    ],
-                  );
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _ListenHeader(controller: c, count: sentences.length),
-                    const SizedBox(height: 16),
-                    _ListenModeSwitch(
-                      loopMode: loopMode,
-                      uiLocale: c.uiLocale,
-                      onChanged: (value) => setState(() => _loopMode = value),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
+                      actionLabel: strings.translateLegacy('去 Today 写一句'),
+                      onAction: () => c.navigate(0),
+                    )
+                  : Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        SizedBox(
-                          width: 280,
-                          child: _SentencePicker(
-                            sentences: sentences,
-                            selected: selected,
-                            uiLocale: c.uiLocale,
-                            onSelect: (sentence) {
-                              c.selectSentence(sentence);
-                              setState(() {
-                                _selected = sentence;
-                                _revealed = false;
-                              });
-                            },
+                        if (inDetail) ...[
+                          _ListenDetailHeader(
+                            controller: c,
+                            index: selectedIndex + 1,
+                            count: sentences.length,
+                            onBack: _backToListenList,
                           ),
-                        ),
-                        const SizedBox(width: 18),
-                        Expanded(
-                          child: selected == null
-                              ? const SizedBox.shrink()
-                              : _ListenDetail(
+                          const SizedBox(height: 10),
+                          if (selected == null)
+                            Expanded(
+                              child: Center(
+                                child: Text(
+                                  strings.text('listen.playbackError'),
+                                ),
+                              ),
+                            )
+                          else ...[
+                            Expanded(
+                              child: SingleChildScrollView(
+                                controller: _detailScroll,
+                                padding: const EdgeInsets.only(bottom: 16),
+                                child: _ListenDetail(
                                   key: ValueKey(selected.id),
                                   controller: c,
                                   sentence: selected,
@@ -2592,13 +2679,106 @@ class _ListenPageState extends State<_ListenPage> {
                                   onReveal: () =>
                                       setState(() => _revealed = true),
                                 ),
-                        ),
+                              ),
+                            ),
+                            _ListenSequenceControls(
+                              controller: c,
+                              index: selectedIndex,
+                              count: sentences.length,
+                            ),
+                          ],
+                        ] else ...[
+                          _ListenHeader(controller: c, count: sentences.length),
+                          const SizedBox(height: 12),
+                          _ListenModeSwitch(
+                            loopMode: loopMode,
+                            uiLocale: c.uiLocale,
+                            onChanged: c.setListenLoopMode,
+                          ),
+                          const SizedBox(height: 14),
+                          Expanded(
+                            child: loopMode
+                                ? SingleChildScrollView(
+                                    child: LoopListeningPanel(controller: c),
+                                  )
+                                : split
+                                ? Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      SizedBox(
+                                        width: 280,
+                                        child: _SentencePicker(
+                                          controller: _listScroll,
+                                          sentences: sentences,
+                                          selected: desktopSelected,
+                                          uiLocale: c.uiLocale,
+                                          onSelect: _openSentence,
+                                        ),
+                                      ),
+                                      const SizedBox(width: 18),
+                                      Expanded(
+                                        child: desktopSelected == null
+                                            ? const SizedBox.shrink()
+                                            : Column(
+                                                children: [
+                                                  _ListenPlaybackPanel(
+                                                    controller: c,
+                                                    sentence: desktopSelected,
+                                                  ),
+                                                  _LoopPausedNotice(
+                                                    controller: c,
+                                                  ),
+                                                  const SizedBox(height: 10),
+                                                  Expanded(
+                                                    child: SingleChildScrollView(
+                                                      controller: _detailScroll,
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            bottom: 16,
+                                                          ),
+                                                      child: _ListenDetail(
+                                                        key: ValueKey(
+                                                          desktopSelected.id,
+                                                        ),
+                                                        controller: c,
+                                                        sentence:
+                                                            desktopSelected,
+                                                        revealed: _revealed,
+                                                        includePlayback: false,
+                                                        onReveal: () =>
+                                                            setState(() {
+                                                              _revealed = true;
+                                                            }),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  _ListenSequenceControls(
+                                                    controller: c,
+                                                    index: selectedIndex,
+                                                    count: sentences.length,
+                                                  ),
+                                                ],
+                                              ),
+                                      ),
+                                    ],
+                                  )
+                                : _SentencePicker(
+                                    controller: _listScroll,
+                                    sentences: sentences,
+                                    selected: null,
+                                    uiLocale: c.uiLocale,
+                                    onSelect: _openSentence,
+                                  ),
+                          ),
+                        ],
                       ],
                     ),
-                  ],
-                );
-              },
             ),
+          ),
+        );
+        return frame;
+      },
     );
   }
 }
@@ -2640,6 +2820,149 @@ class _ListenHeader extends StatelessWidget {
   }
 }
 
+class _LoopPausedNotice extends StatelessWidget {
+  const _LoopPausedNotice({required this.controller});
+
+  final LearningController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!const {'paused', 'ready'}.contains(controller.loopPlayback['state'])) {
+      return const SizedBox.shrink();
+    }
+
+    final strings = SelahStrings.of(controller.uiLocale);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: SelahColors.lavenderSoft,
+          borderRadius: BorderRadius.circular(SelahCornerRadius.md),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.pause_circle_outline_rounded,
+              size: 18,
+              color: SelahColors.lavender,
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                strings.text('listen.loopPaused'),
+                style: SelahTypography.bodySmall(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: controller.resumeLoop,
+              child: Text(strings.text('listen.resumeLoop')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ListenDetailHeader extends StatelessWidget {
+  const _ListenDetailHeader({
+    required this.controller,
+    required this.index,
+    required this.count,
+    required this.onBack,
+  });
+
+  final LearningController controller;
+  final int index;
+  final int count;
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = SelahStrings.of(controller.uiLocale);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              key: const ValueKey('listen-detail-back'),
+              tooltip: strings.text('listen.back'),
+              onPressed: onBack,
+              icon: const Icon(Icons.arrow_back_rounded),
+              constraints: const BoxConstraints(
+                minWidth: SelahSpacing.minTouchTarget,
+                minHeight: SelahSpacing.minTouchTarget,
+              ),
+            ),
+            Expanded(
+              child: Text(
+                strings.text('listen.back'),
+                style: SelahTypography.labelLarge(),
+              ),
+            ),
+            Text(
+              strings.message('listen.position', {
+                'index': '$index',
+                'count': '$count',
+              }),
+              style: SelahTypography.labelLarge(color: SelahColors.lavender),
+            ),
+          ],
+        ),
+        _LoopPausedNotice(controller: controller),
+      ],
+    );
+  }
+}
+
+class _ListenSequenceControls extends StatelessWidget {
+  const _ListenSequenceControls({
+    required this.controller,
+    required this.index,
+    required this.count,
+  });
+
+  final LearningController controller;
+  final int index;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = SelahStrings.of(controller.uiLocale);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: index > 0
+                  ? () => controller.moveListenSentence(-1)
+                  : null,
+              icon: const Icon(Icons.arrow_back_rounded, size: 18),
+              label: Text(strings.text('listen.previous')),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: FilledButton.icon(
+              onPressed: index >= 0 && index + 1 < count
+                  ? () => controller.moveListenSentence(1)
+                  : null,
+              icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+              label: Text(strings.text('listen.next')),
+              iconAlignment: IconAlignment.end,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ListenModeSwitch extends StatelessWidget {
   const _ListenModeSwitch({
     required this.loopMode,
@@ -2670,12 +2993,14 @@ class _ListenModeSwitch extends StatelessWidget {
 
 class _SentencePicker extends StatelessWidget {
   const _SentencePicker({
+    required this.controller,
     required this.sentences,
     required this.selected,
     required this.uiLocale,
     required this.onSelect,
   });
 
+  final ScrollController controller;
   final List<LearnSentence> sentences;
   final LearnSentence? selected;
   final String uiLocale;
@@ -2687,8 +3012,13 @@ class _SentencePicker extends StatelessWidget {
     return Card(
       child: ClipRRect(
         borderRadius: BorderRadius.circular(SelahCornerRadius.lg),
-        child: Column(
-          children: sentences.map((sentence) {
+        child: ListView.separated(
+          controller: controller,
+          itemCount: sentences.length,
+          separatorBuilder: (_, _) =>
+              const Divider(height: 1, color: SelahColors.borderLight),
+          itemBuilder: (context, index) {
+            final sentence = sentences[index];
             final active = selected?.id == sentence.id;
             return Semantics(
               button: true,
@@ -2698,14 +3028,17 @@ class _SentencePicker extends StatelessWidget {
                 onTap: () => onSelect(sentence),
                 child: Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.all(14),
+                  constraints: const BoxConstraints(
+                    minHeight: SelahSpacing.minTouchTarget,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
                   decoration: BoxDecoration(
                     color: active
                         ? SelahColors.lavenderSoft
                         : Colors.transparent,
-                    border: const Border(
-                      bottom: BorderSide(color: SelahColors.borderLight),
-                    ),
                   ),
                   child: Row(
                     children: [
@@ -2736,12 +3069,55 @@ class _SentencePicker extends StatelessWidget {
                           size: 17,
                           color: SelahColors.sage,
                         ),
+                      const SizedBox(width: 6),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 19,
+                        color: SelahColors.textTertiary,
+                      ),
                     ],
                   ),
                 ),
               ),
             );
-          }).toList(),
+          },
+        ),
+      ),
+    );
+  }
+}
+
+class _ListenPlaybackPanel extends StatelessWidget {
+  const _ListenPlaybackPanel({
+    required this.controller,
+    required this.sentence,
+  });
+
+  final LearningController controller;
+  final LearnSentence sentence;
+
+  @override
+  Widget build(BuildContext context) {
+    final playback = controller.isPlaybackFor(sentence)
+        ? controller.playback
+        : const <String, dynamic>{};
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: _PlaybackControls(
+          controller: controller,
+          sentence: sentence,
+          playing: _isPlaying(playback),
+          position:
+              _numValue(playback, const [
+                'positionMs',
+                'position',
+                'currentMs',
+              ]) ??
+              0,
+          duration: _numValue(playback, const ['durationMs', 'duration']) ?? 0,
+          cacheToken:
+              '${controller.playback['state']}:${controller.playback['key'] ?? ''}',
         ),
       ),
     );
@@ -2754,12 +3130,14 @@ class _ListenDetail extends StatefulWidget {
     required this.controller,
     required this.sentence,
     required this.revealed,
+    this.includePlayback = true,
     required this.onReveal,
   });
 
   final LearningController controller;
   final LearnSentence sentence;
   final bool revealed;
+  final bool includePlayback;
   final VoidCallback onReveal;
 
   @override
@@ -2826,7 +3204,19 @@ class _ListenDetailState extends State<_ListenDetail> {
                 _ReviewStatePill(state: sentence.reviewState),
               ],
             ),
-            const SizedBox(height: 24),
+            if (widget.includePlayback) ...[
+              const SizedBox(height: 18),
+              _PlaybackControls(
+                controller: controller,
+                sentence: sentence,
+                playing: playing,
+                position: position,
+                duration: duration,
+                cacheToken:
+                    '${controller.playback['state']}:${controller.playback['key'] ?? ''}',
+              ),
+            ],
+            const SizedBox(height: 20),
             Text(
               strings.translateLegacy('中文提示'),
               style: SelahTypography.labelSmall(
@@ -2910,16 +3300,6 @@ class _ListenDetailState extends State<_ListenDetail> {
                 ),
               ],
             ],
-            const SizedBox(height: 26),
-            _PlaybackControls(
-              controller: controller,
-              sentence: sentence,
-              playing: playing,
-              position: position,
-              duration: duration,
-              cacheToken:
-                  '${controller.playback['state']}:${controller.playback['key'] ?? ''}',
-            ),
           ],
         ),
       ),
@@ -3121,10 +3501,16 @@ class _PlaybackControls extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(controller.uiLocale);
-    final preparing =
-        controller.isPlaybackFor(sentence) &&
-        controller.playback['state'] == 'loading';
+    final activePlayback = controller.isPlaybackFor(sentence);
+    final playbackState = activePlayback
+        ? controller.playback['state']
+        : 'idle';
+    final preparing = playbackState == 'loading';
+    final playbackMessage = activePlayback
+        ? controller.playback['message'] as String?
+        : null;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(
           children: [
@@ -3140,7 +3526,7 @@ class _PlaybackControls extends StatelessWidget {
                 child: Slider(
                   value: position.clamp(0, duration),
                   max: duration > 0 ? duration : 1.0,
-                  onChanged: duration > 0
+                  onChanged: activePlayback && duration > 0
                       ? (value) => controller.seek(value)
                       : null,
                 ),
@@ -3157,13 +3543,11 @@ class _PlaybackControls extends StatelessWidget {
         Row(
           children: [
             FilledButton.icon(
-              onPressed: controller.busy
+              onPressed: preparing
                   ? null
                   : () async {
-                      controller.clearMessage();
-                      if (controller.isPlaybackFor(sentence) &&
-                          (playing ||
-                              controller.playback['state'] == 'paused')) {
+                      if (activePlayback &&
+                          (playing || playbackState == 'paused')) {
                         await controller.togglePlayback();
                       } else {
                         await controller.play(sentence);
@@ -3181,16 +3565,14 @@ class _PlaybackControls extends StatelessWidget {
                     ),
               label: Text(
                 preparing
-                    ? strings.text('today.preparing')
+                    ? strings.text('listen.preparing')
                     : strings.translateLegacy(playing ? '暂停' : '播放'),
               ),
             ),
             const SizedBox(width: 9),
             IconButton(
               tooltip: strings.translateLegacy('重新播放'),
-              onPressed: controller.busy
-                  ? null
-                  : () => controller.play(sentence),
+              onPressed: preparing ? null : () => controller.play(sentence),
               icon: const Icon(Icons.replay_rounded),
             ),
             const Spacer(),
@@ -3206,6 +3588,22 @@ class _PlaybackControls extends StatelessWidget {
           controller: controller,
           label: strings.translateLegacy('语速'),
         ),
+        if (playbackState == 'error' || playbackState == 'ready') ...[
+          const SizedBox(height: 4),
+          Text(
+            playbackMessage ??
+                strings.text(
+                  playbackState == 'ready'
+                      ? 'listen.playbackReady'
+                      : 'listen.playbackError',
+                ),
+            style: SelahTypography.bodySmall(
+              color: playbackState == 'error'
+                  ? SelahColors.coral
+                  : SelahColors.textSecondary,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -4043,8 +4441,7 @@ class _NotesCard extends StatelessWidget {
               children: [
                 FilledButton.icon(
                   onPressed: () {
-                    controller.selectSentence(sentence);
-                    controller.navigate(1);
+                    controller.selectSentence(sentence, autoplay: true);
                   },
                   icon: const Icon(Icons.headphones_rounded, size: 18),
                   label: Text(strings.text('notes.listen')),

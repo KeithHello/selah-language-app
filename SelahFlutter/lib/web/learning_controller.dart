@@ -106,6 +106,7 @@ class LearningController extends ChangeNotifier {
   int? detailTab;
   String? detailSentenceId;
   LearnSentence? activeSentence;
+  bool listenLoopMode = false;
 
   /// A same-source record whose generation provenance is unknown. It is only
   /// offered as a history link; it is never treated as a reusable result.
@@ -1504,6 +1505,7 @@ class LearningController extends ChangeNotifier {
   void navigate(int value) {
     final next = value.clamp(0, 5);
     if (tab == next) return;
+    if (detailTab == 1) unawaited(stopPlayback());
     tab = next;
     detailTab = null;
     detailSentenceId = null;
@@ -1514,6 +1516,30 @@ class LearningController extends ChangeNotifier {
   void selectSentence(LearnSentence sentence, {bool autoplay = false}) {
     openDetail(1, sentence);
     if (autoplay) unawaited(play(sentence));
+  }
+
+  void setListenLoopMode(bool value) {
+    if (listenLoopMode == value) return;
+    listenLoopMode = value;
+    notifyListeners();
+  }
+
+  void moveListenSentence(int offset, {bool autoplay = true}) {
+    if (offset == 0 || tab != 1) return;
+    final sentences = state.sentences
+        .where((sentence) => !sentence.archived)
+        .toList();
+    final detailId = detailTab == 1 ? detailSentenceId : null;
+    final activeId = activeSentence?.id;
+    final activeIsAvailable =
+        activeId != null &&
+        sentences.any((sentence) => sentence.id == activeId);
+    final currentId =
+        detailId ?? (activeIsAvailable ? activeId : sentences.firstOrNull?.id);
+    final index = sentences.indexWhere((sentence) => sentence.id == currentId);
+    final nextIndex = index + offset;
+    if (index < 0 || nextIndex < 0 || nextIndex >= sentences.length) return;
+    selectSentence(sentences[nextIndex], autoplay: autoplay);
   }
 
   void openDetail(int page, LearnSentence sentence) {
@@ -1532,9 +1558,11 @@ class LearningController extends ChangeNotifier {
   }
 
   void closeDetail() {
+    final wasListenDetail = detailTab == 1;
     detailTab = null;
     detailSentenceId = null;
     notifyListeners();
+    if (wasListenDetail) unawaited(stopPlayback());
   }
 
   Future<void> addSeed(LearnSentence seed) => _run((generation) async {
@@ -1622,11 +1650,6 @@ class LearningController extends ChangeNotifier {
               'registered_account_required',
             }.contains(errorCode)) {
           _requestAuthPrompt(error!, promotesError: true);
-        }
-        if (playback['state'] == 'loading') {
-          playback['state'] = 'idle';
-          _playKey = null;
-          _playSentenceId = null;
         }
       }
     } finally {
@@ -2339,16 +2362,11 @@ class LearningController extends ChangeNotifier {
     }
   }
 
-  Future<void> play([LearnSentence? sentence]) => _run((generation) async {
-    if (loopActive) await pauseLoop();
-    await stopPlayback();
-    try {
-      await platform.invoke('audioUnlock');
-    } catch (_) {
-      // The media element still receives the user's play gesture below. Some
-      // browsers do not expose AudioContext, so unlocking is best effort.
-    }
-    final playbackGeneration = _playGeneration;
+  Future<void> play([LearnSentence? sentence]) async {
+    final generation = _accountGeneration;
+    final playbackGeneration = ++_playGeneration;
+    bool current() =>
+        _current(generation) && playbackGeneration == _playGeneration;
     void ensurePlayback() {
       _ensureCurrent(generation);
       if (playbackGeneration != _playGeneration) {
@@ -2356,88 +2374,175 @@ class LearningController extends ChangeNotifier {
       }
     }
 
-    ensurePlayback();
     final selected = sentence ?? activeSentence ?? state.sentences.firstOrNull;
-    if (selected == null) throw const LearningFailure('先选一句想听的英文。');
-    final account = _accountId;
-    final reference = await _loopTrackReference(selected, LoopTrackRole.target);
-    final key = reference.key;
-    ensurePlayback();
-    _clearCompanionCue();
+    _previewKey = null;
     _playSession = null;
-    await platform.invoke('audioStop');
-    ensurePlayback();
-    activeSentence = selected;
-    _playKey = key;
-    _playSentenceId = selected.id;
+    _playKey = selected == null ? null : 'pending:${selected.id}';
+    _playSentenceId = selected?.id;
     playback = {'state': 'loading', 'positionMs': 0, 'durationMs': 0};
+    error = null;
+    errorCode = null;
     notifyListeners();
-    var cached = await isAudioCached(selected);
-    ensurePlayback();
-    if (!cached) {
-      ensurePlayback();
-      final legacyKey = await _legacySingleAudioKey(selected);
-      final legacyManifest = state.audio[legacyKey];
-      if (legacyManifest != null && state.audio[key] == null) {
-        await _change(
-          (next) => next.audio[key] = Map<String, dynamic>.from(legacyManifest),
-          sync: false,
-          generation: generation,
-        );
-        ensurePlayback();
-      }
-      await _audioPreparation.ensure(
-        reference,
-        (track) => _ensureAudioTrack(track, generation),
-      );
-      _sameAccount(account);
-      ensurePlayback();
-      cached = await isAudioCached(selected);
-    }
-    ensurePlayback();
-    if (!cached) throw const LearningFailure('音频缓存不存在，请重试准备。');
+
+    // Stop the old source and unlock synchronously from the user's tap.
+    final stop = platform
+        .invoke('audioStop')
+        .then<void>((_) {}, onError: (_) {});
+    final unlock = platform
+        .invoke('audioUnlock')
+        .then<void>((_) {}, onError: (_) {});
     try {
-      await platform.invoke('audioPlay', {
-        'accountId': account,
-        'key': key,
-        'speed': state.preferences.speed,
-      });
-    } on LearningFailure catch (failure) {
-      if (failure.code == 'autoplay_blocked') {
-        throw const LearningFailure(
-          '音频已准备好，请再点一次播放。',
-          code: 'autoplay_blocked',
-        );
+      if (selected == null) {
+        throw const LearningFailure('先选一句想听的英文。');
       }
-      rethrow;
+      if (loopActive) await _pauseLoopForSinglePlayback();
+      ensurePlayback();
+      await stop;
+      ensurePlayback();
+      try {
+        await unlock;
+      } catch (_) {
+        // The media play call below reports whether playback was accepted.
+      }
+      ensurePlayback();
+      _clearCompanionCue();
+      activeSentence = selected;
+      final account = _accountId;
+      final reference = await _loopTrackReference(
+        selected,
+        LoopTrackRole.target,
+      );
+      final key = reference.key;
+      ensurePlayback();
+      _playKey = key;
+
+      var cached = await isAudioCached(selected);
+      ensurePlayback();
+      if (!cached) {
+        final legacyKey = await _legacySingleAudioKey(selected);
+        final legacyManifest = state.audio[legacyKey];
+        if (legacyManifest != null && state.audio[key] == null) {
+          await _change(
+            (next) =>
+                next.audio[key] = Map<String, dynamic>.from(legacyManifest),
+            sync: false,
+            generation: generation,
+          );
+          ensurePlayback();
+        }
+        await _audioPreparation.ensure(
+          reference,
+          (track) => _ensureAudioTrack(track, generation),
+        );
+        _sameAccount(account);
+        ensurePlayback();
+        cached = await isAudioCached(selected);
+      }
+      ensurePlayback();
+      if (!cached) throw const LearningFailure('音频缓存不存在，请重试准备。');
+
+      try {
+        await platform.invoke('audioPlay', {
+          'accountId': account,
+          'key': key,
+          'speed': state.preferences.speed,
+        });
+      } on LearningFailure catch (failure) {
+        if (failure.code != 'autoplay_blocked') rethrow;
+        playback = {
+          'state': 'ready',
+          'key': key,
+          'positionMs': 0,
+          'durationMs': 0,
+          'message': strings.text('listen.playbackReady'),
+        };
+        return;
+      }
+      ensurePlayback();
+      _playSession = newId();
+      _playKey = key;
+      _playSentenceId = selected.id;
+      playback = {
+        'state': 'playing',
+        'key': key,
+        'positionMs': 0,
+        'durationMs': 0,
+      };
+    } catch (failure) {
+      if (!current()) return;
+      if (failure is LearningFailure && failure.code == 'playback_cancelled') {
+        playback = {'state': 'idle', 'positionMs': 0, 'durationMs': 0};
+        _playKey = null;
+        _playSentenceId = null;
+        return;
+      }
+      final code = failure is LearningFailure ? failure.code : null;
+      final message = _message(failure);
+      playback = {
+        'state': 'error',
+        'key': _playKey,
+        'positionMs': 0,
+        'durationMs': 0,
+        'message': message,
+      };
+      if (configured &&
+          const {
+            'unauthorized',
+            'login_required',
+            'registered_account_required',
+          }.contains(code)) {
+        _requestAuthPrompt(message, promotesError: true);
+      }
+    } finally {
+      if (current()) notifyListeners();
     }
-    ensurePlayback();
-    _playSession = newId();
-    _playKey = key;
-    _playSentenceId = selected.id;
-    playback = {
-      'state': 'playing',
-      'key': key,
-      'positionMs': 0,
-      'durationMs': 0,
-    };
-  });
-  Future<void> togglePlayback() async {
-    if (playback['state'] == 'playing') {
-      await _run((generation) async {
-        await platform.invoke('audioPause');
-        _ensureCurrent(generation);
-        playback['state'] = 'paused';
-      });
-    } else if (playback['state'] == 'paused') {
-      await _run((generation) async {
-        await platform.invoke('audioResume');
-        _ensureCurrent(generation);
-        playback['state'] = 'playing';
-      });
+  }
+
+  Future<void> _pauseLoopForSinglePlayback() async {
+    final sessionId = _loopSessionId;
+    if (sessionId == null || !loopActive) return;
+    final status = await platform.invoke('audioLoopPause', {
+      'accountId': _loopAccountId ?? _accountId,
+      'sessionId': sessionId,
+    });
+    if (status is Map) {
+      loopPlayback = objectMap(status);
     } else {
-      await play();
+      loopPlayback['state'] = 'paused';
     }
+    notifyListeners();
+  }
+
+  Future<void> togglePlayback() async {
+    final generation = _accountGeneration;
+    final playbackGeneration = _playGeneration;
+    try {
+      if (playback['state'] == 'playing') {
+        await platform.invoke('audioPause');
+        if (!_current(generation) || playbackGeneration != _playGeneration) {
+          return;
+        }
+        playback['state'] = 'paused';
+      } else if (playback['state'] == 'paused') {
+        await platform.invoke('audioResume');
+        if (!_current(generation) || playbackGeneration != _playGeneration) {
+          return;
+        }
+        playback['state'] = 'playing';
+      } else {
+        await play();
+        return;
+      }
+    } catch (failure) {
+      if (_current(generation) && playbackGeneration == _playGeneration) {
+        playback = {
+          ...playback,
+          'state': 'error',
+          'message': _message(failure),
+        };
+      }
+    }
+    if (_current(generation)) notifyListeners();
   }
 
   Future<void> seek(double milliseconds) => _run((generation) async {
@@ -2453,7 +2558,11 @@ class LearningController extends ChangeNotifier {
     _playSentenceId = null;
     playback = {'state': 'idle', 'positionMs': 0, 'durationMs': 0};
     notifyListeners();
-    await platform.invoke('audioStop');
+    try {
+      await platform.invoke('audioStop');
+    } catch (_) {
+      // The UI no longer considers the stopped session active.
+    }
     if (_current(generation)) notifyListeners();
   }
 

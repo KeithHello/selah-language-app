@@ -150,9 +150,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
                     const SizedBox(
                       width: 16,
                       height: 16,
-                      child: CircularProgressIndicator.adaptive(
-                        strokeWidth: 2,
-                      ),
+                      child: CircularProgressIndicator.adaptive(strokeWidth: 2),
                     ),
                     const SizedBox(width: 10),
                     Text(
@@ -519,8 +517,8 @@ class LoopListeningMiniPlayer extends StatelessWidget {
                     ? 'loop.resumeLoop'
                     : 'loop.pauseLoop',
               ),
-              onPressed: () => status['state'] == 'paused' ||
-                      status['state'] == 'ready'
+              onPressed: () =>
+                  status['state'] == 'paused' || status['state'] == 'ready'
                   ? controller.resumeLoop()
                   : controller.pauseLoop(),
               icon: Icon(
@@ -531,7 +529,10 @@ class LoopListeningMiniPlayer extends StatelessWidget {
             ),
             IconButton(
               tooltip: strings.text('loop.return'),
-              onPressed: () => controller.navigate(1),
+              onPressed: () {
+                controller.setListenLoopMode(true);
+                controller.navigate(1);
+              },
               icon: const Icon(Icons.open_in_new_rounded),
             ),
           ],
