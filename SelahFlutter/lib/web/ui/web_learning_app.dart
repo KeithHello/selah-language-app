@@ -1023,6 +1023,8 @@ class _TodayPageState extends State<_TodayPage> {
   bool _preparing = false;
   bool _polishing = false;
   bool _spokenCapture = false;
+  int? _removedIndex;
+  PreparationSegment? _removedSegment;
 
   LearningController get c => widget.controller;
 
@@ -1234,17 +1236,61 @@ class _TodayPageState extends State<_TodayPage> {
         .map((controller) => controller.text.trim())
         .toList();
     c.clearMessage();
-    if (texts.isEmpty || texts.any((text) => text.isEmpty)) {
-      setState(() => c.error = c.strings.translateLegacy('请补全每一个分句，再继续生成。'));
+    if (texts.isEmpty) {
+      _cancelSegments();
       return;
     }
+    for (var index = texts.length - 1; index >= 0; index--) {
+      if (texts[index].isEmpty) {
+        c.removePreparationSegment(index, allowLast: true);
+      }
+    }
+    final preparation = c.preparationDraft;
+    if (preparation == null || preparation.segments.isEmpty) {
+      _cancelSegments();
+      return;
+    }
+    if (preparation.segments.length == 1) {
+      final text = preparation.segments.single.sourceText.trim();
+      c.cancelPreparation();
+      _clearRemovedSegment();
+      await c.generate(text);
+      return;
+    }
+    _clearRemovedSegment();
     await c.generatePreparedSegments();
   }
 
   Future<void> _cancelSegments() async {
     c.cancelPreparation();
     _disposeSegments();
+    _clearRemovedSegment();
     setState(() {});
+  }
+
+  void _clearRemovedSegment() {
+    _removedIndex = null;
+    _removedSegment = null;
+  }
+
+  void _removeSegment(int index) {
+    final preparation = c.preparationDraft;
+    if (preparation == null) return;
+    final segment = preparation.segments[index];
+    if (c.removePreparationSegment(index)) {
+      setState(() {
+        _removedIndex = index;
+        _removedSegment = segment;
+      });
+    }
+  }
+
+  void _undoRemoveSegment() {
+    final index = _removedIndex;
+    final segment = _removedSegment;
+    if (index == null || segment == null) return;
+    c.insertPreparationSegment(index, segment);
+    setState(_clearRemovedSegment);
   }
 
   Future<void> _toggleRecording() async {
@@ -1374,6 +1420,9 @@ class _TodayPageState extends State<_TodayPage> {
             busy: c.busy,
             onGenerate: _generateSegments,
             onCancel: _cancelSegments,
+            onRemoveSegment: _removeSegment,
+            onUndoRemove: _undoRemoveSegment,
+            removedSegment: (index: _removedIndex, segment: _removedSegment),
           ),
         ],
         if (c.legacySentence != null) ...[
@@ -2272,6 +2321,9 @@ class _SegmentEditor extends StatelessWidget {
     required this.busy,
     required this.onGenerate,
     required this.onCancel,
+    required this.onRemoveSegment,
+    required this.onUndoRemove,
+    required this.removedSegment,
   });
 
   final List<TextEditingController> segments;
@@ -2281,6 +2333,9 @@ class _SegmentEditor extends StatelessWidget {
   final bool busy;
   final VoidCallback onGenerate;
   final VoidCallback onCancel;
+  final ValueChanged<int> onRemoveSegment;
+  final VoidCallback onUndoRemove;
+  final ({int? index, PreparationSegment? segment}) removedSegment;
 
   @override
   Widget build(BuildContext context) {
@@ -2326,80 +2381,42 @@ class _SegmentEditor extends StatelessWidget {
               style: SelahTypography.bodySmall(),
             ),
             const SizedBox(height: 14),
-            ...segments.asMap().entries.map((entry) {
-              final metadata = entry.key < preparationSegments.length
-                  ? preparationSegments[entry.key]
-                  : null;
-              final currentText = entry.value.text.trim();
-              final removed = metadata?.removedText.toSet().toList() ?? [];
-              final showRemoved =
-                  metadata != null &&
-                  currentText == metadata.polishedText.trim() &&
-                  removed.isNotEmpty;
-              final showOriginal =
-                  metadata != null &&
-                  currentText != metadata.originalText.trim();
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 9),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+            ...segments.asMap().entries.map(
+              (entry) => _SegmentInput(
+                index: entry.key,
+                controller: entry.value,
+                metadata: entry.key < preparationSegments.length
+                    ? preparationSegments[entry.key]
+                    : null,
+                strings: strings,
+                busy: busy,
+                canRemove: segments.length > 1,
+                onRemoveSegment: onRemoveSegment,
+                onCancel: onCancel,
+              ),
+            ),
+            if (removedSegment.index != null && removedSegment.segment != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
                   children: [
-                    TextField(
-                      controller: entry.value,
-                      enabled: !busy,
-                      maxLength: 500,
-                      maxLines: 2,
-                      decoration: InputDecoration(
-                        labelText: strings.segmentLabel(entry.key + 1),
-                        counterText: '',
-                      ),
-                    ),
-                    if (showRemoved || showOriginal)
-                      Padding(
-                        padding: const EdgeInsets.only(left: 8, top: 2),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            if (showRemoved)
-                              Expanded(
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 10),
-                                  child: Text(
-                                    strings.message('today.removedFillers', {
-                                      'items': removed.join('、'),
-                                    }),
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: SelahTypography.labelSmall(
-                                      color: SelahColors.textTertiary,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            else
-                              const Spacer(),
-                            if (showOriginal)
-                              TextButton(
-                                onPressed: busy
-                                    ? null
-                                    : () {
-                                        final text = metadata.originalText;
-                                        entry.value.value = TextEditingValue(
-                                          text: text,
-                                          selection: TextSelection.collapsed(
-                                            offset: text.length,
-                                          ),
-                                        );
-                                      },
-                                child: Text(strings.text('today.useOriginal')),
-                              ),
-                          ],
+                    Expanded(
+                      child: Text(
+                        strings.message('today.segmentRemoved', {
+                          'index': '${removedSegment.index! + 1}',
+                        }),
+                        style: SelahTypography.labelSmall(
+                          color: SelahColors.lavenderInk,
                         ),
                       ),
+                    ),
+                    TextButton(
+                      onPressed: busy ? null : onUndoRemove,
+                      child: Text(strings.text('today.undo')),
+                    ),
                   ],
                 ),
-              );
-            }),
+              ),
             Row(
               children: [
                 TextButton(
@@ -2416,6 +2433,126 @@ class _SegmentEditor extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _SegmentInput extends StatelessWidget {
+  const _SegmentInput({
+    required this.index,
+    required this.controller,
+    required this.metadata,
+    required this.strings,
+    required this.busy,
+    required this.canRemove,
+    required this.onRemoveSegment,
+    required this.onCancel,
+  });
+
+  final int index;
+  final TextEditingController controller;
+  final PreparationSegment? metadata;
+  final SelahStrings strings;
+  final bool busy;
+  final bool canRemove;
+  final ValueChanged<int> onRemoveSegment;
+  final VoidCallback onCancel;
+
+  @override
+  Widget build(BuildContext context) {
+    final currentText = controller.text.trim();
+    final removed = metadata?.removedText.toSet().toList() ?? [];
+    final showRemoved =
+        metadata != null &&
+        currentText == metadata!.polishedText.trim() &&
+        removed.isNotEmpty;
+    final showOriginal =
+        metadata != null && currentText != metadata!.originalText.trim();
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 9),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          TextField(
+            controller: controller,
+            enabled: !busy,
+            maxLength: 500,
+            maxLines: 2,
+            decoration: InputDecoration(
+              labelText: strings.segmentLabel(index + 1),
+              counterText: '',
+              suffixIcon: IconButton(
+                tooltip: canRemove
+                    ? strings.text('today.removeSegment')
+                    : strings.text('today.cancelOrganize'),
+                onPressed: busy
+                    ? null
+                    : canRemove
+                    ? () => onRemoveSegment(index)
+                    : onCancel,
+                visualDensity: VisualDensity.compact,
+                icon: Icon(
+                  canRemove ? Icons.close_rounded : Icons.cancel_outlined,
+                  size: 19,
+                ),
+              ),
+            ),
+          ),
+          if (currentText.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 2),
+              child: Text(
+                strings.text('today.emptySegmentHint'),
+                style: SelahTypography.labelSmall(
+                  color: SelahColors.textTertiary,
+                ),
+              ),
+            )
+          else if (showRemoved || showOriginal)
+            Padding(
+              padding: const EdgeInsets.only(left: 8, top: 2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (showRemoved)
+                    Expanded(
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Text(
+                          strings.message('today.removedFillers', {
+                            'items': removed.join('、'),
+                          }),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: SelahTypography.labelSmall(
+                            color: SelahColors.textTertiary,
+                          ),
+                        ),
+                      ),
+                    )
+                  else
+                    const Spacer(),
+                  if (showOriginal)
+                    TextButton(
+                      onPressed: busy
+                          ? null
+                          : () {
+                              final text = metadata!.originalText;
+                              controller.value = TextEditingValue(
+                                text: text,
+                                selection: TextSelection.collapsed(
+                                  offset: text.length,
+                                ),
+                              );
+                            },
+                      child: Text(strings.text('today.useOriginal')),
+                    ),
+                ],
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -2627,9 +2764,10 @@ class _ListenPageState extends State<_ListenPage> {
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
     final loopMode = _loopMode || c.loopSessionVisible;
-    final sentences = c.state.sentences
+    final visibleSentences = c.state.sentences
         .where((sentence) => !sentence.archived)
         .toList();
+    final sentences = c.orderedListenSentences(visibleSentences);
     final selected =
         _selected != null &&
             sentences.any((sentence) => sentence.id == _selected!.id)
@@ -2774,6 +2912,7 @@ class _ListenPageState extends State<_ListenPage> {
                         sentences: sentences,
                         selected: selected,
                         uiLocale: c.uiLocale,
+                        controller: c,
                         onSelect: (sentence) {
                           c.selectSentence(sentence);
                           setState(() {
@@ -2814,6 +2953,7 @@ class _ListenPageState extends State<_ListenPage> {
                             sentences: sentences,
                             selected: selected,
                             uiLocale: c.uiLocale,
+                            controller: c,
                             onSelect: (sentence) {
                               c.selectSentence(sentence);
                               setState(() {
@@ -2916,12 +3056,14 @@ class _SentencePicker extends StatelessWidget {
     required this.sentences,
     required this.selected,
     required this.uiLocale,
+    required this.controller,
     required this.onSelect,
   });
 
   final List<LearnSentence> sentences;
   final LearnSentence? selected;
   final String uiLocale;
+  final LearningController controller;
   final ValueChanged<LearnSentence> onSelect;
 
   @override
@@ -2980,6 +3122,24 @@ class _SentencePicker extends StatelessWidget {
                           size: 17,
                           color: SelahColors.sage,
                         ),
+                      const SizedBox(width: 4),
+                      IconButton(
+                        tooltip: controller.isPinnedSentence(sentence.id)
+                            ? strings.text('listen.unpin')
+                            : strings.text('listen.pin'),
+                        onPressed: () =>
+                            controller.togglePinnedSentence(sentence.id),
+                        visualDensity: VisualDensity.compact,
+                        icon: Icon(
+                          controller.isPinnedSentence(sentence.id)
+                              ? Icons.push_pin_rounded
+                              : Icons.push_pin_outlined,
+                          size: 19,
+                          color: controller.isPinnedSentence(sentence.id)
+                              ? SelahColors.lavender
+                              : SelahColors.textTertiary,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -3068,6 +3228,18 @@ class _ListenDetailState extends State<_ListenDetail> {
                 _CategoryPill(category: sentence.category),
                 const Spacer(),
                 _ReviewStatePill(state: sentence.reviewState),
+                if (controller.isPinnedSentence(sentence.id)) ...[
+                  const SizedBox(width: 8),
+                  Chip(
+                    label: Text(strings.text('listen.pinned')),
+                    backgroundColor: SelahColors.lavenderSoft,
+                    side: const BorderSide(color: SelahColors.lavender),
+                    labelStyle: SelahTypography.labelSmall(
+                      color: SelahColors.lavenderInk,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
               ],
             ),
             const SizedBox(height: 24),

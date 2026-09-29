@@ -129,11 +129,10 @@ void main() {
     expect(find.text('我真的会谢、我真的不行了'), findsNothing);
 
     final beforeEvents = controller.state.events.length;
-    await tester.tap(find.bySemanticsLabel("拆解词组：I literally can't even"));
+    final phrase = find.bySemanticsLabel("拆解词组：I literally can't even");
+    await tester.ensureVisible(phrase);
+    await tester.tap(phrase);
     await tester.pumpAndSettle();
-    await tester.ensureVisible(
-      find.bySemanticsLabel("拆解词组：I literally can't even"),
-    );
     expect(find.text('我真的会谢、我真的不行了'), findsOneWidget);
     expect(find.text('又加班到半夜、又熬夜'), findsNothing);
     expect(controller.state.events.length, beforeEvents);

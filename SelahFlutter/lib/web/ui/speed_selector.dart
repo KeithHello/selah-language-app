@@ -41,6 +41,18 @@ class SpeedSelector extends StatelessWidget {
                 ? null
                 : (_) => controller.updatePreferences(speed: speed),
             visualDensity: VisualDensity.compact,
+            backgroundColor: SelahColors.cardSoft,
+            selectedColor: SelahColors.lavenderSoft,
+            labelStyle: SelahTypography.labelSmall(
+              color: current == speed
+                  ? SelahColors.lavenderInk
+                  : SelahColors.textSecondary,
+            ),
+            side: BorderSide(
+              color: current == speed
+                  ? SelahColors.lavender
+                  : SelahColors.border,
+            ),
           ),
         ),
         OutlinedButton(
@@ -50,6 +62,13 @@ class SpeedSelector extends StatelessWidget {
           style: OutlinedButton.styleFrom(
             visualDensity: VisualDensity.compact,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+            backgroundColor: isPreset ? null : SelahColors.lavenderSoft,
+            foregroundColor: isPreset
+                ? SelahColors.textSecondary
+                : SelahColors.lavenderInk,
+            side: BorderSide(
+              color: isPreset ? SelahColors.border : SelahColors.lavender,
+            ),
           ),
           child: Text(
             isPreset
