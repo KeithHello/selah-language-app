@@ -8,13 +8,13 @@
 
 ## 当前阶段
 
-### 2026-09-29 Today 双快捷入口与轻量学习（本地实现及自动化验证完成）
+### 2026-09-29 Today 双快捷入口与轻量学习（预览发布完成，浏览器验收待做）
 
 - [x] 按已确认的桌面双栏与手机双快捷入口重排正式 Flutter Web「今天」页，保留现有输入、转写、分句和草稿流程。
 - [x] 基于到期回听、未听个人句和内置种子选出最多三句稳定预览；首页一键直达学习卡，听完后可继续或返回。
 - [x] 补齐繁中、简中、日语文案及 selector、控制器与 UI 回归；Flutter 全量 325 项通过，`flutter analyze --no-pub` 无问题，`flutter build web --release` 成功。
 - [x] Cloudflare Pages 预览已部署到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://28136671.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；Build ID `e54377454ae9b470`。
-- [ ] 桌面／窄屏真实浏览器验收待完成；独立 SwiftUI 原生端和 iPhone Safari 真机不属于本轮范围。本轮未部署 Supabase 函数或 migration。
+- [ ] 桌面／窄屏真实浏览器验收待完成；独立 SwiftUI 原生端和 iPhone Safari 真机不属于本轮范围。本轮未部署数据库 migration。
 
 ### 2026-09-28 设置页会员状态与方案变更（本地实现和验证完成，未部署）
 
@@ -25,13 +25,14 @@
 - [x] 验证：全量 Flutter 测试 315 项通过，`flutter analyze --no-pub` 无问题，Web Release 构建成功；相关 Deno 测试 18 项通过，方案预览函数 `deno check` 通过。
 - [ ] 未应用 migration，未部署 `membership-status`／`membership-plan-preview`，未执行真实支付。Pro 购买与补差价落账（Task 7）等待支付渠道和验签单独确认。
 
-### 2026-09-28 Today 语音转写整理与确认（本地实现已验证，未部署）
+### 2026-09-28 Today 语音转写整理与确认（前端及提示词已发布，业务验收待补）
 
 - [x] 带明显口头填充词的语音转写会先调用现有 `sentences-prepare` 整理；保留原话与整理来源，只在内容实质变化时显示可编辑确认卡，干净转写及仅标点宽度差异继续走原生成流程。
 - [x] 用户可在确认卡修改句子或恢复原话；生成只使用确认后的文本。输入在整理期间发生变化时会阻止旧结果继续生成；整理失败、空结果或额度不可用时按原话回退。
 - [x] 更新整理提示词以保留否定、时间、数量、姓名、情绪、事实和说话语气；补齐繁中、简中、日文 UI 文案。不改翻译生成提示词、prompt 版本、额度规则、数据库或会员逻辑。
 - [x] 验证：Flutter 全量 309 项通过，`flutter analyze --no-pub` 无问题，Web Release 构建成功；Supabase Deno 全量 338 项通过。浏览器本地检查桌面与 390px 窄屏布局。
-- [ ] `sentences-prepare` 尚未部署，远端体验尚未验收；部署需单独确认。
+- [x] 2026-09-29 将 `sentences-prepare` 单函数部署到 Supabase 项目 `ijonabyyppmgvoufgamt`；`OPTIONS 200`、未认证 `POST 401`，未调用 OpenAI、未改 migration 或 secrets。
+- [ ] 本机没有 Deno，未运行本次 Deno 专项测试；尚未用认证账户验证真实 AI 整理结果。
 
 ### 2026-09-24 正式账户、会员分级与分段限流（核心函数已部署；账户端到端验收待续）
 
