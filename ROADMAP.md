@@ -13,7 +13,7 @@
 - [x] 按已确认的桌面双栏与手机双快捷入口重排正式 Flutter Web「今天」页，保留现有输入、转写、分句和草稿流程。
 - [x] 基于到期回听、未听个人句和内置种子选出最多三句稳定预览；首页一键直达学习卡，听完后可继续或返回。
 - [x] 补齐繁中、简中、日语文案及 selector、控制器与 UI 回归；Flutter 全量 325 项通过，`flutter analyze --no-pub` 无问题，`flutter build web --release` 成功。
-- [x] Cloudflare Pages 预览已部署到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://28136671.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；Build ID `e54377454ae9b470`。
+- [x] Cloudflare Pages 预览已于 2026-09-29 更新到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://3151342b.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；Build ID `e54377454ae9b470`。
 - [ ] 桌面／窄屏真实浏览器验收待完成；Cloudflare Pages 目前仍为预览发布，未发布 Web 生产站点。会员服务端 migration 与函数已另行部署到 Supabase 生产项目；独立 SwiftUI 原生端和 iPhone Safari 真机不属于本轮范围。
 
 ### 2026-09-28 设置页会员状态与方案变更（前端实现和验证完成，服务端已部署；账户验收待续）
