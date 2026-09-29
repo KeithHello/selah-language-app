@@ -14,16 +14,17 @@
 - [x] 基于到期回听、未听个人句和内置种子选出最多三句稳定预览；首页一键直达学习卡，听完后可继续或返回。
 - [x] 补齐繁中、简中、日语文案及 selector、控制器与 UI 回归；Flutter 全量 325 项通过，`flutter analyze --no-pub` 无问题，`flutter build web --release` 成功。
 - [x] Cloudflare Pages 预览已部署到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://28136671.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；Build ID `e54377454ae9b470`。
-- [ ] 桌面／窄屏真实浏览器验收待完成；独立 SwiftUI 原生端和 iPhone Safari 真机不属于本轮范围。本轮未部署数据库 migration。
+- [ ] 桌面／窄屏真实浏览器验收待完成；Cloudflare Pages 目前仍为预览发布，未发布 Web 生产站点。会员服务端 migration 与函数已另行部署到 Supabase 生产项目；独立 SwiftUI 原生端和 iPhone Safari 真机不属于本轮范围。
 
-### 2026-09-28 设置页会员状态与方案变更（本地实现和验证完成，未部署）
+### 2026-09-28 设置页会员状态与方案变更（前端实现和验证完成，服务端已部署；账户验收待续）
 
 - [x] 设置页顶部会员卡展示当前方案、来源、有效期、服务端返回的四项剩余和下一账期；未登录或会员模式关闭时隐藏。额度仅出现在设置页，不显示百分比或进度条。
 - [x] 方案弹层读取服务端报价；只允许月会员行动进入既有月会员结账入口。Pro、即时升级和 Pro 购买保持禁用，并展示不可购买原因。
 - [x] `membership-status` 返回当前额度和未来账期；单句与批量共用个人表达额度池。只读 `membership-plan-preview` 返回合法行动的服务端报价，不创建订单。
-- [x] 本地 migration 草稿 `supabase/migrations/010_shared_sentence_batch_quota.sql` 与测试已完成；未应用到任何数据库。
+- [x] `supabase/migrations/010_shared_sentence_batch_quota.sql` 已于 2026-09-29 应用到 Supabase 生产项目 `ijonabyyppmgvoufgamt`；远端 migration `001`–`010` 与本地一致。该 migration 只替换 `reserve_generation_allowance`，让单句与批量共用表达额度池。
 - [x] 验证：全量 Flutter 测试 315 项通过，`flutter analyze --no-pub` 无问题，Web Release 构建成功；相关 Deno 测试 18 项通过，方案预览函数 `deno check` 通过。
-- [ ] 未应用 migration，未部署 `membership-status`／`membership-plan-preview`，未执行真实支付。Pro 购买与补差价落账（Task 7）等待支付渠道和验签单独确认。
+- [x] `membership-status` 与 `membership-plan-preview` 已部署到上述生产项目；远端状态均为 `ACTIVE`、JWT 验证开启。预览来源的 OPTIONS 检查均返回 `200`，未认证业务请求均返回 `401`；未执行真实支付或创建订单。
+- [ ] 尚未用已认证账户完成会员卡／方案报价端到端浏览器验收。Pro 购买与补差价落账（Task 7）仍等待支付渠道和验签单独确认。
 
 ### 2026-09-28 Today 语音转写整理与确认（前端及提示词已发布，业务验收待补）
 
