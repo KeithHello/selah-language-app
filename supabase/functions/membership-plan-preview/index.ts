@@ -17,15 +17,38 @@ import {
 import {
   aggregateUsage,
   assertQuoteAction,
+  type FuturePeriod,
   legalPlanQuotes,
   limitsForPlan,
-  type FuturePeriod,
   type ReservationUsageRow,
 } from "../_shared/membership_usage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ??
   "";
+
+interface PlanPreviewQueryResult {
+  data: unknown;
+  error: unknown;
+}
+
+interface PlanPreviewQueryBuilder extends PromiseLike<PlanPreviewQueryResult> {
+  select(columns?: string): PlanPreviewQueryBuilder;
+  eq(column: string, value: unknown): PlanPreviewQueryBuilder;
+  in(column: string, values: readonly unknown[]): PlanPreviewQueryBuilder;
+  lte(column: string, value: unknown): PlanPreviewQueryBuilder;
+  gt(column: string, value: unknown): PlanPreviewQueryBuilder;
+  order(
+    column: string,
+    options?: { ascending?: boolean },
+  ): PlanPreviewQueryBuilder;
+  limit(count: number): PlanPreviewQueryBuilder;
+  maybeSingle(): PromiseLike<PlanPreviewQueryResult>;
+}
+
+interface PlanPreviewSupabaseClient {
+  from(table: string): PlanPreviewQueryBuilder;
+}
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return handleOptions();
@@ -48,7 +71,10 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+  const supabase = createClient(
+    SUPABASE_URL,
+    SUPABASE_SERVICE_ROLE_KEY,
+  ) as unknown as PlanPreviewSupabaseClient;
   const controls = await readServiceControls(
     supabase as unknown as ServiceControlsClient,
     environmentFallback(),
@@ -127,7 +153,7 @@ async function readRequestedAction(
 }
 
 async function loadPlanState(
-  supabase: any,
+  supabase: PlanPreviewSupabaseClient,
   userId: string,
   asOf: string,
 ): Promise<{
@@ -153,6 +179,12 @@ async function loadPlanState(
   if (currentError) {
     return { current: null, usage: null, futurePeriods: [], error: true };
   }
+  const currentMembership = currentRow as {
+    id: string;
+    plan: string;
+    started_at: string;
+    expires_at: string;
+  } | null;
 
   const { data: futureRows, error: futureError } = await supabase
     .from("user_memberships")
@@ -179,12 +211,13 @@ async function loadPlanState(
     endsAt: period.expires_at,
   }));
 
-  if (!currentRow) {
+  if (!currentMembership) {
     return { current: null, usage: null, futurePeriods, error: false };
   }
   if (
-    currentRow.plan !== "trial" && currentRow.plan !== "monthly" &&
-    currentRow.plan !== "pro"
+    currentMembership.plan !== "trial" &&
+    currentMembership.plan !== "monthly" &&
+    currentMembership.plan !== "pro"
   ) {
     return { current: null, usage: null, futurePeriods: [], error: true };
   }
@@ -192,7 +225,7 @@ async function loadPlanState(
   const { data: reservationRows, error: reservationError } = await supabase
     .from("membership_reservations")
     .select("feature, status, units_reserved")
-    .eq("membership_id", currentRow.id);
+    .eq("membership_id", currentMembership.id);
   if (reservationError || !reservationRows) {
     return { current: null, usage: null, futurePeriods: [], error: true };
   }
@@ -208,11 +241,11 @@ async function loadPlanState(
 
   return {
     current: {
-      plan: currentRow.plan,
-      startedAt: currentRow.started_at,
-      expiresAt: currentRow.expires_at,
+      plan: currentMembership.plan,
+      startedAt: currentMembership.started_at,
+      expiresAt: currentMembership.expires_at,
     },
-    usage: aggregateUsage(rows, limitsForPlan(currentRow.plan), asOf),
+    usage: aggregateUsage(rows, limitsForPlan(currentMembership.plan), asOf),
     futurePeriods,
     error: false,
   };

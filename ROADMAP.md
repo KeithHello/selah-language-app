@@ -22,7 +22,7 @@
 - [x] 方案弹层读取服务端报价；只允许月会员行动进入既有月会员结账入口。Pro、即时升级和 Pro 购买保持禁用，并展示不可购买原因。
 - [x] `membership-status` 返回当前额度和未来账期；单句与批量共用个人表达额度池。只读 `membership-plan-preview` 返回合法行动的服务端报价，不创建订单。
 - [x] `supabase/migrations/010_shared_sentence_batch_quota.sql` 已于 2026-09-29 应用到 Supabase 生产项目 `ijonabyyppmgvoufgamt`；远端 migration `001`–`010` 与本地一致。该 migration 只替换 `reserve_generation_allowance`，让单句与批量共用表达额度池。
-- [x] 验证：全量 Flutter 测试 315 项通过，`flutter analyze --no-pub` 无问题，Web Release 构建成功；相关 Deno 测试 18 项通过，方案预览函数 `deno check` 通过。
+- [x] 验证：当前主线全量 Flutter 测试 325 项通过，`flutter analyze --no-pub` 无问题，Web Release 构建成功；Supabase Deno 全量与会员额度专项 345 项通过，会员状态／方案预览函数 `deno check` 和目标文件 `deno fmt --check` 通过。
 - [x] `membership-status` 与 `membership-plan-preview` 已部署到上述生产项目；远端状态均为 `ACTIVE`、JWT 验证开启。预览来源的 OPTIONS 检查均返回 `200`，未认证业务请求均返回 `401`；未执行真实支付或创建订单。
 - [ ] 尚未用已认证账户完成会员卡／方案报价端到端浏览器验收。Pro 购买与补差价落账（Task 7）仍等待支付渠道和验签单独确认。
 
