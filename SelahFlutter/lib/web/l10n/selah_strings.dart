@@ -122,10 +122,19 @@ const _baseStrings = <String, String>{
   'today.stop': '停止',
   'today.record': '说出来',
   'today.preparing': '准备中…',
+  'today.polishing': '整理一下…',
   'today.organizeLong': '整理长文',
   'today.generate': '生成英文',
   'today.longInfo': '超过 500 字后会先分成最多 20 段；生成时每批处理 5 段，已完成的部分会保存。',
   'today.shortInfo': '一次最多 500 字会直接生成，超过后会先让你确认分段。',
+  'today.spokenInfo': '生成前会先去掉口头禅，你可以再改。',
+  'today.polishFallback': '这次没先整理，已按原话继续。',
+  'today.segmentTitle': '先整理成几句',
+  'today.segmentDetail': '确认每一段都是你想练习的完整表达；系统会按每 5 段一批继续生成。',
+  'today.confirmPractice': '确认要练习的话',
+  'today.confirmPractice.detail': '已去掉口头禅。这是准备拿去练习的说法，可以改。',
+  'today.removedFillers': '去掉了：{items}',
+  'today.useOriginal': '用原话',
   'today.generatedCount': '{count} 句英文已保存。',
   'today.generatedRemaining': '已保存 {count} 句，剩余分句可继续重试。',
   'today.splitNotice': '已自动分成 {count} 句，正在分别生成学习卡。',
@@ -330,8 +339,12 @@ class SelahStrings {
       ? '${text('today.stop')} ${_formatSeconds(seconds)}'
       : text('today.record');
 
-  String submitLabel({required bool busy, required bool long}) {
-    if (busy) return text('today.preparing');
+  String submitLabel({
+    required bool busy,
+    required bool long,
+    bool polishing = false,
+  }) {
+    if (busy) return text(polishing ? 'today.polishing' : 'today.preparing');
     return text(long ? 'today.organizeLong' : 'today.generate');
   }
 

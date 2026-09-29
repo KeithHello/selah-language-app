@@ -271,6 +271,7 @@ class LearnSentence {
   final String category;
   final String origin;
   final String? seedId;
+
   /// Optional Japanese source text carried by bundled seeds.  It is kept on
   /// the model so changing the native-language preference can rebuild the
   /// visible seed without losing the original bilingual content.
@@ -344,20 +345,13 @@ class LearnSentence {
       seedId: seed,
       origin: 'system_seed',
       jaText: optionalKnownText(j['ja_text'], max: 1000),
-      source: requiredText(
-        j['source'] ?? j['zh_text'],
-        '母语句子',
-      ),
+      source: requiredText(j['source'] ?? j['zh_text'], '母语句子'),
       target: requiredText(j['en_translation'], '英文'),
-      sourceLanguage: optionalKnownText(
-        j['sourceLanguage'],
-        max: 20,
-      ) ??
+      sourceLanguage:
+          optionalKnownText(j['sourceLanguage'], max: 20) ??
           currentSourceLanguage,
-      targetLanguage: optionalKnownText(
-        j['targetLanguage'],
-        max: 20,
-      ) ??
+      targetLanguage:
+          optionalKnownText(j['targetLanguage'], max: 20) ??
           currentTargetLanguage,
       category: _choice(j['category'], categories.keys, 'daily_life'),
       breakdown: mapList(j['deconstruction'], max: 50),
@@ -490,6 +484,7 @@ class LearnPreferences {
   String voice;
   String nativeVoice;
   double speed;
+
   /// Device-only presentation preference. It is intentionally not mapped to
   /// Supabase user_profiles and is preserved across cloud snapshot merges.
   bool companionRailVisible;
@@ -543,7 +538,11 @@ class LearnPreferences {
     return LearnPreferences(
       name: requiredText(j['name'] ?? '小豆', '精灵名字', max: 24),
       voice: _choice(j['voice'], voices.keys, 'gentle-natural'),
-      nativeVoice: _choice(j['nativeVoice'], nativeVoices.keys, 'native-gentle'),
+      nativeVoice: _choice(
+        j['nativeVoice'],
+        nativeVoices.keys,
+        'native-gentle',
+      ),
       speed: speed.toDouble(),
       companionRailVisible: j['companionRailVisible'] == true,
       onboarded: j['onboarded'] == true,
@@ -682,12 +681,21 @@ class PreparationSegment {
   PreparationSegment({
     required this.id,
     required this.sourceText,
+    String? originalText,
+    String? polishedText,
+    List<String>? removedText,
     this.status = 'pending',
     DateTime? updatedAt,
-  }) : updatedAt = updatedAt ?? DateTime.now();
+  }) : originalText = originalText ?? sourceText,
+       polishedText = polishedText ?? sourceText,
+       removedText = List.unmodifiable(removedText ?? const <String>[]),
+       updatedAt = updatedAt ?? DateTime.now();
 
   String id;
   String sourceText;
+  final String originalText;
+  final String polishedText;
+  final List<String> removedText;
   String status;
   DateTime updatedAt;
 
@@ -696,21 +704,39 @@ class PreparationSegment {
   Map<String, Object?> toJson() => {
     'id': id,
     'sourceText': sourceText,
+    'originalText': originalText,
+    'polishedText': polishedText,
+    'removedText': removedText,
     'status': status,
     'updatedAt': updatedAt.toUtc().toIso8601String(),
   };
 
-  factory PreparationSegment.fromJson(Map<String, dynamic> j) =>
-      PreparationSegment(
-        id: validId(j['id']),
-        sourceText: requiredText(j['sourceText'], '分句原文', max: 500),
-        status: _choice(j['status'], [
-          'pending',
-          'succeeded',
-          'failed',
-        ], 'pending'),
-        updatedAt: dateValue(j['updatedAt']),
-      );
+  factory PreparationSegment.fromJson(Map<String, dynamic> j) {
+    final sourceText = requiredText(j['sourceText'], '分句原文', max: 500);
+    final removed = j['removedText'];
+    if (removed != null && removed is! List) {
+      throw const FormatException('整理分句移除词无效。');
+    }
+    return PreparationSegment(
+      id: validId(j['id']),
+      sourceText: sourceText,
+      originalText: j['originalText'] == null
+          ? sourceText
+          : requiredText(j['originalText'], '分句原文', max: 500),
+      polishedText: j['polishedText'] == null
+          ? sourceText
+          : requiredText(j['polishedText'], '整理分句', max: 500),
+      removedText: removed is List
+          ? removed.map((item) => requiredText(item, '移除词', max: 100)).toList()
+          : const [],
+      status: _choice(j['status'], [
+        'pending',
+        'succeeded',
+        'failed',
+      ], 'pending'),
+      updatedAt: dateValue(j['updatedAt']),
+    );
+  }
 }
 
 class PreparationDraft {
@@ -785,6 +811,9 @@ PreparationSegment _copyPreparationSegment(PreparationSegment segment) =>
     PreparationSegment(
       id: segment.id,
       sourceText: segment.sourceText,
+      originalText: segment.originalText,
+      polishedText: segment.polishedText,
+      removedText: segment.removedText,
       status: segment.status,
       updatedAt: segment.updatedAt,
     );

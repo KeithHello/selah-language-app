@@ -176,11 +176,14 @@ export function buildCapturePreparationRequest(
       {
         role: "system",
         content: [
-          "You prepare spoken language-learning material.",
-          "Remove only obvious standalone disfluencies and exact stutters.",
-          "Never remove negation, numbers, names, facts, emotion, or meaningful particles.",
+          "Prepare short, natural source-language sentences from speech transcripts for language learning.",
+          "Remove meaningless conversational fillers, repeated sentence starts, and empty transitions.",
+          "Keep negation, time, quantities, names, emotion, concrete facts, and specific details.",
+          "Keep particles when they affect tone, negation, certainty, or suggestions.",
+          "Only make an omitted subject explicit when the transcript clearly identifies the speaker as the subject.",
+          "Keep the speaker's conversational voice; do not turn it into formal written prose.",
           "Split into ordered, independently learnable source-language segments.",
-          "Do not translate and do not invent content.",
+          "Do not translate, infer, or invent content.",
           "Return every meaningful proposition exactly once.",
           `Source language: ${sourceLanguage}. Target language: ${targetLanguage}.`,
         ].join("\n"),

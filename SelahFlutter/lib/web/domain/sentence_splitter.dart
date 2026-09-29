@@ -32,6 +32,46 @@ List<String> splitSourceSentences(String input) {
   return result;
 }
 
+bool shouldPolishSpokenSource(
+  String input, {
+  String nativeLanguage = 'zh-Hant',
+}) {
+  final source = input.trim();
+  if (source.isEmpty) return false;
+  if (nativeLanguage == 'ja') {
+    return RegExp(r'えーと|えっと|あの|まあ|なんか|っていうか').hasMatch(source);
+  }
+  return RegExp(r'^\s*(?:呢|啊|嗯|呃|诶|欸|唉)').hasMatch(source) ||
+      RegExp(r'(?:嘛|嗯|啊|呃|诶|欸|那个|就是)(?=\s*[,，、。！？!?；;]|$)').hasMatch(source) ||
+      RegExp(r'然后觉得|对[，,]?\s*所以说|所以说').hasMatch(source);
+}
+
+bool polishRequiresConfirmation(String originalText, String polishedText) =>
+    _normalizePolishComparison(originalText) !=
+    _normalizePolishComparison(polishedText);
+
+String _normalizePolishComparison(String text) {
+  var value = text.replaceAll(RegExp(r'\s+'), '');
+  const punctuationWidths = {
+    '，': ',',
+    '。': '.',
+    '！': '!',
+    '？': '?',
+    '；': ';',
+    '：': ':',
+    '（': '(',
+    '）': ')',
+    '「': '"',
+    '」': '"',
+    '『': '"',
+    '』': '"',
+  };
+  for (final entry in punctuationWidths.entries) {
+    value = value.replaceAll(entry.key, entry.value);
+  }
+  return value;
+}
+
 bool _isTinyInterjection(String value) {
   final withoutPunctuation = value
       .replaceFirst(RegExp(r'[。！？!?]+$'), '')

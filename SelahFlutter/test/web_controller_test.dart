@@ -181,6 +181,7 @@ class CaptureGateway extends FakeGateway {
   int batchCalls = 0;
   final batchSegmentCounts = <int>[];
   final batchSegmentIds = <List<String>>[];
+  final batchSegmentTexts = <List<String>>[];
   int failOnBatchCall = -1;
   Completer<Map<String, dynamic>>? prepareResponse;
   Completer<Map<String, dynamic>>? batchResponse;
@@ -215,6 +216,9 @@ class CaptureGateway extends FakeGateway {
       batchSegmentCounts.add(segments.length);
       batchSegmentIds.add(
         segments.map((segment) => segment['segmentId'] as String).toList(),
+      );
+      batchSegmentTexts.add(
+        segments.map((segment) => segment['sourceText'] as String).toList(),
       );
       if (batchCalls == failOnBatchCall) {
         throw const LearningFailure('batch failed');
@@ -737,26 +741,29 @@ void main() {
     },
   );
 
-  test('failed legacy anonymous sign-out keeps the local guest scope', () async {
-    final gateway = FakeGateway()
-      ..anonymous = true
-      ..user = 'old-anonymous-user'
-      ..failSignOut = true;
-    final controller = LearningController(
-      gateway: gateway,
-      platform: MemoryPlatform(),
-      seeds: seeds(),
-      polling: false,
-    );
-    addTearDown(controller.dispose);
+  test(
+    'failed legacy anonymous sign-out keeps the local guest scope',
+    () async {
+      final gateway = FakeGateway()
+        ..anonymous = true
+        ..user = 'old-anonymous-user'
+        ..failSignOut = true;
+      final controller = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(controller.dispose);
 
-    await controller.initialize();
+      await controller.initialize();
 
-    expect(controller.accountId, 'guest');
-    expect(controller.hasSession, isFalse);
-    expect(gateway.userId, 'old-anonymous-user');
-    expect(gateway.isAnonymous, isTrue);
-  });
+      expect(controller.accountId, 'guest');
+      expect(controller.hasSession, isFalse);
+      expect(gateway.userId, 'old-anonymous-user');
+      expect(gateway.isAnonymous, isTrue);
+    },
+  );
 
   test('preview errors clear a stale authentication code', () async {
     final gateway = FakeGateway()
@@ -1085,6 +1092,44 @@ void main() {
       expect(c.state.sentences, hasLength(2));
       expect(c.recentGeneratedSentences, hasLength(2));
       expect(c.todayInput, isEmpty);
+    },
+  );
+
+  test(
+    'preparation retains source provenance and generates the edited text',
+    () async {
+      final gateway = CaptureGateway()
+        ..prepareResult = [
+          {
+            'segmentId': newId(),
+            'orderIndex': 0,
+            'originalText': '嗯，我今天去游泳了嘛。',
+            'sourceText': '我今天去游泳了。',
+            'removedText': ['嗯', '嘛'],
+            'selected': true,
+          },
+        ];
+      final c = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+
+      await c.prepare('嗯，我今天去游泳了嘛。');
+      final segment = c.preparationDraft!.segments.single;
+      expect(segment.originalText, '嗯，我今天去游泳了嘛。');
+      expect(segment.polishedText, '我今天去游泳了。');
+      expect(segment.removedText, ['嗯', '嘛']);
+
+      c.updatePreparationSegment(0, '我今天去游泳，感覺很好。');
+      expect(segment.originalText, '嗯，我今天去游泳了嘛。');
+      expect(segment.polishedText, '我今天去游泳了。');
+      expect(segment.removedText, ['嗯', '嘛']);
+      await c.generatePreparedSegments();
+      expect(gateway.batchSegmentTexts.single, ['我今天去游泳，感覺很好。']);
     },
   );
 

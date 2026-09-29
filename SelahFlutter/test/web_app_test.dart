@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/domain/selah_enums.dart';
@@ -9,7 +11,7 @@ import 'package:selah/web/ui/web_learning_app.dart';
 import 'package:selah/web/ui/plush_companion.dart';
 import 'package:selah/web/ui/web_start_action.dart';
 import 'package:selah/web/ui/companion_dice_button.dart';
-import 'web_controller_test.dart' show FakeGateway;
+import 'web_controller_test.dart' show CaptureGateway, FakeGateway;
 
 class _FakePlatform implements LearningPlatform {
   Map<String, dynamic>? saved;
@@ -55,6 +57,96 @@ class _FakePlatform implements LearningPlatform {
         return null;
     }
   }
+}
+
+class _RecordingFakePlatform extends _FakePlatform {
+  @override
+  Future<Object?> invoke(
+    String action, [
+    Map<String, Object?> payload = const {},
+  ]) async {
+    if (action == 'recordStop') {
+      return {'base64': 'YQ==', 'mimeType': 'audio/webm', 'durationMs': 1000};
+    }
+    return super.invoke(action, payload);
+  }
+}
+
+class _SpokenGateway extends CaptureGateway {
+  String transcript = '';
+  Object? prepareFailure;
+  final functions = <String>[];
+  final generationSources = <String>[];
+
+  @override
+  Future<String> transcribe(
+    Map<String, dynamic> recording,
+    String requestId,
+  ) async => transcript;
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    functions.add(function);
+    if (function == 'sentences-prepare' && prepareFailure != null) {
+      throw prepareFailure!;
+    }
+    if (function == 'sentences-generate') {
+      generationSources.add(body['sourceText'] as String);
+    }
+    return super.invoke(function, body, get: get);
+  }
+}
+
+Future<LearningController> _todayController(
+  _SpokenGateway gateway,
+  _RecordingFakePlatform platform,
+) async {
+  final controller = LearningController(
+    gateway: gateway,
+    platform: platform,
+    seeds: List.generate(6, (index) => _seed(index + 1)),
+    polling: false,
+  );
+  await controller.initialize();
+  controller.state.preferences
+    ..onboarded = true
+    ..uiLocale = 'zh-Hans';
+  return controller;
+}
+
+Future<void> _recordTranscript(WidgetTester tester) async {
+  await _openTodayComposer(tester);
+  final record = find.widgetWithText(OutlinedButton, '说出来');
+  await tester.ensureVisible(record);
+  await tester.tap(record);
+  await tester.pumpAndSettle();
+  final stop = find.byType(OutlinedButton).first;
+  await tester.ensureVisible(stop);
+  await tester.tap(stop);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _openTodayComposer(WidgetTester tester) async {
+  if (find.byType(TextField).evaluate().isNotEmpty) return;
+  final entry = find.byKey(const ValueKey('today-speak-entry'));
+  await tester.ensureVisible(entry);
+  await tester.tap(entry);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _disposeTodayController(
+  WidgetTester tester,
+  LearningController controller,
+) async {
+  await tester.pumpWidget(const SizedBox.shrink());
+  await controller.flushLocalWrites();
+  controller.dispose();
+  await tester.pump(const Duration(seconds: 3));
+  await tester.pumpAndSettle();
 }
 
 class _SignedOutConfiguredGateway extends FakeGateway {
@@ -200,10 +292,7 @@ void main() {
           'error=${controller.error}, notice=${controller.notice}, busy=${controller.busy}, saved=${platform.saved}',
     );
     expect(controller.state.sentences, hasLength(6));
-    expect(
-      find.textContaining('\u60f3\u8bf4\u70b9\u4ec0\u4e48'),
-      findsOneWidget,
-    );
+    expect(find.text('今天也辛苦了'), findsOneWidget);
     expect(
       tester
           .widget<PlushCompanion>(find.byType(PlushCompanion).first)
@@ -302,10 +391,7 @@ void main() {
     controller.notifyListeners();
 
     await tester.pumpWidget(WebLearningApp(controller: controller));
-    expect(
-      find.textContaining('\u60f3\u8bf4\u70b9\u4ec0\u4e48'),
-      findsOneWidget,
-    );
+    expect(find.text('今天也辛苦了'), findsOneWidget);
 
     await tester.tap(find.text('聆听'));
     await tester.pumpAndSettle();
@@ -644,6 +730,7 @@ void main() {
 
       controller.navigate(0);
       await tester.pumpAndSettle();
+      await _openTodayComposer(tester);
       expect(find.text('例：今日はずっと先延ばしにしていたことを終えました。'), findsOneWidget);
     },
   );
@@ -712,11 +799,10 @@ void main() {
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);
         expect(find.byType(PlushCompanion), findsOneWidget);
-        expect(find.textContaining('OpenAI GPT'), findsOneWidget);
-        expect(find.text('今天，想说点什么？'), findsOneWidget);
+        expect(find.text('今天也辛苦了'), findsOneWidget);
         expect(
           tester.getSize(find.byType(PlushCompanion)).width,
-          closeTo(56, 1),
+          greaterThanOrEqualTo(56),
         );
       }
     },
@@ -733,9 +819,170 @@ void main() {
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+    await _openTodayComposer(tester);
     await tester.enterText(find.byType(TextField), '今天想练习一句英文。');
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'today previews a due sentence and an unheard personal sentence',
+    (tester) async {
+      controller.state.preferences.onboarded = true;
+      controller.state.sentences.addAll([
+        LearnSentence(
+          id: 'today-due',
+          source: '需要再聽一次的句子。',
+          target: 'A sentence to revisit.',
+          reviewState: 'learning',
+          listenedAt: DateTime.now().subtract(const Duration(days: 2)),
+          nextReviewAt: DateTime.now().subtract(const Duration(days: 1)),
+        ),
+        LearnSentence(
+          id: 'today-own',
+          source: '我剛記下的生活表達。',
+          target: 'A thought from my day.',
+        ),
+      ]);
+      await tester.pumpWidget(WebLearningApp(controller: controller));
+      await tester.pumpAndSettle();
+
+      expect(find.text('需要再聽一次的句子。'), findsWidgets);
+      expect(find.text('我剛記下的生活表達。'), findsWidgets);
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget.key is ValueKey<String> &&
+              (widget.key! as ValueKey<String>).value.startsWith(
+                'today-suggestion-',
+              ),
+        ),
+        findsNWidgets(3),
+      );
+    },
+  );
+
+  testWidgets(
+    'today listen entry opens the selected lesson before the picker',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      controller.state.preferences.onboarded = true;
+      final due = LearnSentence(
+        id: 'today-quick-due',
+        source: '先從這句回聽。',
+        target: 'Let me revisit this sentence.',
+        reviewState: 'learning',
+        listenedAt: DateTime.now().subtract(const Duration(days: 2)),
+        nextReviewAt: DateTime.now().subtract(const Duration(days: 1)),
+      );
+      controller.state.sentences.add(due);
+      await tester.pumpWidget(WebLearningApp(controller: controller));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('today-listen-entry')));
+      await tester.pumpAndSettle();
+
+      expect(controller.tab, 1);
+      expect(controller.activeSentence?.id, due.id);
+      expect(
+        find.byKey(const ValueKey('today-focused-lesson')),
+        findsOneWidget,
+      );
+      expect(find.text('先從這句回聽。'), findsOneWidget);
+      expect(find.text('看英文答案'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('listen-sentence-picker')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('guest starts a bundled lesson and can continue after listening', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    controller.state.preferences.onboarded = true;
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('today-listen-entry')));
+    await tester.pump();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50 && controller.busy; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    });
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(controller.state.sentences, hasLength(1));
+    expect(controller.activeSentence?.seedId, isNotNull);
+    expect(find.text(controller.activeSentence!.target), findsNothing);
+    expect(find.text('再听一句'), findsNothing);
+
+    final first = controller.activeSentence!;
+    first.listenedAt = DateTime.now();
+    controller.notifyListeners();
+    await tester.pump();
+    expect(find.text('再听一句'), findsOneWidget);
+    await tester.ensureVisible(find.text('再听一句'));
+    await tester.tap(find.text('再听一句'));
+    await tester.pump();
+    await tester.runAsync(() async {
+      for (var i = 0; i < 50 && controller.busy; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+    });
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(controller.activeSentence?.id, isNot(first.id));
+    expect(controller.todayLessonFocus, isTrue);
+  });
+
+  testWidgets('a sentence preview opens that exact lesson', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    controller.state.preferences.onboarded = true;
+    final personal = LearnSentence(
+      id: 'preview-personal',
+      source: '我想学这句自己的话。',
+      target: 'I want to learn this thought of mine.',
+    );
+    controller.state.sentences.add(personal);
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final preview = find.byKey(const ValueKey('today-suggestion-preview-personal'));
+    await tester.ensureVisible(preview);
+    await tester.tap(preview);
+    await tester.pumpAndSettle();
+    expect(controller.activeSentence?.id, personal.id);
+    expect(controller.todayLessonFocus, isTrue);
+    expect(find.text(personal.target), findsNothing);
+  });
+
+  testWidgets('today speak entry focuses the saved draft without recording', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    controller.state.preferences.onboarded = true;
+    controller.updateTodayInput('還想繼續寫的句子。');
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('today-speak-entry')));
+    await tester.pumpAndSettle();
+
+    expect(controller.todayInput, '還想繼續寫的句子。');
+    expect(find.byType(TextField).first, findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(find.byType(TextField).first)
+          .focusNode
+          ?.hasFocus,
+      isTrue,
+    );
+    expect(platform.actions, isNot(contains('recordStart')));
   });
 
   testWidgets('today input from the formal page is wired to the controller', (
@@ -743,9 +990,222 @@ void main() {
   ) async {
     controller.state.preferences.onboarded = true;
     await tester.pumpWidget(WebLearningApp(controller: controller));
+    await _openTodayComposer(tester);
     await tester.enterText(find.byType(TextField).first, '刷新后还在的输入');
     await tester.pump(const Duration(milliseconds: 450));
     expect(controller.todayInput, '刷新后还在的输入');
+  });
+
+  testWidgets(
+    'spoken transcript is polished for confirmation before generation',
+    (tester) async {
+      final gateway = _SpokenGateway()
+        ..fail = false
+        ..transcript = '嗯，我最近去游泳了嘛。';
+      gateway.prepareResult = [
+        {
+          'segmentId': newId(),
+          'orderIndex': 0,
+          'originalText': '嗯，我最近去游泳了嘛。',
+          'sourceText': '我最近去游泳了。',
+          'removedText': ['嗯', '嘛'],
+          'selected': true,
+        },
+      ];
+      final recordingPlatform = _RecordingFakePlatform()..info['online'] = true;
+      final spokenController = await _todayController(
+        gateway,
+        recordingPlatform,
+      );
+      await tester.pumpWidget(WebLearningApp(controller: spokenController));
+      await tester.pumpAndSettle();
+
+      await _recordTranscript(tester);
+      await tester.tap(find.widgetWithText(FilledButton, '生成英文'));
+      await tester.pumpAndSettle();
+
+      expect(gateway.prepareCalls, 1);
+      expect(gateway.batchCalls, 0);
+      expect(spokenController.state.sentences, isEmpty);
+      expect(spokenController.preparationDraft!.segments.single.removedText, [
+        '嗯',
+        '嘛',
+      ]);
+      expect(
+        spokenController.preparationDraft!.segments.single.polishedText,
+        '我最近去游泳了。',
+      );
+      expect(find.text('确认要练习的话'), findsOneWidget);
+      expect(find.text('去掉了：嗯、嘛'), findsOneWidget);
+      expect(find.text('用原话'), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+        '嗯，我最近去游泳了嘛。',
+      );
+
+      final useOriginal = find.widgetWithText(TextButton, '用原话');
+      await tester.ensureVisible(useOriginal);
+      await tester.tap(useOriginal);
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, '确认并生成'));
+      await tester.pumpAndSettle();
+      expect(gateway.batchSegmentTexts.single, ['嗯，我最近去游泳了嘛。']);
+      await _disposeTodayController(tester, spokenController);
+    },
+  );
+
+  testWidgets('clean spoken transcript skips preparation', (tester) async {
+    final gateway = _SpokenGateway()
+      ..fail = false
+      ..transcript = '今天终于把拖了很久的事情做完了。';
+    final recordingPlatform = _RecordingFakePlatform()..info['online'] = true;
+    final spokenController = await _todayController(gateway, recordingPlatform);
+    await tester.pumpWidget(WebLearningApp(controller: spokenController));
+    await tester.pumpAndSettle();
+
+    await _recordTranscript(tester);
+    await tester.tap(find.widgetWithText(FilledButton, '生成英文'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.prepareCalls, 0);
+    expect(gateway.generationSources, ['今天终于把拖了很久的事情做完了。']);
+    await _disposeTodayController(tester, spokenController);
+  });
+
+  testWidgets('long clean speech keeps the long-text preparation copy', (
+    tester,
+  ) async {
+    final transcript = List.filled(60, '今天我想记录一下这件事情').join();
+    final gateway = _SpokenGateway()
+      ..fail = false
+      ..transcript = transcript
+      ..prepareResult = [
+        {
+          'segmentId': newId(),
+          'orderIndex': 0,
+          'originalText': transcript.substring(0, 300),
+          'sourceText': transcript.substring(0, 300),
+          'removedText': <String>[],
+          'selected': true,
+        },
+        {
+          'segmentId': newId(),
+          'orderIndex': 1,
+          'originalText': transcript.substring(300),
+          'sourceText': transcript.substring(300),
+          'removedText': <String>[],
+          'selected': true,
+        },
+      ];
+    final recordingPlatform = _RecordingFakePlatform()..info['online'] = true;
+    final spokenController = await _todayController(gateway, recordingPlatform);
+    await tester.pumpWidget(WebLearningApp(controller: spokenController));
+    await tester.pumpAndSettle();
+
+    await _recordTranscript(tester);
+    await tester.tap(find.widgetWithText(FilledButton, '整理长文'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.prepareCalls, 1);
+    expect(find.text('先整理成几句'), findsOneWidget);
+    expect(find.text('确认要练习的话'), findsNothing);
+    await _disposeTodayController(tester, spokenController);
+  });
+
+  testWidgets('punctuation-only polish generates the original without a card', (
+    tester,
+  ) async {
+    const transcript = '嗯，今天想运动，感觉不错。';
+    final gateway = _SpokenGateway()
+      ..fail = false
+      ..transcript = transcript;
+    gateway.prepareResult = [
+      {
+        'segmentId': newId(),
+        'orderIndex': 0,
+        'originalText': transcript,
+        'sourceText': '嗯,今天想运动,感觉不错.',
+        'removedText': [],
+        'selected': true,
+      },
+    ];
+    final recordingPlatform = _RecordingFakePlatform()..info['online'] = true;
+    final spokenController = await _todayController(gateway, recordingPlatform);
+    await tester.pumpWidget(WebLearningApp(controller: spokenController));
+    await tester.pumpAndSettle();
+
+    await _recordTranscript(tester);
+    await tester.tap(find.widgetWithText(FilledButton, '生成英文'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.prepareCalls, 1);
+    expect(spokenController.preparationDraft, isNull);
+    expect(gateway.generationSources, [transcript]);
+    expect(find.text('确认要练习的话'), findsNothing);
+    await _disposeTodayController(tester, spokenController);
+  });
+
+  testWidgets('preparation failure continues with the original transcript', (
+    tester,
+  ) async {
+    const transcript = '嗯，我今天终于做完了。';
+    final gateway = _SpokenGateway()
+      ..fail = false
+      ..transcript = transcript
+      ..prepareFailure = const LearningFailure(
+        '整理额度暂时不可用',
+        code: 'rate_limited',
+      );
+    final recordingPlatform = _RecordingFakePlatform()..info['online'] = true;
+    final spokenController = await _todayController(gateway, recordingPlatform);
+    await tester.pumpWidget(WebLearningApp(controller: spokenController));
+    await tester.pumpAndSettle();
+
+    await _recordTranscript(tester);
+    await tester.tap(find.widgetWithText(FilledButton, '生成英文'));
+    await tester.pumpAndSettle();
+
+    expect(gateway.generationSources, [transcript]);
+    expect(spokenController.error, isNull);
+    expect(spokenController.notice, '这次没先整理，已按原话继续。');
+    await _disposeTodayController(tester, spokenController);
+  });
+
+  testWidgets('editing during speech preparation never generates stale text', (
+    tester,
+  ) async {
+    final gateway = _SpokenGateway()
+      ..fail = false
+      ..transcript = '嗯，我今天终于做完了。'
+      ..prepareResponse = Completer();
+    final recordingPlatform = _RecordingFakePlatform()..info['online'] = true;
+    final spokenController = await _todayController(gateway, recordingPlatform);
+    await tester.pumpWidget(WebLearningApp(controller: spokenController));
+    await tester.pumpAndSettle();
+
+    await _recordTranscript(tester);
+    await tester.tap(find.widgetWithText(FilledButton, '生成英文'));
+    await tester.pump();
+    await tester.enterText(find.byType(TextField).first, '后来改写的新内容');
+    await tester.pump();
+    gateway.prepareResponse!.complete({
+      'segments': [
+        {
+          'segmentId': newId(),
+          'orderIndex': 0,
+          'originalText': '嗯，我今天终于做完了。',
+          'sourceText': '我今天终于做完了。',
+          'removedText': ['嗯'],
+          'selected': true,
+        },
+      ],
+    });
+    await tester.pumpAndSettle();
+
+    expect(gateway.generationSources, isEmpty);
+    expect(gateway.batchCalls, 0);
+    expect(spokenController.todayInput, '后来改写的新内容');
+    await _disposeTodayController(tester, spokenController);
   });
 
   testWidgets(
@@ -951,6 +1411,7 @@ void main() {
   ) async {
     controller.state.preferences.onboarded = true;
     await tester.pumpWidget(WebLearningApp(controller: controller));
+    await _openTodayComposer(tester);
     await tester.enterText(find.byType(TextField).first, '今天想记录还没说完的事');
     await tester.tap(find.text('笔记'));
     await tester.pumpAndSettle();

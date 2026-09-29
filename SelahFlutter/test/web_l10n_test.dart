@@ -64,6 +64,27 @@ void main() {
     expect(SelahStrings.of('ja').text('notes.practice'), 'この文を練習');
   });
 
+  test('today quick start has welcoming copy in every supported locale', () {
+    expect(
+      SelahStrings.of('zh-Hant').text('today.quickListen.title'),
+      '聽聽生活裡的話',
+    );
+    expect(SelahStrings.of('zh-Hans').text('today.quickSpeak.title'), '说说今天');
+    expect(SelahStrings.of('ja').text('today.quickListen.title'), '暮らしの言葉を聞く');
+    for (final locale in supportedUiLocales) {
+      final strings = SelahStrings.of(locale);
+      for (final key in [
+        'today.welcome.title',
+        'today.welcome.detail',
+        'today.suggestions.title',
+        'today.focus.next',
+        'today.focus.stop',
+      ]) {
+        expect(strings.text(key), isNot(key));
+      }
+    }
+  });
+
   test('listen phrase peek copy is localized in every supported locale', () {
     expect(SelahStrings.of('zh-Hans').text('listen.peekHint'), '点选查看母语');
     expect(SelahStrings.of('zh-Hant').text('listen.peekHint'), '點選查看母語');

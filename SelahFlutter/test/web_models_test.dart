@@ -122,18 +122,21 @@ void main() {
     expect(restored.speed, 1.0);
   });
 
-  test('native voice preference round trips independently of English voice', () {
-    final preferences = LearnPreferences.fromJson({
-      'voice': 'elegant-british',
-      'nativeVoice': 'native-calm',
-      'speed': 1.0,
-    });
-    expect(preferences.voice, 'elegant-british');
-    expect(preferences.nativeVoice, 'native-calm');
-    final restored = LearnPreferences.fromJson(preferences.toJson());
-    expect(restored.voice, 'elegant-british');
-    expect(restored.nativeVoice, 'native-calm');
-  });
+  test(
+    'native voice preference round trips independently of English voice',
+    () {
+      final preferences = LearnPreferences.fromJson({
+        'voice': 'elegant-british',
+        'nativeVoice': 'native-calm',
+        'speed': 1.0,
+      });
+      expect(preferences.voice, 'elegant-british');
+      expect(preferences.nativeVoice, 'native-calm');
+      final restored = LearnPreferences.fromJson(preferences.toJson());
+      expect(restored.voice, 'elegant-british');
+      expect(restored.nativeVoice, 'native-calm');
+    },
+  );
 
   test('custom playback speeds stay within the supported range', () {
     final preferences = LearnPreferences.fromJson({'speed': .65});
@@ -265,6 +268,9 @@ void main() {
             PreparationSegment(
               id: newId(),
               sourceText: '已完成分句',
+              originalText: '原始分句',
+              polishedText: '整理后的分句',
+              removedText: ['嗯', '嘛'],
               status: 'succeeded',
             ),
           ],
@@ -274,6 +280,27 @@ void main() {
       );
       expect(restored.preparationDraft!.inputVersion, 7);
       expect(restored.preparationDraft!.segments.single.status, 'succeeded');
+      expect(restored.preparationDraft!.segments.single.originalText, '原始分句');
+      expect(restored.preparationDraft!.segments.single.polishedText, '整理后的分句');
+      expect(restored.preparationDraft!.segments.single.removedText, [
+        '嗯',
+        '嘛',
+      ]);
+    },
+  );
+
+  test(
+    'legacy preparation segments default provenance to their current text',
+    () {
+      final segment = PreparationSegment.fromJson({
+        'id': newId(),
+        'sourceText': '旧版整理分句',
+        'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      });
+
+      expect(segment.originalText, '旧版整理分句');
+      expect(segment.polishedText, '旧版整理分句');
+      expect(segment.removedText, isEmpty);
     },
   );
 

@@ -75,6 +75,15 @@ Deno.test("preparation request uses strict structured output", () => {
   const encoded = JSON.stringify(request);
   assertStringIncludes(encoded, '"type":"json_schema"');
   assertStringIncludes(encoded, '"name":"capture_preparation"');
+  const system =
+    (request.messages as Array<{ role: string; content: string }>)[0]
+      .content;
+  assertStringIncludes(system, "Remove meaningless conversational fillers");
+  assertStringIncludes(
+    system,
+    "Keep negation, time, quantities, names, emotion, concrete facts",
+  );
+  assertStringIncludes(system, "Do not translate");
 });
 
 Deno.test("batch request carries stable segment IDs", () => {

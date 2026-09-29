@@ -12,6 +12,7 @@ import '../../design/selah_typography.dart';
 import '../../domain/selah_enums.dart';
 import '../domain/learning_engine.dart';
 import '../domain/learning_models.dart';
+import '../domain/today_suggestions.dart';
 import '../domain/listen_peek.dart';
 import '../domain/sentence_splitter.dart';
 import '../domain/research_profile.dart';
@@ -1011,13 +1012,17 @@ class _TodayPage extends StatefulWidget {
 
 class _TodayPageState extends State<_TodayPage> {
   final _input = TextEditingController();
+  final _inputFocus = FocusNode();
   final _segments = <TextEditingController>[];
+  bool _expressionExpanded = false;
   bool _applyingControllerText = false;
   bool _syncingSegments = false;
   DateTime? _recordingStartedAt;
   Timer? _recordingTimer;
   int _recordingSeconds = 0;
   bool _preparing = false;
+  bool _polishing = false;
+  bool _spokenCapture = false;
 
   LearningController get c => widget.controller;
 
@@ -1035,6 +1040,7 @@ class _TodayPageState extends State<_TodayPage> {
     c.removeListener(_onControllerChanged);
     _input.removeListener(_onInputChanged);
     _input.dispose();
+    _inputFocus.dispose();
     _disposeSegments();
     _recordingTimer?.cancel();
     super.dispose();
@@ -1042,12 +1048,14 @@ class _TodayPageState extends State<_TodayPage> {
 
   void _onInputChanged() {
     if (_applyingControllerText) return;
+    if (_input.text.trim().isEmpty) _spokenCapture = false;
     c.updateTodayInput(_input.text);
   }
 
   void _onControllerChanged() {
     if (!mounted) return;
     if (c.todayInput != _input.text) {
+      if (c.todayInput.trim().isEmpty) _spokenCapture = false;
       _applyingControllerText = true;
       _input.value = TextEditingValue(
         text: c.todayInput,
@@ -1057,6 +1065,29 @@ class _TodayPageState extends State<_TodayPage> {
     }
     _syncSegments();
     setState(() {});
+  }
+
+  void _focusExpression() {
+    setState(() => _expressionExpanded = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _inputFocus.requestFocus();
+      final fieldContext = _inputFocus.context;
+      if (fieldContext != null) {
+        Scrollable.ensureVisible(
+          fieldContext,
+          alignment: 0.18,
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : SelahMotion.quick,
+        );
+      }
+    });
+  }
+
+  void _openSuggestion(TodaySuggestion suggestion) {
+    c.clearMessage();
+    c.openTodaySuggestion(suggestion);
   }
 
   void _disposeSegments() {
@@ -1104,6 +1135,15 @@ class _TodayPageState extends State<_TodayPage> {
     final text = _input.text.trim();
     if (text.isEmpty || c.busy) return;
     c.clearMessage();
+    if (_spokenCapture &&
+        shouldPolishSpokenSource(text, nativeLanguage: c.nativeLanguage)) {
+      await _prepareSpoken(text);
+      return;
+    }
+    await _submitOriginal(text);
+  }
+
+  Future<void> _submitOriginal(String text) async {
     final segments = splitSourceSentences(text);
     if (segments.length > 1 &&
         segments.length <= PreparationDraft.maxSegments) {
@@ -1121,6 +1161,55 @@ class _TodayPageState extends State<_TodayPage> {
       return;
     }
     await _prepare(text);
+  }
+
+  Future<void> _prepareSpoken(String text) async {
+    if (_preparing) return;
+    final submittedInputVersion = c.todayInputVersion;
+    setState(() {
+      _preparing = true;
+      _polishing = true;
+    });
+    c.clearMessage();
+    try {
+      final prepared = await c.prepare(text);
+      if (!mounted) return;
+      setState(() => _polishing = false);
+      if (c.todayInputVersion != submittedInputVersion ||
+          c.todayInput.trim() != text.trim() ||
+          c.errorCode == 'account_changed') {
+        return;
+      }
+      final preparation = c.preparationDraft;
+      if (prepared.isEmpty ||
+          preparation == null ||
+          preparation.segments.isEmpty) {
+        c.clearMessage();
+        c.cancelPreparation();
+        setState(() => _preparing = false);
+        await _submitOriginal(text);
+        if (mounted && c.error == null) {
+          c.notice = c.strings.text('today.polishFallback');
+          c.notifyListeners();
+        }
+        return;
+      }
+      final polishedText = preparation.segments
+          .map((segment) => segment.polishedText)
+          .join();
+      if (!polishRequiresConfirmation(text, polishedText)) {
+        c.cancelPreparation();
+        setState(() => _preparing = false);
+        await _submitOriginal(text);
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _preparing = false;
+          _polishing = false;
+        });
+      }
+    }
   }
 
   Future<void> _prepare(String text) async {
@@ -1198,6 +1287,7 @@ class _TodayPageState extends State<_TodayPage> {
       );
       _input.selection = TextSelection.collapsed(offset: _input.text.length);
       c.updateTodayInput(_input.text);
+      _spokenCapture = true;
     }
     setState(() {});
   }
@@ -1214,90 +1304,178 @@ class _TodayPageState extends State<_TodayPage> {
       );
       _input.selection = TextSelection.collapsed(offset: _input.text.length);
       c.updateTodayInput(_input.text);
+      _spokenCapture = true;
     }
     setState(() {});
   }
 
   @override
   Widget build(BuildContext context) {
-    final sentences = c.recentGeneratedSentences.isNotEmpty
-        ? c.recentGeneratedSentences
-        : (c.activeSentence == null
-              ? const <LearnSentence>[]
-              : [c.activeSentence!]);
+    final preparation = c.preparationDraft;
     final textLength = _input.text.length;
     final strings = c.strings;
-    return _PageFrame(
-      maxWidth: 760,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _TodayGreeting(controller: c),
-          const SizedBox(height: 12),
-          _ExpressionComposer(
-            controller: _input,
-            strings: strings,
-            nativeLanguage: c.nativeLanguage,
-            busy: c.busy || _preparing,
-            recording: c.recording,
-            recordingSeconds: _recordingSeconds,
-            onChanged: (_) {},
-            onRecord: _toggleRecording,
-            onSubmit: _submit,
-            onClear: _input.text.isEmpty ? null : _input.clear,
-            textLength: textLength,
-          ),
-          const SizedBox(height: 8),
-          _ModelDisclosure(strings: strings),
-          if (_segments.isNotEmpty) ...[
-            const SizedBox(height: 18),
-            _SegmentEditor(
-              segments: _segments,
-              strings: strings,
-              busy: c.busy,
-              onGenerate: _generateSegments,
-              onCancel: _cancelSegments,
-            ),
-          ],
-          if (c.legacySentence != null) ...[
-            const SizedBox(height: 12),
-            _InfoBox(
-              icon: Icons.history_rounded,
-              color: SelahColors.amber,
-              text: strings.text('today.legacyText'),
-              actionLabel: strings.text('today.openExisting'),
-              onAction: c.openLegacySentence,
-            ),
-          ],
-          if (sentences.isNotEmpty) ...[
-            const SizedBox(height: 22),
-            ...sentences.map(
-              (sentence) => Padding(
-                padding: const EdgeInsets.only(bottom: 14),
-                child: _GeneratedSentenceCard(
-                  controller: c,
-                  sentence: sentence,
-                ),
+    final suggestions = c.todaySuggestions;
+    final recent =
+        c.state.sentences
+            .where(
+              (sentence) =>
+                  !sentence.archived &&
+                  sentence.seedId == null &&
+                  sentence.origin == 'user_recording',
+            )
+            .toList()
+          ..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    final hasActiveWork =
+        _input.text.trim().isNotEmpty ||
+        c.recording ||
+        c.hasPendingRecording ||
+        preparation != null ||
+        c.state.drafts.isNotEmpty ||
+        c.recentGeneratedSentences.isNotEmpty;
+    final expressionWorkflow = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _ExpressionComposer(
+          controller: _input,
+          focusNode: _inputFocus,
+          strings: strings,
+          nativeLanguage: c.nativeLanguage,
+          busy: c.busy || _preparing,
+          polishing: _polishing,
+          spokenNeedsPolish:
+              _spokenCapture &&
+              shouldPolishSpokenSource(
+                _input.text,
+                nativeLanguage: c.nativeLanguage,
               ),
-            ),
-          ],
-          if (c.hasPendingRecording && !c.recording) ...[
-            const SizedBox(height: 12),
-            _InfoBox(
-              icon: Icons.mic_none_rounded,
-              color: SelahColors.amber,
-              text: strings.text('today.pendingRecording'),
-              actionLabel: strings.text('today.retryTranscript'),
-              onAction: c.busy ? null : _retryTranscript,
-            ),
-          ],
-          if (c.state.drafts.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            _DraftsCard(controller: c),
-          ],
-          const SizedBox(height: 32),
-          _SeedShelf(controller: c),
+          recording: c.recording,
+          recordingSeconds: _recordingSeconds,
+          onChanged: (_) {},
+          onRecord: _toggleRecording,
+          onSubmit: _submit,
+          onClear: _input.text.isEmpty ? null : _input.clear,
+          textLength: textLength,
+        ),
+        const SizedBox(height: 8),
+        _ModelDisclosure(strings: strings),
+        if (_segments.isNotEmpty && preparation != null) ...[
+          const SizedBox(height: 18),
+          _SegmentEditor(
+            segments: _segments,
+            preparationSegments: preparation.segments,
+            strings: strings,
+            spokenPolish:
+                _spokenCapture &&
+                shouldPolishSpokenSource(
+                  _input.text,
+                  nativeLanguage: c.nativeLanguage,
+                ) &&
+                preparation.sourceText.trim() == _input.text.trim(),
+            busy: c.busy,
+            onGenerate: _generateSegments,
+            onCancel: _cancelSegments,
+          ),
         ],
+        if (c.legacySentence != null) ...[
+          const SizedBox(height: 12),
+          _InfoBox(
+            icon: Icons.history_rounded,
+            color: SelahColors.amber,
+            text: strings.text('today.legacyText'),
+            actionLabel: strings.text('today.openExisting'),
+            onAction: c.openLegacySentence,
+          ),
+        ],
+        if (c.hasPendingRecording && !c.recording) ...[
+          const SizedBox(height: 12),
+          _InfoBox(
+            icon: Icons.mic_none_rounded,
+            color: SelahColors.amber,
+            text: strings.text('today.pendingRecording'),
+            actionLabel: strings.text('today.retryTranscript'),
+            onAction: c.busy ? null : _retryTranscript,
+          ),
+        ],
+        if (c.state.drafts.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          _DraftsCard(controller: c),
+        ],
+      ],
+    );
+    return _PageFrame(
+      maxWidth: 1120,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final desktop = constraints.maxWidth >= 780;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _TodayGreeting(controller: c),
+              const SizedBox(height: 22),
+              if (desktop)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: _TodayLearningPanel(
+                        controller: c,
+                        suggestions: suggestions,
+                        onOpen: _openSuggestion,
+                      ),
+                    ),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      child: _TodayExpressionPanel(
+                        controller: c,
+                        child: expressionWorkflow,
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                _TodayQuickEntries(
+                  controller: c,
+                  hasDraft: _input.text.trim().isNotEmpty,
+                  onListen: c.busy
+                      ? null
+                      : suggestions.isEmpty
+                      ? () => c.navigate(1)
+                      : () => _openSuggestion(suggestions.first),
+                  onSpeak: _focusExpression,
+                ),
+                if (_expressionExpanded || hasActiveWork) ...[
+                  const SizedBox(height: 16),
+                  expressionWorkflow,
+                ],
+                const SizedBox(height: 18),
+                _TodaySuggestionPanel(
+                  controller: c,
+                  suggestions: suggestions,
+                  onOpen: _openSuggestion,
+                ),
+              ],
+              if (c.recentGeneratedSentences.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                ...c.recentGeneratedSentences.map(
+                  (sentence) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _GeneratedSentenceCard(
+                      controller: c,
+                      sentence: sentence,
+                    ),
+                  ),
+                ),
+              ],
+              if (recent.isNotEmpty) ...[
+                const SizedBox(height: 18),
+                _TodayRecentPanel(
+                  controller: c,
+                  sentences: recent.take(3).toList(),
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -1310,7 +1488,7 @@ class _TodayGreeting extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final strings = SelahStrings.of(controller.uiLocale);
+    final strings = controller.strings;
     final name = controller.state.preferences.name.trim();
     final displayName = name.isEmpty ? '小芽' : name;
     final stage = _decorationStage(controller);
@@ -1321,12 +1499,48 @@ class _TodayGreeting extends StatelessWidget {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final showStatus = constraints.maxWidth >= 420;
-        return SizedBox(
+        final compact =
+            constraints.maxWidth < 360 ||
+            MediaQuery.textScalerOf(context).scale(16) > 25;
+        final mascotSize = compact
+            ? 56.0
+            : constraints.maxWidth >= 780
+            ? 100.0
+            : 80.0;
+        return Container(
           width: double.infinity,
+          padding: EdgeInsets.all(compact ? 16 : 24),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFFFDF0E8), SelahColors.bgPrimary],
+            ),
+            border: Border.all(color: SelahColors.borderLight),
+            borderRadius: BorderRadius.circular(SelahCornerRadius.xl),
+          ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      strings.text('today.welcome.title'),
+                      style: compact
+                          ? SelahTypography.displayMedium()
+                          : SelahTypography.displayLarge(),
+                    ),
+                    const SizedBox(height: 7),
+                    Text(
+                      strings.text('today.welcome.detail'),
+                      style: SelahTypography.bodyLarge(
+                        color: SelahColors.textSecondary,
+                      ).copyWith(fontSize: compact ? 14 : 16),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
               Semantics(
                 label:
                     '${strings.translateLegacy('精灵')}：$displayName，${strings.translateLegacy('当前状态')}：$caption',
@@ -1335,53 +1549,11 @@ class _TodayGreeting extends StatelessWidget {
                 child: PlushCompanion(
                   action: controller.companionAction,
                   revision: controller.companionRevision,
-                  size: 56,
+                  size: mascotSize,
                   decorationStage: stage,
                   uiLocale: controller.uiLocale,
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      strings.todayGreetingTitle(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: SelahTypography.displayMedium(),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '$displayName · $caption',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: SelahTypography.bodySmall(
-                        color: SelahColors.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (showStatus) ...[
-                const SizedBox(width: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: SelahColors.sageSoft,
-                    borderRadius: BorderRadius.circular(SelahCornerRadius.pill),
-                  ),
-                  child: Text(
-                    strings.text('today.learningStatus'),
-                    style: SelahTypography.labelSmall(
-                      color: const Color(0xFF376F57),
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         );
@@ -1390,12 +1562,504 @@ class _TodayGreeting extends StatelessWidget {
   }
 }
 
+class _TodayQuickEntries extends StatelessWidget {
+  const _TodayQuickEntries({
+    required this.controller,
+    required this.hasDraft,
+    required this.onListen,
+    required this.onSpeak,
+  });
+
+  final LearningController controller;
+  final bool hasDraft;
+  final VoidCallback? onListen;
+  final VoidCallback onSpeak;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = controller.strings;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final stacked =
+            constraints.maxWidth < 350 ||
+            MediaQuery.textScalerOf(context).scale(16) > 23;
+        final listen = _TodayQuickCard(
+          key: const ValueKey('today-listen-entry'),
+          title: strings.text('today.quickListen.title'),
+          detail: strings.text('today.quickListen.detail'),
+          icon: Icons.play_arrow_rounded,
+          primary: true,
+          onTap: onListen,
+        );
+        final speak = _TodayQuickCard(
+          key: const ValueKey('today-speak-entry'),
+          title: strings.text('today.quickSpeak.title'),
+          detail: strings.text(
+            hasDraft ? 'today.speak.resume' : 'today.quickSpeak.detail',
+          ),
+          icon: Icons.edit_note_rounded,
+          primary: false,
+          onTap: onSpeak,
+        );
+        if (stacked) {
+          return Column(children: [listen, const SizedBox(height: 10), speak]);
+        }
+        return Row(
+          children: [
+            Expanded(child: listen),
+            const SizedBox(width: 10),
+            Expanded(child: speak),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _TodayQuickCard extends StatelessWidget {
+  const _TodayQuickCard({
+    super.key,
+    required this.title,
+    required this.detail,
+    required this.icon,
+    required this.primary,
+    required this.onTap,
+  });
+
+  final String title;
+  final String detail;
+  final IconData icon;
+  final bool primary;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final foreground = primary ? Colors.white : SelahColors.textPrimary;
+    return Material(
+      color: primary ? SelahColors.coral : SelahColors.lavenderSoft,
+      borderRadius: BorderRadius.circular(SelahCornerRadius.xl),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(SelahCornerRadius.xl),
+        child: Semantics(
+          button: true,
+          label: '$title，$detail',
+          child: Container(
+            width: double.infinity,
+            constraints: const BoxConstraints(minHeight: 148),
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Icon(icon, size: 32, color: foreground),
+                const SizedBox(height: 14),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            title,
+                            style: SelahTypography.headlineLarge(
+                              color: foreground,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            detail,
+                            style: SelahTypography.bodyLarge(
+                              color: primary
+                                  ? Colors.white
+                                  : SelahColors.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Icon(
+                      Icons.arrow_forward_ios_rounded,
+                      size: 16,
+                      color: foreground,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _TodaySuggestionList extends StatelessWidget {
+  const _TodaySuggestionList({
+    required this.controller,
+    required this.suggestions,
+    required this.onOpen,
+  });
+
+  final LearningController controller;
+  final List<TodaySuggestion> suggestions;
+  final ValueChanged<TodaySuggestion> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = controller.strings;
+    if (suggestions.isEmpty) {
+      return Text(
+        strings.text('today.suggestions.empty'),
+        style: SelahTypography.bodyLarge(color: SelahColors.textSecondary),
+      );
+    }
+    return Column(
+      children: suggestions.map((suggestion) {
+        final label = switch (suggestion.kind) {
+          TodaySuggestionKind.revisit => strings.text(
+            'today.suggestions.revisit',
+          ),
+          TodaySuggestionKind.personal => strings.text(
+            'today.suggestions.personal',
+          ),
+          TodaySuggestionKind.starter => strings.text(
+            'today.suggestions.starter',
+          ),
+        };
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: SelahColors.cardPrimary,
+            borderRadius: BorderRadius.circular(SelahCornerRadius.lg),
+            child: InkWell(
+              key: ValueKey('today-suggestion-${suggestion.sentence.id}'),
+              onTap: controller.busy ? null : () => onOpen(suggestion),
+              borderRadius: BorderRadius.circular(SelahCornerRadius.lg),
+              child: Semantics(
+                button: true,
+                label: '$label：${suggestion.sentence.source}',
+                child: Container(
+                  width: double.infinity,
+                  constraints: const BoxConstraints(minHeight: 56),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 12,
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.eco_outlined,
+                        size: 20,
+                        color: SelahColors.sage,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          suggestion.sentence.source,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: SelahTypography.bodyLarge(
+                            color: SelahColors.textPrimary,
+                          ).copyWith(fontSize: 15),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const Icon(
+                        Icons.chevron_right_rounded,
+                        size: 20,
+                        color: SelahColors.textSecondary,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+class _TodaySuggestionPanel extends StatelessWidget {
+  const _TodaySuggestionPanel({
+    required this.controller,
+    required this.suggestions,
+    required this.onOpen,
+  });
+
+  final LearningController controller;
+  final List<TodaySuggestion> suggestions;
+  final ValueChanged<TodaySuggestion> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = controller.strings;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.menu_book_rounded,
+                  size: 20,
+                  color: SelahColors.sage,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    strings.text('today.suggestions.title'),
+                    style: SelahTypography.headlineLarge(),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _TodaySuggestionList(
+              controller: controller,
+              suggestions: suggestions,
+              onOpen: onOpen,
+            ),
+            TextButton(
+              onPressed: () => _showSeedLibrary(context, controller),
+              child: Text(strings.text('today.starterLibrary')),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TodayLearningPanel extends StatelessWidget {
+  const _TodayLearningPanel({
+    required this.controller,
+    required this.suggestions,
+    required this.onOpen,
+  });
+
+  final LearningController controller;
+  final List<TodaySuggestion> suggestions;
+  final ValueChanged<TodaySuggestion> onOpen;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = controller.strings;
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: SelahColors.sageSoft,
+        borderRadius: BorderRadius.circular(SelahCornerRadius.xl),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.menu_book_rounded, color: SelahColors.sage),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  strings.text('today.quickListen.title'),
+                  style: SelahTypography.headlineLarge(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            strings.text('today.suggestions.title'),
+            style: SelahTypography.bodyLarge(color: SelahColors.textSecondary),
+          ),
+          const SizedBox(height: 16),
+          _TodaySuggestionList(
+            controller: controller,
+            suggestions: suggestions,
+            onOpen: onOpen,
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              key: const ValueKey('today-listen-entry'),
+              onPressed: controller.busy
+                  ? null
+                  : () {
+                      if (suggestions.isEmpty) {
+                        controller.navigate(1);
+                      } else {
+                        onOpen(suggestions.first);
+                      }
+                    },
+              icon: const Icon(Icons.play_arrow_rounded),
+              label: Text(strings.text('today.quickListen.detail')),
+            ),
+          ),
+          TextButton(
+            onPressed: () => _showSeedLibrary(context, controller),
+            child: Text(strings.text('today.starterLibrary')),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayExpressionPanel extends StatelessWidget {
+  const _TodayExpressionPanel({required this.controller, required this.child});
+
+  final LearningController controller;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = controller.strings;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: SelahColors.lavenderSoft,
+        borderRadius: BorderRadius.circular(SelahCornerRadius.xl),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.edit_note_rounded, color: SelahColors.lavender),
+              const SizedBox(width: 10),
+              Text(
+                strings.text('today.quickSpeak.title'),
+                style: SelahTypography.headlineLarge(),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _TodayRecentPanel extends StatelessWidget {
+  const _TodayRecentPanel({required this.controller, required this.sentences});
+
+  final LearningController controller;
+  final List<LearnSentence> sentences;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = controller.strings;
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.description_outlined,
+                  color: SelahColors.coral,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    strings.text('today.recent.title'),
+                    style: SelahTypography.headlineLarge(),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => controller.navigate(3),
+                  child: Text(strings.text('today.recent.all')),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final cards = sentences
+                    .map(
+                      (sentence) => Material(
+                        color: SelahColors.cardSoft,
+                        borderRadius: BorderRadius.circular(
+                          SelahCornerRadius.md,
+                        ),
+                        child: InkWell(
+                          key: ValueKey('today-recent-${sentence.id}'),
+                          onTap: controller.busy
+                              ? null
+                              : () => controller.openTodaySuggestion(
+                                  TodaySuggestion(
+                                    sentence,
+                                    TodaySuggestionKind.personal,
+                                  ),
+                                ),
+                          borderRadius: BorderRadius.circular(
+                            SelahCornerRadius.md,
+                          ),
+                          child: Container(
+                            width: double.infinity,
+                            constraints: const BoxConstraints(minHeight: 56),
+                            padding: const EdgeInsets.all(12),
+                            child: Text(
+                              sentence.source,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: SelahTypography.bodyLarge(),
+                            ),
+                          ),
+                        ),
+                      ),
+                    )
+                    .toList();
+                if (constraints.maxWidth < 700) {
+                  return Column(
+                    children: cards
+                        .map(
+                          (card) => Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: card,
+                          ),
+                        )
+                        .toList(),
+                  );
+                }
+                return Row(
+                  children: cards
+                      .map(
+                        (card) => Expanded(
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: card,
+                          ),
+                        ),
+                      )
+                      .toList(),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _ExpressionComposer extends StatelessWidget {
   const _ExpressionComposer({
     required this.controller,
+    required this.focusNode,
     required this.strings,
     required this.nativeLanguage,
     required this.busy,
+    required this.polishing,
+    required this.spokenNeedsPolish,
     required this.recording,
     required this.recordingSeconds,
     required this.onChanged,
@@ -1406,9 +2070,12 @@ class _ExpressionComposer extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode focusNode;
   final SelahStrings strings;
   final String nativeLanguage;
   final bool busy;
+  final bool polishing;
+  final bool spokenNeedsPolish;
   final bool recording;
   final int recordingSeconds;
   final ValueChanged<String> onChanged;
@@ -1460,6 +2127,7 @@ class _ExpressionComposer extends StatelessWidget {
             const SizedBox(height: 12),
             TextField(
               controller: controller,
+              focusNode: focusNode,
               maxLength: 4000,
               maxLines: 5,
               minLines: 3,
@@ -1494,7 +2162,13 @@ class _ExpressionComposer extends StatelessWidget {
                         : Icons.auto_awesome_rounded,
                     size: 18,
                   ),
-                  label: Text(strings.submitLabel(busy: busy, long: long)),
+                  label: Text(
+                    strings.submitLabel(
+                      busy: busy,
+                      long: long,
+                      polishing: polishing,
+                    ),
+                  ),
                 );
                 final clearButton = onClear == null
                     ? null
@@ -1541,7 +2215,9 @@ class _ExpressionComposer extends StatelessWidget {
             ),
             const SizedBox(height: 9),
             Text(
-              long
+              spokenNeedsPolish
+                  ? strings.text('today.spokenInfo')
+                  : long
                   ? strings.text('today.longInfo')
                   : strings.text('today.shortInfo'),
               style: SelahTypography.bodySmall(color: SelahColors.textTertiary),
@@ -1590,14 +2266,18 @@ class _ModelDisclosure extends StatelessWidget {
 class _SegmentEditor extends StatelessWidget {
   const _SegmentEditor({
     required this.segments,
+    required this.preparationSegments,
     required this.strings,
+    required this.spokenPolish,
     required this.busy,
     required this.onGenerate,
     required this.onCancel,
   });
 
   final List<TextEditingController> segments;
+  final List<PreparationSegment> preparationSegments;
   final SelahStrings strings;
+  final bool spokenPolish;
   final bool busy;
   final VoidCallback onGenerate;
   final VoidCallback onCancel;
@@ -1620,7 +2300,11 @@ class _SegmentEditor extends StatelessWidget {
                 ),
                 const SizedBox(width: 8),
                 Text(
-                  strings.translateLegacy('先整理成几句'),
+                  strings.text(
+                    spokenPolish
+                        ? 'today.confirmPractice'
+                        : 'today.segmentTitle',
+                  ),
                   style: SelahTypography.headlineMedium(),
                 ),
                 const Spacer(),
@@ -1634,25 +2318,88 @@ class _SegmentEditor extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              strings.translateLegacy('确认每一段都是你想练习的完整表达；系统会按每 5 段一批继续生成。'),
+              strings.text(
+                spokenPolish
+                    ? 'today.confirmPractice.detail'
+                    : 'today.segmentDetail',
+              ),
               style: SelahTypography.bodySmall(),
             ),
             const SizedBox(height: 14),
-            ...segments.asMap().entries.map(
-              (entry) => Padding(
+            ...segments.asMap().entries.map((entry) {
+              final metadata = entry.key < preparationSegments.length
+                  ? preparationSegments[entry.key]
+                  : null;
+              final currentText = entry.value.text.trim();
+              final removed = metadata?.removedText.toSet().toList() ?? [];
+              final showRemoved =
+                  metadata != null &&
+                  currentText == metadata.polishedText.trim() &&
+                  removed.isNotEmpty;
+              final showOriginal =
+                  metadata != null &&
+                  currentText != metadata.originalText.trim();
+              return Padding(
                 padding: const EdgeInsets.only(bottom: 9),
-                child: TextField(
-                  controller: entry.value,
-                  enabled: !busy,
-                  maxLength: 500,
-                  maxLines: 2,
-                  decoration: InputDecoration(
-                    labelText: strings.segmentLabel(entry.key + 1),
-                    counterText: '',
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: entry.value,
+                      enabled: !busy,
+                      maxLength: 500,
+                      maxLines: 2,
+                      decoration: InputDecoration(
+                        labelText: strings.segmentLabel(entry.key + 1),
+                        counterText: '',
+                      ),
+                    ),
+                    if (showRemoved || showOriginal)
+                      Padding(
+                        padding: const EdgeInsets.only(left: 8, top: 2),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (showRemoved)
+                              Expanded(
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Text(
+                                    strings.message('today.removedFillers', {
+                                      'items': removed.join('、'),
+                                    }),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: SelahTypography.labelSmall(
+                                      color: SelahColors.textTertiary,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            else
+                              const Spacer(),
+                            if (showOriginal)
+                              TextButton(
+                                onPressed: busy
+                                    ? null
+                                    : () {
+                                        final text = metadata.originalText;
+                                        entry.value.value = TextEditingValue(
+                                          text: text,
+                                          selection: TextSelection.collapsed(
+                                            offset: text.length,
+                                          ),
+                                        );
+                                      },
+                                child: Text(strings.text('today.useOriginal')),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
-              ),
-            ),
+              );
+            }),
             Row(
               children: [
                 TextButton(
@@ -1851,103 +2598,6 @@ class _DraftsCard extends StatelessWidget {
   }
 }
 
-class _SeedShelf extends StatelessWidget {
-  const _SeedShelf({required this.controller});
-
-  final LearningController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = SelahStrings.of(controller.uiLocale);
-    final seeds = controller.seeds.take(3).toList();
-    if (seeds.isEmpty) return const SizedBox.shrink();
-    final added = controller.state.sentences
-        .map((sentence) => sentence.seedId)
-        .whereType<String>()
-        .toSet();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                strings.translateLegacy('从真实生活开始'),
-                style: SelahTypography.headlineMedium(),
-              ),
-            ),
-            const SizedBox(width: 8),
-            TextButton(
-              onPressed: () => _showSeedLibrary(context, controller),
-              style: TextButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-              ),
-              child: Text(
-                '${strings.translateLegacy('查看全部')} ${controller.seeds.length} ${strings.locale == 'ja'
-                    ? '文'
-                    : strings.locale == 'zh-Hant'
-                    ? '句'
-                    : '句'}',
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        ...seeds.map(
-          (seed) => Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: Card(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(SelahCornerRadius.lg),
-                onTap: controller.busy
-                    ? null
-                    : () async {
-                        controller.clearMessage();
-                        await controller.addSeed(seed);
-                      },
-                child: Padding(
-                  padding: const EdgeInsets.all(14),
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.eco_outlined,
-                        size: 19,
-                        color: SelahColors.sage,
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          seed.source,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      if (added.contains(seed.seedId))
-                        const Padding(
-                          padding: EdgeInsets.only(right: 6),
-                          child: Icon(
-                            Icons.check_circle_outline_rounded,
-                            size: 18,
-                            color: SelahColors.sage,
-                          ),
-                        ),
-                      const Icon(
-                        Icons.chevron_right_rounded,
-                        size: 20,
-                        color: SelahColors.textTertiary,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _ListenPage extends StatefulWidget {
   const _ListenPage({required this.controller, super.key});
 
@@ -1992,6 +2642,93 @@ class _ListenPageState extends State<_ListenPage> {
                   (sentence) => sentence.id == c.activeSentence!.id,
                 )
               : (sentences.isNotEmpty ? sentences.first : null));
+    if (c.todayLessonFocus && selected != null) {
+      final heard = selected.listenedAt?.toLocal();
+      final now = DateTime.now();
+      final heardToday =
+          heard != null &&
+          heard.year == now.year &&
+          heard.month == now.month &&
+          heard.day == now.day;
+      final next = c.todaySuggestions.firstOrNull;
+      return _PageFrame(
+        maxWidth: 760,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: () => c.navigate(0),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                  label: Text(strings.text('today.focus.back')),
+                ),
+                const Spacer(),
+                TextButton(
+                  onPressed: () => c.navigate(1),
+                  child: Text(strings.text('today.focus.all')),
+                ),
+              ],
+            ),
+            if (selected.reviewState != 'new' && !heardToday) ...[
+              const SizedBox(height: 10),
+              Text(
+                strings.text('today.focus.prompt'),
+                style: SelahTypography.bodyLarge(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
+            ],
+            const SizedBox(height: 14),
+            KeyedSubtree(
+              key: const ValueKey('today-focused-lesson'),
+              child: _ListenDetail(
+                key: ValueKey(selected.id),
+                controller: c,
+                sentence: selected,
+                revealed: _revealed,
+                onReveal: () => setState(() => _revealed = true),
+              ),
+            ),
+            if (heardToday) ...[
+              const SizedBox(height: 16),
+              Text(
+                strings.text('today.focus.done'),
+                style: SelahTypography.bodyLarge(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 10,
+                children: [
+                  if (next != null)
+                    FilledButton.icon(
+                      onPressed: c.busy
+                          ? null
+                          : () async {
+                              await c.openTodaySuggestion(next);
+                              if (mounted) {
+                                setState(() {
+                                  _selected = c.activeSentence;
+                                  _revealed = false;
+                                });
+                              }
+                            },
+                      icon: const Icon(Icons.arrow_forward_rounded),
+                      label: Text(strings.text('today.focus.next')),
+                    ),
+                  OutlinedButton(
+                    onPressed: () => c.navigate(0),
+                    child: Text(strings.text('today.focus.stop')),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      );
+    }
     return _PageFrame(
       maxWidth: 980,
       child: sentences.isEmpty
@@ -2191,6 +2928,7 @@ class _SentencePicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(uiLocale);
     return Card(
+      key: const ValueKey('listen-sentence-picker'),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(SelahCornerRadius.lg),
         child: Column(

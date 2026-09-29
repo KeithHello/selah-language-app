@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../domain/selah_enums.dart';
 import 'domain/learning_models.dart';
 import 'domain/learning_engine.dart';
+import 'domain/today_suggestions.dart';
 import 'domain/audio_preparation.dart';
 import 'domain/loop_listening.dart';
 import 'domain/research_profile.dart';
@@ -96,6 +97,7 @@ class LearningController extends ChangeNotifier {
   int tab = 0;
   int? detailTab;
   String? detailSentenceId;
+  bool todayLessonFocus = false;
   LearnSentence? activeSentence;
 
   /// A same-source record whose generation provenance is unknown. It is only
@@ -205,6 +207,7 @@ class LearningController extends ChangeNotifier {
   String get sourceLanguage => generationSourceLanguage(nativeLanguage);
   String get targetLanguage => generationTargetLanguage;
   String get todayInput => state.todayInput;
+  int get todayInputVersion => _inputVersion;
   PreparationDraft? get preparationDraft => state.preparationDraft;
   WebSyncPresentation get syncPresentation => WebSyncPresentation.evaluate(
     configured: configured,
@@ -783,6 +786,11 @@ class LearningController extends ChangeNotifier {
 
   List<LearnSentence> get due =>
       LearningEngine.due(state.sentences, DateTime.now());
+  List<TodaySuggestion> get todaySuggestions => TodaySuggestions.select(
+    sentences: state.sentences,
+    seeds: seeds,
+    now: DateTime.now(),
+  );
   @override
   void notifyListeners() {
     if (_disposed) return;
@@ -964,6 +972,7 @@ class LearningController extends ChangeNotifier {
     legacySentence = null;
     detailTab = null;
     detailSentenceId = null;
+    todayLessonFocus = false;
     playback = {'state': 'idle', 'positionMs': 0, 'durationMs': 0};
     loopPlayback = {
       'state': 'idle',
@@ -1140,6 +1149,9 @@ class LearningController extends ChangeNotifier {
       PreparationSegment(
         id: segment.id,
         sourceText: segment.sourceText,
+        originalText: segment.originalText,
+        polishedText: segment.polishedText,
+        removedText: segment.removedText,
         status: segment.status,
         updatedAt: segment.updatedAt,
       );
@@ -1272,10 +1284,17 @@ class LearningController extends ChangeNotifier {
 
   void navigate(int value) {
     final next = value.clamp(0, 5);
-    if (tab == next) return;
+    if (tab == next) {
+      if (next == 1 && todayLessonFocus) {
+        todayLessonFocus = false;
+        closeDetail();
+      }
+      return;
+    }
     tab = next;
     detailTab = null;
     detailSentenceId = null;
+    todayLessonFocus = false;
     if (next == 5) unawaited(admin.load());
     notifyListeners();
   }
@@ -1283,6 +1302,27 @@ class LearningController extends ChangeNotifier {
   void selectSentence(LearnSentence sentence, {bool autoplay = false}) {
     openDetail(1, sentence);
     if (autoplay) unawaited(play(sentence));
+  }
+
+  Future<void> openTodaySuggestion(TodaySuggestion suggestion) async {
+    if (busy || !initialized) return;
+    if (suggestion.needsAdd) {
+      await addSeed(suggestion.sentence);
+      if (tab != 1 || activeSentence?.seedId != suggestion.sentence.seedId) {
+        return;
+      }
+    } else {
+      final current = state.sentences
+          .where(
+            (sentence) =>
+                sentence.id == suggestion.sentence.id && !sentence.archived,
+          )
+          .firstOrNull;
+      if (current == null) return;
+      selectSentence(current);
+    }
+    todayLessonFocus = true;
+    notifyListeners();
   }
 
   void openDetail(int page, LearnSentence sentence) {
@@ -1303,6 +1343,7 @@ class LearningController extends ChangeNotifier {
   void closeDetail() {
     detailTab = null;
     detailSentenceId = null;
+    todayLessonFocus = false;
     notifyListeners();
   }
 
@@ -1807,10 +1848,28 @@ class LearningController extends ChangeNotifier {
         if (!ids.add(id)) {
           throw const LearningFailure('整理结果含重复分句，原文已保留，请稍后重试。');
         }
+        final sourceText = requiredText(segment['sourceText'], '分句', max: 500);
+        final originalText = segment['originalText'] == null
+            ? sourceText
+            : requiredText(segment['originalText'], '分句原文', max: 500);
+        final removedValue = segment['removedText'];
+        if (removedValue != null && removedValue is! List) {
+          throw const LearningFailure('整理结果不完整，原文已保留，请修改后重试。');
+        }
+        final removedText = removedValue is List
+            ? removedValue
+                  .map((item) => requiredText(item, '移除词', max: 100))
+                  .toList()
+            : const <String>[];
         segments.add(
           PreparationSegment(
             id: id,
-            sourceText: requiredText(segment['sourceText'], '分句', max: 500),
+            sourceText: sourceText,
+            originalText: originalText,
+            polishedText: segment['polishedText'] == null
+                ? sourceText
+                : requiredText(segment['polishedText'], '整理分句', max: 500),
+            removedText: removedText,
           ),
         );
       }
@@ -1833,6 +1892,9 @@ class LearningController extends ChangeNotifier {
         return PreparationSegment(
           id: segment.id,
           sourceText: segment.sourceText,
+          originalText: segment.originalText,
+          polishedText: segment.polishedText,
+          removedText: segment.removedText,
           status: existing.status,
           updatedAt: existing.updatedAt,
         );
