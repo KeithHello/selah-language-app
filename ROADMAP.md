@@ -16,7 +16,8 @@
 - [x] 语速当前档、自定义非预设档统一为聆听紫色：浅紫底、紫边、深紫字；聆听、循环听和设置页复用同一个 `SpeedSelector`。
 - [x] 验证：全量 Flutter 测试 341 项通过，`flutter analyze --no-pub` 无问题，`flutter build web --release` 成功生成 `SelahFlutter/build/web`。
 - [x] Cloudflare Pages 预览已于 2026-09-29 更新到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://1d0e53a2.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`，Build ID `2ba3d71736259738`；版本页、别名和 `selah-precache.json` 均返回 200。
-- [ ] 桌面／窄屏真实浏览器验收待完成；本轮未做数据库迁移或生产部署。
+- [x] Cloudflare Pages 生产项目 `selah-language-app` 已于 2026-09-29 创建并部署到正式分支 `main`：生产域名 `https://selah-language-app.pages.dev`，版本地址 `https://4d22c582.selah-language-app.pages.dev`，Build ID `2ba3d71736259738`；生产域名、`selah-precache.json`、`main.dart.js` 和 `flutter_bootstrap.js` 均返回 200。
+- [ ] 桌面／窄屏真实浏览器验收待完成；本轮未做数据库迁移。
 
 ### 2026-09-29 Today 双快捷入口与轻量学习（预览发布完成，浏览器验收待做）
 
