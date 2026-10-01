@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-01 聆听方案 B：手机优先的专注学习卡（实施中）
+### 2026-10-01 聆听方案 B：手机优先的专注学习卡（实现与自动化验收完成；预览已部署）
 
 - [x] 已整理 [UI／UX 设计](docs/superpowers/specs/2026-10-01-listen-focus-b-design.md) ：手机固定操作条、桌面单张学习卡、句库底部抽屉／对话框、播放状态、首末边界、置顶顺序、焦点、三语文案与 U01—U16 验收标准。
 - [x] 已整理 [开发计划](docs/superpowers/plans/2026-10-01-listen-focus-b-plan.md) ：T1—T7 的文件范围、接口、任务依赖、专项回归、全量验证、浏览器与手机真机验收。
@@ -17,8 +17,12 @@
 - [x] T1 控制器提供账户作用域内的有效句库、最新置顶序导航、静音选句及受账户 generation 保护的主动播放；首末不绕回、重复切换受锁保护。新增导航行为测试及置顶、可靠性、循环听回归共 48 项通过。
 - [x] T2—T5 已完成：三状态按钮、响应式专注卡、按需句库、紧凑语速与三语文案、焦点及快捷键；新增专项覆盖账户切换、静音选句、长答案滚动和 320—1440px 视口。
 - [x] 当前聆听专项 40 项通过：`listen_navigation_test.dart`、`web_listen_focus_ui_test.dart`、`web_listen_keyboard_test.dart`、`web_l10n_test.dart`。
-- [ ] T6—T7 完成验收中：既有 Today／循环听／词义／置顶流程已更新并跑过专项；共享工作区另有未归属本功能的会员／研究画像未提交修改，导致工作区级 analyze／test 无法通过，待在仅含本功能提交的快照中完成完整验证。
-- [ ] Release 构建、真实浏览器及 iPhone Safari／Android Chrome 真机验收仍待完成；本地设备与线上发布状态分别记录，Cloudflare 预览部署须在具体操作前逐步说明项目、分支和影响并确认。
+- [x] T6 全量回归：当前干净分支 `flutter analyze --no-pub` 无问题，`flutter test --no-pub` 共 379 项全通过；`git diff --check` 通过。
+- [x] Release 构建：基于聆听提交 `1ceccc3` 的干净快照运行 `tool/web.ps1 -Action build` 成功，Build ID `aad1d4ede820b49c`、预缓存 189 项。该验收包缺少 Supabase 公共配置，仅供本地浏览，不能上传部署。
+- [x] 桌面真实浏览器冒烟：本地 1280×720 页面显示单句专注卡、按需句库入口和「上一句／播放／聆下一句」；点击下一句后序号从 1／3 移至 2／3，预置音频自动播放并结束。响应式组件测试覆盖 320—1440px。
+- [x] Cloudflare 预览部署记录：项目 `selah-language-app-preview`，分支别名 `codex-web-ux-reliability`，版本地址 `https://dd3dde92.selah-language-app-preview.pages.dev`，别名地址 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；部署源提交 `6c5bc8d` 包含聆听实现提交 `1ceccc3`，Build ID `71a94e0c469f3320`。未部署生产、未改 DNS 或项目配置；本任务未再次访问线上页面。
+- [ ] iPhone Safari／Android Chrome 真机、登录账户与在线服务端到端验收仍待完成；实际手机用户占比待数据确认。
+- [ ] U01—U16 的完整人工浏览器验收与窄屏完整流程仍待完成；部署事实来自现有路线图记录，GitHub 比较确认部署源提交包含聆听实现，本任务未独立打开 Cloudflare 页面验收。
 - 手机优先为当前设计假设，实际设备占比待访问数据确认，不作为开发前置阻塞。
 
 ### 2026-10-01 设置页会员状态、研究资料与多语言（GitHub 合并、CI 与 Cloudflare 预览部署完成）
