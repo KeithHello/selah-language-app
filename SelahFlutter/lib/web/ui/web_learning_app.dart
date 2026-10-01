@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../design/selah_colors.dart';
 import '../../design/selah_spacing.dart';
@@ -23,6 +24,7 @@ import 'research_profile_widgets.dart';
 import 'feedback_survey_widgets.dart';
 import 'admin_dashboard_page.dart';
 import 'loop_listening_panel.dart';
+import 'listen_focus_controls.dart';
 import 'speed_selector.dart';
 import 'plush_companion.dart';
 import 'web_start_action.dart';
@@ -819,7 +821,9 @@ class _MessageBar extends StatelessWidget {
     final error = controller.error;
     final isError = error != null;
     final strings = SelahStrings.of(controller.uiLocale);
-    final message = strings.translateLegacy(error ?? controller.notice!);
+    final message = controller.errorCode == 'listen_sentence_unavailable'
+        ? strings.text('listen.unavailable')
+        : strings.translateLegacy(error ?? controller.notice!);
     return Semantics(
       liveRegion: true,
       label: '${strings.translateLegacy(isError ? '错误：' : '提示：')}$message',
@@ -982,14 +986,16 @@ class _UpdateBannerState extends State<_UpdateBanner> {
 }
 
 class _PageFrame extends StatelessWidget {
-  const _PageFrame({required this.child, this.maxWidth = 820});
+  const _PageFrame({required this.child, this.maxWidth = 820, this.controller});
 
   final Widget child;
   final double maxWidth;
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context) {
     return SingleChildScrollView(
+      controller: controller,
       padding: const EdgeInsets.fromLTRB(20, 24, 20, 40),
       child: Center(
         child: ConstrainedBox(
@@ -2744,16 +2750,49 @@ class _ListenPage extends StatefulWidget {
   State<_ListenPage> createState() => _ListenPageState();
 }
 
+class _ListenPreviousIntent extends Intent {
+  const _ListenPreviousIntent();
+}
+
+class _ListenNextIntent extends Intent {
+  const _ListenNextIntent();
+}
+
+class _ListenPlaybackIntent extends Intent {
+  const _ListenPlaybackIntent();
+}
+
 class _ListenPageState extends State<_ListenPage> {
   LearnSentence? _selected;
   bool _revealed = false;
   bool _loopMode = false;
+  bool _libraryOpen = false;
+  NavigatorState? _libraryNavigator;
+  Route<dynamic>? _libraryRoute;
+  String? _accountScope;
+  final FocusNode _libraryButtonFocusNode = FocusNode();
+  final ScrollController _listenScrollController = ScrollController();
 
   LearningController get c => widget.controller;
 
   @override
+  void initState() {
+    super.initState();
+    _accountScope = c.listenAccountScope;
+  }
+
+  @override
   void didUpdateWidget(covariant _ListenPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (c.listenAccountScope != _accountScope) {
+      final closeLibrary = _libraryOpen;
+      _accountScope = c.listenAccountScope;
+      _selected = null;
+      _revealed = false;
+      _libraryOpen = false;
+      _scrollListenToStart();
+      if (closeLibrary) _dismissSentenceLibrary();
+    }
     if (c.activeSentence != null && c.activeSentence!.id != _selected?.id) {
       _selected = c.activeSentence;
       _revealed = false;
@@ -2761,13 +2800,374 @@ class _ListenPageState extends State<_ListenPage> {
   }
 
   @override
+  void dispose() {
+    if (_libraryOpen) _dismissSentenceLibrary();
+    _libraryButtonFocusNode.dispose();
+    _listenScrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListenToStart() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_listenScrollController.hasClients) return;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _listenScrollController.jumpTo(0);
+      } else {
+        _listenScrollController.animateTo(
+          0,
+          duration: SelahMotion.quick,
+          curve: SelahMotion.standardCurve,
+        );
+      }
+    });
+  }
+
+  void _dismissSentenceLibrary() {
+    final navigator = _libraryNavigator;
+    final route = _libraryRoute;
+    if (navigator == null || route == null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (navigator.mounted && route.isActive) {
+        navigator.removeRoute(route);
+      }
+    });
+  }
+
+  Future<void> _selectListenSentence(LearnSentence sentence) async {
+    if (c.listenNavigationBusy) return;
+    final previousId = _selected?.id ?? c.activeSentence?.id;
+    final accountScope = c.listenAccountScope;
+    await c.selectListenSentence(sentence.id);
+    if (!mounted || accountScope != c.listenAccountScope) return;
+    if (c.activeSentence?.id != sentence.id) return;
+    setState(() {
+      _selected = c.activeSentence;
+      if (previousId != sentence.id) _revealed = false;
+    });
+    if (previousId != sentence.id) _scrollListenToStart();
+  }
+
+  Future<void> _moveListenSentence(LearnSentence sentence, int offset) async {
+    final accountScope = c.listenAccountScope;
+    await c.moveListenSentence(sentence.id, offset);
+    if (!mounted || accountScope != c.listenAccountScope) return;
+    final next = c.activeSentence;
+    if (next != null && next.id != sentence.id) {
+      setState(() {
+        _selected = next;
+        _revealed = false;
+      });
+      _scrollListenToStart();
+    }
+  }
+
+  Future<void> _openSentenceLibrary(LearnSentence selected) async {
+    if (_libraryOpen || c.listenNavigationBusy) return;
+    final accountScope = c.listenAccountScope;
+    _libraryOpen = true;
+    _libraryNavigator = Navigator.of(context);
+    String? selectedId;
+    try {
+      if (MediaQuery.sizeOf(context).width < 900) {
+        selectedId = await showModalBottomSheet<String>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          backgroundColor: Colors.transparent,
+          builder: (sheetContext) {
+            _libraryRoute = ModalRoute.of(sheetContext);
+            return DraggableScrollableSheet(
+              initialChildSize: 0.7,
+              minChildSize: 0.55,
+              maxChildSize: 0.85,
+              expand: false,
+              builder: (context, scrollController) => Material(
+                color: SelahColors.bgPrimary,
+                clipBehavior: Clip.antiAlias,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(SelahCornerRadius.lg),
+                ),
+                child: Column(
+                  children: [
+                    _SentenceLibraryHeader(
+                      count: c.listenSentences.length,
+                      uiLocale: c.uiLocale,
+                      onClose: () => Navigator.of(sheetContext).pop(),
+                      showDragHandle: true,
+                    ),
+                    Expanded(
+                      child: AnimatedBuilder(
+                        animation: c,
+                        builder: (context, _) => _SentencePicker(
+                          sentences: c.listenSentences,
+                          selected: c.activeSentence ?? selected,
+                          uiLocale: c.uiLocale,
+                          controller: c,
+                          scrollController: scrollController,
+                          onSelect: (sentence) =>
+                              Navigator.of(sheetContext).pop(sentence.id),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      } else {
+        final height = MediaQuery.sizeOf(context).height * 0.8;
+        selectedId = await showDialog<String>(
+          context: context,
+          builder: (dialogContext) {
+            _libraryRoute = ModalRoute.of(dialogContext);
+            return Dialog(
+              constraints: BoxConstraints(maxWidth: 560, maxHeight: height),
+              child: SizedBox(
+                height: height,
+                child: Column(
+                  children: [
+                    _SentenceLibraryHeader(
+                      count: c.listenSentences.length,
+                      uiLocale: c.uiLocale,
+                      onClose: () => Navigator.of(dialogContext).pop(),
+                    ),
+                    Expanded(
+                      child: AnimatedBuilder(
+                        animation: c,
+                        builder: (context, _) => _SentencePicker(
+                          sentences: c.listenSentences,
+                          selected: c.activeSentence ?? selected,
+                          uiLocale: c.uiLocale,
+                          controller: c,
+                          onSelect: (sentence) =>
+                              Navigator.of(dialogContext).pop(sentence.id),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      }
+      if (!mounted ||
+          accountScope != c.listenAccountScope ||
+          selectedId == null) {
+        return;
+      }
+      final current = c.listenSentences
+          .where((sentence) => sentence.id == selectedId)
+          .firstOrNull;
+      if (current == null) {
+        await c.selectListenSentence(selectedId);
+      } else {
+        await _selectListenSentence(current);
+      }
+    } finally {
+      _libraryOpen = false;
+      _libraryNavigator = null;
+      _libraryRoute = null;
+      if (mounted) {
+        _libraryButtonFocusNode.requestFocus();
+        setState(() {});
+      }
+    }
+  }
+
+  Map<String, dynamic> _playbackFor(LearnSentence sentence) {
+    if (c.isPlaybackFor(sentence) ||
+        (c.playback['state'] == 'loading' &&
+            c.activeSentence?.id == sentence.id)) {
+      return c.playback;
+    }
+    return const {'state': 'idle'};
+  }
+
+  Future<void> _toggleListenPlayback(LearnSentence sentence) async {
+    c.clearMessage();
+    final state = _playbackFor(sentence)['state'];
+    if (c.isPlaybackFor(sentence) &&
+        (state == 'playing' || state == 'paused')) {
+      await c.togglePlayback();
+    } else {
+      await c.play(sentence);
+    }
+  }
+
+  Widget _listenPositionRow(
+    List<LearnSentence> sentences,
+    LearnSentence selected,
+  ) {
+    final strings = SelahStrings.of(c.uiLocale);
+    final index = sentences.indexWhere(
+      (sentence) => sentence.id == selected.id,
+    );
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            strings.message('listen.position', {
+              'index': '${index + 1}',
+              'count': '${sentences.length}',
+            }),
+            style: SelahTypography.labelLarge(color: SelahColors.textSecondary),
+          ),
+        ),
+        OutlinedButton.icon(
+          key: const ValueKey('listen-library-button'),
+          focusNode: _libraryButtonFocusNode,
+          onPressed: c.listenNavigationBusy
+              ? null
+              : () => _openSentenceLibrary(selected),
+          icon: const Icon(Icons.library_books_outlined, size: 18),
+          label: Text(strings.text('listen.library')),
+        ),
+      ],
+    );
+  }
+
+  Widget _focusPlaybackControls(
+    List<LearnSentence> sentences,
+    LearnSentence selected, {
+    bool showLastSentenceHint = true,
+  }) {
+    final index = sentences.indexWhere(
+      (sentence) => sentence.id == selected.id,
+    );
+    final strings = SelahStrings.of(c.uiLocale);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SpeedSelector(
+          controller: c,
+          label: strings.translateLegacy('语速'),
+          compact: true,
+        ),
+        const SizedBox(height: 10),
+        KeyedSubtree(
+          key: const ValueKey('listen-focus-controls'),
+          child: ListenFocusControls(
+            uiLocale: c.uiLocale,
+            playbackState: _playbackFor(selected),
+            busy: c.listenNavigationBusy,
+            onPrevious: index > 0
+                ? () => _moveListenSentence(selected, -1)
+                : null,
+            onNext: index >= 0 && index < sentences.length - 1
+                ? () => _moveListenSentence(selected, 1)
+                : null,
+            onPlayback: () => _toggleListenPlayback(selected),
+          ),
+        ),
+        if (showLastSentenceHint && index == sentences.length - 1) ...[
+          const SizedBox(height: 10),
+          Text(
+            strings.text('listen.lastSentence'),
+            style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget? _lastSentenceHint(
+    List<LearnSentence> sentences,
+    LearnSentence selected,
+  ) {
+    final index = sentences.indexWhere(
+      (sentence) => sentence.id == selected.id,
+    );
+    if (index != sentences.length - 1) return null;
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: Text(
+        SelahStrings.of(c.uiLocale).text('listen.lastSentence'),
+        style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
+      ),
+    );
+  }
+
+  Widget _withListenKeyboard({
+    required List<LearnSentence> sentences,
+    required LearnSentence selected,
+    required Widget child,
+  }) {
+    final index = sentences.indexWhere(
+      (sentence) => sentence.id == selected.id,
+    );
+    return Shortcuts(
+      shortcuts: {
+        SingleActivator(LogicalKeyboardKey.arrowLeft, includeRepeats: false):
+            _ListenPreviousIntent(),
+        SingleActivator(LogicalKeyboardKey.arrowRight, includeRepeats: false):
+            _ListenNextIntent(),
+        SingleActivator(LogicalKeyboardKey.space, includeRepeats: false):
+            _ListenPlaybackIntent(),
+      },
+      child: Actions(
+        actions: <Type, Action<Intent>>{
+          _ListenPreviousIntent: CallbackAction<_ListenPreviousIntent>(
+            onInvoke: (_) {
+              if (_canHandleListenKeys() && index > 0) {
+                unawaited(_moveListenSentence(selected, -1));
+              }
+              return null;
+            },
+          ),
+          _ListenNextIntent: CallbackAction<_ListenNextIntent>(
+            onInvoke: (_) {
+              if (_canHandleListenKeys() &&
+                  index >= 0 &&
+                  index < sentences.length - 1) {
+                unawaited(_moveListenSentence(selected, 1));
+              }
+              return null;
+            },
+          ),
+          _ListenPlaybackIntent: CallbackAction<_ListenPlaybackIntent>(
+            onInvoke: (_) {
+              if (_canHandleListenKeys()) {
+                unawaited(_toggleListenPlayback(selected));
+              }
+              return null;
+            },
+          ),
+        },
+        child: Focus(autofocus: true, skipTraversal: true, child: child),
+      ),
+    );
+  }
+
+  bool _canHandleListenKeys() {
+    if (c.tab != 1 ||
+        c.todayLessonFocus ||
+        _libraryOpen ||
+        c.listenNavigationBusy) {
+      return false;
+    }
+    var blockedByControl = false;
+    FocusManager.instance.primaryFocus?.context?.visitAncestorElements((
+      element,
+    ) {
+      final widget = element.widget;
+      if (widget is EditableText ||
+          widget is Slider ||
+          widget is SpeedSelector) {
+        blockedByControl = true;
+        return false;
+      }
+      return true;
+    });
+    return !blockedByControl;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
     final loopMode = _loopMode || c.loopSessionVisible;
-    final visibleSentences = c.state.sentences
-        .where((sentence) => !sentence.archived)
-        .toList();
-    final sentences = c.orderedListenSentences(visibleSentences);
+    final sentences = c.listenSentences;
     final selected =
         _selected != null &&
             sentences.any((sentence) => sentence.id == _selected!.id)
@@ -2867,121 +3267,143 @@ class _ListenPageState extends State<_ListenPage> {
         ),
       );
     }
-    return _PageFrame(
-      maxWidth: 980,
-      child: sentences.isEmpty
-          ? _EmptyState(
-              icon: Icons.headphones_outlined,
-              title: strings.translateLegacy('还没有可聆听的句子'),
-              message: strings.translateLegacy('先在 Today 写下一句，或完成开场的三句种子。'),
-              actionLabel: strings.translateLegacy('去 Today 写一句'),
-              onAction: () => c.navigate(0),
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                if (loopMode) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ListenHeader(controller: c, count: sentences.length),
-                      const SizedBox(height: 14),
-                      _ListenModeSwitch(
-                        loopMode: loopMode,
-                        uiLocale: c.uiLocale,
-                        onChanged: (value) => setState(() => _loopMode = value),
-                      ),
-                      const SizedBox(height: 16),
-                      LoopListeningPanel(controller: c),
-                    ],
-                  );
-                }
-                final split = constraints.maxWidth >= 680;
-                if (!split) {
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _ListenHeader(controller: c, count: sentences.length),
-                      const SizedBox(height: 14),
-                      _ListenModeSwitch(
-                        loopMode: loopMode,
-                        uiLocale: c.uiLocale,
-                        onChanged: (value) => setState(() => _loopMode = value),
-                      ),
-                      const SizedBox(height: 16),
-                      _SentencePicker(
-                        sentences: sentences,
-                        selected: selected,
-                        uiLocale: c.uiLocale,
-                        controller: c,
-                        onSelect: (sentence) {
-                          c.selectSentence(sentence);
-                          setState(() {
-                            _selected = sentence;
-                            _revealed = false;
-                          });
-                        },
-                      ),
-                      const SizedBox(height: 16),
-                      if (selected != null)
-                        _ListenDetail(
-                          key: ValueKey(selected.id),
-                          controller: c,
-                          sentence: selected,
-                          revealed: _revealed,
-                          onReveal: () => setState(() => _revealed = true),
-                        ),
-                    ],
-                  );
-                }
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _ListenHeader(controller: c, count: sentences.length),
-                    const SizedBox(height: 16),
-                    _ListenModeSwitch(
-                      loopMode: loopMode,
-                      uiLocale: c.uiLocale,
-                      onChanged: (value) => setState(() => _loopMode = value),
-                    ),
-                    const SizedBox(height: 16),
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 280,
-                          child: _SentencePicker(
-                            sentences: sentences,
-                            selected: selected,
-                            uiLocale: c.uiLocale,
-                            controller: c,
-                            onSelect: (sentence) {
-                              c.selectSentence(sentence);
-                              setState(() {
-                                _selected = sentence;
-                                _revealed = false;
-                              });
-                            },
-                          ),
-                        ),
-                        const SizedBox(width: 18),
-                        Expanded(
-                          child: selected == null
-                              ? const SizedBox.shrink()
-                              : _ListenDetail(
-                                  key: ValueKey(selected.id),
-                                  controller: c,
-                                  sentence: selected,
-                                  revealed: _revealed,
-                                  onReveal: () =>
-                                      setState(() => _revealed = true),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ],
-                );
-              },
+    if (sentences.isEmpty) {
+      return _PageFrame(
+        child: _EmptyState(
+          icon: Icons.headphones_outlined,
+          title: strings.translateLegacy('还没有可聆听的句子'),
+          message: strings.translateLegacy('先在 Today 写下一句，或完成开场的三句种子。'),
+          actionLabel: strings.translateLegacy('去 Today 写一句'),
+          onAction: () => c.navigate(0),
+        ),
+      );
+    }
+
+    if (loopMode) {
+      return _PageFrame(
+        maxWidth: 980,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ListenHeader(controller: c, count: sentences.length),
+            const SizedBox(height: 14),
+            _ListenModeSwitch(
+              loopMode: loopMode,
+              uiLocale: c.uiLocale,
+              onChanged: (value) => setState(() => _loopMode = value),
             ),
+            const SizedBox(height: 16),
+            LoopListeningPanel(controller: c),
+          ],
+        ),
+      );
+    }
+
+    final current = selected!;
+    final isMobile = MediaQuery.sizeOf(context).width < 900;
+    final detail = _ListenDetail(
+      key: ValueKey(current.id),
+      controller: c,
+      sentence: current,
+      revealed: _revealed,
+      onReveal: () => setState(() => _revealed = true),
+      focusMode: true,
+      footer: isMobile
+          ? _lastSentenceHint(sentences, current)
+          : _focusPlaybackControls(sentences, current),
+    );
+    if (!isMobile) {
+      return _withListenKeyboard(
+        sentences: sentences,
+        selected: current,
+        child: _PageFrame(
+          maxWidth: 860,
+          controller: _listenScrollController,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ListenHeader(controller: c, count: sentences.length),
+              const SizedBox(height: 16),
+              _ListenModeSwitch(
+                loopMode: loopMode,
+                uiLocale: c.uiLocale,
+                onChanged: (value) => setState(() => _loopMode = value),
+              ),
+              const SizedBox(height: 14),
+              _listenPositionRow(sentences, current),
+              const SizedBox(height: 12),
+              detail,
+              const SizedBox(height: 16),
+              Center(
+                child: Text(
+                  strings.text('listen.keyboardHint'),
+                  style: SelahTypography.bodySmall(
+                    color: SelahColors.textTertiary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return _withListenKeyboard(
+      sentences: sentences,
+      selected: current,
+      child: Column(
+        children: [
+          Expanded(
+            child: SingleChildScrollView(
+              controller: _listenScrollController,
+              key: const ValueKey('listen-content-scroll'),
+              padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 860),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _ListenHeader(controller: c, count: sentences.length),
+                      const SizedBox(height: 14),
+                      _ListenModeSwitch(
+                        loopMode: loopMode,
+                        uiLocale: c.uiLocale,
+                        onChanged: (value) => setState(() => _loopMode = value),
+                      ),
+                      const SizedBox(height: 12),
+                      _listenPositionRow(sentences, current),
+                      const SizedBox(height: 10),
+                      detail,
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Material(
+            color: SelahColors.bgPrimary,
+            elevation: 8,
+            child: SafeArea(
+              top: false,
+              bottom: false,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 860),
+                    child: _focusPlaybackControls(
+                      sentences,
+                      current,
+                      showLastSentenceHint: false,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -3051,6 +3473,66 @@ class _ListenModeSwitch extends StatelessWidget {
   }
 }
 
+class _SentenceLibraryHeader extends StatelessWidget {
+  const _SentenceLibraryHeader({
+    required this.count,
+    required this.uiLocale,
+    required this.onClose,
+    this.showDragHandle = false,
+  });
+
+  final int count;
+  final String uiLocale;
+  final VoidCallback onClose;
+  final bool showDragHandle;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = SelahStrings.of(uiLocale);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, showDragHandle ? 10 : 12, 12, 12),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (showDragHandle) ...[
+            Container(
+              width: 36,
+              height: 4,
+              decoration: BoxDecoration(
+                color: SelahColors.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  strings.text('listen.library'),
+                  style: SelahTypography.headlineLarge(),
+                ),
+              ),
+              Text(
+                uiLocale == 'ja' ? '$count文' : '$count 句',
+                style: SelahTypography.labelLarge(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: strings.text('common.close'),
+                onPressed: onClose,
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SentencePicker extends StatelessWidget {
   const _SentencePicker({
     required this.sentences,
@@ -3058,6 +3540,7 @@ class _SentencePicker extends StatelessWidget {
     required this.uiLocale,
     required this.controller,
     required this.onSelect,
+    this.scrollController,
   });
 
   final List<LearnSentence> sentences;
@@ -3065,88 +3548,101 @@ class _SentencePicker extends StatelessWidget {
   final String uiLocale;
   final LearningController controller;
   final ValueChanged<LearnSentence> onSelect;
+  final ScrollController? scrollController;
 
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(uiLocale);
     return Card(
       key: const ValueKey('listen-sentence-picker'),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(SelahCornerRadius.lg),
-        child: Column(
-          children: sentences.map((sentence) {
-            final active = selected?.id == sentence.id;
-            return Semantics(
-              button: true,
-              selected: active,
-              label: '${strings.translateLegacy('选择句子')}：${sentence.source}',
-              child: InkWell(
-                onTap: () => onSelect(sentence),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: active
-                        ? SelahColors.lavenderSoft
-                        : Colors.transparent,
-                    border: const Border(
-                      bottom: BorderSide(color: SelahColors.borderLight),
+      clipBehavior: Clip.antiAlias,
+      child: ListView.builder(
+        controller: scrollController,
+        itemCount: sentences.length,
+        itemBuilder: (context, index) {
+          final sentence = sentences[index];
+          final active = selected?.id == sentence.id;
+          final pinned = controller.isPinnedSentence(sentence.id);
+          final disabled = controller.listenNavigationBusy;
+          return Container(
+            key: ValueKey('listen-sentence-row-${sentence.id}'),
+            decoration: BoxDecoration(
+              color: active ? SelahColors.lavenderSoft : null,
+              border: const Border(
+                bottom: BorderSide(color: SelahColors.borderLight),
+              ),
+            ),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Semantics(
+                    button: true,
+                    selected: active,
+                    label:
+                        '${strings.translateLegacy('选择句子')}：${sentence.source}',
+                    child: InkWell(
+                      onTap: disabled ? null : () => onSelect(sentence),
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(14, 14, 8, 14),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 7,
+                              height: 7,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _reviewColor(sentence.reviewState),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                sentence.source,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: SelahTypography.bodyMedium(
+                                  color: active
+                                      ? SelahColors.textPrimary
+                                      : SelahColors.textSecondary,
+                                ),
+                              ),
+                            ),
+                            if (sentence.listenedAt != null)
+                              const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: Icon(
+                                  Icons.check_rounded,
+                                  size: 17,
+                                  color: SelahColors.sage,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _reviewColor(sentence.reviewState),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          sentence.source,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: SelahTypography.bodyMedium(
-                            color: active
-                                ? SelahColors.textPrimary
-                                : SelahColors.textSecondary,
-                          ),
-                        ),
-                      ),
-                      if (sentence.listenedAt != null)
-                        const Icon(
-                          Icons.check_rounded,
-                          size: 17,
-                          color: SelahColors.sage,
-                        ),
-                      const SizedBox(width: 4),
-                      IconButton(
-                        tooltip: controller.isPinnedSentence(sentence.id)
-                            ? strings.text('listen.unpin')
-                            : strings.text('listen.pin'),
-                        onPressed: () =>
-                            controller.togglePinnedSentence(sentence.id),
-                        visualDensity: VisualDensity.compact,
-                        icon: Icon(
-                          controller.isPinnedSentence(sentence.id)
-                              ? Icons.push_pin_rounded
-                              : Icons.push_pin_outlined,
-                          size: 19,
-                          color: controller.isPinnedSentence(sentence.id)
-                              ? SelahColors.lavender
-                              : SelahColors.textTertiary,
-                        ),
-                      ),
-                    ],
+                ),
+                IconButton(
+                  key: ValueKey('listen-pin-${sentence.id}'),
+                  tooltip: pinned
+                      ? strings.text('listen.unpin')
+                      : strings.text('listen.pin'),
+                  onPressed: disabled
+                      ? null
+                      : () => controller.togglePinnedSentence(sentence.id),
+                  visualDensity: VisualDensity.compact,
+                  icon: Icon(
+                    pinned ? Icons.push_pin_rounded : Icons.push_pin_outlined,
+                    size: 19,
+                    color: pinned
+                        ? SelahColors.lavender
+                        : SelahColors.textTertiary,
                   ),
                 ),
-              ),
-            );
-          }).toList(),
-        ),
+              ],
+            ),
+          );
+        },
       ),
     );
   }
@@ -3159,12 +3655,16 @@ class _ListenDetail extends StatefulWidget {
     required this.sentence,
     required this.revealed,
     required this.onReveal,
+    this.focusMode = false,
+    this.footer,
   });
 
   final LearningController controller;
   final LearnSentence sentence;
   final bool revealed;
   final VoidCallback onReveal;
+  final bool focusMode;
+  final Widget? footer;
 
   @override
   State<_ListenDetail> createState() => _ListenDetailState();
@@ -3218,6 +3718,7 @@ class _ListenDetailState extends State<_ListenDetail> {
           );
     final reducedMotion = MediaQuery.disableAnimationsOf(context);
     return Card(
+      key: widget.focusMode ? const ValueKey('listen-focus-card') : null,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 22, 20, 20),
         child: Column(
@@ -3228,6 +3729,27 @@ class _ListenDetailState extends State<_ListenDetail> {
                 _CategoryPill(category: sentence.category),
                 const Spacer(),
                 _ReviewStatePill(state: sentence.reviewState),
+                if (widget.focusMode) ...[
+                  const SizedBox(width: 4),
+                  IconButton(
+                    key: const ValueKey('listen-focused-pin'),
+                    tooltip: controller.isPinnedSentence(sentence.id)
+                        ? strings.text('listen.unpin')
+                        : strings.text('listen.pin'),
+                    onPressed: controller.listenNavigationBusy
+                        ? null
+                        : () => controller.togglePinnedSentence(sentence.id),
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      controller.isPinnedSentence(sentence.id)
+                          ? Icons.push_pin_rounded
+                          : Icons.push_pin_outlined,
+                      color: controller.isPinnedSentence(sentence.id)
+                          ? SelahColors.lavender
+                          : SelahColors.textTertiary,
+                    ),
+                  ),
+                ],
                 if (controller.isPinnedSentence(sentence.id)) ...[
                   const SizedBox(width: 8),
                   Chip(
@@ -3244,17 +3766,32 @@ class _ListenDetailState extends State<_ListenDetail> {
             ),
             const SizedBox(height: 24),
             Text(
-              strings.translateLegacy('中文提示'),
+              widget.focusMode
+                  ? strings.text('listen.nativePrompt')
+                  : strings.translateLegacy('中文提示'),
               style: SelahTypography.labelSmall(
                 color: SelahColors.textTertiary,
               ),
             ),
             const SizedBox(height: 8),
-            Text(sentence.source, style: SelahTypography.displayMedium()),
+            widget.focusMode
+                ? Semantics(
+                    container: true,
+                    label:
+                        '${strings.text('listen.currentSentence')}：${sentence.source}',
+                    child: ExcludeSemantics(
+                      child: Text(
+                        sentence.source,
+                        style: SelahTypography.displayMedium(),
+                      ),
+                    ),
+                  )
+                : Text(sentence.source, style: SelahTypography.displayMedium()),
             const SizedBox(height: 22),
             if (!widget.revealed)
               Center(
                 child: OutlinedButton.icon(
+                  key: const ValueKey('listen-reveal-answer'),
                   onPressed: widget.onReveal,
                   icon: const Icon(Icons.visibility_outlined, size: 18),
                   label: Text(strings.translateLegacy('看英文答案')),
@@ -3335,7 +3872,13 @@ class _ListenDetailState extends State<_ListenDetail> {
               duration: duration,
               cacheToken:
                   '${controller.playback['state']}:${controller.playback['key'] ?? ''}',
+              showTransport: !widget.focusMode,
+              showSpeedSelector: !widget.focusMode,
             ),
+            if (widget.footer != null) ...[
+              const SizedBox(height: 14),
+              widget.footer!,
+            ],
           ],
         ),
       ),
@@ -3525,6 +4068,8 @@ class _PlaybackControls extends StatelessWidget {
     required this.position,
     required this.duration,
     required this.cacheToken,
+    this.showTransport = true,
+    this.showSpeedSelector = true,
   });
 
   final LearningController controller;
@@ -3533,6 +4078,8 @@ class _PlaybackControls extends StatelessWidget {
   final double position;
   final double duration;
   final String cacheToken;
+  final bool showTransport;
+  final bool showSpeedSelector;
 
   @override
   Widget build(BuildContext context) {
@@ -3567,48 +4114,60 @@ class _PlaybackControls extends StatelessWidget {
             ),
           ],
         ),
-        Row(
-          children: [
-            FilledButton.icon(
-              onPressed: controller.busy
-                  ? null
-                  : () async {
-                      controller.clearMessage();
-                      if (controller.isPlaybackFor(sentence) &&
-                          (playing ||
-                              controller.playback['state'] == 'paused')) {
-                        await controller.togglePlayback();
-                      } else {
-                        await controller.play(sentence);
-                      }
-                    },
-              icon: Icon(
-                playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                size: 20,
+        if (showTransport)
+          Row(
+            children: [
+              FilledButton.icon(
+                onPressed: controller.busy
+                    ? null
+                    : () async {
+                        controller.clearMessage();
+                        if (controller.isPlaybackFor(sentence) &&
+                            (playing ||
+                                controller.playback['state'] == 'paused')) {
+                          await controller.togglePlayback();
+                        } else {
+                          await controller.play(sentence);
+                        }
+                      },
+                icon: Icon(
+                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  size: 20,
+                ),
+                label: Text(strings.translateLegacy(playing ? '暂停' : '播放')),
               ),
-              label: Text(strings.translateLegacy(playing ? '暂停' : '播放')),
-            ),
-            const SizedBox(width: 9),
-            IconButton(
-              tooltip: strings.translateLegacy('重新播放'),
-              onPressed: controller.busy
-                  ? null
-                  : () => controller.play(sentence),
-              icon: const Icon(Icons.replay_rounded),
-            ),
-            const Spacer(),
-            _CacheStatus(
+              const SizedBox(width: 9),
+              IconButton(
+                tooltip: strings.translateLegacy('重新播放'),
+                onPressed: controller.busy
+                    ? null
+                    : () => controller.play(sentence),
+                icon: const Icon(Icons.replay_rounded),
+              ),
+              const Spacer(),
+              _CacheStatus(
+                controller: controller,
+                sentence: sentence,
+                refreshToken: cacheToken,
+              ),
+            ],
+          )
+        else
+          Align(
+            alignment: Alignment.centerRight,
+            child: _CacheStatus(
               controller: controller,
               sentence: sentence,
               refreshToken: cacheToken,
             ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        SpeedSelector(
-          controller: controller,
-          label: strings.translateLegacy('语速'),
-        ),
+          ),
+        if (showSpeedSelector) ...[
+          const SizedBox(height: 8),
+          SpeedSelector(
+            controller: controller,
+            label: strings.translateLegacy('语速'),
+          ),
+        ],
       ],
     );
   }
@@ -4875,7 +5434,7 @@ class _SettingsPageState extends State<_SettingsPage> {
           AnimatedBuilder(
             animation: c.membership,
             builder: (context, _) =>
-                c.isRegistered && c.membership.membershipModeEnabled
+                c.isRegistered
                 ? Padding(
                     padding: const EdgeInsets.only(top: 20),
                     child: MembershipStatusCard(
@@ -5184,7 +5743,7 @@ class _SettingsPageState extends State<_SettingsPage> {
           if (c.isRegistered) ...[
             const SizedBox(height: 14),
             _SettingsSection(
-              title: s.translateLegacy('关于你的学习'),
+              title: s.text('settings.learningProfile.title'),
               icon: Icons.person_outline_rounded,
               children: [
                 ResearchProfileEntry(

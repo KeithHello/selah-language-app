@@ -150,4 +150,63 @@ void main() {
       '温柔自然',
     );
   });
+
+  test('learning profile section title is localized in every locale', () {
+    expect(
+      SelahStrings.of('zh-Hans').text('settings.learningProfile.title'),
+      '关于你的学习',
+    );
+    expect(
+      SelahStrings.of('zh-Hant').text('settings.learningProfile.title'),
+      '關於你的學習',
+    );
+    expect(
+      SelahStrings.of('ja').text('settings.learningProfile.title'),
+      'あなたの学習について',
+    );
+    expect(
+      SelahStrings.of('zh-Hant').text('auth.profile.detail'),
+      contains('不會影響試用或會員權益'),
+    );
+    expect(
+      SelahStrings.of('ja').text('auth.profile.detail'),
+      contains('トライアルや会員権益には影響しません'),
+    );
+  });
+
+  test(
+    'focused listening copy and position interpolation cover all locales',
+    () {
+      const keys = [
+        'listen.library',
+        'listen.previous',
+        'listen.nextPlay',
+        'listen.replay',
+        'listen.resume',
+        'listen.preparing',
+        'listen.currentSentence',
+        'listen.lastSentence',
+        'listen.nativePrompt',
+        'listen.unavailable',
+        'listen.keyboardHint',
+        'listen.speedTitle',
+      ];
+      for (final locale in supportedUiLocales) {
+        final strings = SelahStrings.of(locale);
+        for (final key in keys) {
+          expect(strings.text(key), isNot(key), reason: '$locale: $key');
+        }
+        expect(
+          strings.message('listen.position', {'index': '3', 'count': '21'}),
+          isNot(contains('{index}')),
+          reason: '$locale position index',
+        );
+        expect(
+          strings.message('listen.position', {'index': '3', 'count': '21'}),
+          isNot(contains('{count}')),
+          reason: '$locale position count',
+        );
+      }
+    },
+  );
 }

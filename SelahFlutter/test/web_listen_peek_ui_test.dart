@@ -115,10 +115,12 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     controller.navigate(1);
+    await controller.selectListenSentence('listen-one');
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
 
     expect(find.text('点选查看母语'), findsNothing);
+    await tester.ensureVisible(find.text('看英文答案'));
     await tester.tap(find.text('看英文答案'));
     await tester.pumpAndSettle();
     expect(find.text('点选查看母语'), findsOneWidget);
@@ -146,8 +148,10 @@ void main() {
     tester,
   ) async {
     controller.navigate(1);
+    await controller.selectListenSentence('listen-one');
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('看英文答案'));
     await tester.tap(find.text('看英文答案'));
     await tester.pumpAndSettle();
 
@@ -167,8 +171,10 @@ void main() {
     tester,
   ) async {
     controller.navigate(1);
+    await controller.selectListenSentence('listen-one');
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
+    await tester.ensureVisible(find.text('看英文答案'));
     await tester.tap(find.text('看英文答案'));
     await tester.pumpAndSettle();
     await tester.ensureVisible(find.byKey(const ValueKey('listen-target-b:1')));
@@ -176,8 +182,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('我真的会谢、我真的不行了'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('我今天想早点休息。'));
-    await tester.tap(find.text('我今天想早点休息。'));
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('listen-library-button')),
+    );
+    await tester.tap(find.byKey(const ValueKey('listen-library-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.byKey(const ValueKey('listen-sentence-row-listen-two')),
+    );
     await tester.pumpAndSettle();
     expect(find.text('我真的会谢、我真的不行了'), findsNothing);
     expect(find.text('看英文答案'), findsOneWidget);

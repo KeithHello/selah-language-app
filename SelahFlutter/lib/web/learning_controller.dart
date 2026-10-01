@@ -150,6 +150,7 @@ class LearningController extends ChangeNotifier {
   bool _disposed = false;
   bool _polling = false;
   int _accountGeneration = 0;
+  bool _listenNavigationInProgress = false;
   Future<void> _accountLoad = Future.value();
   String? _remindedDay;
   String? _activitySessionId;
@@ -939,6 +940,7 @@ class LearningController extends ChangeNotifier {
       _saveDepartingInput(_accountId, state.copy());
     }
     final generation = ++_accountGeneration;
+    _listenNavigationInProgress = false;
     _accountId = id;
     _syncTimer?.cancel();
     _clearCompanionCue();
@@ -1210,6 +1212,14 @@ class LearningController extends ChangeNotifier {
     ];
   }
 
+  List<LearnSentence> get listenSentences => orderedListenSentences(
+    state.sentences.where((sentence) => !sentence.archived).toList(),
+  );
+
+  String get listenAccountScope => _accountId;
+
+  bool get listenNavigationBusy => busy || _listenNavigationInProgress;
+
   PreparationSegment _copyPreparationSegment(PreparationSegment segment) =>
       PreparationSegment(
         id: segment.id,
@@ -1367,6 +1377,92 @@ class LearningController extends ChangeNotifier {
   void selectSentence(LearnSentence sentence, {bool autoplay = false}) {
     openDetail(1, sentence);
     if (autoplay) unawaited(play(sentence));
+  }
+
+  void _reportListenSentenceUnavailable(int generation) {
+    if (!_current(generation)) return;
+    const failure = LearningFailure(
+      '此句目前不在聆聽清單中。',
+      code: 'listen_sentence_unavailable',
+    );
+    errorCode = failure.code;
+    error = failure.message;
+    notifyListeners();
+  }
+
+  Future<void> selectListenSentence(
+    String sentenceId, {
+    bool autoplay = false,
+  }) async {
+    if (!initialized || listenNavigationBusy) return;
+    final generation = _accountGeneration;
+    final selected = listenSentences
+        .where((sentence) => sentence.id == sentenceId)
+        .firstOrNull;
+    if (selected == null) {
+      _reportListenSentenceUnavailable(generation);
+      return;
+    }
+
+    _listenNavigationInProgress = true;
+    error = null;
+    errorCode = null;
+    notice = null;
+    notifyListeners();
+    try {
+      if (autoplay) {
+        selectSentence(selected);
+        await play(selected);
+        return;
+      }
+
+      final selectingDifferentSentence = activeSentence?.id != selected.id;
+      final hasAudioToStop =
+          playback['state'] != 'idle' ||
+          _playSentenceId != null ||
+          _previewKey != null;
+      if (selectingDifferentSentence && hasAudioToStop) {
+        await stopPlayback();
+        if (!_current(generation)) return;
+        final latest = listenSentences
+            .where((sentence) => sentence.id == sentenceId)
+            .firstOrNull;
+        if (latest == null) {
+          _reportListenSentenceUnavailable(generation);
+          return;
+        }
+        selectSentence(latest);
+      } else {
+        selectSentence(selected);
+      }
+    } catch (e) {
+      if (_current(generation)) {
+        errorCode = e is LearningFailure ? e.code : null;
+        error = _message(e);
+        notifyListeners();
+      }
+    } finally {
+      if (_current(generation)) {
+        _listenNavigationInProgress = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> moveListenSentence(String currentId, int offset) async {
+    if ((offset != -1 && offset != 1) || !initialized || listenNavigationBusy) {
+      return;
+    }
+    final generation = _accountGeneration;
+    final sentences = listenSentences;
+    final index = sentences.indexWhere((sentence) => sentence.id == currentId);
+    if (index < 0) {
+      _reportListenSentenceUnavailable(generation);
+      return;
+    }
+    final nextIndex = index + offset;
+    if (nextIndex < 0 || nextIndex >= sentences.length) return;
+    await selectListenSentence(sentences[nextIndex].id, autoplay: true);
   }
 
   Future<void> openTodaySuggestion(TodaySuggestion suggestion) async {

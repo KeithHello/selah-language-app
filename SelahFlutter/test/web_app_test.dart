@@ -626,7 +626,7 @@ void main() {
     expect(find.text('注册时可选资料'), findsOneWidget);
     expect(find.text('年龄段'), findsOneWidget);
     expect(find.text('性别'), findsOneWidget);
-    expect(find.textContaining('填写资料完全自愿'), findsOneWidget);
+    expect(find.textContaining('这些背景资料完全自愿'), findsOneWidget);
   });
 
   testWidgets('settings expose a native voice picker', (tester) async {
@@ -1491,15 +1491,22 @@ void main() {
     controller.navigate(1);
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(FilledButton, '暂停'), findsOneWidget);
-    await tester.ensureVisible(find.widgetWithText(FilledButton, '暂停'));
-    await tester.tap(find.widgetWithText(FilledButton, '暂停'));
+    final playbackButton = find.byKey(const ValueKey('listen-playback'));
+    expect(
+      find.descendant(of: playbackButton, matching: find.text('暂停')),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(playbackButton);
+    await tester.tap(playbackButton);
     await tester.pumpAndSettle();
     expect(platform.actions, contains('audioPause'));
     expect(controller.playback['state'], 'paused');
     platform.actions.clear();
-    await tester.ensureVisible(find.widgetWithText(FilledButton, '播放'));
-    await tester.tap(find.widgetWithText(FilledButton, '播放'));
+    expect(
+      find.descendant(of: playbackButton, matching: find.text('继续播放')),
+      findsOneWidget,
+    );
+    await tester.tap(playbackButton);
     await tester.pumpAndSettle();
     expect(platform.actions, contains('audioResume'));
     expect(platform.actions, isNot(contains('audioPlay')));
@@ -1521,28 +1528,37 @@ void main() {
     );
     controller.state.sentences.addAll([first, second]);
     controller.navigate(1);
+    await controller.selectListenSentence(first.id);
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byTooltip('置顶').last);
+    await tester.tap(find.byKey(const ValueKey('listen-library-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('listen-pin-${second.id}')));
     await tester.pumpAndSettle();
 
-    final picker = find.byKey(const ValueKey('listen-sentence-picker'));
-    final sources = tester
-        .widgetList<Text>(
-          find.descendant(of: picker, matching: find.byType(Text)),
-        )
-        .map((text) => text.data)
-        .whereType<String>()
-        .toList();
-    expect(sources, ['第二句', '第一句']);
-    expect(find.text('已置顶'), findsOneWidget);
-
-    final unpin = find.widgetWithIcon(IconButton, Icons.push_pin_rounded).first;
+    final pinnedRow = find.byKey(ValueKey('listen-sentence-row-${second.id}'));
+    final firstRow = find.byKey(ValueKey('listen-sentence-row-${first.id}'));
+    expect(
+      tester.getTopLeft(pinnedRow).dy,
+      lessThan(tester.getTopLeft(firstRow).dy),
+    );
+    final unpin = find.byKey(ValueKey('listen-pin-${second.id}'));
     final unpinIcon = tester.widget<IconButton>(unpin).icon as Icon;
     expect(unpinIcon.color, SelahColors.lavender);
 
-    await tester.tap(find.byTooltip('取消置顶').first);
+    await tester.tap(pinnedRow);
+    await tester.pumpAndSettle();
+    expect(controller.activeSentence?.id, second.id);
+    expect(find.text('已置顶'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('listen-library-button')),
+    );
+    await tester.tap(find.byKey(const ValueKey('listen-library-button')));
+    await tester.pumpAndSettle();
+    final selectedUnpin = find.byKey(ValueKey('listen-pin-${second.id}'));
+    await tester.tap(selectedUnpin);
     await tester.pumpAndSettle();
     expect(find.text('已置顶'), findsNothing);
   });
