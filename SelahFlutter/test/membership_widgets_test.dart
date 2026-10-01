@@ -396,4 +396,86 @@ void main() {
     expect(proButton.onPressed, isNull);
     controller.dispose();
   });
+
+  testWidgets('active period with missing usage shows a retry hint', (
+    tester,
+  ) async {
+    final status = _monthlyStatus();
+    status['usage'] = null;
+    final controller = MembershipController(gateway: _Gateway(status: status));
+    await controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MembershipStatusCard(
+            controller: controller,
+            uiLocale: 'zh-Hans',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('月会员'), findsOneWidget);
+    expect(find.text('额度信息暂时无法读取，请稍后重试。'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+    expect(find.text('本账期剩余'), findsNothing);
+    controller.dispose();
+  });
+
+  testWidgets('usage retry restores balances after the gateway recovers', (
+    tester,
+  ) async {
+    final gateway = _Gateway(status: _monthlyStatus());
+    final controller = MembershipController(gateway: gateway);
+    await controller.load();
+    final degraded = _monthlyStatus();
+    degraded['usage'] = null;
+    gateway.status = degraded;
+    await controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MembershipStatusCard(
+            controller: controller,
+            uiLocale: 'zh-Hans',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('额度信息暂时无法读取，请稍后重试。'), findsOneWidget);
+    gateway.status = _monthlyStatus();
+    await tester.tap(find.text('重试'));
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.text('本账期剩余'), findsOneWidget);
+    expect(find.text('19 条'), findsOneWidget);
+    controller.dispose();
+  });
+
+  testWidgets('usage fallback copy follows the interface locale', (
+    tester,
+  ) async {
+    final status = _monthlyStatus();
+    status['usage'] = null;
+    final controller = MembershipController(gateway: _Gateway(status: status));
+    await controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MembershipStatusCard(
+            controller: controller,
+            uiLocale: 'ja',
+          ),
+        ),
+      ),
+    );
+
+    expect(
+      find.text('利用量の情報を読み込めません。しばらくしてからもう一度お試しください。'),
+      findsOneWidget,
+    );
+    controller.dispose();
+  });
 }

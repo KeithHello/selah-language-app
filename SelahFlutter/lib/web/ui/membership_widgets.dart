@@ -90,14 +90,26 @@ class MembershipStatusCard extends StatelessWidget {
                     const SizedBox(height: SelahSpacing.md),
                     trialNotice,
                   ],
-                  if (activePeriod && summary.usage != null) ...[
+                  if (activePeriod) ...[
                     const SizedBox(height: SelahSpacing.lg),
-                    _UsageRows(
-                      usage: summary.usage!,
-                      uiLocale: uiLocale,
-                      title: _membershipCopy(uiLocale, 'cycleRemaining'),
-                      exhaustedLabel: _membershipCopy(uiLocale, 'exhausted'),
-                    ),
+                    if (summary.usage != null)
+                      _UsageRows(
+                        usage: summary.usage!,
+                        uiLocale: uiLocale,
+                        title: _membershipCopy(uiLocale, 'cycleRemaining'),
+                        exhaustedLabel: _membershipCopy(uiLocale, 'exhausted'),
+                      )
+                    else
+                      _MembershipNotice(
+                        text: _membershipCopy(uiLocale, 'usageUnavailable'),
+                        color: SelahColors.amber,
+                        action: TextButton(
+                          onPressed: controller.loading
+                              ? null
+                              : () => unawaited(controller.load()),
+                          child: Text(_membershipCopy(uiLocale, 'retry')),
+                        ),
+                      ),
                   ],
                   if (summary.futurePeriods.isNotEmpty) ...[
                     const SizedBox(height: SelahSpacing.md),
@@ -823,6 +835,7 @@ const _membershipCopies = <String, Map<String, String>>{
     'changePlan': '更改方案',
     'nextPeriod': '下一账期从 {date} 开始 · {plan}',
     'statusError': '会员状态暂时无法读取，请稍后重试。',
+    'usageUnavailable': '额度信息暂时无法读取，请稍后重试。',
     'modeOffNote': '会员额度限制尚未对所有用户开启，当前不会按额度限制你的学习。',
     'modeOffFreeNote': '当前未开通会员，学习不受限制。',
     'previewError': '方案预览暂时无法读取，请稍后重试。',
@@ -881,6 +894,7 @@ const _membershipCopies = <String, Map<String, String>>{
     'changePlan': '更改方案',
     'nextPeriod': '下一帳期從 {date} 開始 · {plan}',
     'statusError': '會員狀態暫時無法讀取，請稍後重試。',
+    'usageUnavailable': '額度資訊暫時無法讀取，請稍後重試。',
     'modeOffNote': '會員額度限制尚未對所有使用者開啟，目前不會按額度限制你的學習。',
     'modeOffFreeNote': '目前未開通會員，學習不受限制。',
     'previewError': '方案預覽暫時無法讀取，請稍後重試。',
@@ -939,6 +953,7 @@ const _membershipCopies = <String, Map<String, String>>{
     'changePlan': 'プランを変更',
     'nextPeriod': '次の期間：{date} · {plan}',
     'statusError': 'メンバー状態を読み込めません。しばらくしてから再試行してください。',
+    'usageUnavailable': '利用量の情報を読み込めません。しばらくしてからもう一度お試しください。',
     'modeOffNote': 'メンバーの枠制限はまだ全ユーザーに有効になっていません。現在は枠の制限なく学習できます。',
     'modeOffFreeNote': 'メンバーは未加入です。学習は制限されません。',
     'previewError': 'プランを確認できません。しばらくしてから再試行してください。',
