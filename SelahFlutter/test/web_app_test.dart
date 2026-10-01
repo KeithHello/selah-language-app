@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/domain/selah_enums.dart';
+import 'package:selah/design/selah_colors.dart';
 import 'package:selah/web/data/learning_gateway.dart';
 import 'package:selah/web/domain/learning_models.dart';
 import 'package:selah/web/learning_controller.dart';
@@ -625,7 +626,7 @@ void main() {
     expect(find.text('注册时可选资料'), findsOneWidget);
     expect(find.text('年龄段'), findsOneWidget);
     expect(find.text('性别'), findsOneWidget);
-    expect(find.textContaining('填写资料完全自愿'), findsOneWidget);
+    expect(find.textContaining('这些背景资料完全自愿'), findsOneWidget);
   });
 
   testWidgets('settings expose a native voice picker', (tester) async {
@@ -898,45 +899,46 @@ void main() {
     },
   );
 
-  testWidgets('guest starts a bundled lesson and can continue after listening', (
-    tester,
-  ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    controller.state.preferences.onboarded = true;
-    await tester.pumpWidget(WebLearningApp(controller: controller));
-    await tester.pumpAndSettle();
+  testWidgets(
+    'guest starts a bundled lesson and can continue after listening',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(390, 844));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      controller.state.preferences.onboarded = true;
+      await tester.pumpWidget(WebLearningApp(controller: controller));
+      await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('today-listen-entry')));
-    await tester.pump();
-    await tester.runAsync(() async {
-      for (var i = 0; i < 50 && controller.busy; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
-    });
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(controller.state.sentences, hasLength(1));
-    expect(controller.activeSentence?.seedId, isNotNull);
-    expect(find.text(controller.activeSentence!.target), findsNothing);
-    expect(find.text('再听一句'), findsNothing);
+      await tester.tap(find.byKey(const ValueKey('today-listen-entry')));
+      await tester.pump();
+      await tester.runAsync(() async {
+        for (var i = 0; i < 50 && controller.busy; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+      });
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(controller.state.sentences, hasLength(1));
+      expect(controller.activeSentence?.seedId, isNotNull);
+      expect(find.text(controller.activeSentence!.target), findsNothing);
+      expect(find.text('再听一句'), findsNothing);
 
-    final first = controller.activeSentence!;
-    first.listenedAt = DateTime.now();
-    controller.notifyListeners();
-    await tester.pump();
-    expect(find.text('再听一句'), findsOneWidget);
-    await tester.ensureVisible(find.text('再听一句'));
-    await tester.tap(find.text('再听一句'));
-    await tester.pump();
-    await tester.runAsync(() async {
-      for (var i = 0; i < 50 && controller.busy; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 20));
-      }
-    });
-    await tester.pump(const Duration(milliseconds: 100));
-    expect(controller.activeSentence?.id, isNot(first.id));
-    expect(controller.todayLessonFocus, isTrue);
-  });
+      final first = controller.activeSentence!;
+      first.listenedAt = DateTime.now();
+      controller.notifyListeners();
+      await tester.pump();
+      expect(find.text('再听一句'), findsOneWidget);
+      await tester.ensureVisible(find.text('再听一句'));
+      await tester.tap(find.text('再听一句'));
+      await tester.pump();
+      await tester.runAsync(() async {
+        for (var i = 0; i < 50 && controller.busy; i++) {
+          await Future<void>.delayed(const Duration(milliseconds: 20));
+        }
+      });
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(controller.activeSentence?.id, isNot(first.id));
+      expect(controller.todayLessonFocus, isTrue);
+    },
+  );
 
   testWidgets('a sentence preview opens that exact lesson', (tester) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
@@ -951,7 +953,9 @@ void main() {
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
 
-    final preview = find.byKey(const ValueKey('today-suggestion-preview-personal'));
+    final preview = find.byKey(
+      const ValueKey('today-suggestion-preview-personal'),
+    );
     await tester.ensureVisible(preview);
     await tester.tap(preview);
     await tester.pumpAndSettle();
@@ -1047,9 +1051,12 @@ void main() {
       await tester.ensureVisible(useOriginal);
       await tester.tap(useOriginal);
       await tester.pumpAndSettle();
-      await tester.tap(find.widgetWithText(FilledButton, '确认并生成'));
+      final confirm = find.widgetWithText(FilledButton, '确认并生成');
+      await tester.ensureVisible(confirm);
+      await tester.tap(confirm);
       await tester.pumpAndSettle();
-      expect(gateway.batchSegmentTexts.single, ['嗯，我最近去游泳了嘛。']);
+      expect(gateway.batchCalls, 0);
+      expect(gateway.generationSources, ['嗯，我最近去游泳了嘛。']);
       await _disposeTodayController(tester, spokenController);
     },
   );
@@ -1238,7 +1245,7 @@ void main() {
     },
   );
 
-  testWidgets('today preparation rejects an empty edited segment', (
+  testWidgets('today preparation removes a segment and can undo it', (
     tester,
   ) async {
     controller.state.preferences.onboarded = true;
@@ -1248,20 +1255,142 @@ void main() {
       segments: [
         PreparationSegment(id: newId(), sourceText: '第一段'),
         PreparationSegment(id: newId(), sourceText: '第二段'),
+        PreparationSegment(id: newId(), sourceText: '第三段'),
       ],
     );
     controller.notifyListeners();
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField).at(1), '');
+    final remove = find.byTooltip('不练习这句').first;
+    await tester.ensureVisible(remove);
+    await tester.tap(remove);
+    await tester.pumpAndSettle();
+
+    expect(
+      controller.state.preparationDraft!.segments.map((s) => s.sourceText),
+      ['第二段', '第三段'],
+    );
+    expect(find.text('第一段'), findsNothing);
+
+    await tester.tap(find.widgetWithText(TextButton, '撤销'));
+    await tester.pumpAndSettle();
+    expect(
+      controller.state.preparationDraft!.segments.map((s) => s.sourceText),
+      ['第一段', '第二段', '第三段'],
+    );
+  });
+
+  testWidgets('today preparation skips empty segments during generation', (
+    tester,
+  ) async {
+    final gateway = CaptureGateway();
+    final local = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(3, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(local.dispose);
+    platform.info['online'] = true;
+    await local.initialize();
+    local.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    local.state.preparationDraft = PreparationDraft(
+      id: newId(),
+      sourceText: '长文',
+      segments: [
+        PreparationSegment(id: newId(), sourceText: '第一段'),
+        PreparationSegment(id: newId(), sourceText: ''),
+        PreparationSegment(id: newId(), sourceText: '第三段'),
+      ],
+    );
+    await tester.pumpWidget(WebLearningApp(controller: local));
+    await tester.pumpAndSettle();
+
     final generate = find.widgetWithText(FilledButton, '确认并生成');
     await tester.ensureVisible(generate);
     await tester.tap(generate);
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
 
-    expect(find.text('请补全每一个分句，再继续生成。'), findsOneWidget);
-    expect(controller.state.preparationDraft!.segments.first.sourceText, '第一段');
+    expect(
+      local.error,
+      isNull,
+      reason:
+          'error=${local.error}; '
+          'draft=${local.preparationDraft?.segments.length}; '
+          'busy=${local.busy}',
+    );
+    expect(find.text('请补全每一个分句，再继续生成。'), findsNothing);
+    expect(gateway.batchSegmentTexts, [
+      ['第一段', '第三段'],
+    ]);
+  });
+
+  testWidgets('today preparation uses single generation for one kept segment', (
+    tester,
+  ) async {
+    final gateway = CaptureGateway()..fail = false;
+    final local = LearningController(
+      gateway: gateway,
+      platform: platform,
+      seeds: List.generate(2, (index) => _seed(index + 1)),
+      polling: false,
+    );
+    addTearDown(local.dispose);
+    platform.info['online'] = true;
+    await local.initialize();
+    local.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    local.state.preparationDraft = PreparationDraft(
+      id: newId(),
+      sourceText: '长文',
+      segments: [
+        PreparationSegment(id: newId(), sourceText: '唯一一段'),
+        PreparationSegment(id: newId(), sourceText: ''),
+      ],
+    );
+    await tester.pumpWidget(WebLearningApp(controller: local));
+    await tester.pumpAndSettle();
+
+    final generate = find.widgetWithText(FilledButton, '确认并生成');
+    await tester.ensureVisible(generate);
+    await tester.tap(generate);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+
+    expect(
+      local.error,
+      isNull,
+      reason:
+          'error=${local.error}; '
+          'draft=${local.preparationDraft?.segments.length}; '
+          'busy=${local.busy}',
+    );
+    expect(gateway.batchCalls, 0);
+    expect(gateway.requests, hasLength(1));
+  });
+
+  testWidgets('today last segment button cancels preparation', (tester) async {
+    controller.state.preferences.onboarded = true;
+    controller.state.preparationDraft = PreparationDraft(
+      id: newId(),
+      sourceText: '长文',
+      segments: [PreparationSegment(id: newId(), sourceText: '唯一一段')],
+    );
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final cancel = find.byTooltip('取消整理');
+    await tester.ensureVisible(cancel);
+    await tester.tap(cancel);
+    await tester.pumpAndSettle();
+    expect(controller.preparationDraft, isNull);
   });
 
   testWidgets(
@@ -1362,18 +1491,76 @@ void main() {
     controller.navigate(1);
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
-    expect(find.widgetWithText(FilledButton, '暂停'), findsOneWidget);
-    await tester.ensureVisible(find.widgetWithText(FilledButton, '暂停'));
-    await tester.tap(find.widgetWithText(FilledButton, '暂停'));
+    final playbackButton = find.byKey(const ValueKey('listen-playback'));
+    expect(
+      find.descendant(of: playbackButton, matching: find.text('暂停')),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(playbackButton);
+    await tester.tap(playbackButton);
     await tester.pumpAndSettle();
     expect(platform.actions, contains('audioPause'));
     expect(controller.playback['state'], 'paused');
     platform.actions.clear();
-    await tester.ensureVisible(find.widgetWithText(FilledButton, '播放'));
-    await tester.tap(find.widgetWithText(FilledButton, '播放'));
+    expect(
+      find.descendant(of: playbackButton, matching: find.text('继续播放')),
+      findsOneWidget,
+    );
+    await tester.tap(playbackButton);
     await tester.pumpAndSettle();
     expect(platform.actions, contains('audioResume'));
     expect(platform.actions, isNot(contains('audioPlay')));
+  });
+
+  testWidgets('listen pin moves a sentence first and shows the purple state', (
+    tester,
+  ) async {
+    controller.state.preferences.onboarded = true;
+    final first = LearnSentence(
+      id: newId(),
+      source: '第一句',
+      target: 'First sentence.',
+    );
+    final second = LearnSentence(
+      id: newId(),
+      source: '第二句',
+      target: 'Second sentence.',
+    );
+    controller.state.sentences.addAll([first, second]);
+    controller.navigate(1);
+    await controller.selectListenSentence(first.id);
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('listen-library-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(ValueKey('listen-pin-${second.id}')));
+    await tester.pumpAndSettle();
+
+    final pinnedRow = find.byKey(ValueKey('listen-sentence-row-${second.id}'));
+    final firstRow = find.byKey(ValueKey('listen-sentence-row-${first.id}'));
+    expect(
+      tester.getTopLeft(pinnedRow).dy,
+      lessThan(tester.getTopLeft(firstRow).dy),
+    );
+    final unpin = find.byKey(ValueKey('listen-pin-${second.id}'));
+    final unpinIcon = tester.widget<IconButton>(unpin).icon as Icon;
+    expect(unpinIcon.color, SelahColors.lavender);
+
+    await tester.tap(pinnedRow);
+    await tester.pumpAndSettle();
+    expect(controller.activeSentence?.id, second.id);
+    expect(find.text('已置顶'), findsOneWidget);
+
+    await tester.ensureVisible(
+      find.byKey(const ValueKey('listen-library-button')),
+    );
+    await tester.tap(find.byKey(const ValueKey('listen-library-button')));
+    await tester.pumpAndSettle();
+    final selectedUnpin = find.byKey(ValueKey('listen-pin-${second.id}'));
+    await tester.tap(selectedUnpin);
+    await tester.pumpAndSettle();
+    expect(find.text('已置顶'), findsNothing);
   });
 
   testWidgets('switching sentences does not reuse another audio progress', (

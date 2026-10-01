@@ -30,6 +30,7 @@ class SelahColors {
   static const Color amberSoft = Color(0xFFFDF5E6);
   static const Color lavender = Color(0xFF8B7FC7);
   static const Color lavenderSoft = Color(0xFFF0EEF8);
+  static const Color lavenderInk = Color(0xFF554B85);
   static const Color sky = Color(0xFF5B9FD4);
   static const Color skySoft = Color(0xFFEAF3FB);
   static const Color rose = Color(0xFFD4829C);

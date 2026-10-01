@@ -1,12 +1,46 @@
 # Selah 开发路线图
 
-> 最后更新：2026-09-29
+> 最后更新：2026-10-01
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
 > 完成口径：遵循 `CLAUDE.md` 的五级完成定义。
 
 ## 当前阶段
+
+### 2026-10-01 聆听方案 B：手机优先的专注学习卡（实施中）
+
+- [x] 已整理 [UI／UX 设计](docs/superpowers/specs/2026-10-01-listen-focus-b-design.md) ：手机固定操作条、桌面单张学习卡、句库底部抽屉／对话框、播放状态、首末边界、置顶顺序、焦点、三语文案与 U01—U16 验收标准。
+- [x] 已整理 [开发计划](docs/superpowers/plans/2026-10-01-listen-focus-b-plan.md) ：T1—T7 的文件范围、接口、任务依赖、专项回归、全量验证、浏览器与手机真机验收。
+- [x] 主人已认可的两张内置生图已复制归档为 `docs/superpowers/specs/2026-10-01-listen-focus-b-mobile.png` 与 `2026-10-01-listen-focus-b-desktop.png`，SHA-256 与原图一致；不进入产品 assets、构建或预缓存。
+- [x] 已同步 `CLAUDE.md` 的本轮授权边界。最近验证：4 处文档相对链接有效、7 项未来任务与 16 条验收项齐全、PNG 文件头及尺寸有效、无待填充占位；`git diff --check` 通过。
+- [x] T1 控制器提供账户作用域内的有效句库、最新置顶序导航、静音选句及受账户 generation 保护的主动播放；首末不绕回、重复切换受锁保护。新增导航行为测试及置顶、可靠性、循环听回归共 48 项通过。
+- [x] T2—T5 已完成：三状态按钮、响应式专注卡、按需句库、紧凑语速与三语文案、焦点及快捷键；新增专项覆盖账户切换、静音选句、长答案滚动和 320—1440px 视口。
+- [x] 当前聆听专项 40 项通过：`listen_navigation_test.dart`、`web_listen_focus_ui_test.dart`、`web_listen_keyboard_test.dart`、`web_l10n_test.dart`。
+- [ ] T6—T7 完成验收中：既有 Today／循环听／词义／置顶流程已更新并跑过专项；共享工作区另有未归属本功能的会员／研究画像未提交修改，导致工作区级 analyze／test 无法通过，待在仅含本功能提交的快照中完成完整验证。
+- [ ] Release 构建、真实浏览器及 iPhone Safari／Android Chrome 真机验收仍待完成；本地设备与线上发布状态分别记录，Cloudflare 预览部署须在具体操作前逐步说明项目、分支和影响并确认。
+- 手机优先为当前设计假设，实际设备占比待访问数据确认，不作为开发前置阻塞。
+
+### 2026-10-01 设置页会员状态、研究资料与多语言（本地实现完成，待 GitHub 合并与预览部署）
+
+- [x] 已同步 `CLAUDE.md` 本轮授权边界：已登录设置页顶部固定显示会员卡，不再以会员模式开关为显示条件；额度仍只在设置页展示，不出现百分比或进度条。
+- [x] 会员卡 ([membership_widgets.dart](SelahFlutter/lib/web/ui/membership_widgets.dart)）覆盖全部状态：首次加载保留卡片并显示读取中；读取失败显示提示与重试；会员模式关闭时仍照实显示身份、有效期与四项剩余并注明限制未开启，无权益时只显示未开通与学习不受限制；「更改方案」仅在会员模式开启时出现。设置页入口 ([web_learning_app.dart](SelahFlutter/lib/web/ui/web_learning_app.dart)）改为仅要求已登录。
+- [x] 「关于你的学习」改为单一标题（`settings.learningProfile.title`，三语已补齐）；说明聚焦学习目标与英语自评，明确目前不依据这些资料调整生成内容、不影响试用或会员权益；年龄段、身份、性别收入「更多背景资料（可选）」折叠且默认展开已有选择；设置页移除独立同意框，在保存按钮旁说明点击保存即表示自愿提交、同意保存并用于用户研究及改进服务，暂时略过始终可用；读取失败显示本地化提示与重试，不再铺出空表单；撤回需确认，摘要显示已保存的学习目标与英语自评。服务器仍记录保存操作对应的同意状态，注册表单的独立授权流程保持不变。
+- [x] 多语言修正：`关于你的学习` 不再走 `translateLegacy` 整句回退；研究资料控制器保留错误码，界面按错误码取繁中／简中／日文提示，替换原先硬编码简体错误；注册弹窗 `auth.profile.detail` 三语与设置页统一用途说明。
+- [x] 静态验证：研究资料取消独立勾选后的现有组件回归用例已更新；`flutter analyze --no-pub` 无问题，`flutter build web --release` 成功生成 `SelahFlutter/build/web`。
+- [ ] 全量 Flutter 测试本轮未重跑；379 项通过是移除独立勾选框前的基线结果，不代表当前版本测试通过。
+- [ ] 已登录真实账户的会员卡端到端浏览器验收、三语逐页浏览器核对与 iPhone Safari 真机验收待完成；未改数据库、服务端或密钥。GitHub 合并已获授权；Cloudflare Pages 预览部署须先说明目标项目、分支与影响并获主人确认，生产环境不在本轮范围。
+
+### 2026-09-29 分句删除、聆听置顶与紫色选中态（开发和本地验证完成）
+
+- [x] Today 确认要练习的分句支持删除：多段时每段右上角小叉移除该段，最后一段同位置取消整理；删除提示与原文状态随段一起移除，段数计数实时更新，并保留一次撤销。
+- [x] 分句留空时卡片保留并显示「留空则不生成」；生成前剔除空段，剩一段走现有单句生成，全部清空则取消整理，不发送空请求。
+- [x] 聆听句库新增本机置顶：图钉按钮同步改变顺序、紫色图钉和播放卡「已置顶」；取消置顶恢复原相对顺序。置顶只随本机快照保存，不写入云端句子字段。
+- [x] 语速当前档、自定义非预设档统一为聆听紫色：浅紫底、紫边、深紫字；聆听、循环听和设置页复用同一个 `SpeedSelector`。
+- [x] 验证：全量 Flutter 测试 341 项通过，`flutter analyze --no-pub` 无问题，`flutter build web --release` 成功生成 `SelahFlutter/build/web`。
+- [x] Cloudflare Pages 预览已于 2026-09-29 更新到项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名：部署版本 `https://1d0e53a2.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`，Build ID `2ba3d71736259738`；版本页、别名和 `selah-precache.json` 均返回 200。
+- [x] Cloudflare Pages 生产项目 `selah-language-app` 已于 2026-09-29 创建并部署到正式分支 `main`：生产域名 `https://selah-language-app.pages.dev`，版本地址 `https://4d22c582.selah-language-app.pages.dev`，Build ID `2ba3d71736259738`；生产域名、`selah-precache.json`、`main.dart.js` 和 `flutter_bootstrap.js` 均返回 200。
+- [ ] 桌面／窄屏真实浏览器验收待完成；本轮未做数据库迁移。
 
 ### 2026-09-29 Today 双快捷入口与轻量学习（预览发布完成，浏览器验收待做）
 

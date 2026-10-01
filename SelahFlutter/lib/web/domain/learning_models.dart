@@ -712,7 +712,7 @@ class PreparationSegment {
   };
 
   factory PreparationSegment.fromJson(Map<String, dynamic> j) {
-    final sourceText = requiredText(j['sourceText'], '分句原文', max: 500);
+    final sourceText = optionalText(j['sourceText'], max: 500).trim();
     final removed = j['removedText'];
     if (removed != null && removed is! List) {
       throw const FormatException('整理分句移除词无效。');
@@ -722,10 +722,10 @@ class PreparationSegment {
       sourceText: sourceText,
       originalText: j['originalText'] == null
           ? sourceText
-          : requiredText(j['originalText'], '分句原文', max: 500),
+          : optionalText(j['originalText'], max: 500).trim(),
       polishedText: j['polishedText'] == null
           ? sourceText
-          : requiredText(j['polishedText'], '整理分句', max: 500),
+          : optionalText(j['polishedText'], max: 500).trim(),
       removedText: removed is List
           ? removed.map((item) => requiredText(item, '移除词', max: 100)).toList()
           : const [],
@@ -891,9 +891,11 @@ class LearningSnapshot {
     this.todayInput = '',
     List<String>? segmentInputs,
     this.preparationDraft,
+    List<String>? pinnedSentenceIds,
     this.lastSyncAt,
     this.accountScope = 'guest',
-  }) : segmentInputs = segmentInputs ?? <String>[];
+  }) : segmentInputs = segmentInputs ?? <String>[],
+       pinnedSentenceIds = pinnedSentenceIds ?? <String>[];
   String accountScope;
   LearnPreferences preferences;
   final List<LearnSentence> sentences;
@@ -904,6 +906,7 @@ class LearningSnapshot {
   String todayInput;
   final List<String> segmentInputs;
   PreparationDraft? preparationDraft;
+  final List<String> pinnedSentenceIds;
   DateTime? lastSyncAt;
   factory LearningSnapshot.empty() => LearningSnapshot(
     preferences: LearnPreferences(),
@@ -928,6 +931,7 @@ class LearningSnapshot {
     'todayInput': todayInput,
     'segmentInputs': segmentInputs,
     'preparationDraft': preparationDraft?.toJson(),
+    'pinnedSentenceIds': pinnedSentenceIds,
     'lastSyncAt': lastSyncAt?.toUtc().toIso8601String(),
   };
   factory LearningSnapshot.importBackup(String raw) {
@@ -991,6 +995,7 @@ class LearningSnapshot {
       preparationDraft: j['preparationDraft'] == null
           ? null
           : PreparationDraft.fromJson(objectMap(j['preparationDraft'])),
+      pinnedSentenceIds: boundedTextList(j['pinnedSentenceIds'], max: 1000),
       lastSyncAt: j['lastSyncAt'] == null ? null : dateValue(j['lastSyncAt']),
     );
   }
@@ -1037,6 +1042,9 @@ class LearningSnapshot {
                 .toList(),
           },
         )
+        .toList();
+    json['pinnedSentenceIds'] = pinnedSentenceIds
+        .map((id) => rebase(id))
         .toList();
     json['events'] = events
         .map(

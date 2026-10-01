@@ -25,12 +25,11 @@ class MembershipStatusCard extends StatelessWidget {
       animation: controller,
       builder: (context, _) {
         final summary = controller.summary;
-        if (!summary.membershipModeEnabled) return const SizedBox.shrink();
-
         final activePeriod =
             summary.isPaidActive ||
             (summary.isTrialActive && summary.trialState == TrialState.active);
         final trialNotice = _trialNoticeFor(summary, uiLocale);
+        final firstLoad = controller.loading && !controller.checked;
         return Card(
           margin: EdgeInsets.zero,
           color: SelahColors.cardPrimary,
@@ -58,7 +57,7 @@ class MembershipStatusCard extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: SelahSpacing.md),
-                if (controller.loading)
+                if (firstLoad)
                   const Center(
                     child: Padding(
                       padding: EdgeInsets.symmetric(vertical: 20),
@@ -69,9 +68,24 @@ class MembershipStatusCard extends StatelessWidget {
                   _MembershipNotice(
                     text: _membershipCopy(uiLocale, 'statusError'),
                     color: SelahColors.amber,
+                    action: TextButton(
+                      onPressed: controller.loading
+                          ? null
+                          : () => unawaited(controller.load()),
+                      child: Text(_membershipCopy(uiLocale, 'retry')),
+                    ),
                   )
                 else ...[
                   _planDetails(summary, activePeriod),
+                  if (!summary.membershipModeEnabled) ...[
+                    const SizedBox(height: SelahSpacing.md),
+                    _MembershipNotice(
+                      text: activePeriod
+                          ? _membershipCopy(uiLocale, 'modeOffNote')
+                          : _membershipCopy(uiLocale, 'modeOffFreeNote'),
+                      color: SelahColors.lavender,
+                    ),
+                  ],
                   if (trialNotice != null) ...[
                     const SizedBox(height: SelahSpacing.md),
                     trialNotice,
@@ -104,22 +118,24 @@ class MembershipStatusCard extends StatelessWidget {
                     ),
                   ],
                 ],
-                const SizedBox(height: SelahSpacing.lg),
-                SizedBox(
-                  width: double.infinity,
-                  height: 48,
-                  child: OutlinedButton(
-                    onPressed: () => _showPlanChangeSheet(context),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: SelahColors.textPrimary,
-                      side: const BorderSide(color: SelahColors.border),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                if (summary.membershipModeEnabled && !firstLoad) ...[
+                  const SizedBox(height: SelahSpacing.lg),
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () => _showPlanChangeSheet(context),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: SelahColors.textPrimary,
+                        side: const BorderSide(color: SelahColors.border),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
                       ),
+                      child: Text(_membershipCopy(uiLocale, 'changePlan')),
                     ),
-                    child: Text(_membershipCopy(uiLocale, 'changePlan')),
                   ),
-                ),
+                ],
               ],
             ),
           ),
@@ -807,6 +823,8 @@ const _membershipCopies = <String, Map<String, String>>{
     'changePlan': '更改方案',
     'nextPeriod': '下一账期从 {date} 开始 · {plan}',
     'statusError': '会员状态暂时无法读取，请稍后重试。',
+    'modeOffNote': '会员额度限制尚未对所有用户开启，当前不会按额度限制你的学习。',
+    'modeOffFreeNote': '当前未开通会员，学习不受限制。',
     'previewError': '方案预览暂时无法读取，请稍后重试。',
     'retry': '重试',
     'close': '关闭',
@@ -863,6 +881,8 @@ const _membershipCopies = <String, Map<String, String>>{
     'changePlan': '更改方案',
     'nextPeriod': '下一帳期從 {date} 開始 · {plan}',
     'statusError': '會員狀態暫時無法讀取，請稍後重試。',
+    'modeOffNote': '會員額度限制尚未對所有使用者開啟，目前不會按額度限制你的學習。',
+    'modeOffFreeNote': '目前未開通會員，學習不受限制。',
     'previewError': '方案預覽暫時無法讀取，請稍後重試。',
     'retry': '重試',
     'close': '關閉',
@@ -919,6 +939,8 @@ const _membershipCopies = <String, Map<String, String>>{
     'changePlan': 'プランを変更',
     'nextPeriod': '次の期間：{date} · {plan}',
     'statusError': 'メンバー状態を読み込めません。しばらくしてから再試行してください。',
+    'modeOffNote': 'メンバーの枠制限はまだ全ユーザーに有効になっていません。現在は枠の制限なく学習できます。',
+    'modeOffFreeNote': 'メンバーは未加入です。学習は制限されません。',
     'previewError': 'プランを確認できません。しばらくしてから再試行してください。',
     'retry': '再試行',
     'close': '閉じる',

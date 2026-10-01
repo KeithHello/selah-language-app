@@ -33,6 +33,8 @@ class ResearchProfileController extends ChangeNotifier {
   bool checked = false;
   bool saving = false;
   String? error;
+  String? errorCode;
+  bool loadError = false;
   bool _disposed = false;
   String? _accountId;
   int _generation = 0;
@@ -41,7 +43,9 @@ class ResearchProfileController extends ChangeNotifier {
   bool get hasBeenAnswered =>
       promptState == ResearchProfilePromptState.answered;
   bool get canShowInvite =>
-      available && canInvite && promptState == ResearchProfilePromptState.offered;
+      available &&
+      canInvite &&
+      promptState == ResearchProfilePromptState.offered;
 
   Future<void> load() async {
     if (_disposed) return;
@@ -60,21 +64,32 @@ class ResearchProfileController extends ChangeNotifier {
     }
     loading = true;
     error = null;
+    errorCode = null;
+    loadError = false;
     notifyListeners();
     try {
-      final response = await gateway.invoke('user-research-profile', {}, get: true);
+      final response = await gateway.invoke(
+        'user-research-profile',
+        {},
+        get: true,
+      );
       if (!_isCurrent(expectedAccountId, requestGeneration)) return;
       _apply(response);
       checked = true;
+      error = null;
+      errorCode = null;
+      loadError = false;
     } on LearningFailure catch (failure) {
       if (!_isCurrent(expectedAccountId, requestGeneration)) return;
-      error = failure.code == 'profile_unavailable'
-          ? '研究资料暂时不可用，学习不受影响。'
-          : failure.message;
+      error = failure.message;
+      errorCode = failure.code;
+      loadError = true;
       checked = true;
     } catch (_) {
       if (!_isCurrent(expectedAccountId, requestGeneration)) return;
       error = '研究资料暂时无法读取，学习不受影响。';
+      errorCode = 'load_failed';
+      loadError = true;
       checked = true;
     } finally {
       if (_isCurrent(expectedAccountId, requestGeneration)) {
@@ -85,7 +100,10 @@ class ResearchProfileController extends ChangeNotifier {
   }
 
   Future<bool> maybeOfferAfterLearning() async {
-    if (_disposed || !available || !checked || !canInvite ||
+    if (_disposed ||
+        !available ||
+        !checked ||
+        !canInvite ||
         promptState != ResearchProfilePromptState.unseen) {
       return false;
     }
@@ -133,6 +151,8 @@ class ResearchProfileController extends ChangeNotifier {
     }
     saving = true;
     error = null;
+    errorCode = null;
+    loadError = false;
     final expectedAccountId = gateway.userId;
     final requestGeneration = _generation;
     notifyListeners();
@@ -154,11 +174,13 @@ class ResearchProfileController extends ChangeNotifier {
     } on LearningFailure catch (failure) {
       if (_isCurrent(expectedAccountId, requestGeneration)) {
         error = failure.message;
+        errorCode = failure.code;
       }
       rethrow;
     } catch (_) {
       if (_isCurrent(expectedAccountId, requestGeneration)) {
         error = '研究资料暂时无法保存，请稍后重试。';
+        errorCode = 'save_failed';
       }
       rethrow;
     } finally {
@@ -185,6 +207,8 @@ class ResearchProfileController extends ChangeNotifier {
     revision = 0;
     canInvite = false;
     error = null;
+    errorCode = null;
+    loadError = false;
   }
 
   bool _isCurrent(String? accountId, int generation) =>

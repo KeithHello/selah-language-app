@@ -6,10 +6,11 @@ import 'package:selah/web/membership_controller.dart';
 import 'package:selah/web/ui/membership_widgets.dart';
 
 class _Gateway implements LearningGateway {
-  _Gateway({required this.status, this.preview});
+  _Gateway({required this.status, this.preview, this.delay});
 
   Map<String, dynamic> status;
   final Map<String, dynamic>? preview;
+  final Duration? delay;
   bool statusFails = false;
 
   @override
@@ -26,6 +27,7 @@ class _Gateway implements LearningGateway {
     Map<String, dynamic> body, {
     bool get = false,
   }) async {
+    if (delay != null) await Future.delayed(delay!);
     if (function == 'membership-plan-preview') {
       return preview ?? {'quotes': []};
     }
@@ -106,7 +108,7 @@ Map<String, dynamic> _quote({
 };
 
 void main() {
-  testWidgets('membership mode off hides the status card contents', (
+  testWidgets('membership mode off keeps the card visible for free accounts', (
     tester,
   ) async {
     final controller = MembershipController(
@@ -130,9 +132,93 @@ void main() {
       ),
     );
 
-    expect(find.text('会员'), findsNothing);
+    expect(find.text('会员'), findsOneWidget);
+    expect(find.text('未开通'), findsOneWidget);
+    expect(find.text('当前未开通会员，学习不受限制。'), findsOneWidget);
+    expect(find.text('更改方案'), findsNothing);
     expect(find.text('本账期剩余'), findsNothing);
     expect(find.text('0'), findsNothing);
+    controller.dispose();
+  });
+
+  testWidgets('membership mode off keeps identity and remaining balances', (
+    tester,
+  ) async {
+    final status = _monthlyStatus();
+    status['membershipModeEnabled'] = false;
+    final controller = MembershipController(gateway: _Gateway(status: status));
+    await controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MembershipStatusCard(
+            controller: controller,
+            uiLocale: 'zh-Hans',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('月会员'), findsOneWidget);
+    expect(find.text('本账期剩余'), findsOneWidget);
+    expect(find.text('19 条'), findsOneWidget);
+    expect(find.text('会员额度限制尚未对所有用户开启，当前不会按额度限制你的学习。'), findsOneWidget);
+    expect(find.text('更改方案'), findsNothing);
+    controller.dispose();
+  });
+
+  testWidgets('first load keeps the card visible with a loading indicator', (
+    tester,
+  ) async {
+    final gateway = _Gateway(
+      status: _monthlyStatus(),
+      delay: const Duration(milliseconds: 50),
+    );
+    final controller = MembershipController(gateway: gateway);
+    final loadFuture = controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MembershipStatusCard(
+            controller: controller,
+            uiLocale: 'zh-Hans',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+    expect(find.text('会员'), findsOneWidget);
+    // The gateway delay runs in fake async time; advance it with pump.
+    await tester.pump(const Duration(milliseconds: 100));
+    await loadFuture;
+    await tester.pump();
+    expect(find.byType(CircularProgressIndicator), findsNothing);
+    expect(find.text('月会员'), findsOneWidget);
+    controller.dispose();
+  });
+
+  testWidgets('failed status refresh offers a retry action', (tester) async {
+    final gateway = _Gateway(status: _monthlyStatus());
+    final controller = MembershipController(gateway: gateway);
+    await controller.load();
+    gateway.statusFails = true;
+    await controller.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MembershipStatusCard(
+            controller: controller,
+            uiLocale: 'zh-Hans',
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('会员状态暂时无法读取，请稍后重试。'), findsOneWidget);
+    expect(find.text('重试'), findsOneWidget);
+    expect(find.text('19 条'), findsNothing);
+    expect(find.text('2850 字符'), findsNothing);
     controller.dispose();
   });
 
@@ -257,31 +343,6 @@ void main() {
     expect(find.text('试用尚未开始'), findsOneWidget);
     expect(find.textContaining('不会因注册或登录提前计时'), findsOneWidget);
     expect(find.text('本账期剩余'), findsNothing);
-    controller.dispose();
-  });
-
-  testWidgets('failed status refresh hides previously loaded balances', (
-    tester,
-  ) async {
-    final gateway = _Gateway(status: _monthlyStatus());
-    final controller = MembershipController(gateway: gateway);
-    await controller.load();
-    gateway.statusFails = true;
-    await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
-
-    expect(find.text('会员状态暂时无法读取，请稍后重试。'), findsOneWidget);
-    expect(find.text('19 条'), findsNothing);
-    expect(find.text('2850 字符'), findsNothing);
     controller.dispose();
   });
 

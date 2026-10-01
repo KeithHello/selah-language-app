@@ -150,6 +150,7 @@ class LearningController extends ChangeNotifier {
   bool _disposed = false;
   bool _polling = false;
   int _accountGeneration = 0;
+  bool _listenNavigationInProgress = false;
   Future<void> _accountLoad = Future.value();
   String? _remindedDay;
   String? _activitySessionId;
@@ -939,6 +940,7 @@ class LearningController extends ChangeNotifier {
       _saveDepartingInput(_accountId, state.copy());
     }
     final generation = ++_accountGeneration;
+    _listenNavigationInProgress = false;
     _accountId = id;
     _syncTimer?.cancel();
     _clearCompanionCue();
@@ -1132,7 +1134,7 @@ class LearningController extends ChangeNotifier {
       return;
     }
     final source = text.trim();
-    if (source.isEmpty || source.length > 500) return;
+    if (source.length > 500) return;
     final segment = preparation.segments[index];
     if (segment.sourceText == source) return;
     segment
@@ -1144,6 +1146,79 @@ class LearningController extends ChangeNotifier {
     _queueInputSave();
     preparation.inputVersion = _inputVersion;
   }
+
+  bool removePreparationSegment(int index, {bool allowLast = false}) {
+    final preparation = state.preparationDraft;
+    if (!initialized ||
+        busy ||
+        preparation == null ||
+        index < 0 ||
+        index >= preparation.segments.length ||
+        preparation.segments.length < (allowLast ? 1 : 2)) {
+      return false;
+    }
+    preparation.segments.removeAt(index);
+    preparation.updatedAt = DateTime.now();
+    _queueInputSave();
+    notifyListeners();
+    return true;
+  }
+
+  void insertPreparationSegment(int index, PreparationSegment segment) {
+    final preparation = state.preparationDraft;
+    if (!initialized ||
+        busy ||
+        preparation == null ||
+        index < 0 ||
+        index > preparation.segments.length ||
+        preparation.segments.length >= PreparationDraft.maxSegments) {
+      return;
+    }
+    preparation.segments.insert(index, segment);
+    preparation.updatedAt = DateTime.now();
+    _queueInputSave();
+    notifyListeners();
+  }
+
+  bool isPinnedSentence(String id) => state.pinnedSentenceIds.contains(id);
+
+  void togglePinnedSentence(String id) {
+    if (!initialized ||
+        !state.sentences.any(
+          (sentence) => sentence.id == id && !sentence.archived,
+        )) {
+      return;
+    }
+    final pinned = state.pinnedSentenceIds;
+    if (pinned.contains(id)) {
+      pinned.remove(id);
+    } else {
+      pinned.insert(0, id);
+    }
+    _queueInputSave();
+    notifyListeners();
+  }
+
+  List<LearnSentence> orderedListenSentences(List<LearnSentence> visible) {
+    final byId = {for (final sentence in visible) sentence.id: sentence};
+    final pinned = state.pinnedSentenceIds
+        .map((id) => byId[id])
+        .whereType<LearnSentence>()
+        .toList();
+    final pinnedIds = pinned.map((sentence) => sentence.id).toSet();
+    return [
+      ...pinned,
+      ...visible.where((sentence) => !pinnedIds.contains(sentence.id)),
+    ];
+  }
+
+  List<LearnSentence> get listenSentences => orderedListenSentences(
+    state.sentences.where((sentence) => !sentence.archived).toList(),
+  );
+
+  String get listenAccountScope => _accountId;
+
+  bool get listenNavigationBusy => busy || _listenNavigationInProgress;
 
   PreparationSegment _copyPreparationSegment(PreparationSegment segment) =>
       PreparationSegment(
@@ -1302,6 +1377,92 @@ class LearningController extends ChangeNotifier {
   void selectSentence(LearnSentence sentence, {bool autoplay = false}) {
     openDetail(1, sentence);
     if (autoplay) unawaited(play(sentence));
+  }
+
+  void _reportListenSentenceUnavailable(int generation) {
+    if (!_current(generation)) return;
+    const failure = LearningFailure(
+      '此句目前不在聆聽清單中。',
+      code: 'listen_sentence_unavailable',
+    );
+    errorCode = failure.code;
+    error = failure.message;
+    notifyListeners();
+  }
+
+  Future<void> selectListenSentence(
+    String sentenceId, {
+    bool autoplay = false,
+  }) async {
+    if (!initialized || listenNavigationBusy) return;
+    final generation = _accountGeneration;
+    final selected = listenSentences
+        .where((sentence) => sentence.id == sentenceId)
+        .firstOrNull;
+    if (selected == null) {
+      _reportListenSentenceUnavailable(generation);
+      return;
+    }
+
+    _listenNavigationInProgress = true;
+    error = null;
+    errorCode = null;
+    notice = null;
+    notifyListeners();
+    try {
+      if (autoplay) {
+        selectSentence(selected);
+        await play(selected);
+        return;
+      }
+
+      final selectingDifferentSentence = activeSentence?.id != selected.id;
+      final hasAudioToStop =
+          playback['state'] != 'idle' ||
+          _playSentenceId != null ||
+          _previewKey != null;
+      if (selectingDifferentSentence && hasAudioToStop) {
+        await stopPlayback();
+        if (!_current(generation)) return;
+        final latest = listenSentences
+            .where((sentence) => sentence.id == sentenceId)
+            .firstOrNull;
+        if (latest == null) {
+          _reportListenSentenceUnavailable(generation);
+          return;
+        }
+        selectSentence(latest);
+      } else {
+        selectSentence(selected);
+      }
+    } catch (e) {
+      if (_current(generation)) {
+        errorCode = e is LearningFailure ? e.code : null;
+        error = _message(e);
+        notifyListeners();
+      }
+    } finally {
+      if (_current(generation)) {
+        _listenNavigationInProgress = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<void> moveListenSentence(String currentId, int offset) async {
+    if ((offset != -1 && offset != 1) || !initialized || listenNavigationBusy) {
+      return;
+    }
+    final generation = _accountGeneration;
+    final sentences = listenSentences;
+    final index = sentences.indexWhere((sentence) => sentence.id == currentId);
+    if (index < 0) {
+      _reportListenSentenceUnavailable(generation);
+      return;
+    }
+    final nextIndex = index + offset;
+    if (nextIndex < 0 || nextIndex >= sentences.length) return;
+    await selectListenSentence(sentences[nextIndex].id, autoplay: true);
   }
 
   Future<void> openTodaySuggestion(TodaySuggestion suggestion) async {
@@ -1928,7 +2089,10 @@ class LearningController extends ChangeNotifier {
       if (preparation.segments.isEmpty) {
         throw const LearningFailure('请先整理并确认要生成的分句。');
       }
-      final batch = preparation.pendingSegments.take(5).toList();
+      final batch = preparation.pendingSegments
+          .where((segment) => segment.sourceText.trim().isNotEmpty)
+          .take(5)
+          .toList();
       if (batch.isEmpty) break;
       final submittedInputVersion = _inputVersion;
       final preparationId = preparation.id;
