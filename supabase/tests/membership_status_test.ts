@@ -33,3 +33,19 @@ Deno.test("membership status returns aggregated usage and future periods", () =>
   assertStringIncludes(SOURCE, "released_unsent");
   assertStringIncludes(SOURCE, "usage: null");
 });
+
+Deno.test("membership status computes usage before the enforcement-off early return", () => {
+  const liveUsageIndex = SOURCE.indexOf(
+    "const liveUsage = await loadLiveUsage(supabase, userId, record);",
+  );
+  const modeOffIndex = SOURCE.indexOf(
+    "if (!controls.membershipEnforcementEnabled)",
+  );
+  assertEquals(liveUsageIndex > -1, true);
+  assertEquals(modeOffIndex > liveUsageIndex, true);
+});
+
+Deno.test("membership status passes live usage through in mode-off responses", () => {
+  assertStringIncludes(SOURCE, "liveUsage.usage");
+  assertStringIncludes(SOURCE, "liveUsage.futurePeriods");
+});

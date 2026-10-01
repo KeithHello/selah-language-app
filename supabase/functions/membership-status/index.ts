@@ -82,11 +82,25 @@ Deno.serve(async (req: Request) => {
   }
 
   const record = data as Record<string, unknown>;
+  // Usage is display data, not enforcement: members keep seeing remaining
+  // balances even while enforcement is off, so compute live usage whenever a
+  // current period exists. Public mode stays resilient: usage query failures
+  // never fail the whole status call.
+  const liveUsage = await loadLiveUsage(supabase, userId, record);
   if (!controls.membershipEnforcementEnabled) {
+    if (liveUsage) {
+      return json(
+        buildResponse(
+          record,
+          controls,
+          liveUsage.usage,
+          liveUsage.futurePeriods,
+        ),
+      );
+    }
     return json(buildResponse(record, controls));
   }
 
-  const liveUsage = await loadLiveUsage(supabase, userId, record);
   if (!liveUsage) {
     return errorResponse(
       "Failed to query membership status",
