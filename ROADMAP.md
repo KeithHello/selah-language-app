@@ -12,7 +12,8 @@
 
 - [x] `membership-status` 额度未开启时返回计划上限，服务端 Deno 测试覆盖；会员卡缺失额度字段时回退计划上限、无法读取时提供三语重试提示，控件测试覆盖。
 - [x] 通知横幅自动消失：默认 4 秒、完成确认类 8 秒、行动类常驻；新增专项测试并为既有测试补收尾 pump。全量 `flutter analyze`、`flutter test`（396 项）与 Supabase Deno 测试通过。
-- [x] Cloudflare 预览部署：将提交 `07482b7` 的 Release 构建部署到 `selah-language-app-preview` 项目 `codex-web-ux-reliability` 别名（部署 `a9632db5`；此前 `e5ff872d` 已部署相同 Web 内容，本次 220 个文件全部去重命中）。版本地址 https://a9632db5.selah-language-app-preview.pages.dev ，别名地址 https://codex-web-ux-reliability.selah-language-app-preview.pages.dev 。构建含 Supabase 公共配置，线上包比对确认包含本轮新增字符串标记；未部署生产、未改 DNS 或项目配置。`membership-status` 服务端修复需 Supabase 访问令牌，另行部署。
+- [x] Cloudflare 预览部署：将提交 `07482b7` 的 Release 构建部署到 `selah-language-app-preview` 项目 `codex-web-ux-reliability` 别名（部署 `a9632db5`；此前 `e5ff872d` 已部署相同 Web 内容，本次 220 个文件全部去重命中）。版本地址 https://a9632db5.selah-language-app-preview.pages.dev ，别名地址 https://codex-web-ux-reliability.selah-language-app-preview.pages.dev 。构建含 Supabase 公共配置，线上包比对确认包含本轮新增字符串标记；未部署生产、未改 DNS 或项目配置。
+- [x] Supabase Edge Function 部署：`membership-status` 已部署到 Supabase 项目 `ijonabyyppmgvoufgamt`，管理 API 确认 ACTIVE、verify_jwt 保持 true、更新时间为本次部署；线上服务端与客户端行为一致（额度未开启时按计划上限返回）。未改动其他函数、数据库或密钥。
 
 ### 2026-10-01 最近表达直达与聆听模式统一（设计已确认，本地实施进行中）
 
