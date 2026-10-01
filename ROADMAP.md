@@ -21,7 +21,7 @@
 - [ ] Release 构建、真实浏览器及 iPhone Safari／Android Chrome 真机验收仍待完成；本地设备与线上发布状态分别记录，Cloudflare 预览部署须在具体操作前逐步说明项目、分支和影响并确认。
 - 手机优先为当前设计假设，实际设备占比待访问数据确认，不作为开发前置阻塞。
 
-### 2026-10-01 设置页会员状态、研究资料与多语言（GitHub 合并与 CI 完成，Cloudflare 预览待确认）
+### 2026-10-01 设置页会员状态、研究资料与多语言（GitHub 合并、CI 与 Cloudflare 预览部署完成）
 
 - [x] 已同步 `CLAUDE.md` 本轮授权边界：已登录设置页顶部固定显示会员卡，不再以会员模式开关为显示条件；额度仍只在设置页展示，不出现百分比或进度条。
 - [x] 会员卡 ([membership_widgets.dart](SelahFlutter/lib/web/ui/membership_widgets.dart)）覆盖全部状态：首次加载保留卡片并显示读取中；读取失败显示提示与重试；会员模式关闭时仍照实显示身份、有效期与四项剩余并注明限制未开启，无权益时只显示未开通与学习不受限制；「更改方案」仅在会员模式开启时出现。设置页入口 ([web_learning_app.dart](SelahFlutter/lib/web/ui/web_learning_app.dart)）改为仅要求已登录。
@@ -31,7 +31,8 @@
 - [x] PR #2 已合并到 GitHub `main`（merge commit `ba73c3c`）；Actions `36849577668` 的 iOS Build & Archive、Supabase Migration & Concurrency、Supabase Deno Tests、Swift Package 全部通过。
 - [x] 部署包已由 `SelahFlutter/tool/web.ps1 -Action build` 生成，Build ID `71a94e0c469f3320`，预缓存清单包含 189 项；脚本确认公开 Supabase 配置已打入客户端。
 - [ ] 全量 Flutter 测试本轮未重跑；379 项通过是移除独立勾选框前的基线结果，不代表当前版本测试通过。
-- [ ] Cloudflare Pages 预览部署须先说明目标项目、分支与影响并获主人确认；预定目标为项目 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名，生产环境不在本轮范围。已登录真实账户的会员卡端到端浏览器验收、三语逐页浏览器核对与 iPhone Safari 真机验收仍待完成；未改数据库、服务端或密钥。
+- [x] 经主人确认后，Cloudflare Pages 预览部署成功：项目 `selah-language-app-preview`，分支 `codex-web-ux-reliability`，版本地址 `https://dd3dde92.selah-language-app-preview.pages.dev`，别名 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；关联 `main` 提交 `6c5bc8d`，Build ID `71a94e0c469f3320`。Wrangler 报告 220 个文件中 216 个已存在、4 个新上传并完成部署；未部署生产项目、未改项目配置、DNS、密钥、数据库或服务端。
+- [ ] 独立 HTTP／浏览器打开预览地址、已登录真实账户的会员卡端到端验收、三语逐页核对与 iPhone Safari 真机验收仍待完成。
 
 ### 2026-09-29 分句删除、聆听置顶与紫色选中态（开发和本地验证完成）
 
