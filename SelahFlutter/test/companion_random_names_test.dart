@@ -258,6 +258,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
 
       expect(controller.state.preferences.name, updatedName);
+      // Let the auto-dismiss notice timer fire before the test ends.
+      await tester.pump(const Duration(seconds: 4));
     });
   });
 }

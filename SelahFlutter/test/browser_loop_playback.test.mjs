@@ -12,6 +12,8 @@ function createAudioClass(timers, { blocked = false } = {}) {
     constructor() {
       this.listeners = {};
       this.playbackRate = 1;
+      this.currentTime = 0;
+      this.duration = Number.NaN;
       this.src = '';
       FakeAudio.lastInstance = this;
       FakeAudio.instances.push(this);
@@ -145,6 +147,45 @@ test('loop playback follows target then source and continues to next sentence', 
   assert.equal(env.Audio.instances.length, 1, 'loop keeps one audio element for every track');
 });
 
+test('loop snapshot exposes the active sentence and real audio progress only', async () => {
+  const env = makeEnvironment();
+  for (const track of env.tracks) {
+    await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
+  }
+  await env.call('audioLoopStart', {
+    accountId: 'guest',
+    sessionId: 'session-progress',
+    order: 'targetFirst',
+    durationMs: 60000,
+    tracks: env.tracks,
+    gapMs: { language: 10, sentence: 20 },
+  });
+  await env.settle();
+
+  const audio = env.Audio.lastInstance;
+  audio.currentTime = 3.25;
+  audio.duration = 12.5;
+  let status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-progress' }));
+  assert.equal(status.sentenceId, 'a');
+  assert.equal(status.phase, 'target');
+  assert.equal(status.positionMs, 3250);
+  assert.equal(status.durationMs, 12500);
+
+  await env.call('audioLoopPause', { sessionId: 'session-progress' });
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-progress' }));
+  assert.equal(status.state, 'paused');
+  assert.equal(status.positionMs, 3250);
+  assert.equal(status.durationMs, 12500);
+
+  audio.emitAsync('ended');
+  status = JSON.parse(await env.call('audioLoopStatus', { sessionId: 'session-progress' }));
+  assert.equal(status.state, 'gap');
+  assert.equal(status.sentenceId, 'a');
+  assert.equal(status.phase, null);
+  assert.equal(status.positionMs, null);
+  assert.equal(status.durationMs, null);
+});
+
 test('audio unlock primes the reusable loop element before the first track', async () => {
   const env = makeEnvironment();
 
@@ -185,6 +226,10 @@ test('loop playback exposes a retryable ready state when autoplay is blocked', a
 
   assert.equal(result.state, 'ready');
   assert.equal(result.stopReason, 'autoplay_blocked');
+  assert.equal(result.sentenceId, 'a');
+  assert.equal(result.phase, null);
+  assert.equal(result.positionMs, null);
+  assert.equal(result.durationMs, null);
 });
 
 test('source-first order and an order change apply from the next sentence', async () => {

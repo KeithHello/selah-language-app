@@ -795,7 +795,7 @@ class _Content extends StatelessWidget {
             ],
           ),
         ),
-        if (controller.loopSessionVisible)
+        if (controller.tab != 1 && controller.loopSessionVisible)
           LoopListeningMiniPlayer(controller: controller),
       ],
     );
@@ -2047,13 +2047,10 @@ class _TodayRecentPanel extends StatelessWidget {
                         ),
                         child: InkWell(
                           key: ValueKey('today-recent-${sentence.id}'),
-                          onTap: controller.busy
+                          onTap: controller.listenNavigationBusy
                               ? null
-                              : () => controller.openTodaySuggestion(
-                                  TodaySuggestion(
-                                    sentence,
-                                    TodaySuggestionKind.personal,
-                                  ),
+                              : () => controller.openRecentListenSentence(
+                                  sentence.id,
                                 ),
                           borderRadius: BorderRadius.circular(
                             SelahCornerRadius.md,
@@ -2765,7 +2762,8 @@ class _ListenPlaybackIntent extends Intent {
 class _ListenPageState extends State<_ListenPage> {
   LearnSentence? _selected;
   bool _revealed = false;
-  bool _loopMode = false;
+  int _listenFocusRequest = 0;
+  String? _lastDisplayedSentenceId;
   bool _libraryOpen = false;
   NavigatorState? _libraryNavigator;
   Route<dynamic>? _libraryRoute;
@@ -2775,21 +2773,51 @@ class _ListenPageState extends State<_ListenPage> {
 
   LearningController get c => widget.controller;
 
+  LearnSentence? _resolvedCurrentSentence() {
+    final sentences = c.listenSentences;
+    if (c.listenLoopMode && c.loopSessionVisible) {
+      final sentenceId = c.loopPlayback['sentenceId'] as String?;
+      return sentences
+          .where((sentence) => sentence.id == sentenceId)
+          .firstOrNull;
+    }
+    if (_selected != null &&
+        sentences.any((sentence) => sentence.id == _selected!.id)) {
+      return sentences.firstWhere((sentence) => sentence.id == _selected!.id);
+    }
+    if (c.activeSentence != null &&
+        sentences.any((sentence) => sentence.id == c.activeSentence!.id)) {
+      return sentences.firstWhere(
+        (sentence) => sentence.id == c.activeSentence!.id,
+      );
+    }
+    return sentences.firstOrNull;
+  }
+
   @override
   void initState() {
     super.initState();
     _accountScope = c.listenAccountScope;
+    _listenFocusRequest = c.listenFocusRequest;
+    _lastDisplayedSentenceId = _resolvedCurrentSentence()?.id;
   }
 
   @override
   void didUpdateWidget(covariant _ListenPage oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (c.listenFocusRequest != _listenFocusRequest) {
+      _listenFocusRequest = c.listenFocusRequest;
+      _selected = c.activeSentence;
+      _revealed = false;
+      _scrollListenToStart();
+    }
     if (c.listenAccountScope != _accountScope) {
       final closeLibrary = _libraryOpen;
       _accountScope = c.listenAccountScope;
       _selected = null;
       _revealed = false;
       _libraryOpen = false;
+      _lastDisplayedSentenceId = null;
       _scrollListenToStart();
       if (closeLibrary) _dismissSentenceLibrary();
     }
@@ -2797,6 +2825,13 @@ class _ListenPageState extends State<_ListenPage> {
       _selected = c.activeSentence;
       _revealed = false;
     }
+    final currentSentenceId = _resolvedCurrentSentence()?.id;
+    if (_lastDisplayedSentenceId != null &&
+        currentSentenceId != _lastDisplayedSentenceId) {
+      _revealed = false;
+      _scrollListenToStart();
+    }
+    _lastDisplayedSentenceId = currentSentenceId;
   }
 
   @override
@@ -2998,8 +3033,10 @@ class _ListenPageState extends State<_ListenPage> {
 
   Widget _listenPositionRow(
     List<LearnSentence> sentences,
-    LearnSentence selected,
-  ) {
+    LearnSentence selected, {
+    String? label,
+    bool showLibrary = true,
+  }) {
     final strings = SelahStrings.of(c.uiLocale);
     final index = sentences.indexWhere(
       (sentence) => sentence.id == selected.id,
@@ -3008,22 +3045,24 @@ class _ListenPageState extends State<_ListenPage> {
       children: [
         Expanded(
           child: Text(
-            strings.message('listen.position', {
-              'index': '${index + 1}',
-              'count': '${sentences.length}',
-            }),
+            label ??
+                strings.message('listen.position', {
+                  'index': '${index + 1}',
+                  'count': '${sentences.length}',
+                }),
             style: SelahTypography.labelLarge(color: SelahColors.textSecondary),
           ),
         ),
-        OutlinedButton.icon(
-          key: const ValueKey('listen-library-button'),
-          focusNode: _libraryButtonFocusNode,
-          onPressed: c.listenNavigationBusy
-              ? null
-              : () => _openSentenceLibrary(selected),
-          icon: const Icon(Icons.library_books_outlined, size: 18),
-          label: Text(strings.text('listen.library')),
-        ),
+        if (showLibrary)
+          OutlinedButton.icon(
+            key: const ValueKey('listen-library-button'),
+            focusNode: _libraryButtonFocusNode,
+            onPressed: c.listenNavigationBusy
+                ? null
+                : () => _openSentenceLibrary(selected),
+            icon: const Icon(Icons.library_books_outlined, size: 18),
+            label: Text(strings.text('listen.library')),
+          ),
       ],
     );
   }
@@ -3037,6 +3076,79 @@ class _ListenPageState extends State<_ListenPage> {
       (sentence) => sentence.id == selected.id,
     );
     final strings = SelahStrings.of(c.uiLocale);
+    if (c.listenLoopMode) {
+      final state = c.loopPlayback['state'] as String? ?? 'idle';
+      final hasSession = c.loopSessionVisible;
+      final loading = c.busy || c.loopPreparing || c.listenModeChanging;
+      final playbackState = loading
+          ? 'loading'
+          : hasSession
+          ? (state == 'paused' || state == 'ready' ? 'paused' : 'playing')
+          : c.loopReady
+          ? 'ended'
+          : 'idle';
+      final playbackLabel = loading && c.loopPreparing
+          ? strings.message('loop.preparing', {
+              'done': '${c.loopPreparedTracks}',
+              'total': '${c.loopTotalTracks}',
+            })
+          : hasSession
+          ? strings.text(
+              state == 'paused' || state == 'ready'
+                  ? 'loop.resume'
+                  : 'loop.pause',
+            )
+          : strings.text(c.loopReady ? 'loop.start' : 'loop.prepare');
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SpeedSelector(
+            controller: c,
+            label: strings.translateLegacy('语速'),
+            compact: true,
+          ),
+          const SizedBox(height: 10),
+          KeyedSubtree(
+            key: const ValueKey('listen-focus-controls'),
+            child: ListenFocusControls(
+              uiLocale: c.uiLocale,
+              playbackState: {'state': playbackState},
+              busy: c.busy || c.listenModeChanging,
+              previousLabel: strings.text('loop.settings'),
+              previousIcon: Icons.tune_rounded,
+              playbackLabel: playbackLabel,
+              playbackIcon: playbackState == 'loading'
+                  ? null
+                  : Icon(
+                      hasSession && state != 'paused' && state != 'ready'
+                          ? Icons.pause_rounded
+                          : Icons.play_arrow_rounded,
+                      size: 20,
+                    ),
+              nextLabel: strings.text('loop.next'),
+              onPrevious: c.busy || c.listenModeChanging
+                  ? null
+                  : () => showLoopListeningSettings(context, c),
+              onNext: hasSession ? c.nextLoopSentence : null,
+              onPlayback: () async {
+                c.clearMessage();
+                if (hasSession) {
+                  if (state == 'paused' || state == 'ready') {
+                    await c.resumeLoop();
+                  } else {
+                    await c.pauseLoop();
+                  }
+                } else if (c.loopReady) {
+                  await c.startLoop();
+                } else {
+                  await c.prepareLoop();
+                }
+              },
+            ),
+          ),
+        ],
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -3143,6 +3255,7 @@ class _ListenPageState extends State<_ListenPage> {
   bool _canHandleListenKeys() {
     if (c.tab != 1 ||
         c.todayLessonFocus ||
+        c.listenLoopMode ||
         _libraryOpen ||
         c.listenNavigationBusy) {
       return false;
@@ -3166,7 +3279,7 @@ class _ListenPageState extends State<_ListenPage> {
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
-    final loopMode = _loopMode || c.loopSessionVisible;
+    final loopMode = c.listenLoopMode;
     final sentences = c.listenSentences;
     final selected =
         _selected != null &&
@@ -3279,27 +3392,51 @@ class _ListenPageState extends State<_ListenPage> {
       );
     }
 
-    if (loopMode) {
+    final loopCurrent = loopMode && c.loopSessionVisible
+        ? _resolvedCurrentSentence()
+        : null;
+    if (loopMode && c.loopSessionVisible && loopCurrent == null) {
       return _PageFrame(
-        maxWidth: 980,
+        maxWidth: 860,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _ListenHeader(controller: c, count: sentences.length),
-            const SizedBox(height: 14),
+            const SizedBox(height: 16),
             _ListenModeSwitch(
               loopMode: loopMode,
               uiLocale: c.uiLocale,
-              onChanged: (value) => setState(() => _loopMode = value),
+              disabled: c.listenModeChanging || c.busy,
+              onChanged: (value) => unawaited(c.setListenLoopMode(value)),
             ),
-            const SizedBox(height: 16),
-            LoopListeningPanel(controller: c),
+            const SizedBox(height: 18),
+            Text(
+              strings.text('listen.unavailable'),
+              style: SelahTypography.bodyMedium(
+                color: SelahColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 12),
+            OutlinedButton.icon(
+              onPressed: () => showLoopListeningSettings(context, c),
+              icon: const Icon(Icons.tune_rounded),
+              label: Text(strings.text('loop.settings')),
+            ),
           ],
         ),
       );
     }
 
-    final current = selected!;
+    final current = loopCurrent ?? selected!;
+    final loopSessionActive = loopMode && c.loopSessionVisible;
+    final loopPositionLabel = loopSessionActive
+        ? strings.message('loop.sentenceIndex', {
+            'index':
+                '${((c.loopPlayback['sentenceIndex'] as num?) ?? 0).toInt() + 1}',
+            'count':
+                '${((c.loopPlayback['sentenceCount'] as num?) ?? 0).toInt()}',
+          })
+        : null;
     final isMobile = MediaQuery.sizeOf(context).width < 900;
     final detail = _ListenDetail(
       key: ValueKey(current.id),
@@ -3308,6 +3445,8 @@ class _ListenPageState extends State<_ListenPage> {
       revealed: _revealed,
       onReveal: () => setState(() => _revealed = true),
       focusMode: true,
+      playbackOverride: loopSessionActive ? c.loopPlayback : null,
+      statusLabel: loopMode ? LoopListeningPanel(controller: c) : null,
       footer: isMobile
           ? _lastSentenceHint(sentences, current)
           : _focusPlaybackControls(sentences, current),
@@ -3327,10 +3466,16 @@ class _ListenPageState extends State<_ListenPage> {
               _ListenModeSwitch(
                 loopMode: loopMode,
                 uiLocale: c.uiLocale,
-                onChanged: (value) => setState(() => _loopMode = value),
+                disabled: c.listenModeChanging || c.busy,
+                onChanged: (value) => unawaited(c.setListenLoopMode(value)),
               ),
               const SizedBox(height: 14),
-              _listenPositionRow(sentences, current),
+              _listenPositionRow(
+                sentences,
+                current,
+                label: loopPositionLabel,
+                showLibrary: !loopMode,
+              ),
               const SizedBox(height: 12),
               detail,
               const SizedBox(height: 16),
@@ -3369,10 +3514,17 @@ class _ListenPageState extends State<_ListenPage> {
                       _ListenModeSwitch(
                         loopMode: loopMode,
                         uiLocale: c.uiLocale,
-                        onChanged: (value) => setState(() => _loopMode = value),
+                        disabled: c.listenModeChanging || c.busy,
+                        onChanged: (value) =>
+                            unawaited(c.setListenLoopMode(value)),
                       ),
                       const SizedBox(height: 12),
-                      _listenPositionRow(sentences, current),
+                      _listenPositionRow(
+                        sentences,
+                        current,
+                        label: loopPositionLabel,
+                        showLibrary: !loopMode,
+                      ),
                       const SizedBox(height: 10),
                       detail,
                     ],
@@ -3449,17 +3601,20 @@ class _ListenModeSwitch extends StatelessWidget {
   const _ListenModeSwitch({
     required this.loopMode,
     required this.uiLocale,
+    required this.disabled,
     required this.onChanged,
   });
 
   final bool loopMode;
   final String uiLocale;
+  final bool disabled;
   final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(uiLocale);
     return SegmentedButton<bool>(
+      key: const ValueKey('listen-mode-switch'),
       segments: [
         ButtonSegment(
           value: false,
@@ -3468,7 +3623,9 @@ class _ListenModeSwitch extends StatelessWidget {
         ButtonSegment(value: true, label: Text(strings.translateLegacy('循环听'))),
       ],
       selected: {loopMode},
-      onSelectionChanged: (selection) => onChanged(selection.first),
+      onSelectionChanged: disabled
+          ? null
+          : (selection) => onChanged(selection.first),
     );
   }
 }
@@ -3657,6 +3814,8 @@ class _ListenDetail extends StatefulWidget {
     required this.onReveal,
     this.focusMode = false,
     this.footer,
+    this.playbackOverride,
+    this.statusLabel,
   });
 
   final LearningController controller;
@@ -3665,6 +3824,8 @@ class _ListenDetail extends StatefulWidget {
   final VoidCallback onReveal;
   final bool focusMode;
   final Widget? footer;
+  final Map<String, dynamic>? playbackOverride;
+  final Widget? statusLabel;
 
   @override
   State<_ListenDetail> createState() => _ListenDetailState();
@@ -3693,9 +3854,11 @@ class _ListenDetailState extends State<_ListenDetail> {
     final controller = widget.controller;
     final sentence = widget.sentence;
     final strings = SelahStrings.of(controller.uiLocale);
-    final playback = controller.isPlaybackFor(sentence)
-        ? controller.playback
-        : const <String, dynamic>{};
+    final playback =
+        widget.playbackOverride ??
+        (controller.isPlaybackFor(sentence)
+            ? controller.playback
+            : const <String, dynamic>{});
     final playing = _isPlaying(playback);
     final position =
         _numValue(playback, const ['positionMs', 'position', 'currentMs']) ?? 0;
@@ -3788,6 +3951,10 @@ class _ListenDetailState extends State<_ListenDetail> {
                   )
                 : Text(sentence.source, style: SelahTypography.displayMedium()),
             const SizedBox(height: 22),
+            if (widget.statusLabel != null) ...[
+              widget.statusLabel!,
+              const SizedBox(height: 18),
+            ],
             if (!widget.revealed)
               Center(
                 child: OutlinedButton.icon(
@@ -3874,6 +4041,9 @@ class _ListenDetailState extends State<_ListenDetail> {
                   '${controller.playback['state']}:${controller.playback['key'] ?? ''}',
               showTransport: !widget.focusMode,
               showSpeedSelector: !widget.focusMode,
+              showProgress: widget.playbackOverride == null || duration > 0,
+              allowSeek: widget.playbackOverride == null,
+              hideCache: widget.playbackOverride != null,
             ),
             if (widget.footer != null) ...[
               const SizedBox(height: 14),
@@ -4070,6 +4240,9 @@ class _PlaybackControls extends StatelessWidget {
     required this.cacheToken,
     this.showTransport = true,
     this.showSpeedSelector = true,
+    this.showProgress = true,
+    this.allowSeek = true,
+    this.hideCache = false,
   });
 
   final LearningController controller;
@@ -4080,40 +4253,44 @@ class _PlaybackControls extends StatelessWidget {
   final String cacheToken;
   final bool showTransport;
   final bool showSpeedSelector;
+  final bool showProgress;
+  final bool allowSeek;
+  final bool hideCache;
 
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(controller.uiLocale);
     return Column(
       children: [
-        Row(
-          children: [
-            Text(
-              _formatDuration(position),
-              style: SelahTypography.labelSmall(
-                color: SelahColors.textTertiary,
-              ),
-            ),
-            Expanded(
-              child: Semantics(
-                label: strings.translateLegacy('音频进度'),
-                child: Slider(
-                  value: position.clamp(0, duration),
-                  max: duration > 0 ? duration : 1.0,
-                  onChanged: duration > 0
-                      ? (value) => controller.seek(value)
-                      : null,
+        if (showProgress)
+          Row(
+            children: [
+              Text(
+                _formatDuration(position),
+                style: SelahTypography.labelSmall(
+                  color: SelahColors.textTertiary,
                 ),
               ),
-            ),
-            Text(
-              _formatDuration(duration),
-              style: SelahTypography.labelSmall(
-                color: SelahColors.textTertiary,
+              Expanded(
+                child: Semantics(
+                  label: strings.translateLegacy('音频进度'),
+                  child: Slider(
+                    value: position.clamp(0, duration),
+                    max: duration > 0 ? duration : 1.0,
+                    onChanged: duration > 0 && allowSeek
+                        ? (value) => controller.seek(value)
+                        : null,
+                  ),
+                ),
               ),
-            ),
-          ],
-        ),
+              Text(
+                _formatDuration(duration),
+                style: SelahTypography.labelSmall(
+                  color: SelahColors.textTertiary,
+                ),
+              ),
+            ],
+          ),
         if (showTransport)
           Row(
             children: [
@@ -4152,7 +4329,7 @@ class _PlaybackControls extends StatelessWidget {
               ),
             ],
           )
-        else
+        else if (!hideCache)
           Align(
             alignment: Alignment.centerRight,
             child: _CacheStatus(
@@ -5433,8 +5610,7 @@ class _SettingsPageState extends State<_SettingsPage> {
           ),
           AnimatedBuilder(
             animation: c.membership,
-            builder: (context, _) =>
-                c.isRegistered
+            builder: (context, _) => c.isRegistered
                 ? Padding(
                     padding: const EdgeInsets.only(top: 20),
                     child: MembershipStatusCard(

@@ -7,12 +7,137 @@ import '../domain/loop_listening.dart';
 import '../domain/learning_models.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
-import 'speed_selector.dart';
+
+Future<void> showLoopListeningSettings(
+  BuildContext context,
+  LearningController controller,
+) async {
+  final strings = SelahStrings.of(controller.uiLocale);
+  final content = LoopListeningPanel(
+    controller: controller,
+    settingsOnly: true,
+  );
+  if (MediaQuery.sizeOf(context).width < 900) {
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => DraggableScrollableSheet(
+        initialChildSize: 0.76,
+        minChildSize: 0.58,
+        maxChildSize: 0.92,
+        expand: false,
+        builder: (context, scrollController) => Material(
+          color: SelahColors.bgPrimary,
+          clipBehavior: Clip.antiAlias,
+          borderRadius: const BorderRadius.vertical(
+            top: Radius.circular(SelahCornerRadius.lg),
+          ),
+          child: Column(
+            children: [
+              _LoopSettingsHeader(
+                strings: strings,
+                onClose: () => Navigator.of(sheetContext).pop(),
+                showDragHandle: true,
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  controller: scrollController,
+                  padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                  child: content,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    return;
+  }
+
+  await showDialog<void>(
+    context: context,
+    builder: (dialogContext) => Dialog(
+      constraints: BoxConstraints(
+        maxWidth: 560,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.82,
+      ),
+      child: Column(
+        children: [
+          _LoopSettingsHeader(
+            strings: strings,
+            onClose: () => Navigator.of(dialogContext).pop(),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+              child: content,
+            ),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _LoopSettingsHeader extends StatelessWidget {
+  const _LoopSettingsHeader({
+    required this.strings,
+    required this.onClose,
+    this.showDragHandle = false,
+  });
+
+  final SelahStrings strings;
+  final VoidCallback onClose;
+  final bool showDragHandle;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: EdgeInsets.fromLTRB(20, showDragHandle ? 10 : 12, 12, 12),
+    child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (showDragHandle) ...[
+          Container(
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: SelahColors.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                strings.text('loop.settings'),
+                style: SelahTypography.headlineLarge(),
+              ),
+            ),
+            IconButton(
+              tooltip: strings.text('common.close'),
+              onPressed: onClose,
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
 class LoopListeningPanel extends StatefulWidget {
-  const LoopListeningPanel({super.key, required this.controller});
+  const LoopListeningPanel({
+    super.key,
+    required this.controller,
+    this.settingsOnly = false,
+  });
 
   final LearningController controller;
+  final bool settingsOnly;
 
   @override
   State<LoopListeningPanel> createState() => _LoopListeningPanelState();
@@ -22,67 +147,39 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
   final TextEditingController _customMinutes = TextEditingController();
   String? _customError;
 
+  LearningController get c => widget.controller;
+
   @override
   void dispose() {
     _customMinutes.dispose();
     super.dispose();
   }
 
-  LearningController get c => widget.controller;
-
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
-    final sentences = c.state.sentences
-        .where((sentence) => !sentence.archived)
-        .toList();
-    if (sentences.isEmpty) {
-      return _LoopEmptyState(strings: strings);
-    }
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(SelahSpacing.xxl),
-        child: c.loopSessionVisible
-            ? _playingUi(sentences.length, strings)
-            : _setupUi(sentences.length, strings),
-      ),
-    );
-  }
+    if (!widget.settingsOnly) return _status(strings);
 
-  String _language(String language, SelahStrings strings) =>
-      strings.languageLabel(language);
-
-  String _countLabel(int count, SelahStrings strings) =>
-      strings.message('loop.allSentences', {'count': '$count'});
-
-  Widget _setupUi(int count, SelahStrings strings) {
+    final sentences = c.listenSentences;
+    if (sentences.isEmpty) return Text(strings.text('loop.empty'));
     final options = c.state.preferences.loopOptions;
     final source = strings.nativeLanguageValue(c.nativeLanguage);
-    final target = _language(generationTargetLanguage, strings);
+    final target = strings.languageLabel(generationTargetLanguage);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          strings.text('loop.title'),
-          style: SelahTypography.displayMedium(),
-        ),
-        const SizedBox(height: 8),
         Text(
           strings.text('loop.subtitle'),
           style: SelahTypography.bodyMedium(color: SelahColors.textSecondary),
         ),
         const SizedBox(height: 18),
-        Row(
-          children: [
-            Text(
-              _countLabel(count, strings),
-              style: SelahTypography.labelLarge(
-                color: SelahColors.textSecondary,
-              ),
-            ),
-          ],
+        Text(
+          strings.message('loop.allSentences', {
+            'count': '${sentences.length}',
+          }),
+          style: SelahTypography.labelLarge(color: SelahColors.textSecondary),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         Text(strings.text('loop.order'), style: SelahTypography.labelLarge()),
         const SizedBox(height: 10),
         Row(
@@ -96,7 +193,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
                 }),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
             Expanded(
               child: _orderButton(
                 LoopOrder.sourceFirst,
@@ -108,7 +205,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 20),
         Text(
           strings.text('loop.duration'),
           style: SelahTypography.labelLarge(),
@@ -128,49 +225,110 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
         ),
         const SizedBox(height: 12),
         Text(
-          strings.text('loop.afterStart'),
+          strings.text('loop.nextSessionDuration'),
           style: SelahTypography.bodySmall(color: SelahColors.textTertiary),
         ),
-        const SizedBox(height: 24),
-        FilledButton(
-          onPressed: c.busy || c.loopPreparing
-              ? null
-              : () async {
-                  c.clearMessage();
-                  if (c.loopReady) {
-                    await c.startLoop();
-                  } else {
-                    await c.prepareLoop();
-                  }
-                },
-          child: c.loopPreparing
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const SizedBox(
-                      width: 16,
-                      height: 16,
-                      child: CircularProgressIndicator.adaptive(
-                        strokeWidth: 2,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      strings.message('loop.preparing', {
-                        'done': '${c.loopPreparedTracks}',
-                        'total': '${c.loopTotalTracks}',
-                      }),
-                    ),
-                  ],
-                )
-              : Text(strings.text(c.loopReady ? 'loop.start' : 'loop.prepare')),
-        ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         Text(
           strings.text('loop.voiceSpeed'),
           style: SelahTypography.bodySmall(color: SelahColors.textTertiary),
         ),
+        if (c.loopSessionVisible) ...[
+          const SizedBox(height: 18),
+          TextButton.icon(
+            onPressed: c.busy
+                ? null
+                : () async {
+                    await c.stopLoop();
+                    if (context.mounted) Navigator.of(context).maybePop();
+                  },
+            icon: const Icon(Icons.stop_circle_outlined),
+            label: Text(strings.text('loop.end')),
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _status(SelahStrings strings) {
+    final status = c.loopPlayback;
+    final state = status['state'];
+    if (!c.loopSessionVisible) {
+      return Container(
+        key: const ValueKey('loop-status'),
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: SelahColors.lavenderSoft,
+          borderRadius: BorderRadius.circular(SelahCornerRadius.sm),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.headphones_outlined, color: SelahColors.lavender),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                strings.text('loop.startHint'),
+                style: SelahTypography.bodySmall(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    final phase = status['phase'];
+    final source = strings.nativeLanguageValue(c.nativeLanguage);
+    final target = strings.languageLabel(generationTargetLanguage);
+    final title = switch (state) {
+      'ready' => strings.text('loop.autoplayBlocked'),
+      'playing' => strings.message(
+        phase == 'source' ? 'loop.playingSource' : 'loop.playingTarget',
+        {
+          phase == 'source' ? 'source' : 'target': phase == 'source'
+              ? source
+              : target,
+        },
+      ),
+      'gap' => strings.text('loop.gap'),
+      'paused' => strings.text('loop.paused'),
+      'starting' => strings.message('loop.preparing', {
+        'done': '${c.loopPreparedTracks}',
+        'total': '${c.loopTotalTracks}',
+      }),
+      _ => strings.text('loop.startHint'),
+    };
+    final remaining = ((status['remainingMs'] as num?) ?? 0).toInt();
+    return Container(
+      key: const ValueKey('loop-status'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: SelahColors.lavenderSoft,
+        borderRadius: BorderRadius.circular(SelahCornerRadius.sm),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.headphones_outlined, color: SelahColors.lavender),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [Text(title, style: SelahTypography.labelLarge())],
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            strings.message('loop.miniRemaining', {
+              'remaining': _formatMs(remaining),
+            }),
+            textAlign: TextAlign.end,
+            style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
+          ),
+        ],
+      ),
     );
   }
 
@@ -180,6 +338,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
       onPressed: c.busy ? null : () => c.setLoopOrder(order),
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(0, 50),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
         backgroundColor: selected
             ? SelahColors.lavenderSoft
             : SelahColors.cardSoft,
@@ -189,6 +348,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
       ),
       child: Text(
         label,
+        textAlign: TextAlign.center,
         style: SelahTypography.labelLarge(
           color: selected ? const Color(0xFF554B85) : SelahColors.textSecondary,
         ),
@@ -214,17 +374,19 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
     return ChoiceChip(
       label: Text(label),
       selected: selected,
-      onSelected: (_) {
-        if (custom) {
-          _openCustomDuration(
-            !isPreset
-                ? minutes
-                : c.state.preferences.loopOptions.durationMinutes,
-          );
-        } else {
-          c.updateLoopPreferences(durationMinutes: minutes);
-        }
-      },
+      onSelected: c.busy
+          ? null
+          : (_) {
+              if (custom) {
+                _openCustomDuration(
+                  !isPreset
+                      ? minutes
+                      : c.state.preferences.loopOptions.durationMinutes,
+                );
+              } else {
+                c.updateLoopPreferences(durationMinutes: minutes);
+              }
+            },
     );
   }
 
@@ -304,128 +466,6 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
     if (dialogContext.mounted) Navigator.of(dialogContext).pop();
   }
 
-  Widget _playingUi(int count, SelahStrings strings) {
-    final status = c.loopPlayback;
-    final waitingForTap = status['state'] == 'ready';
-    final remaining = (status['remainingMs'] as num? ?? 0).toInt();
-    final index = ((status['sentenceIndex'] as num? ?? 0).toInt()) + 1;
-    final phase = status['phase'];
-    final source = strings.nativeLanguageValue(c.nativeLanguage);
-    final target = _language(generationTargetLanguage, strings);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            Text(
-              strings.text('loop.playingTitle'),
-              style: SelahTypography.labelLarge(),
-            ),
-            const Spacer(),
-            Text(
-              _countLabel(count, strings),
-              style: SelahTypography.bodySmall(
-                color: SelahColors.textSecondary,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 28),
-        Text(
-          _formatMs(remaining),
-          textAlign: TextAlign.center,
-          style: SelahTypography.displayLarge().copyWith(fontSize: 48),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          strings.text('loop.remaining'),
-          textAlign: TextAlign.center,
-          style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
-        ),
-        const SizedBox(height: 22),
-        if (waitingForTap)
-          Text(
-            strings.text('loop.autoplayBlocked'),
-            textAlign: TextAlign.center,
-            style: SelahTypography.bodySmall(color: SelahColors.coral),
-          )
-        else
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 10,
-            children: [
-              Chip(
-                label: Text(
-                  strings.message(
-                    phase == 'source'
-                        ? 'loop.playingSource'
-                        : 'loop.playingTarget',
-                    {
-                      phase == 'source' ? 'source' : 'target': phase == 'source'
-                          ? source
-                          : target,
-                    },
-                  ),
-                ),
-              ),
-              Chip(
-                label: Text(
-                  strings.message('loop.sentenceIndex', {
-                    'index': '$index',
-                    'count': '$count',
-                  }),
-                ),
-              ),
-            ],
-          ),
-        const SizedBox(height: 24),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            FilledButton.icon(
-              onPressed: waitingForTap
-                  ? c.resumeLoop
-                  : () => status['state'] == 'paused'
-                        ? c.resumeLoop()
-                        : c.pauseLoop(),
-              icon: Icon(
-                waitingForTap || status['state'] == 'paused'
-                    ? Icons.play_arrow_rounded
-                    : Icons.pause_rounded,
-              ),
-              label: Text(
-                strings.text(
-                  waitingForTap || status['state'] == 'paused'
-                      ? 'loop.resume'
-                      : 'loop.pause',
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            OutlinedButton.icon(
-              onPressed: c.nextLoopSentence,
-              icon: const Icon(Icons.skip_next_rounded),
-              label: Text(strings.text('loop.next')),
-            ),
-          ],
-        ),
-        const SizedBox(height: 20),
-        Center(
-          child: SpeedSelector(
-            controller: c,
-            label: strings.text('settings.speed'),
-            alignment: WrapAlignment.center,
-          ),
-        ),
-        const SizedBox(height: 12),
-        TextButton(
-          onPressed: () => c.stopLoop(),
-          child: Text(strings.text('loop.end')),
-        ),
-      ],
-    );
-  }
-
   String _formatMs(int value) {
     final total = (value / 1000).round();
     final hour = total ~/ 3600;
@@ -435,22 +475,6 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
     return hour > 0
         ? '$hour:${two(minute)}:${two(second)}'
         : '${two(minute)}:${two(second)}';
-  }
-}
-
-class _LoopEmptyState extends StatelessWidget {
-  const _LoopEmptyState({required this.strings});
-
-  final SelahStrings strings;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Text(strings.text('loop.empty')),
-      ),
-    );
   }
 }
 
@@ -473,6 +497,7 @@ class LoopListeningMiniPlayer extends StatelessWidget {
     final index = ((status['sentenceIndex'] as num?) ?? 0).toInt() + 1;
     final count = ((status['sentenceCount'] as num?) ?? 0).toInt();
     return Material(
+      key: const ValueKey('loop-mini-player'),
       color: SelahColors.cardSoft,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -519,8 +544,8 @@ class LoopListeningMiniPlayer extends StatelessWidget {
                     ? 'loop.resumeLoop'
                     : 'loop.pauseLoop',
               ),
-              onPressed: () => status['state'] == 'paused' ||
-                      status['state'] == 'ready'
+              onPressed: () =>
+                  status['state'] == 'paused' || status['state'] == 'ready'
                   ? controller.resumeLoop()
                   : controller.pauseLoop(),
               icon: Icon(

@@ -259,6 +259,89 @@ void main() {
     },
   );
 
+  test('switching into loop mode pauses ordinary sentence playback', () async {
+    final platform = _LoopPlatform();
+    final controller = LearningController(
+      gateway: _SignedOutGateway(),
+      platform: platform,
+      polling: false,
+      seeds: const [],
+    );
+    addTearDown(controller.dispose);
+    _setUpSentence(controller, _sentence());
+    controller.playback = {
+      'state': 'playing',
+      'positionMs': 1200,
+      'durationMs': 4000,
+    };
+
+    await controller.setListenLoopMode(true);
+
+    expect(controller.listenLoopMode, isTrue);
+    expect(controller.playback['state'], 'paused');
+    expect(controller.playback['positionMs'], 1200);
+    expect(platform.actions, contains('audioPause'));
+    expect(platform.actions, isNot(contains('audioLoopStart')));
+  });
+
+  test(
+    'switching back pauses loop playback and preserves the session',
+    () async {
+      final platform = _LoopPlatform();
+      final controller = LearningController(
+        gateway: _SignedOutGateway(),
+        platform: platform,
+        polling: false,
+        seeds: const [],
+        bundledAudio: _bundledSeedAudio(),
+      );
+      addTearDown(controller.dispose);
+      _setUpSentence(controller, _sentence(seedId: 'seed-001'));
+      await controller.setListenLoopMode(true);
+      await controller.prepareLoop();
+      await controller.startLoop();
+      platform.actions.clear();
+
+      await controller.setListenLoopMode(false);
+
+      expect(controller.listenLoopMode, isFalse);
+      expect(controller.loopSessionVisible, isTrue);
+      expect(platform.actions, contains('audioLoopPause'));
+      expect(platform.actions, isNot(contains('audioLoopStop')));
+    },
+  );
+
+  test(
+    'switching away from autoplay-blocked loop keeps its ready session',
+    () async {
+      final platform = _LoopPlatform(
+        loopStartState: 'ready',
+        loopStartStopReason: 'autoplay_blocked',
+      );
+      final controller = LearningController(
+        gateway: _SignedOutGateway(),
+        platform: platform,
+        polling: false,
+        seeds: const [],
+        bundledAudio: _bundledSeedAudio(),
+      );
+      addTearDown(controller.dispose);
+      _setUpSentence(controller, _sentence(seedId: 'seed-001'));
+      await controller.setListenLoopMode(true);
+      await controller.prepareLoop();
+      await controller.startLoop();
+      platform.actions.clear();
+
+      await controller.setListenLoopMode(false);
+
+      expect(controller.listenLoopMode, isFalse);
+      expect(controller.loopSessionVisible, isTrue);
+      expect(controller.loopPlayback['state'], 'ready');
+      expect(platform.actions, isNot(contains('audioLoopPause')));
+      expect(platform.actions, isNot(contains('audioLoopStop')));
+    },
+  );
+
   test('guest can start a bundled seed loop without cloud calls', () async {
     final platform = _LoopPlatform();
     final gateway = _SignedOutGateway();

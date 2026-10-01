@@ -234,6 +234,74 @@ void main() {
   });
 
   test(
+    'recent entry selects the exact pinned position silently and repeats',
+    () async {
+      final harness = await _harness();
+      final controller = harness.controller;
+      final first = _sentence(_a);
+      final second = _sentence(_b);
+      final third = _sentence(_c);
+      controller.state.sentences.addAll([first, second, third]);
+      controller.togglePinnedSentence(third.id);
+      await controller.setListenLoopMode(true);
+
+      await controller.openRecentListenSentence(second.id);
+      final position = controller.listenSentences.indexWhere(
+        (sentence) => sentence.id == second.id,
+      );
+      expect(controller.tab, 1);
+      expect(controller.activeSentence?.id, second.id);
+      expect(controller.todayLessonFocus, isFalse);
+      expect(controller.listenLoopMode, isFalse);
+      expect(position, 2);
+      expect(controller.listenFocusRequest, 1);
+      expect(_countAction(harness.platform, 'audioPlay'), 0);
+      expect(controller.state.events, isEmpty);
+
+      await controller.openRecentListenSentence(second.id);
+      expect(controller.activeSentence?.id, second.id);
+      expect(controller.listenFocusRequest, 2);
+      expect(_countAction(harness.platform, 'audioPlay'), 0);
+    },
+  );
+
+  test(
+    'recent entry rejects archived and cross-account sentence IDs',
+    () async {
+      final archivedHarness = await _harness();
+      archivedHarness.controller.state.sentences.add(
+        _sentence(_old, archived: true),
+      );
+      await archivedHarness.controller.openRecentListenSentence(_old);
+      expect(
+        archivedHarness.controller.errorCode,
+        'listen_sentence_unavailable',
+      );
+      expect(_countAction(archivedHarness.platform, 'audioPlay'), 0);
+
+      final gateway = _SwitchingGateway('account-a');
+      addTearDown(gateway.dispose);
+      final accountHarness = await _harness(gateway: gateway);
+      final previousAccountSentence = _sentence(_a);
+      accountHarness.controller.state.sentences.add(previousAccountSentence);
+      gateway.switchTo('account-b');
+      await pumpEventQueue();
+      expect(accountHarness.controller.listenAccountScope, 'account-b');
+
+      await accountHarness.controller.openRecentListenSentence(
+        previousAccountSentence.id,
+      );
+
+      expect(accountHarness.controller.activeSentence, isNull);
+      expect(
+        accountHarness.controller.errorCode,
+        'listen_sentence_unavailable',
+      );
+      expect(_countAction(accountHarness.platform, 'audioPlay'), 0);
+    },
+  );
+
+  test(
     'silent selection stops another sentence and same-sentence selection preserves progress',
     () async {
       final harness = await _harness();

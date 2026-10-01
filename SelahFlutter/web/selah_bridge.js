@@ -983,6 +983,21 @@
 
     function snapshot() {
       if (!active) return idleStatus();
+      var item = active.items[active.itemIndex];
+      var hasCurrentAudio = active.element && active.gapRemainingMs == null &&
+        (active.state === 'playing' || active.state === 'paused');
+      var positionMs = null;
+      var durationMs = null;
+      if (hasCurrentAudio) {
+        var currentTime = Number(active.element.currentTime);
+        var duration = Number(active.element.duration);
+        if (Number.isFinite(currentTime) && currentTime >= 0) {
+          positionMs = Math.round(currentTime * 1000);
+        }
+        if (Number.isFinite(duration) && duration > 0) {
+          durationMs = Math.round(duration * 1000);
+        }
+      }
       var remaining = active.state === 'paused'
         ? (active.pausedRemainingMs != null ? active.pausedRemainingMs : active.durationMs)
         : (active.deadlineAtMs == null
@@ -991,7 +1006,10 @@
       return {
         sessionId: active.sessionId,
         state: active.state,
-        phase: active.phase,
+        phase: hasCurrentAudio ? active.phase : null,
+        sentenceId: item ? item.sentenceId : null,
+        positionMs: positionMs,
+        durationMs: durationMs,
         sentenceIndex: active.itemIndex,
         sentenceCount: active.items.length,
         remainingMs: remaining,

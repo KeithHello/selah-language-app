@@ -439,6 +439,8 @@ void main() {
 
       expect(controller.state.preferences.companionRailVisible, isTrue);
       expect(find.text('陪伴角落'), findsOneWidget);
+      // Let the auto-dismiss notice timer fire before the test ends.
+      await tester.pump(const Duration(seconds: 4));
     },
   );
 
@@ -733,6 +735,8 @@ void main() {
       await tester.pumpAndSettle();
       await _openTodayComposer(tester);
       expect(find.text('例：今日はずっと先延ばしにしていたことを終えました。'), findsOneWidget);
+      // Let the auto-dismiss notice timer fire before the test ends.
+      await tester.pump(const Duration(seconds: 4));
     },
   );
 
@@ -898,6 +902,106 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'today recent expression opens its pinned listen position without playing',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1200, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      controller.state.preferences.onboarded = true;
+      final now = DateTime.now();
+      final sentences = [
+        LearnSentence(
+          id: 'recent-old',
+          source: '较早记录的一句。',
+          target: 'An older sentence.',
+          createdAt: now.subtract(const Duration(days: 3)),
+        ),
+        LearnSentence(
+          id: 'recent-target',
+          source: '这句最近表达应该直接定位。',
+          target: 'This recent expression should open directly.',
+          createdAt: now.subtract(const Duration(days: 2)),
+        ),
+        LearnSentence(
+          id: 'recent-newest',
+          source: '最新记录的一句。',
+          target: 'The newest sentence.',
+          createdAt: now.subtract(const Duration(days: 1)),
+        ),
+      ];
+      controller.state.sentences.addAll(sentences);
+      controller.state.pinnedSentenceIds.add('recent-old');
+      platform.actions.clear();
+      await tester.pumpWidget(WebLearningApp(controller: controller));
+      await tester.pumpAndSettle();
+
+      final recent = find.byKey(const ValueKey('today-recent-recent-target'));
+      await tester.ensureVisible(recent);
+      await tester.tap(recent);
+      await tester.pumpAndSettle();
+
+      final selectedIndex = controller.listenSentences.indexWhere(
+        (sentence) => sentence.id == 'recent-target',
+      );
+      expect(controller.tab, 1);
+      expect(controller.activeSentence?.id, 'recent-target');
+      expect(controller.todayLessonFocus, isFalse);
+      expect(find.byKey(const ValueKey('today-focused-lesson')), findsNothing);
+      expect(find.text('看英文答案'), findsOneWidget);
+      expect(
+        find.text(
+          '第 ${selectedIndex + 1} 句／共 ${controller.listenSentences.length} 句',
+        ),
+        findsOneWidget,
+      );
+      expect(platform.actions, isNot(contains('audioPlay')));
+    },
+  );
+
+  testWidgets('reopening the active recent expression hides its answer', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    controller.state.preferences.onboarded = true;
+    final sentence = LearnSentence(
+      id: 'recent-repeat',
+      source: '重复打开时收起答案。',
+      target: List.filled(80, 'Hide the answer when reopened.').join(' '),
+    );
+    controller.state.sentences.add(sentence);
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final recent = find.byKey(const ValueKey('today-recent-recent-repeat'));
+    await tester.ensureVisible(recent);
+    await tester.tap(recent);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('看英文答案'));
+    await tester.pumpAndSettle();
+    expect(find.text(sentence.target), findsOneWidget);
+
+    final scrollable = find.descendant(
+      of: find.byKey(const ValueKey('listen-content-scroll')),
+      matching: find.byType(Scrollable),
+    );
+    final position = tester.state<ScrollableState>(scrollable.first).position;
+    position.jumpTo(position.maxScrollExtent);
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
+
+    controller.navigate(0);
+    await tester.pumpAndSettle();
+    final reopened = find.byKey(const ValueKey('today-recent-recent-repeat'));
+    await tester.ensureVisible(reopened);
+    await tester.tap(reopened);
+    await tester.pumpAndSettle();
+
+    expect(find.text('看英文答案'), findsOneWidget);
+    expect(find.text(sentence.target), findsNothing);
+    expect(tester.state<ScrollableState>(scrollable.first).position.pixels, 0);
+  });
 
   testWidgets(
     'guest starts a bundled lesson and can continue after listening',
@@ -1328,6 +1432,8 @@ void main() {
     expect(gateway.batchSegmentTexts, [
       ['第一段', '第三段'],
     ]);
+    // Let the auto-dismiss notice timer fire before the test ends.
+    await tester.pump(const Duration(seconds: 4));
   });
 
   testWidgets('today preparation uses single generation for one kept segment', (
@@ -1374,6 +1480,8 @@ void main() {
     );
     expect(gateway.batchCalls, 0);
     expect(gateway.requests, hasLength(1));
+    // Let the auto-dismiss notice timer fire before the test ends.
+    await tester.pump(const Duration(seconds: 4));
   });
 
   testWidgets('today last segment button cancels preparation', (tester) async {
@@ -1638,7 +1746,8 @@ void main() {
 
       expect(controller.error, isNull);
       expect(controller.state.sentences.single.reviewState, 'familiar');
-      await tester.pump(const Duration(milliseconds: 1500));
+      // Let the companion cue and auto-dismiss notice timers fire.
+      await tester.pump(const Duration(seconds: 4));
     },
   );
 }

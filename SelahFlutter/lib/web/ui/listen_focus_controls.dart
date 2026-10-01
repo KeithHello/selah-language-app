@@ -15,6 +15,12 @@ class ListenFocusControls extends StatelessWidget {
     required this.onPlayback,
     this.onPrevious,
     this.onNext,
+    this.previousLabel,
+    this.previousIcon = Icons.skip_previous_rounded,
+    this.playbackLabel,
+    this.playbackIcon,
+    this.nextLabel,
+    this.nextIcon = Icons.skip_next_rounded,
   });
 
   final String uiLocale;
@@ -23,6 +29,12 @@ class ListenFocusControls extends StatelessWidget {
   final Future<void> Function() onPlayback;
   final Future<void> Function()? onPrevious;
   final Future<void> Function()? onNext;
+  final String? previousLabel;
+  final IconData previousIcon;
+  final String? playbackLabel;
+  final Widget? playbackIcon;
+  final String? nextLabel;
+  final IconData nextIcon;
 
   @override
   Widget build(BuildContext context) {
@@ -30,31 +42,35 @@ class ListenFocusControls extends StatelessWidget {
     final state = playbackState['state'] as String? ?? 'idle';
     final loading = state == 'loading';
     final enabled = !busy && !loading;
-    final playbackLabel = switch (state) {
-      'loading' => strings.text('listen.preparing'),
-      'playing' => strings.text('common.pause'),
-      'paused' => strings.text('listen.resume'),
-      'ended' => strings.text('listen.replay'),
-      _ => strings.text('common.play'),
-    };
-    final playbackIcon = switch (state) {
-      'loading' => const SizedBox(
-        width: 18,
-        height: 18,
-        child: CircularProgressIndicator(strokeWidth: 2),
-      ),
-      'playing' => const Icon(Icons.pause_rounded, size: 20),
-      'ended' => const Icon(Icons.replay_rounded, size: 20),
-      _ => const Icon(Icons.play_arrow_rounded, size: 20),
-    };
+    final effectivePlaybackLabel =
+        playbackLabel ??
+        switch (state) {
+          'loading' => strings.text('listen.preparing'),
+          'playing' => strings.text('common.pause'),
+          'paused' => strings.text('listen.resume'),
+          'ended' => strings.text('listen.replay'),
+          _ => strings.text('common.play'),
+        };
+    final effectivePlaybackIcon =
+        playbackIcon ??
+        switch (state) {
+          'loading' => const SizedBox(
+            width: 18,
+            height: 18,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+          'playing' => const Icon(Icons.pause_rounded, size: 20),
+          'ended' => const Icon(Icons.replay_rounded, size: 20),
+          _ => const Icon(Icons.play_arrow_rounded, size: 20),
+        };
 
     return Row(
       children: [
         Expanded(
           child: _ListenControlButton(
             buttonKey: const ValueKey('listen-previous'),
-            label: strings.text('listen.previous'),
-            icon: const Icon(Icons.skip_previous_rounded, size: 20),
+            label: previousLabel ?? strings.text('listen.previous'),
+            icon: Icon(previousIcon, size: 20),
             onPressed: enabled ? _onPressed(onPrevious) : null,
           ),
         ),
@@ -62,8 +78,8 @@ class ListenFocusControls extends StatelessWidget {
         Expanded(
           child: _ListenControlButton(
             buttonKey: const ValueKey('listen-playback'),
-            label: playbackLabel,
-            icon: playbackIcon,
+            label: effectivePlaybackLabel,
+            icon: effectivePlaybackIcon,
             onPressed: enabled ? _onPressed(onPlayback) : null,
           ),
         ),
@@ -71,8 +87,8 @@ class ListenFocusControls extends StatelessWidget {
         Expanded(
           child: _ListenControlButton(
             buttonKey: const ValueKey('listen-next'),
-            label: strings.text('listen.nextPlay'),
-            icon: const Icon(Icons.skip_next_rounded, size: 20),
+            label: nextLabel ?? strings.text('listen.nextPlay'),
+            icon: Icon(nextIcon, size: 20),
             primary: true,
             onPressed: enabled ? _onPressed(onNext) : null,
           ),

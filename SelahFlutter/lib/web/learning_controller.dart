@@ -93,12 +93,16 @@ class LearningController extends ChangeNotifier {
   bool syncFailed = false;
   String? error;
   String? errorCode;
-  String? notice;
+  String? _notice;
+  Timer? _noticeTimer;
   int tab = 0;
   int? detailTab;
   String? detailSentenceId;
   bool todayLessonFocus = false;
   LearnSentence? activeSentence;
+  bool listenLoopMode = false;
+  bool listenModeChanging = false;
+  int listenFocusRequest = 0;
 
   /// A same-source record whose generation provenance is unknown. It is only
   /// offered as a history link; it is never treated as a reusable result.
@@ -1446,6 +1450,62 @@ class LearningController extends ChangeNotifier {
         _listenNavigationInProgress = false;
         notifyListeners();
       }
+    }
+  }
+
+  Future<void> openRecentListenSentence(String sentenceId) async {
+    if (!initialized || listenNavigationBusy || listenModeChanging) return;
+    final generation = _accountGeneration;
+    final selected = listenSentences
+        .where((sentence) => sentence.id == sentenceId && !sentence.archived)
+        .firstOrNull;
+    if (selected == null) {
+      _reportListenSentenceUnavailable(generation);
+      return;
+    }
+
+    await setListenLoopMode(false);
+    if (!_current(generation) || listenLoopMode) return;
+    await selectListenSentence(sentenceId);
+    if (!_current(generation) || activeSentence?.id != sentenceId) return;
+    todayLessonFocus = false;
+    listenFocusRequest += 1;
+    notifyListeners();
+  }
+
+  Future<void> setListenLoopMode(bool loopMode) async {
+    if (!initialized ||
+        busy ||
+        listenModeChanging ||
+        listenLoopMode == loopMode) {
+      return;
+    }
+    final generation = _accountGeneration;
+    listenModeChanging = true;
+    error = null;
+    errorCode = null;
+    notifyListeners();
+    try {
+      if (loopMode) {
+        if (playback['state'] == 'playing') {
+          await togglePlayback();
+        } else if (playback['state'] == 'loading') {
+          await stopPlayback();
+        }
+      } else if (loopSessionVisible &&
+          !const {'paused', 'ready'}.contains(loopPlayback['state'])) {
+        await pauseLoop();
+      }
+      if (!_current(generation)) return;
+      listenLoopMode = loopMode;
+    } catch (e) {
+      if (_current(generation)) {
+        errorCode = e is LearningFailure ? e.code : null;
+        error = _message(e);
+      }
+    } finally {
+      listenModeChanging = false;
+      if (!_disposed) notifyListeners();
     }
   }
 
@@ -3131,9 +3191,59 @@ class LearningController extends ChangeNotifier {
     _pendingRecording = null;
     _recordRequestId = null;
   });
+  /// Notices are one-shot confirmations: they auto-dismiss so a completed
+  /// action does not leave a stale banner on screen. Action-required notices
+  /// stay until replaced or cleared explicitly.
+  static const Duration _noticeDefaultVisible = Duration(seconds: 4);
+  static const Duration _noticeExtendedVisible = Duration(seconds: 8);
+
+  static const Set<String> _persistentNotices = {
+    '请先通过邮件确认账户，再回来登录。',
+    '请注册或登录正式账户后，再选择导入本机资料。',
+  };
+
+  static const Set<String> _extendedNotices = {
+    '注册请求已提交，请检查邮箱并确认账户后登录。',
+    '如果这个邮箱已注册，找回密码邮件很快会送到。',
+    '备份已导出，包含句子、词汇、复习进度和精灵回忆。',
+    '备份已合并，已有记录按较新版本保留。',
+    '本机学习资料已合并到当前账户。',
+    '访客输入已追加，原输入仍保留在访客区。',
+    '已添加 Selah。',
+    '可在浏览器菜单中选择「添加到主屏幕」或「安装应用」。',
+    '浏览器已允许持久保存学习缓存。',
+    '浏览器暂未授予持久存储，请定期导出备份。',
+    '当前已经是最新版本。',
+  };
+
+  String? get notice => _notice;
+
+  set notice(String? value) {
+    _noticeTimer?.cancel();
+    _noticeTimer = null;
+    _notice = value;
+    final Duration? visible = _noticeVisibleFor(value);
+    if (visible == null) return;
+    _noticeTimer = Timer(visible, () {
+      _noticeTimer = null;
+      if (_disposed || _notice != value) return;
+      _notice = null;
+      notifyListeners();
+    });
+  }
+
+  Duration? _noticeVisibleFor(String? message) {
+    if (message == null) return null;
+    if (_persistentNotices.contains(message)) return null;
+    return _extendedNotices.contains(message)
+        ? _noticeExtendedVisible
+        : _noticeDefaultVisible;
+  }
+
   @override
   void dispose() {
     _localInputTimer?.cancel();
+    _noticeTimer?.cancel();
     _disposed = true;
     _timer?.cancel();
     unawaited(stopLoop(reason: 'disposed'));
