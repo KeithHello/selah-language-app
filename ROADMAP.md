@@ -20,7 +20,7 @@
 - [x] T6 全量回归：当前干净分支 `flutter analyze --no-pub` 无问题，`flutter test --no-pub` 共 379 项全通过；`git diff --check` 通过。
 - [x] Release 构建：基于聆听提交 `1ceccc3` 的干净快照运行 `tool/web.ps1 -Action build` 成功，Build ID `aad1d4ede820b49c`、预缓存 189 项。该验收包缺少 Supabase 公共配置，仅供本地浏览，不能上传部署。
 - [x] 桌面真实浏览器冒烟：本地 1280×720 页面显示单句专注卡、按需句库入口和「上一句／播放／聆下一句」；点击下一句后序号从 1／3 移至 2／3，预置音频自动播放并结束。响应式组件测试覆盖 320—1440px。
-- [x] Cloudflare 预览部署记录：项目 `selah-language-app-preview`，分支别名 `codex-web-ux-reliability`，版本地址 `https://dd3dde92.selah-language-app-preview.pages.dev`，别名地址 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`；部署源提交 `6c5bc8d` 包含聆听实现提交 `1ceccc3`，Build ID `71a94e0c469f3320`。未部署生产、未改 DNS 或项目配置；本任务未再次访问线上页面。
+- [x] Cloudflare 预览部署：经主人确认，将当前已推送提交 `c2580db` 的 Release 包部署到 `selah-language-app-preview` 项目 `codex-web-ux-reliability` 别名；Build ID `7f247fd2c129f47e`，版本地址 `https://982bf8c8.selah-language-app-preview.pages.dev`，别名地址 `https://codex-web-ux-reliability.selah-language-app-preview.pages.dev`。Wrangler 4.145.0 报告 220 个文件中 219 个已存在、1 个新上传并完成部署；未部署生产、未改 DNS 或项目配置；本任务未独立访问线上页面验收。
 - [ ] iPhone Safari／Android Chrome 真机、登录账户与在线服务端到端验收仍待完成；实际手机用户占比待数据确认。
 - [ ] U01—U16 的完整人工浏览器验收与窄屏完整流程仍待完成；部署事实来自现有路线图记录，GitHub 比较确认部署源提交包含聆听实现，本任务未独立打开 Cloudflare 页面验收。
 - 手机优先为当前设计假设，实际设备占比待访问数据确认，不作为开发前置阻塞。

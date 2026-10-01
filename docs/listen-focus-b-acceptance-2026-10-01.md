@@ -5,7 +5,7 @@
 - 聆听实现提交：`1ceccc3`，标题为 `feat: 聆听页聚焦单句并新增固定前后句播放控件`。
 - 当前干净分支的 `flutter analyze --no-pub` 通过，无问题；`flutter test --no-pub` 379 项全部通过；`git diff --check` 通过。
 - 从提交 `1ceccc3` 的干净源码快照运行 `SelahFlutter/tool/web.ps1 -Action build` 成功。Build ID 为 `aad1d4ede820b49c`，预缓存清单含 189 项。该构建没有 Supabase 公共配置，明确只适合本地浏览器验证。
-- Build ID `71a94e0c469f3320` 的 Web 构建含 189 项预缓存，已确认包含聆听专注控件及 Supabase 公共配置。仓库现有部署记录显示它已随提交 `6c5bc8d` 部署到 `selah-language-app-preview` 的 `codex-web-ux-reliability` 别名；GitHub 比较确认 `6c5bc8d` 包含本功能提交 `1ceccc3`。版本地址：[预览版本](https://dd3dde92.selah-language-app-preview.pages.dev) ；别名地址：[预览别名](https://codex-web-ux-reliability.selah-language-app-preview.pages.dev) 。本任务没有再次执行部署或独立访问线上页面。
+- 此前的预览构建 Build ID 为 `71a94e0c469f3320`。本轮经主人确认，将当前已推送提交 `c2580db` 构建的 Web 包部署到 `selah-language-app-preview` 项目的 `codex-web-ux-reliability` 别名；Build ID `7f247fd2c129f47e`，预览版本地址：[预览版本](https://982bf8c8.selah-language-app-preview.pages.dev) ，别名地址：[预览别名](https://codex-web-ux-reliability.selah-language-app-preview.pages.dev) 。Wrangler 4.145.0 报告 220 个文件中 219 个已存在、1 个新上传并完成部署。没有部署生产或修改 DNS、项目配置；本轮未独立访问线上页面验收。
 
 ## 桌面浏览器冒烟
 
@@ -17,5 +17,5 @@
 ## 尚未完成
 
 - U01—U16 的完整人工浏览器清单、真实移动设备、已登录账户及在线服务端端到端验收仍待完成。
-- 已部署记录仅涉及 Cloudflare Pages 预览项目及其 `codex-web-ux-reliability` 别名；没有生产部署、DNS 或项目配置变更。部署来源与实现提交的包含关系已通过 GitHub compare 核对。
+- 本轮部署仅涉及 Cloudflare Pages 预览项目及其 `codex-web-ux-reliability` 别名；没有生产部署、DNS 或项目配置变更。
 - 本轮未独立打开线上预览地址验收；U01—U16 完整人工清单、窄屏流程、iPhone Safari／Android Chrome 真机及登录账户在线端到端测试仍待完成。
