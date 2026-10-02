@@ -17,6 +17,7 @@ import '../domain/today_suggestions.dart';
 import '../domain/listen_peek.dart';
 import '../domain/sentence_splitter.dart';
 import '../domain/research_profile.dart';
+import '../domain/web_status.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
 import 'membership_widgets.dart';
@@ -180,13 +181,117 @@ class _WebRoot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final Widget page;
     if (!controller.initialized) {
-      return _LoadingView(error: controller.error, strings: strings);
+      page = _LoadingView(error: controller.error, strings: strings);
+    } else if (!controller.state.preferences.onboarded) {
+      page = _OnboardingPage(controller: controller);
+    } else {
+      page = _WebShell(controller: controller);
     }
-    if (!controller.state.preferences.onboarded) {
-      return _OnboardingPage(controller: controller);
-    }
-    return _WebShell(controller: controller);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final desktop = constraints.maxWidth >= 900;
+        final companionVisible =
+            constraints.maxWidth >= 1180 &&
+            controller.state.preferences.companionRailVisible &&
+            controller.tab != 0;
+        final right = desktop ? (companionVisible ? 280.0 : 24.0) : 16.0;
+        final top =
+            MediaQuery.paddingOf(context).top +
+            (controller.state.preferences.onboarded
+                ? (desktop ? 76.0 : 68.0)
+                : 16.0);
+        final toastWidth = (constraints.maxWidth - right - 16)
+            .clamp(0.0, 420.0)
+            .toDouble();
+        final notice = controller.notice;
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            page,
+            if (notice != null &&
+                !controller.noticeRequiresInlineDisplay &&
+                controller.error == null)
+              Positioned(
+                top: top,
+                right: right,
+                width: toastWidth,
+                child: _WebToast(
+                  message: notice,
+                  onDismiss: controller.dismissNotice,
+                ),
+              ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _WebToast extends StatelessWidget {
+  const _WebToast({required this.message, required this.onDismiss});
+
+  final String message;
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = SelahStrings.of(_contextUiLocale(context));
+    final translated = strings.translateLegacy(message);
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      liveRegion: true,
+      label: '${strings.translateLegacy('提示：')}$translated',
+      child: SizedBox(
+        key: const ValueKey('webFeedbackToast'),
+        child: Stack(
+          children: [
+            IgnorePointer(
+              child: Material(
+                color: SelahColors.sageSoft,
+                elevation: 4,
+                shadowColor: SelahColors.textPrimary.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(SelahCornerRadius.md),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 8, 54, 8),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 19,
+                        color: SelahColors.sage,
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          translated,
+                          style: SelahTypography.bodySmall(
+                            color: SelahColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 0,
+              bottom: 0,
+              right: 0,
+              child: IconButton(
+                tooltip: strings.text('common.close'),
+                onPressed: onDismiss,
+                icon: const Icon(Icons.close_rounded, size: 18),
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -435,48 +540,94 @@ class _SidebarStatus extends StatelessWidget {
   final LearningController controller;
 
   @override
+  Widget build(BuildContext context) =>
+      _SyncStatusTile(controller: controller, compact: true);
+}
+
+class _SyncStatusTile extends StatelessWidget {
+  const _SyncStatusTile({required this.controller, this.compact = false});
+
+  final LearningController controller;
+  final bool compact;
+
+  @override
   Widget build(BuildContext context) {
-    final strings = SelahStrings.of(controller.uiLocale);
-    final online = _boolValue(controller.platformInfo, const [
-      'online',
-      'isOnline',
-    ]);
-    final configured = controller.configured;
-    final session = controller.isRegistered;
-    final label = !configured
-        ? strings.translateLegacy('本机学习中（云端未配置）')
-        : !session
-        ? strings.translateLegacy('本机学习中（登录后可同步）')
-        : online == false
-        ? strings.translateLegacy('离线学习中')
-        : online == true
-        ? strings.translateLegacy('已连接，可以同步')
-        : strings.translateLegacy('账户已连接，等待网络状态');
-    final muted = !configured || !session || online == false;
+    final status = controller.syncPresentation;
+    final isFailure =
+        status.state == WebSyncState.localSaveFailed ||
+        status.state == WebSyncState.syncFailed;
+    final isSynced = status.state == WebSyncState.synced;
+    final color = isFailure
+        ? SelahColors.coral
+        : isSynced
+        ? SelahColors.sage
+        : SelahColors.amber;
+    final background = isFailure
+        ? SelahColors.coralSoft
+        : isSynced
+        ? SelahColors.sageSoft
+        : SelahColors.amberSoft;
+    final icon = switch (status.state) {
+      WebSyncState.syncing => Icons.sync_rounded,
+      WebSyncState.synced => Icons.cloud_done_outlined,
+      WebSyncState.pendingChanges => Icons.cloud_upload_outlined,
+      WebSyncState.syncFailed ||
+      WebSyncState.localSaveFailed => Icons.cloud_off_outlined,
+      WebSyncState.savingLocal => Icons.save_outlined,
+      _ => Icons.cloud_off_outlined,
+    };
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.all(compact ? 12 : 14),
       decoration: BoxDecoration(
-        color: muted ? SelahColors.amberSoft : SelahColors.sageSoft,
+        color: background,
         borderRadius: BorderRadius.circular(SelahCornerRadius.md),
       ),
-      child: Row(
-        children: [
-          Icon(
-            muted ? Icons.cloud_off_outlined : Icons.cloud_done_outlined,
-            size: 17,
-            color: muted ? SelahColors.amber : SelahColors.sage,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              label,
-              style: SelahTypography.bodySmall(
-                color: SelahColors.textSecondary,
-              ),
+      child: Semantics(
+        liveRegion: true,
+        label: '${status.label}。${status.detail}',
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, size: 18, color: color),
+            const SizedBox(width: 8),
+            Expanded(
+              child: compact
+                  ? Text(
+                      status.label,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: SelahTypography.bodySmall(
+                        color: SelahColors.textSecondary,
+                      ),
+                    )
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          status.label,
+                          style: SelahTypography.labelMedium(
+                            color: SelahColors.textPrimary,
+                          ),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          status.detail,
+                          style: SelahTypography.bodySmall(
+                            color: SelahColors.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
             ),
-          ),
-        ],
+            if (status.state == WebSyncState.syncing)
+              const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -756,7 +907,7 @@ class _Content extends StatelessWidget {
               onOpen: () => controller.navigate(4),
             ),
           ),
-        if (controller.error != null || controller.notice != null)
+        if (controller.error != null || controller.noticeRequiresInlineDisplay)
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: _MessageBar(controller: controller),
@@ -5904,6 +6055,8 @@ class _SettingsPageState extends State<_SettingsPage> {
                   ],
                 ),
               const SizedBox(height: 12),
+              _SyncStatusTile(controller: c),
+              const SizedBox(height: 12),
               OutlinedButton.icon(
                 onPressed: c.busy
                     ? null
@@ -6205,7 +6358,7 @@ class _OnboardingPageState extends State<_OnboardingPage> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          if (c.error != null || c.notice != null) ...[
+          if (c.error != null || c.noticeRequiresInlineDisplay) ...[
             SizedBox(
               width: (MediaQuery.sizeOf(context).width - 32).clamp(0.0, 360.0),
               child: _MessageBar(controller: c),

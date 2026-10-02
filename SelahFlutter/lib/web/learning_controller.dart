@@ -3191,6 +3191,7 @@ class LearningController extends ChangeNotifier {
     _pendingRecording = null;
     _recordRequestId = null;
   });
+
   /// Notices are one-shot confirmations: they auto-dismiss so a completed
   /// action does not leave a stale banner on screen. Action-required notices
   /// stay until replaced or cleared explicitly.
@@ -3217,6 +3218,15 @@ class LearningController extends ChangeNotifier {
   };
 
   String? get notice => _notice;
+
+  bool get noticeRequiresInlineDisplay =>
+      _notice != null && _noticeVisibleFor(_notice) == null;
+
+  void dismissNotice() {
+    if (_notice == null) return;
+    notice = null;
+    notifyListeners();
+  }
 
   set notice(String? value) {
     _noticeTimer?.cancel();

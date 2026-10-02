@@ -219,6 +219,36 @@ void main() {
         .clearAccessibilityFeaturesTestValue();
   });
 
+  testWidgets('transient notices use a dismissible toast', (tester) async {
+    controller.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans';
+    controller.navigate(4);
+    controller.notice = '偏好已保存。';
+    controller.notifyListeners();
+
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    final toast = find.byKey(const ValueKey('webFeedbackToast'));
+    expect(toast, findsOneWidget);
+    expect(find.text('偏好已保存。'), findsOneWidget);
+    expect(find.text('本机学习中'), findsOneWidget);
+
+    await tester.tap(
+      find.descendant(of: toast, matching: find.byType(IconButton)),
+    );
+    await tester.pumpAndSettle();
+    expect(toast, findsNothing);
+    expect(controller.notice, isNull);
+
+    controller.notice = '请先通过邮件确认账户，再回来登录。';
+    controller.notifyListeners();
+    await tester.pump();
+    expect(toast, findsNothing);
+    expect(find.text('请先通过邮件确认账户，再回来登录。'), findsOneWidget);
+  });
+
   testWidgets('onboarding requires a name and at least three seeds', (
     tester,
   ) async {
