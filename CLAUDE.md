@@ -4,6 +4,13 @@
 
 Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。核心闭环是：用户用中文表达真实想法，系统生成自然英文与音频，用户完成聆听、理解、复习和开口练习。
 
+## 2026-10-02 应用内动效总开关与研究资料数据库草案（实施授权）
+
+- 主人已基于 UI／UX 开发方案明确授权完整开发。动效按主人决定改为应用内总开关：默认开启，设置页「本機與應用程式」新增「動畫效果」行，关闭后全部动画按既有 reduce 行为直出；系统「减少动态效果」不再强制关闭动画，应用内开关即为无障碍通道。无 MotionScope 祖先的原生预览与直接组件测试回退沿用系统行为。
+- 动效门控统一收敛到 `SelahFlutter/lib/design/selah_motion_scope.dart`，替换 web_learning_app、membership_widgets、plush_companion、selah_sprite、web_start_action 全部 `MediaQuery.disableAnimationsOf` 系统门控；`widget.reduceMotion` 测试参数保留。偏好 `motionEnabled` 按 `companionRailVisible` 同款设备级本机偏好保存，云端快照合并不清除本机选择。
+- 研究资料数据库：新增 `supabase/migrations/011_user_research_profiles.sql` 草案（专用表、稳定枚举与 40 码点校验、RLS＋REVOKE、`get_user_research_profile`／`update_user_research_profile` RPC、修订冲突与撤回即停邀语义）和 `supabase/tests/research_profiles_migration_test.ts` 静态合约测试，进入现有 Deno CI 任务，不改 CI 配置。
+- 本轮不新增依赖、不改 CI 配置、不动 `.env`、不改数据库远端。应用远端 migration、性能资产瘦身（精灵 WebP／移除未用 GIF／音频按需缓存）、skwasm＋COOP/COEP 与生产部署仍属红线，须主人逐项确认；pgTAP 数据库用例与 CI 接入待确认后补充。
+
 ## 2026-10-01 会员额度展示修复与通知横幅自动消失（实现完成）
 
 - 会员额度：`membership-status` 在额度功能未对该账号开启时也按计划上限返回，不再缺失字段；设置页会员卡在响应缺少额度字段时回退显示计划上限，无法读取会员信息时提供三语重试提示。剩余额度仍只出现在设置页会员卡。
