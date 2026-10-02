@@ -8,6 +8,15 @@
 
 ## 当前阶段
 
+### 2026-10-02 应用内动效总开关与研究资料数据库草案（实现与本地自动化验证完成）
+
+- [x] 动效门控收敛：新增 `SelahFlutter/lib/design/selah_motion_scope.dart`；应用内「動畫效果」开关为唯一总门，默认开启，系统「减少动态效果」不再强制关闭；替换 web_learning_app（5 处）、membership_widgets（3 处）、plush_companion、selah_sprite、web_start_action 的系统门控；无 MotionScope 祖先的原生预览与直接组件测试回退系统行为。
+- [x] 偏好存储：`LearnPreferences.motionEnabled`（默认 true、设备级、云端快照合并保留本机值），`updatePreferences(motionEnabled:)` 接入；设置页「本機與應用程式」卡新增「動畫效果」SwitchListTile；繁中／简中／日语文案补齐。
+- [x] 测试迁移：新增 `test/motion_scope_test.dart`（系统回退、开关覆盖、duration 归零、偏好默认与旧快照兼容、updatePreferences 持久化）；web_app_test、web_listen_focus_ui_test、web_listen_keyboard_test、web_listen_peek_ui_test、web_notes_page_test、companion_random_names_test 中全量泵入 App 的用例改为显式动效关闭语义。
+- [x] 验证：`flutter analyze --no-pub` 无问题；`flutter test --no-pub` 408 项全部通过；本地 Deno 2.9.3（.tmp-tooling）fmt／lint 通过，`deno test --allow-read supabase/tests` 347 项全部通过（含新增迁移合约测试）；`tool/web.ps1 -Action build` Release 构建成功，Build ID `3fc916e105a3f263`。
+- [x] 研究资料数据库草案：`supabase/migrations/011_user_research_profiles.sql`（专用表、稳定枚举与 40 码点校验、RLS＋REVOKE、get／update RPC、修订冲突与撤回即停邀语义）与 `supabase/tests/research_profiles_migration_test.ts` 静态合约测试（进入现有 Deno CI 任务，未改 CI 配置）。
+- [ ] 未应用远端 migration（红线待确认）；本地 commit 后未推送、未部署；预览环境真实浏览器与真机动效验收、性能基线测量（阶段 0）、精灵资产瘦身（阶段 3）、skwasm＋COOP/COEP（阶段 4）待主人逐项确认。
+
 ### 2026-10-02 静默自动应用 Web 更新（实现与本地自动化验证完成）
 
 - [x] 移除全局「有新版本可用」横幅，避免新版本就绪时反复打扰用户；设置页保留手动「检查更新」与更新入口作为兜底。
