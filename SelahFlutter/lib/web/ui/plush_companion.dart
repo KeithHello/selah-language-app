@@ -3,6 +3,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../design/selah_motion_scope.dart';
 import '../../domain/selah_enums.dart';
 import '../../features/companion/plush_companion_poses.dart';
 import '../domain/learning_models.dart';
@@ -106,14 +107,7 @@ class PlushCompanionState extends State<PlushCompanion>
     _ => false,
   };
 
-  bool get _reduce =>
-      widget.reduceMotion ||
-      MediaQuery.disableAnimationsOf(context) ||
-      WidgetsBinding
-          .instance
-          .platformDispatcher
-          .accessibilityFeatures
-          .disableAnimations;
+  bool get _reduce => widget.reduceMotion || !MotionScope.of(context);
 
   @override
   void initState() {

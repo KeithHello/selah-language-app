@@ -32,6 +32,8 @@ const selahZhHantOverrides = <String, String>{
   'settings.companion': '陪伴',
   'settings.companion.rail': '顯示陪伴角落',
   'settings.companion.railDetail': '只在寬螢幕頁面的右側顯示，今天頁面仍保持簡潔。',
+  'settings.motion': '動畫效果',
+  'settings.motionDetail': '關閉後，介面不再播放動畫。',
   'settings.companion.hide': '收起陪伴角落',
   'settings.reminder': '提醒',
   'settings.account': '帳戶與同步',

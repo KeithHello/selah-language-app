@@ -32,6 +32,8 @@ const selahJaOverrides = <String, String>{
   'settings.companion': 'パートナー',
   'settings.companion.rail': 'パートナー欄を表示',
   'settings.companion.railDetail': 'ワイド画面の右側だけに表示し、今日の画面はすっきり保ちます。',
+  'settings.motion': 'アニメーション',
+  'settings.motionDetail': 'オフにすると、画面のアニメーションを停止します。',
   'settings.companion.hide': 'パートナー欄を閉じる',
   'settings.reminder': 'リマインダー',
   'settings.account': 'アカウントと同期',

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
 import '../../design/selah_motion.dart';
+import '../../design/selah_motion_scope.dart';
 import '../../design/selah_typography.dart';
 import '../domain/learning_models.dart';
 import '../l10n/selah_strings.dart';
@@ -54,7 +55,7 @@ class WebStartAction extends StatelessWidget {
     final valid = _enabled;
     final enabled = !busy && (valid || onInvalid != null);
     final status = _status;
-    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final reducedMotion = !MotionScope.of(context);
 
     return Semantics(
       container: true,

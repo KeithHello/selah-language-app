@@ -181,6 +181,9 @@ void main() {
         polling: false,
       );
       await controller.initialize();
+      // Full-app coverage predates the in-app motion toggle; these tests
+      // exercise the motion-off state of the new gate.
+      controller.state.preferences.motionEnabled = false;
       controller.state.preferences.uiLocale = 'zh-Hans';
     });
 

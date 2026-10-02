@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
 import '../../design/selah_motion.dart';
+import '../../design/selah_motion_scope.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
 import '../../design/widgets/selah_card.dart';
@@ -378,7 +379,7 @@ class _MembershipEntrance extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (!MotionScope.of(context)) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: children,
@@ -663,7 +664,7 @@ class _UsageProgressBar extends StatelessWidget {
     return Semantics(
       key: barKey,
       value: '${(ratio * 100).round()}%',
-      child: MediaQuery.disableAnimationsOf(context)
+      child: !MotionScope.of(context)
           ? bar(ratio)
           : TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: ratio),
@@ -783,7 +784,7 @@ class _PopIn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (MediaQuery.disableAnimationsOf(context)) {
+    if (!MotionScope.of(context)) {
       return child;
     }
     return TweenAnimationBuilder<double>(

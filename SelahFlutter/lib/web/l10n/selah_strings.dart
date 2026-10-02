@@ -38,6 +38,8 @@ const _baseStrings = <String, String>{
   'settings.companion': '陪伴',
   'settings.companion.rail': '显示陪伴角落',
   'settings.companion.railDetail': '只在宽屏页面的右侧显示，今天页面仍保持简洁。',
+  'settings.motion': '动画效果',
+  'settings.motionDetail': '关闭后，界面不再播放动画。',
   'settings.companion.hide': '收起陪伴角落',
   'settings.reminder': '提醒',
   'settings.account': '账户与同步',

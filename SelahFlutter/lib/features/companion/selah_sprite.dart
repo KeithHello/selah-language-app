@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
 import '../../design/selah_motion.dart';
+import '../../design/selah_motion_scope.dart';
 import '../../domain/selah_enums.dart';
 import 'plush_companion_poses.dart';
 
@@ -73,18 +74,8 @@ class SelahSpriteState extends State<SelahSprite>
     _ => false,
   };
 
-  /// 系统级 Reduce Motion（可在 initState 使用，不依赖 MediaQuery）。
-  bool get _systemReduceMotion => WidgetsBinding
-      .instance
-      .platformDispatcher
-      .accessibilityFeatures
-      .disableAnimations;
-
-  /// 完整判定：显式参数 + 系统设置 + MediaQuery（用于 build）。
-  bool get _reduceMotion =>
-      widget.reduceMotion ||
-      _systemReduceMotion ||
-      MediaQuery.disableAnimationsOf(context);
+  /// 完整判定：显式参数 + 应用内动效开关；无开关祖先时回退系统设置。
+  bool get _reduceMotion => widget.reduceMotion || !MotionScope.of(context);
 
   @override
   void initState() {

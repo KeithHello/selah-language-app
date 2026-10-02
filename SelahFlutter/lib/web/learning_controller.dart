@@ -2749,6 +2749,7 @@ class LearningController extends ChangeNotifier {
     String? nativeVoice,
     double? speed,
     bool? companionRailVisible,
+    bool? motionEnabled,
     bool? reminderEnabled,
     String? reminderTime,
 
@@ -2773,6 +2774,9 @@ class LearningController extends ChangeNotifier {
       if (speed != null) json['speed'] = speed;
       if (companionRailVisible != null) {
         json['companionRailVisible'] = companionRailVisible;
+      }
+      if (motionEnabled != null) {
+        json['motionEnabled'] = motionEnabled;
       }
       if (reminderEnabled != null) json['reminderEnabled'] = reminderEnabled;
       if (reminderTime != null) json['reminderTime'] = reminderTime;

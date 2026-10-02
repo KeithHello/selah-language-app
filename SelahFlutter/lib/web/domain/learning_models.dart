@@ -469,6 +469,7 @@ class LearnPreferences {
     this.voice = 'gentle-natural',
     this.nativeVoice = 'native-gentle',
     this.speed = 1.0,
+    this.motionEnabled = true,
     this.companionRailVisible = false,
     this.onboarded = false,
     this.reminderEnabled = false,
@@ -488,6 +489,11 @@ class LearnPreferences {
   /// Device-only presentation preference. It is intentionally not mapped to
   /// Supabase user_profiles and is preserved across cloud snapshot merges.
   bool companionRailVisible;
+
+  /// Device-only motion preference. Defaults to on; the settings toggle is
+  /// the single master gate and the system reduce-motion preference no
+  /// longer overrides it.
+  bool motionEnabled;
   bool onboarded;
   bool reminderEnabled;
   String reminderTime;
@@ -517,6 +523,7 @@ class LearnPreferences {
     'nativeVoice': nativeVoice,
     'speed': speed,
     'companionRailVisible': companionRailVisible,
+    'motionEnabled': motionEnabled,
     'onboarded': onboarded,
     'reminderEnabled': reminderEnabled,
     'reminderTime': reminderTime,
@@ -545,6 +552,7 @@ class LearnPreferences {
       ),
       speed: speed.toDouble(),
       companionRailVisible: j['companionRailVisible'] == true,
+      motionEnabled: j['motionEnabled'] != false,
       onboarded: j['onboarded'] == true,
       reminderEnabled: j['reminderEnabled'] == true,
       reminderTime: reminder,
@@ -1092,6 +1100,7 @@ class LearningSnapshot {
       preferences.nativeLanguage,
     );
     final localCompanionRailVisible = preferences.companionRailVisible;
+    final localMotionEnabled = preferences.motionEnabled;
     final localNativeVoice = preferences.nativeVoice;
     final byId = {for (final s in result.sentences) s.id: s};
     for (final incoming in other.sentences) {
@@ -1150,6 +1159,7 @@ class LearningSnapshot {
     }
     result.preferences.nativeLanguage = localNativeLanguage;
     result.preferences.companionRailVisible = localCompanionRailVisible;
+    result.preferences.motionEnabled = localMotionEnabled;
     result.preferences.nativeVoice = localNativeVoice;
     for (final entry in other.memories.entries) {
       result.memories.update(

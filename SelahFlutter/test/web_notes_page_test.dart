@@ -80,7 +80,8 @@ void main() {
     await controller.initialize();
     controller.state.preferences
       ..onboarded = true
-      ..uiLocale = 'zh-Hans';
+      ..uiLocale = 'zh-Hans'
+      ..motionEnabled = false;
     controller.state.sentences
       ..clear()
       ..addAll([

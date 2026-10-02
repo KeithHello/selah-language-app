@@ -115,7 +115,8 @@ Future<LearningController> _todayController(
   await controller.initialize();
   controller.state.preferences
     ..onboarded = true
-    ..uiLocale = 'zh-Hans';
+    ..uiLocale = 'zh-Hans'
+    ..motionEnabled = false;
   return controller;
 }
 
@@ -207,6 +208,9 @@ void main() {
       polling: false,
     );
     await controller.initialize();
+    // Interaction coverage predates the in-app motion toggle; these tests
+    // exercise the motion-off state of the new gate.
+    controller.state.preferences.motionEnabled = false;
     // Existing interaction coverage predates the locale rollout and keeps
     // its Simplified Chinese finders explicit. The product default itself is
     // exercised by web_models_test and the locale-specific tests.
@@ -508,7 +512,8 @@ void main() {
       await configuredController.initialize();
       configuredController.state.preferences
         ..onboarded = true
-        ..uiLocale = 'zh-Hans';
+        ..uiLocale = 'zh-Hans'
+        ..motionEnabled = false;
       configuredController.navigate(4);
 
       await tester.pumpWidget(WebLearningApp(controller: configuredController));
@@ -533,10 +538,11 @@ void main() {
     );
     addTearDown(configuredController.dispose);
     await configuredController.initialize();
-    configuredController.state.preferences
-      ..onboarded = true
-      ..uiLocale = 'zh-Hans';
-    configuredController.navigate(5);
+      configuredController.state.preferences
+        ..onboarded = true
+        ..uiLocale = 'zh-Hans'
+        ..motionEnabled = false;
+      configuredController.navigate(5);
 
     await tester.pumpWidget(WebLearningApp(controller: configuredController));
     await tester.pumpAndSettle();
@@ -561,7 +567,8 @@ void main() {
       await configuredController.initialize();
       configuredController.state.preferences
         ..onboarded = true
-        ..uiLocale = 'zh-Hans';
+        ..uiLocale = 'zh-Hans'
+        ..motionEnabled = false;
       await configuredController.generate('今天想早点休息。');
 
       await tester.pumpWidget(WebLearningApp(controller: configuredController));
@@ -591,7 +598,8 @@ void main() {
       await configuredController.initialize();
       configuredController.state.preferences
         ..onboarded = true
-        ..name = '小芽';
+        ..name = '小芽'
+        ..motionEnabled = false;
       configuredController.errorCode = 'service_budget_protected';
       configuredController.error = '今天的测试预算已用完，请明天再试。';
       configuredController.notifyListeners();
@@ -618,7 +626,8 @@ void main() {
       configuredController.state.preferences
         ..onboarded = true
         ..name = '小芽'
-        ..uiLocale = 'zh-Hans';
+        ..uiLocale = 'zh-Hans'
+        ..motionEnabled = false;
       configuredController.errorCode = 'login_required';
       configuredController.error = '请先登录，便能生成自己的英文和语音。';
       configuredController.notifyListeners();
@@ -644,7 +653,8 @@ void main() {
     await configuredController.initialize();
     configuredController.state.preferences
       ..onboarded = true
-      ..uiLocale = 'zh-Hans';
+      ..uiLocale = 'zh-Hans'
+      ..motionEnabled = false;
     configuredController.navigate(4);
 
     await tester.pumpWidget(WebLearningApp(controller: configuredController));
@@ -1446,7 +1456,8 @@ void main() {
     await local.initialize();
     local.state.preferences
       ..onboarded = true
-      ..uiLocale = 'zh-Hans';
+      ..uiLocale = 'zh-Hans'
+      ..motionEnabled = false;
     local.state.preparationDraft = PreparationDraft(
       id: newId(),
       sourceText: '长文',
@@ -1497,7 +1508,8 @@ void main() {
     await local.initialize();
     local.state.preferences
       ..onboarded = true
-      ..uiLocale = 'zh-Hans';
+      ..uiLocale = 'zh-Hans'
+      ..motionEnabled = false;
     local.state.preparationDraft = PreparationDraft(
       id: newId(),
       sourceText: '长文',

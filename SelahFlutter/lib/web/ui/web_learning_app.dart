@@ -8,6 +8,7 @@ import 'package:flutter/services.dart';
 import '../../design/selah_colors.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_motion.dart';
+import '../../design/selah_motion_scope.dart';
 import '../../design/selah_theme.dart';
 import '../../design/selah_typography.dart';
 import '../../domain/selah_enums.dart';
@@ -157,7 +158,10 @@ class _WebLearningAppState extends State<WebLearningApp> {
               fontFamilyFallback: const ['Noto Sans SC'],
             ),
           ),
-          home: _WebRoot(controller: widget.controller, strings: strings),
+          home: MotionScope(
+            motionEnabled: widget.controller.state.preferences.motionEnabled,
+            child: _WebRoot(controller: widget.controller, strings: strings),
+          ),
         );
       },
     );
@@ -1156,9 +1160,7 @@ class _TodayPageState extends State<_TodayPage> {
         Scrollable.ensureVisible(
           fieldContext,
           alignment: 0.18,
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : SelahMotion.quick,
+          duration: MotionScope.durationOf(context, SelahMotion.quick),
         );
       }
     });
@@ -2916,7 +2918,7 @@ class _ListenPageState extends State<_ListenPage> {
   void _scrollListenToStart() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_listenScrollController.hasClients) return;
-      if (MediaQuery.disableAnimationsOf(context)) {
+      if (!MotionScope.of(context)) {
         _listenScrollController.jumpTo(0);
       } else {
         _listenScrollController.animateTo(
@@ -3950,7 +3952,7 @@ class _ListenDetailState extends State<_ListenDetail> {
             closeLabel: strings.text('common.close'),
             onClose: () => setState(() => _selectedPeekId = null),
           );
-    final reducedMotion = MediaQuery.disableAnimationsOf(context);
+    final reducedMotion = !MotionScope.of(context);
     return Card(
       key: widget.focusMode ? const ValueKey('listen-focus-card') : null,
       child: Padding(
@@ -6049,6 +6051,20 @@ class _SettingsPageState extends State<_SettingsPage> {
             title: s.text('settings.device'),
             icon: Icons.devices_other_outlined,
             children: [
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                secondary: const Icon(Icons.motion_photos_on_outlined),
+                title: Text(s.text('settings.motion')),
+                subtitle: Text(
+                  s.text('settings.motionDetail'),
+                  style: SelahTypography.bodySmall(),
+                ),
+                value: p.motionEnabled,
+                onChanged: c.busy
+                    ? null
+                    : (value) => c.updatePreferences(motionEnabled: value),
+              ),
+              const SizedBox(height: 8),
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.shield_outlined),
@@ -6252,9 +6268,10 @@ class _OnboardingPageState extends State<_OnboardingPage> {
         if (target != null) {
           Scrollable.ensureVisible(
             target,
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
+            duration: MotionScope.durationOf(
+              context,
+              const Duration(milliseconds: 220),
+            ),
             alignment: 0.12,
           );
         }
@@ -6645,9 +6662,7 @@ class _SeedChoice extends StatelessWidget {
         onTap: disabled ? null : onTap,
         borderRadius: BorderRadius.circular(SelahCornerRadius.lg),
         child: AnimatedContainer(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : SelahMotion.quick,
+          duration: MotionScope.durationOf(context, SelahMotion.quick),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: selected ? SelahColors.coralSoft : SelahColors.cardPrimary,

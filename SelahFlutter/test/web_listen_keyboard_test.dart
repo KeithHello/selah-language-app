@@ -94,7 +94,8 @@ void main() {
     await controller.initialize();
     controller.state.preferences
       ..onboarded = true
-      ..nativeLanguage = 'zh-Hans';
+      ..nativeLanguage = 'zh-Hans'
+      ..motionEnabled = false;
     controller.state.sentences.addAll([
       LearnSentence(
         id: _firstId,
