@@ -90,3 +90,7 @@ supabase/supabase/.temp/
 # Supabase CLI
 supabase/.temp/
 supabase/config.toml.bak
+
+# Local temp tooling and scraped reference pages
+.tmp-tooling/
+cf-pricing.html

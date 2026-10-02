@@ -64,30 +64,39 @@ class _Gateway implements LearningGateway {
   ) async => '';
 }
 
-Map<String, dynamic> _monthlyStatus({int sentenceRemaining = 19}) => {
-  'membershipModeEnabled': true,
-  'trialSignupsEnabled': true,
-  'membershipSalesEnabled': true,
-  'paymentProviderConfigured': true,
-  'proSalesEnabled': false,
-  'plan': 'monthly',
-  'status': 'active',
-  'periodStartsAt': '2026-09-01T00:00:00.000Z',
-  'periodEndsAt': '2026-10-01T00:00:00.000Z',
-  'membershipSource': 'paid',
-  'usage': {
-    'asOf': '2026-09-28T00:00:00.000Z',
-    'sentences': {
-      'used': sentenceRemaining == 0 ? 300 : 281,
-      'limit': 300,
-      'remaining': sentenceRemaining,
+Map<String, dynamic> _monthlyStatus({int sentenceRemaining = 19}) {
+  final now = DateTime.now().toUtc();
+  final periodStart = now.subtract(const Duration(days: 18));
+  final periodEnd = now.add(const Duration(days: 12, hours: 12));
+  return {
+    'membershipModeEnabled': true,
+    'trialSignupsEnabled': true,
+    'membershipSalesEnabled': true,
+    'paymentProviderConfigured': true,
+    'proSalesEnabled': false,
+    'plan': 'monthly',
+    'status': 'active',
+    'periodStartsAt': periodStart.toIso8601String(),
+    'periodEndsAt': periodEnd.toIso8601String(),
+    'membershipSource': 'paid',
+    'usage': {
+      'asOf': '2026-09-28T00:00:00.000Z',
+      'sentences': {
+        'used': sentenceRemaining == 0 ? 300 : 281,
+        'limit': 300,
+        'remaining': sentenceRemaining,
+      },
+      'ttsCharacters': {'used': 27150, 'limit': 30000, 'remaining': 2850},
+      'transcriptionMs': {
+        'used': 3360000,
+        'limit': 3600000,
+        'remaining': 240000,
+      },
+      'preparations': {'used': 28, 'limit': 30, 'remaining': 2},
     },
-    'ttsCharacters': {'used': 27150, 'limit': 30000, 'remaining': 2850},
-    'transcriptionMs': {'used': 3360000, 'limit': 3600000, 'remaining': 240000},
-    'preparations': {'used': 28, 'limit': 30, 'remaining': 2},
-  },
-  'futurePeriods': [],
-};
+    'futurePeriods': [],
+  };
+}
 
 Map<String, dynamic> _quote({
   required String action,
@@ -107,6 +116,21 @@ Map<String, dynamic> _quote({
   'unavailableReason': unavailableReason,
 };
 
+Future<void> _pumpCard(WidgetTester tester, MembershipController controller) {
+  return tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: MembershipStatusCard(
+            controller: controller,
+            uiLocale: 'zh-Hans',
+          ),
+        ),
+      ),
+    ),
+  );
+}
+
 void main() {
   testWidgets('membership mode off keeps the card visible for free accounts', (
     tester,
@@ -121,22 +145,13 @@ void main() {
       ),
     );
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
-    expect(find.text('会员'), findsOneWidget);
     expect(find.text('未开通'), findsOneWidget);
     expect(find.text('当前未开通会员，学习不受限制。'), findsOneWidget);
     expect(find.text('更改方案'), findsNothing);
-    expect(find.text('本账期剩余'), findsNothing);
+    expect(find.textContaining('本期用量'), findsNothing);
     expect(find.text('0'), findsNothing);
     controller.dispose();
   });
@@ -148,20 +163,12 @@ void main() {
     status['membershipModeEnabled'] = false;
     final controller = MembershipController(gateway: _Gateway(status: status));
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     expect(find.text('月会员'), findsOneWidget);
-    expect(find.text('本账期剩余'), findsOneWidget);
-    expect(find.text('19 条'), findsOneWidget);
+    expect(find.textContaining('本期用量'), findsOneWidget);
+    expect(find.text('剩 19 条'), findsOneWidget);
     expect(find.text('会员额度限制尚未对所有用户开启，当前不会按额度限制你的学习。'), findsOneWidget);
     expect(find.text('更改方案'), findsNothing);
     controller.dispose();
@@ -176,23 +183,14 @@ void main() {
     );
     final controller = MembershipController(gateway: gateway);
     final loadFuture = controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
 
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
-    expect(find.text('会员'), findsOneWidget);
+    expect(find.text('月会员'), findsNothing);
     // The gateway delay runs in fake async time; advance it with pump.
     await tester.pump(const Duration(milliseconds: 100));
     await loadFuture;
-    await tester.pump();
+    await tester.pumpAndSettle();
     expect(find.byType(CircularProgressIndicator), findsNothing);
     expect(find.text('月会员'), findsOneWidget);
     controller.dispose();
@@ -204,51 +202,46 @@ void main() {
     await controller.load();
     gateway.statusFails = true;
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     expect(find.text('会员状态暂时无法读取，请稍后重试。'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
-    expect(find.text('19 条'), findsNothing);
-    expect(find.text('2850 字符'), findsNothing);
+    expect(find.text('剩 19 条'), findsNothing);
+    expect(find.text('剩 2850 字符'), findsNothing);
     controller.dispose();
   });
 
-  testWidgets('monthly status shows server balances without progress meters', (
+  testWidgets('monthly status shows balances with progress meters', (
     tester,
   ) async {
     final controller = MembershipController(
       gateway: _Gateway(status: _monthlyStatus()),
     );
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     expect(find.text('月会员'), findsOneWidget);
     expect(find.text('付费'), findsOneWidget);
-    expect(find.text('本账期剩余'), findsOneWidget);
-    expect(find.text('19 条'), findsOneWidget);
-    expect(find.text('2850 字符'), findsOneWidget);
-    expect(find.text('4 分钟'), findsOneWidget);
-    expect(find.text('2 次'), findsOneWidget);
+    expect(find.textContaining('本期用量'), findsOneWidget);
+    expect(find.textContaining('还剩 12 天'), findsOneWidget);
+    expect(find.text('已用 281 / 300 条'), findsOneWidget);
+    expect(find.text('剩 19 条'), findsOneWidget);
+    expect(find.text('剩 2850 字符'), findsOneWidget);
+    expect(find.text('剩 4 分钟'), findsOneWidget);
+    expect(find.text('剩 2 次'), findsOneWidget);
     expect(find.byType(LinearProgressIndicator), findsNothing);
     expect(find.textContaining('%'), findsNothing);
+    final bar = tester.widget<FractionallySizedBox>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('quota-bar-sentences')),
+            matching: find.byType(FractionallySizedBox),
+          )
+          .first,
+    );
+    expect(bar.widthFactor, closeTo(281 / 300, 0.001));
     controller.dispose();
   });
 
@@ -259,21 +252,23 @@ void main() {
       gateway: _Gateway(status: _monthlyStatus(sentenceRemaining: 0)),
     );
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     expect(find.text('本账期已用完'), findsOneWidget);
-    expect(find.text('2850 字符'), findsOneWidget);
-    expect(find.text('4 分钟'), findsOneWidget);
-    expect(find.text('2 次'), findsOneWidget);
+    expect(find.text('已用 300 / 300 条'), findsOneWidget);
+    expect(find.text('剩 2850 字符'), findsOneWidget);
+    expect(find.text('剩 4 分钟'), findsOneWidget);
+    expect(find.text('剩 2 次'), findsOneWidget);
+    final bar = tester.widget<FractionallySizedBox>(
+      find
+          .descendant(
+            of: find.byKey(const ValueKey<String>('quota-bar-sentences')),
+            matching: find.byType(FractionallySizedBox),
+          )
+          .first,
+    );
+    expect(bar.widthFactor, 1.0);
     controller.dispose();
   });
 
@@ -295,20 +290,12 @@ void main() {
       ),
     );
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     expect(find.text('试用准备中'), findsOneWidget);
     expect(find.textContaining('首次个人表达成功保存后开始计时'), findsOneWidget);
-    expect(find.text('本账期剩余'), findsNothing);
+    expect(find.textContaining('本期用量'), findsNothing);
     controller.dispose();
   });
 
@@ -328,21 +315,13 @@ void main() {
       ),
     );
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     expect(find.text('未开通'), findsOneWidget);
     expect(find.text('试用尚未开始'), findsOneWidget);
     expect(find.textContaining('不会因注册或登录提前计时'), findsOneWidget);
-    expect(find.text('本账期剩余'), findsNothing);
+    expect(find.textContaining('本期用量'), findsNothing);
     controller.dispose();
   });
 
@@ -372,16 +351,8 @@ void main() {
       ),
     );
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     await tester.tap(find.text('更改方案'));
     await tester.pumpAndSettle();
@@ -404,21 +375,13 @@ void main() {
     status['usage'] = null;
     final controller = MembershipController(gateway: _Gateway(status: status));
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     expect(find.text('月会员'), findsOneWidget);
     expect(find.text('额度信息暂时无法读取，请稍后重试。'), findsOneWidget);
     expect(find.text('重试'), findsOneWidget);
-    expect(find.text('本账期剩余'), findsNothing);
+    expect(find.textContaining('本期用量'), findsNothing);
     controller.dispose();
   });
 
@@ -432,25 +395,16 @@ void main() {
     degraded['usage'] = null;
     gateway.status = degraded;
     await controller.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'zh-Hans',
-          ),
-        ),
-      ),
-    );
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
 
     expect(find.text('额度信息暂时无法读取，请稍后重试。'), findsOneWidget);
     gateway.status = _monthlyStatus();
     await tester.tap(find.text('重试'));
-    await tester.pump();
-    await tester.pump();
+    await tester.pumpAndSettle();
 
-    expect(find.text('本账期剩余'), findsOneWidget);
-    expect(find.text('19 条'), findsOneWidget);
+    expect(find.textContaining('本期用量'), findsOneWidget);
+    expect(find.text('剩 19 条'), findsOneWidget);
     controller.dispose();
   });
 
@@ -464,18 +418,73 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
-          body: MembershipStatusCard(
-            controller: controller,
-            uiLocale: 'ja',
+          body: SingleChildScrollView(
+            child: MembershipStatusCard(
+              controller: controller,
+              uiLocale: 'ja',
+            ),
           ),
         ),
       ),
     );
+    await tester.pumpAndSettle();
 
     expect(
       find.text('利用量の情報を読み込めません。しばらくしてからもう一度お試しください。'),
       findsOneWidget,
     );
+    controller.dispose();
+  });
+
+  testWidgets('quota help button opens an explanation dialog', (tester) async {
+    final controller = MembershipController(
+      gateway: _Gateway(status: _monthlyStatus()),
+    );
+    await controller.load();
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byIcon(Icons.help_outline_rounded).first);
+    await tester.pumpAndSettle();
+    expect(
+      find.text('写下今天的母语句子，生成对应的英语学习内容；每成功生成一条，计一次。'),
+      findsOneWidget,
+    );
+    expect(find.text('关闭'), findsOneWidget);
+
+    await tester.tap(find.text('关闭'));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('写下今天的母语句子，生成对应的英语学习内容；每成功生成一条，计一次。'),
+      findsNothing,
+    );
+    controller.dispose();
+  });
+
+  testWidgets('usage grid switches between two columns and one column', (
+    tester,
+  ) async {
+    final controller = MembershipController(
+      gateway: _Gateway(status: _monthlyStatus()),
+    );
+    await controller.load();
+    await _pumpCard(tester, controller);
+    await tester.pumpAndSettle();
+
+    final icons = find.byIcon(Icons.help_outline_rounded);
+    expect(icons, findsNWidgets(4));
+    final wideFirst = tester.getCenter(icons.at(0)).dy;
+    final wideSecond = tester.getCenter(icons.at(1)).dy;
+    expect(wideSecond, wideFirst);
+
+    tester.view.physicalSize = const Size(390, 1600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpAndSettle();
+
+    final narrowFirst = tester.getCenter(icons.at(0)).dy;
+    final narrowSecond = tester.getCenter(icons.at(1)).dy;
+    expect(narrowSecond, greaterThan(narrowFirst));
     controller.dispose();
   });
 }

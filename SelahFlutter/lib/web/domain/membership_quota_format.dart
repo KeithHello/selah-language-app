@@ -1,5 +1,13 @@
 enum QuotaUnit { sentences, characters, transcriptionMs, preparations }
 
+String formatQuotaAmount(int value, QuotaUnit unit) {
+  return switch (unit) {
+    QuotaUnit.characters => _formatCharacters(value),
+    QuotaUnit.transcriptionMs => _formatTranscriptionMinutes(value),
+    QuotaUnit.sentences || QuotaUnit.preparations => value.toString(),
+  };
+}
+
 String formatQuotaValue(int value, QuotaUnit unit, String locale) {
   final normalized = locale.toLowerCase();
   final traditional = normalized.startsWith('zh-hant');
@@ -25,11 +33,7 @@ String formatQuotaValue(int value, QuotaUnit unit, String locale) {
           : '分钟',
     QuotaUnit.preparations => japanese ? '回' : '次',
   };
-  final amount = switch (unit) {
-    QuotaUnit.characters => _formatCharacters(value),
-    QuotaUnit.transcriptionMs => _formatTranscriptionMinutes(value),
-    QuotaUnit.sentences || QuotaUnit.preparations => value.toString(),
-  };
+  final amount = formatQuotaAmount(value, unit);
   final separator =
       unit == QuotaUnit.characters && value >= 10000 && value % 100 == 0
       ? ''
