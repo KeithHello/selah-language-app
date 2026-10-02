@@ -823,6 +823,22 @@ void main() {
     },
   );
 
+  testWidgets('ready updates stay silent instead of showing a global banner', (
+    tester,
+  ) async {
+    controller.state.preferences.onboarded = true;
+    controller.platformInfo = {
+      ...platform.info,
+      'updateAvailable': true,
+      'buildId': 'build-44',
+    };
+    controller.navigate(0);
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('有新版本可用'), findsNothing);
+  });
+
   testWidgets(
     'today keeps the compact greeting and companion usable across widths',
     (tester) async {

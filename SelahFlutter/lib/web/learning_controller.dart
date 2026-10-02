@@ -160,6 +160,7 @@ class LearningController extends ChangeNotifier {
   String? _activitySessionId;
   DateTime? _lastActivityAt;
   DateTime? _activitySlotStart;
+  DateTime? _autoUpdateAttemptAt;
   Future<void> _writes = Future.value();
   bool _cloudDirty = false;
   int _cloudRevision = 0;
@@ -2546,6 +2547,7 @@ class LearningController extends ChangeNotifier {
       final wasOnline = platformInfo['online'];
       platformInfo = objectMap(await platform.invoke('platformInfo'));
       if (wasOnline == false && platformInfo['online'] == true) _scheduleSync();
+      await _maybeAutoApplyUpdate(generation);
       final value = objectMap(await platform.invoke('audioStatus'));
       if (_loopSessionId != null) {
         loopPlayback = objectMap(
@@ -3102,14 +3104,7 @@ class LearningController extends ChangeNotifier {
     notice = installed == true ? '已添加 Selah。' : '可在浏览器菜单中选择「添加到主屏幕」或「安装应用」。';
   });
   Future<void> applyUpdate() => _run((generation) async {
-    await flushLocalWrites();
-    _ensureCurrent(generation);
-    if (hasUnsavedChanges) {
-      throw const LearningFailure('请先保存本机内容，并完成录音转写或练习评分，再更新应用。');
-    }
-    final applied = await platform.invoke('applyUpdate');
-    if (applied != true) notice = '当前已经是最新版本。';
-    if (applied == true) await _refreshPlatformInfo();
+    await _applyUpdate(generation, announce: true);
   });
   Future<void> persistStorage() => _run((generation) async {
     final granted = await platform.invoke('persistentStorage');
@@ -3130,6 +3125,52 @@ class LearningController extends ChangeNotifier {
   Future<void> _refreshPlatformInfo() async {
     platformInfo = objectMap(await platform.invoke('platformInfo'));
     notifyListeners();
+  }
+
+  bool get _canAutoApplyUpdate {
+    if (_disposed ||
+        !initialized ||
+        busy ||
+        platformInfo['updateAvailable'] != true ||
+        !state.preferences.onboarded ||
+        hasUnsavedChanges ||
+        syncing ||
+        loopActive ||
+        loopPreparing ||
+        loopSessionVisible ||
+        _playSession != null ||
+        _previewKey != null ||
+        playback['state'] != 'idle') {
+      return false;
+    }
+    final lastAttempt = _autoUpdateAttemptAt;
+    return lastAttempt == null ||
+        DateTime.now().difference(lastAttempt) >= const Duration(minutes: 5);
+  }
+
+  Future<bool> _applyUpdate(int generation, {required bool announce}) async {
+    await flushLocalWrites();
+    _ensureCurrent(generation);
+    if (hasUnsavedChanges) {
+      if (!announce) return false;
+      throw const LearningFailure('请先保存本机内容，并完成录音转写或练习评分，再更新应用。');
+    }
+    final applied = await platform.invoke('applyUpdate');
+    if (announce && applied != true) notice = '当前已经是最新版本。';
+    if (applied == true) await _refreshPlatformInfo();
+    return applied == true;
+  }
+
+  Future<void> _maybeAutoApplyUpdate(int generation) async {
+    if (!_canAutoApplyUpdate) return;
+    _autoUpdateAttemptAt = DateTime.now();
+    try {
+      await _applyUpdate(generation, announce: false);
+      await _refreshPlatformInfo();
+    } catch (_) {
+      // Automatic updates stay quiet; the next safe poll retries after the
+      // cooldown. Manual update continues to surface failures to the user.
+    }
   }
 
   Future<void> startRecording() => _run((generation) async {

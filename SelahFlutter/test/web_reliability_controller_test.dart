@@ -12,6 +12,7 @@ class ControlledPlatform extends MemoryPlatform {
   Completer<void>? saveGate;
   Completer<void>? audioGate;
   Object? backup;
+  Map<String, Object?> info = {'online': true};
   final calls = <String>[];
   bool protected = false;
   bool cached = true;
@@ -21,6 +22,7 @@ class ControlledPlatform extends MemoryPlatform {
     Map<String, Object?> payload = const {},
   ]) async {
     calls.add(action);
+    if (action == 'platformInfo') return info;
     if (action == 'save') {
       final gate = saveGate;
       saveGate = null;
@@ -347,6 +349,36 @@ void main() {
     await c.applyUpdate();
     expect(p.calls, isNot(contains('applyUpdate')));
     expect(c.pendingPracticeSignal, 'almost');
+  });
+
+  test('poll auto-applies a ready update when learning state is safe', () async {
+    c.state.preferences.onboarded = true;
+    p.info = {'online': true, 'updateAvailable': true};
+    await c.poll();
+    expect(p.calls, contains('applyUpdate'));
+  });
+
+  test(
+    'poll waits for saved input before auto-applying a ready update',
+    () async {
+      c.state.preferences.onboarded = true;
+      p.info = {'online': true, 'updateAvailable': true};
+      c.updateTodayInput('更新前必须保存的内容');
+      await c.poll();
+      expect(p.calls, isNot(contains('applyUpdate')));
+
+      await c.flushPendingLocalWritesForTest();
+      await c.poll();
+      expect(p.calls, contains('applyUpdate'));
+    },
+  );
+
+  test('poll does not retry an update within its quiet window', () async {
+    c.state.preferences.onboarded = true;
+    p.info = {'online': true, 'updateAvailable': true};
+    await c.poll();
+    await c.poll();
+    expect(p.calls.where((call) => call == 'applyUpdate'), hasLength(1));
   });
 
   test('old practice save cannot clear the next account choice', () async {

@@ -912,11 +912,6 @@ class _Content extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
             child: _MessageBar(controller: controller),
           ),
-        if (controller.platformInfo['updateAvailable'] == true)
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: _UpdateBanner(controller: controller),
-          ),
         Expanded(
           child: IndexedStack(
             index: controller.tab,
@@ -1053,81 +1048,6 @@ class _MessageBar extends StatelessWidget {
               onPressed: controller.clearMessage,
               icon: const Icon(Icons.close_rounded, size: 18),
               visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _UpdateBanner extends StatefulWidget {
-  const _UpdateBanner({required this.controller});
-
-  final LearningController controller;
-
-  @override
-  State<_UpdateBanner> createState() => _UpdateBannerState();
-}
-
-class _UpdateBannerState extends State<_UpdateBanner> {
-  bool _dismissed = false;
-
-  LearningController get controller => widget.controller;
-
-  Future<void> _apply(BuildContext context) async {
-    if (controller.hasUnsavedChanges) return;
-    final s = SelahStrings.of(controller.uiLocale);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(s.text('settings.update')),
-        content: Text(s.text('settings.updateConfirm')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(s.text('settings.updateLater')),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(s.text('settings.updateNow')),
-          ),
-        ],
-      ),
-    );
-    if (confirmed == true) await controller.applyUpdate();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (_dismissed) return const SizedBox.shrink();
-    final s = SelahStrings.of(controller.uiLocale);
-    final blocked = controller.hasUnsavedChanges;
-    return Material(
-      color: SelahColors.amberSoft,
-      borderRadius: BorderRadius.circular(SelahCornerRadius.md),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.system_update_alt,
-              size: 18,
-              color: SelahColors.amber,
-            ),
-            const SizedBox(width: 9),
-            Expanded(child: Text(s.text('settings.updateAvailable'))),
-            TextButton(
-              onPressed: controller.busy
-                  ? null
-                  : () => setState(() => _dismissed = true),
-              child: Text(s.text('settings.updateLater')),
-            ),
-            FilledButton(
-              onPressed: controller.busy || blocked
-                  ? null
-                  : () => _apply(context),
-              child: Text(s.text('settings.updateNow')),
             ),
           ],
         ),
