@@ -8,6 +8,16 @@
 
 ## 当前阶段
 
+### 2026-10-02 部署统一与 CI/CD 自动发布通道（实现与 CI 验证完成，生产部署待 CF token）
+
+- [x] CLAUDE.md 写入「部署规范」稳定段与当日实施授权边界（提交 df08c11）：push main → GitHub Actions 自动构建并部署生产为已授权常规发布通道；手动 wrangler 生产部署、生产回滚、修改部署 workflow、增删部署 secrets、Cloudflare 控制台配置变更、数据库 migration 与 Edge Function 部署仍须逐次确认；预览统一走生产项目 `selah-language-app` 的分支别名，`selah-language-app-preview` 停用归档；仅文档 push 不触发 CI（paths-ignore）。
+- [x] `.github/workflows/build.yml` 新增 `web` 任务（ubuntu-latest，Flutter 3.44.9 锁定，提交 746055e）：pub get → analyze --no-pub → 全量测试 → `SelahFlutter/tool/web.ps1 -Action build`（secrets 注入 Supabase 公共配置并校验打进产物）→ wrangler 部署（main=生产、其他分支=预览别名，分支名 `/` 转 `-`）→ 线上 selah-build-id 比对与 main.dart.js／selah-precache.json 200 校验；部署 `concurrency` 串行；deno／database 任务为部署门禁；Swift／iOS 保持并行不阻塞 Web 部署。
+- [x] CI 修复（提交 f17addb）：Flutter 步骤固定 `working-directory: SelahFlutter`，修复首轮 pub get 在仓库根找不到项目根的问题。
+- [x] 仓库 secrets 已配置：SUPABASE_URL、SUPABASE_PUBLISHABLE_KEY、CLOUDFLARE_ACCOUNT_ID（值不进代码、commit 与聊天记录）。
+- [x] wrangler 只读核对（REST API）：生产项目 `selah-language-app` 存在且生产分支为 `main`；`selah-language-app-preview` 为独立旧预览项目，停用归档不删除。
+- [x] CI 链路验证：run 37027410579（分支预览试跑）与 run 37028971886（main 合并后自动构建）中 Deno（22 秒）、Swift（1 分 42 秒）、iOS（2 分 21 秒）、数据库迁移＋并发（1 分 38 秒）、flutter analyze、408 项 Flutter 测试、web Release 构建、Supabase 配置校验、Build ID 读取全部通过；main 已推进 c1a02cd..f17addb。
+- [ ] 生产部署待 `CLOUDFLARE_API_TOKEN`：token 须由主人在 Cloudflare 控制台创建（仅 Cloudflare Pages: Edit 权限）并经本地 `.env` 写入 GitHub secret；就位后重跑 run 37028971886 失败任务即自动完成首个 CI 生产部署与线上 Build ID 校验，再补记部署结果。
+
 ### 2026-10-02 应用内动效总开关与研究资料数据库草案（实现与本地自动化验证完成）
 
 - [x] 动效门控收敛：新增 `SelahFlutter/lib/design/selah_motion_scope.dart`；应用内「動畫效果」开关为唯一总门，默认开启，系统「减少动态效果」不再强制关闭；替换 web_learning_app（5 处）、membership_widgets（3 处）、plush_companion、selah_sprite、web_start_action 的系统门控；无 MotionScope 祖先的原生预览与直接组件测试回退系统行为。
