@@ -16,7 +16,9 @@ Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。
 - 聆听页统一使用现有响应式页面骨架、学习卡和主要播放控件；桌面最大内容宽度 860，手机保留正文滚动和底部固定操作条。循环听继续沿用独立播放会话与双语音轨，以真实会话句子、播放语言、音频进度和剩余时长呈现学习卡，不以列表下标猜测正在播放的句子。
 - 模式切换先暂停当前有效播放并保留各自位置，不自动开始另一模式；循环暂停时保留现有暂停计时语义。循环操作继续使用现有语序、音频准备、单句跳到下一句和独立截止规则，不为视觉统一新增循环上一句或可拖动跳播能力。改变会话时长只作用于下一次循环，并提供说明。
 - 设计稿仅作为产品设计资料归档在 docs/superpowers/specs/2026-10-01-listen-mode-consistency-mobile.png 与 docs/superpowers/specs/2026-10-01-listen-mode-consistency-desktop.png；不得加入 Flutter 产品资源、Web 构建或预缓存。
-- 设计规范和开发计划分别见 docs/superpowers/specs/2026-10-01-listen-mode-consistency-design.md 与 docs/superpowers/plans/2026-10-01-listen-mode-consistency-plan.md。只复用正式 Flutter Web 代码与现有浏览器音频桥，不改原生 SwiftUI、数据库、服务端、密钥、CI、依赖或远端配置。本授权不包括 PR、推送或 Cloudflare 部署。
+- 设计规范和开发计划分别见 docs/superpowers/specs/2026-10-01-listen-mode-consistency-design.md 与 docs/superpowers/plans/2026-10-01-listen-mode-consistency-plan.md。实现复用正式 Flutter Web 代码与现有浏览器音频桥，不改原生 SwiftUI、数据库、服务端代码、密钥、CI 或依赖。
+- 主人随后确认开发完成，并明确授权整理代码、commit、push 到 GitHub 及部署；聆听实现提交 a833f1e 与相关后续修复已推送至 codex/today-segment-pin。2026-10-02 将包含该实现的 Release 包部署到 Cloudflare Pages 预览项目 selah-language-app-preview 的 codex-web-ux-reliability 别名；最新预览版本为 a9632db5，Build ID 46f551526bb112d5。已在 390×844 与 1280×720 浏览器视口检查首页、逐句听和循环听；线上包返回 HTTP 200。部署只涉及既有预览项目，不包括生产环境、DNS 或项目配置变更。
+- 自动化验收：flutter analyze --no-pub 无问题、flutter test --no-pub 396 项通过、Node 浏览器音频桥回归 10 项通过、Web Release 构建成功。最近表达按 ID 的个人数据路径已由自动化回归覆盖；预览浏览器没有登录账户和个人表达数据，真实账户人工点击与手机真机验收仍待完成。
 
 ## 2026-10-01 聆听方案 B：手机优先的专注学习卡（实施授权）
 

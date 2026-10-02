@@ -1,6 +1,6 @@
 # Selah 开发路线图
 
-> 最后更新：2026-10-01
+> 最后更新：2026-10-02
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
@@ -15,16 +15,20 @@
 - [x] Cloudflare 预览部署：将提交 `07482b7` 的 Release 构建部署到 `selah-language-app-preview` 项目 `codex-web-ux-reliability` 别名（部署 `a9632db5`；此前 `e5ff872d` 已部署相同 Web 内容，本次 220 个文件全部去重命中）。版本地址 https://a9632db5.selah-language-app-preview.pages.dev ，别名地址 https://codex-web-ux-reliability.selah-language-app-preview.pages.dev 。构建含 Supabase 公共配置，线上包比对确认包含本轮新增字符串标记；未部署生产、未改 DNS 或项目配置。
 - [x] Supabase Edge Function 部署：`membership-status` 已部署到 Supabase 项目 `ijonabyyppmgvoufgamt`，管理 API 确认 ACTIVE、verify_jwt 保持 true、更新时间为本次部署；线上服务端与客户端行为一致（额度未开启时按计划上限返回）。未改动其他函数、数据库或密钥。
 
-### 2026-10-01 最近表达直达与聆听模式统一（设计已确认，本地实施进行中）
+### 2026-10-01 最近表达直达与聆听模式统一（实现与自动化验收完成；预览已部署）
 
 - [x] 已确认手机与桌面 UI／UX 方向，完成设计规范与开发计划；概念图归档在 specs 目录，不进入产品资源。
 - [x] 已按本轮授权同步 CLAUDE.md 的 Web 实施范围与边界。
-- [ ] T1 最近表达按 ID 静音定位到逐句听，覆盖置顶排序、重新打开、归档与账户切换。
-- [ ] T2 页面聆听模式与循环播放会话状态分离；跨模式暂停音频、保留逐句位置和循环截止计时。
-- [ ] T3 浏览器音频桥暴露当前循环句 ID 与真实音频进度，卡片按实际会话呈现。
-- [ ] T4 逐句听与循环听共用响应式学习卡、状态行、语速入口与主控位置；设置按手机抽屉／桌面对话框呈现并注明时长下次生效。
-- [ ] T5 三语文案、导航／循环／桥接测试、全量 Flutter analyze/test、Node 音频回归、Web Release 构建与可用的本地浏览器验收。
-- 本轮不包含原生 iOS、数据库／服务端、依赖、Cloudflare 或其他远端部署、推送与 PR；这些项目未获本轮授权。
+- [x] T1 最近表达按账户内句子 ID 静音定位到逐句听；置顶序号实时生效，重开同一句回到卡片顶部并隐藏旧展开内容，覆盖归档、账户切换等回归场景。
+- [x] T2 页面模式与循环会话状态分离；切换时暂停当前音频、保留逐句位置与循环截止计时，不自动开始另一模式。
+- [x] T3 浏览器音频桥向页面提供实际循环句 ID、播放语言、进度与剩余时长；循环卡片按真实会话呈现。
+- [x] T4 逐句听与循环听共用响应式学习卡、状态行、语速入口及主要控件位置；手机设置使用底部面板，桌面设置使用对话框，并说明时长下次生效。
+- [x] T5 三语文案与专项回归完成；flutter analyze --no-pub 无问题，flutter test --no-pub 396 项通过，Node 浏览器音频桥回归 10 项通过，Web Release 构建成功，Build ID 46f551526bb112d5。
+- [x] 预览浏览器检查：Cloudflare 最新预览在 390×844 与 1280×720 视口均能加载；检查了 onboarding、「今天」、逐句听和循环听布局及模式切换。最近表达的真实个人句子直达由 Flutter 回归测试覆盖，本次无登录预览没有个人表达数据可供手动点击验收。
+- [x] GitHub：聆听实现提交 a833f1e 及相关后续修复已推送至 codex/today-segment-pin。
+- [x] Cloudflare Pages 预览：经主人随后明确授权，包含聆听实现的提交 07482b7 已部署至 selah-language-app-preview 项目的 codex-web-ux-reliability 别名；最新版本 a9632db5，Build ID 46f551526bb112d5。版本地址：[预览版本](https://a9632db5.selah-language-app-preview.pages.dev) ，别名：[预览地址](https://codex-web-ux-reliability.selah-language-app-preview.pages.dev) 。线上 Web 包请求返回 HTTP 200，会员额度降级文案标记存在；未部署生产、未改 DNS 或 Cloudflare 项目配置。
+- [ ] 仍待真实账户个人表达数据的人工点击验收，以及 iPhone Safari、Android Chrome 真机验收；最近表达按 ID 的自动化回归已通过。
+- 实施范围为 Flutter Web、浏览器音频桥、对应测试与设计／开发文档；未改原生 iOS、数据库、服务端代码、密钥、CI 或依赖。
 
 ### 2026-10-01 聆听方案 B：手机优先的专注学习卡（实现与自动化验收完成；预览已部署）
 
