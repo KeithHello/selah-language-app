@@ -16,7 +16,8 @@
 - [x] 验证：`flutter analyze --no-pub` 无问题；`flutter test --no-pub` 408 项全部通过；本地 Deno 2.9.3（.tmp-tooling）fmt／lint 通过，`deno test --allow-read supabase/tests` 347 项全部通过（含新增迁移合约测试）；`tool/web.ps1 -Action build` Release 构建成功，Build ID `3fc916e105a3f263`。
 - [x] 研究资料数据库草案：`supabase/migrations/011_user_research_profiles.sql`（专用表、稳定枚举与 40 码点校验、RLS＋REVOKE、get／update RPC、修订冲突与撤回即停邀语义）与 `supabase/tests/research_profiles_migration_test.ts` 静态合约测试（进入现有 Deno CI 任务，未改 CI 配置）。
 - [x] 经主人明确授权，四笔提交已推送到 GitHub main（f3d1c02..b0cfc2b）；Release 包（Build ID `3fc916e105a3f263`）经 wrangler 部署到 selah-language-app-preview 项目 codex-web-ux-reliability 别名，版本地址 https://f7769071.selah-language-app-preview.pages.dev ，别名 https://codex-web-ux-reliability.selah-language-app-preview.pages.dev ；Wrangler 报告 220 个文件中 3 个新上传并完成部署，线上版本页与别名均返回 HTTP 200 且 Build ID 匹配，selah-precache.json 与 main.dart.js 均返回 200；未部署生产、未改 DNS 或项目配置。
-- [ ] 未应用远端 migration（红线待确认）；真实浏览器与真机动效验收、性能基线测量（阶段 0）、精灵资产瘦身（阶段 3）、skwasm＋COOP/COEP（阶段 4）待主人逐项确认。
+- [x] 经主人明确授权，011 migration 已于 2026-10-02 应用到远端 Supabase 项目 ijonabyyppmgvoufgamt：`db push --dry-run` 确认仅应用 011 一笔，push 成功后 `migration list` 显示 001—011 本地与远端一致；`user-research-profile` 路由健康检查 OPTIONS 200、未登录 POST 401（零费用口径）。真实账户设置页「關於你的學習」读取／保存／跳过／撤回的人工验收待主人确认。
+- [ ] 真实浏览器与真机动效验收、性能基线测量（阶段 0）、精灵资产瘦身（阶段 3）、skwasm＋COOP/COEP（阶段 4）待主人逐项确认。
 
 ### 2026-10-02 静默自动应用 Web 更新（实现与本地自动化验证完成）
 
