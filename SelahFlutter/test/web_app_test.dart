@@ -491,6 +491,57 @@ void main() {
     expect(find.byKey(const ValueKey('persistentMessageBar')), findsNothing);
   });
 
+  testWidgets('floating toast fades in and out without disappearing abruptly', (
+    tester,
+  ) async {
+    tester.binding.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures();
+    addTearDown(
+      tester.binding.platformDispatcher.clearAccessibilityFeaturesTestValue,
+    );
+    controller.state.preferences.onboarded = true;
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pump();
+
+    controller.showToast('偏好已保存。');
+    await tester.pump();
+
+    final toast = find.byKey(const ValueKey('webFeedbackToast'));
+    final toastOpacity = find.byKey(const ValueKey('webFeedbackToastOpacity'));
+    var fade = tester.widget<FadeTransition>(
+      find
+          .descendant(of: toastOpacity, matching: find.byType(FadeTransition))
+          .first,
+    );
+    expect(fade.opacity.value, lessThan(1));
+    await tester.pump(const Duration(milliseconds: 220));
+    fade = tester.widget<FadeTransition>(
+      find
+          .descendant(of: toastOpacity, matching: find.byType(FadeTransition))
+          .first,
+    );
+    expect(fade.opacity.value, 1);
+
+    tester
+        .widget<IconButton>(
+          find.descendant(of: toast, matching: find.byType(IconButton)).first,
+        )
+        .onPressed!
+        .call();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(tester.widget<AnimatedOpacity>(toastOpacity).opacity, 0);
+    fade = tester.widget<FadeTransition>(
+      find
+          .descendant(of: toastOpacity, matching: find.byType(FadeTransition))
+          .first,
+    );
+    expect(fade.opacity.value, greaterThan(0));
+    expect(fade.opacity.value, lessThan(1));
+    await tester.pump(const Duration(milliseconds: 220));
+    expect(toast, findsNothing);
+  });
+
   testWidgets('sidebar reports actual sync state instead of connection state', (
     tester,
   ) async {

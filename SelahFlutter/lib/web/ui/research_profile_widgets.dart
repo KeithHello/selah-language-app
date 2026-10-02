@@ -5,6 +5,7 @@ import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
 import '../domain/research_profile.dart';
 import '../research_profile_controller.dart';
+import 'selah_web_motion.dart';
 
 class ResearchProfileForm extends StatefulWidget {
   const ResearchProfileForm({
@@ -271,6 +272,7 @@ class ResearchProfileSummary extends StatelessWidget {
             OutlinedButton(
               onPressed: () => showModalBottomSheet<void>(
                 context: context,
+                sheetAnimationStyle: SelahWebMotion.bottomSheetStyle(context),
                 isScrollControlled: true,
                 builder: (_) => Padding(
                   padding: const EdgeInsets.all(SelahSpacing.md),

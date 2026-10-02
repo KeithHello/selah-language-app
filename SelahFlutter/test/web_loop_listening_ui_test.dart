@@ -121,6 +121,7 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 200));
     expect(find.text('正在播放英語'), findsOneWidget);
     expect(find.text('雙語音訊已準備好。'), findsNothing);
     expect(find.textContaining('30:00'), findsWidgets);

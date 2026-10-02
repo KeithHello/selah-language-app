@@ -10,6 +10,7 @@ import '../domain/admin_membership.dart';
 import '../domain/learning_models.dart';
 import '../l10n/selah_strings.dart';
 import 'admin_user_detail.dart';
+import 'selah_web_motion.dart';
 
 class AdminDashboardPage extends StatefulWidget {
   const AdminDashboardPage({
@@ -159,6 +160,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               onOpenUser: (user) async {
                 final changed = await showDialog<bool>(
                   context: context,
+                  animationStyle: SelahWebMotion.dialogStyle(context),
                   builder: (_) => AdminUserDetailDialog(
                     gateway: controller.gateway,
                     user: user,

@@ -54,10 +54,20 @@ LearnSentence _listenSentence({
   breakdown: breakdown,
 );
 
+Future<void> _setMobileViewport(WidgetTester tester) async {
+  await tester.binding.setSurfaceSize(const Size(390, 844));
+  addTearDown(() => tester.binding.setSurfaceSize(null));
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late LearningController controller;
+
+  void openFirstListenDetail() {
+    controller.navigate(1);
+    controller.selectSentence(controller.state.sentences.first);
+  }
 
   setUp(() async {
     TestWidgetsFlutterBinding
@@ -112,9 +122,8 @@ void main() {
   testWidgets('revealed listening answer opens one native gloss at a time', (
     tester,
   ) async {
-    await tester.binding.setSurfaceSize(const Size(390, 844));
-    addTearDown(() => tester.binding.setSurfaceSize(null));
-    controller.navigate(1);
+    await _setMobileViewport(tester);
+    openFirstListenDetail();
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
 
@@ -146,7 +155,8 @@ void main() {
   testWidgets('target phrase and chip share the selected native gloss', (
     tester,
   ) async {
-    controller.navigate(1);
+    await _setMobileViewport(tester);
+    openFirstListenDetail();
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
     await tester.tap(find.text('看英文答案'));
@@ -167,7 +177,8 @@ void main() {
   testWidgets('changing sentence clears the selected native gloss', (
     tester,
   ) async {
-    controller.navigate(1);
+    await _setMobileViewport(tester);
+    openFirstListenDetail();
     await tester.pumpWidget(WebLearningApp(controller: controller));
     await tester.pumpAndSettle();
     await tester.tap(find.text('看英文答案'));
@@ -177,8 +188,8 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('我真的会谢、我真的不行了'), findsOneWidget);
 
-    await tester.ensureVisible(find.text('我今天想早点休息。'));
-    await tester.tap(find.text('我今天想早点休息。'));
+    await tester.ensureVisible(find.text('下一句'));
+    await tester.tap(find.text('下一句'));
     await tester.pumpAndSettle();
     expect(find.text('我真的会谢、我真的不行了'), findsNothing);
     expect(find.text('看英文答案'), findsOneWidget);

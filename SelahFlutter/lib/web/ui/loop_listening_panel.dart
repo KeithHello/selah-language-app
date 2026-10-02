@@ -8,6 +8,7 @@ import '../domain/learning_models.dart';
 import '../learning_controller.dart';
 import '../l10n/selah_strings.dart';
 import 'speed_selector.dart';
+import 'selah_web_motion.dart';
 
 class LoopListeningPanel extends StatefulWidget {
   const LoopListeningPanel({super.key, required this.controller});
@@ -235,6 +236,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
     _customError = null;
     await showDialog<void>(
       context: context,
+      animationStyle: SelahWebMotion.dialogStyle(context),
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {
           final strings = SelahStrings.of(c.uiLocale);

@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
-import '../../design/selah_motion.dart';
 import '../../design/selah_typography.dart';
 import '../domain/learning_models.dart';
 import '../l10n/selah_strings.dart';
+import 'selah_web_motion.dart';
 
 /// The onboarding start action used by the Web client.
 ///
@@ -89,9 +89,10 @@ class WebStartAction extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       elevation: enabled ? 2 : 0,
                       shape: const CircleBorder(),
-                      animationDuration: reducedMotion
-                          ? Duration.zero
-                          : SelahMotion.quick,
+                      animationDuration: SelahWebMotion.duration(
+                        context,
+                        SelahWebMotion.button,
+                      ),
                     ),
                     child: _ActionIcon(
                       busy: busy,

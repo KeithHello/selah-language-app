@@ -5,6 +5,7 @@ import '../../design/selah_typography.dart';
 import '../domain/learning_models.dart';
 import '../l10n/selah_strings.dart';
 import '../learning_controller.dart';
+import 'selah_web_motion.dart';
 
 class SpeedSelector extends StatelessWidget {
   const SpeedSelector({
@@ -77,6 +78,7 @@ Future<void> showCustomSpeedDialog(
       .toDouble();
   await showDialog<void>(
     context: context,
+    animationStyle: SelahWebMotion.dialogStyle(context),
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setState) => AlertDialog(
         title: Text(strings.text('settings.speed.customTitle')),

@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
 import '../../design/selah_spacing.dart';
-import '../../design/selah_motion.dart';
 import '../../design/selah_theme.dart';
 import '../../design/selah_typography.dart';
 import '../../domain/selah_enums.dart';
@@ -30,6 +29,7 @@ import 'plush_companion.dart';
 import 'web_start_action.dart';
 import '../domain/companion_names.dart';
 import 'companion_dice_button.dart';
+import 'selah_web_motion.dart';
 
 String _contextUiLocale(BuildContext context) {
   final locale = Localizations.maybeLocaleOf(context);
@@ -178,7 +178,12 @@ class _WebLearningAppState extends State<WebLearningApp> {
               fontFamilyFallback: const ['Noto Sans SC'],
             ),
           ),
-          home: _WebRoot(controller: widget.controller, strings: strings),
+          home: Builder(
+            builder: (context) => Theme(
+              data: SelahWebMotion.applyTo(Theme.of(context), context),
+              child: _WebRoot(controller: widget.controller, strings: strings),
+            ),
+          ),
         );
       },
     );
@@ -213,7 +218,9 @@ class _WebToastContent {
 
 class _WebRootState extends State<_WebRoot> {
   Timer? _toastTimer;
+  Timer? _toastExitTimer;
   _WebToastContent? _toast;
+  bool _toastVisible = false;
   int _seenToastRevision = 0;
   int _seenAuthPromptRevision = 0;
   bool _authDialogOpen = false;
@@ -240,6 +247,8 @@ class _WebRootState extends State<_WebRoot> {
     if (oldWidget.controller == controller) return;
     oldWidget.controller.removeListener(_controllerChanged);
     _listenRouteSubscription?.cancel();
+    _toastTimer?.cancel();
+    _toastExitTimer?.cancel();
     controller.addListener(_controllerChanged);
     _lastListenDetailId = null;
     _lastTab = controller.tab;
@@ -248,6 +257,8 @@ class _WebRootState extends State<_WebRoot> {
     );
     _seenToastRevision = 0;
     _seenAuthPromptRevision = 0;
+    _toast = null;
+    _toastVisible = false;
     WidgetsBinding.instance.addPostFrameCallback((_) => _controllerChanged());
   }
 
@@ -330,9 +341,11 @@ class _WebRootState extends State<_WebRoot> {
 
   void _showToast(String message, bool isError) {
     _toastTimer?.cancel();
-    setState(
-      () => _toast = _WebToastContent(message: message, isError: isError),
-    );
+    _toastExitTimer?.cancel();
+    setState(() {
+      _toast = _WebToastContent(message: message, isError: isError);
+      _toastVisible = true;
+    });
     if (!MediaQuery.accessibleNavigationOf(context)) {
       _toastTimer = Timer(const Duration(seconds: 5), _dismissToast);
     }
@@ -340,8 +353,25 @@ class _WebRootState extends State<_WebRoot> {
 
   void _dismissToast() {
     _toastTimer?.cancel();
+    _toastExitTimer?.cancel();
+    if (_toast == null || !_toastVisible) {
+      controller.clearToast();
+      return;
+    }
+    final exitDuration = SelahWebMotion.duration(
+      context,
+      SelahWebMotion.toastExit,
+    );
+    setState(() => _toastVisible = false);
     controller.clearToast();
-    if (mounted && _toast != null) setState(() => _toast = null);
+    if (exitDuration == Duration.zero) {
+      setState(() => _toast = null);
+    } else {
+      _toastExitTimer = Timer(exitDuration, () {
+        if (!mounted || _toastVisible) return;
+        setState(() => _toast = null);
+      });
+    }
   }
 
   void _showAuthPrompt(String reason) {
@@ -351,6 +381,7 @@ class _WebRootState extends State<_WebRoot> {
       _authDialogOpen = true;
       showDialog<void>(
         context: context,
+        animationStyle: SelahWebMotion.dialogStyle(context),
         builder: (_) => _AuthDialog(controller: controller, reason: reason),
       ).whenComplete(() {
         if (mounted) setState(() => _authDialogOpen = false);
@@ -389,13 +420,16 @@ class _WebRootState extends State<_WebRoot> {
           fit: StackFit.expand,
           children: [
             _page(),
-            if (_toast != null)
-              Positioned(
-                top: top,
-                right: right,
-                width: toastWidth,
-                child: _WebToast(content: _toast!, onDismiss: _dismissToast),
+            Positioned(
+              top: top,
+              right: right,
+              width: toastWidth,
+              child: _WebToast(
+                content: _toast,
+                visible: _toastVisible,
+                onDismiss: _dismissToast,
               ),
+            ),
           ],
         );
       },
@@ -407,46 +441,49 @@ class _WebRootState extends State<_WebRoot> {
     controller.removeListener(_controllerChanged);
     _listenRouteSubscription?.cancel();
     _toastTimer?.cancel();
+    _toastExitTimer?.cancel();
     super.dispose();
   }
 }
 
 class _WebToast extends StatelessWidget {
-  const _WebToast({required this.content, required this.onDismiss});
+  const _WebToast({
+    required this.content,
+    required this.visible,
+    required this.onDismiss,
+  });
 
-  final _WebToastContent content;
+  final _WebToastContent? content;
+  final bool visible;
   final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
+    final toast = content;
     final strings = SelahStrings.of(_contextUiLocale(context));
-    final color = content.isError ? SelahColors.coral : SelahColors.sage;
-    final background = content.isError
-        ? SelahColors.coralSoft
-        : SelahColors.sageSoft;
-    final duration = MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 180);
-    return Semantics(
-      liveRegion: true,
-      label:
-          '${strings.translateLegacy(content.isError ? '错误：' : '提示：')}'
-          '${strings.translateLegacy(content.message)}',
-      child: Material(
-        key: const ValueKey('webFeedbackToast'),
-        color: background,
-        elevation: 4,
-        shadowColor: SelahColors.textPrimary.withValues(alpha: .12),
-        borderRadius: BorderRadius.circular(SelahCornerRadius.md),
-        child: AnimatedOpacity(
-          opacity: 1,
-          duration: duration,
+    Widget toastChild = const SizedBox.shrink();
+    if (toast != null) {
+      final color = toast.isError ? SelahColors.coral : SelahColors.sage;
+      final background = toast.isError
+          ? SelahColors.coralSoft
+          : SelahColors.sageSoft;
+      toastChild = Semantics(
+        liveRegion: true,
+        label:
+            '${strings.translateLegacy(toast.isError ? '错误：' : '提示：')}'
+            '${strings.translateLegacy(toast.message)}',
+        child: Material(
+          key: const ValueKey('webFeedbackToast'),
+          color: background,
+          elevation: 4,
+          shadowColor: SelahColors.textPrimary.withValues(alpha: .12),
+          borderRadius: BorderRadius.circular(SelahCornerRadius.md),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
             child: Row(
               children: [
                 Icon(
-                  content.isError
+                  toast.isError
                       ? Icons.info_outline_rounded
                       : Icons.check_circle_outline_rounded,
                   size: 19,
@@ -455,7 +492,7 @@ class _WebToast extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    strings.translateLegacy(content.message),
+                    strings.translateLegacy(toast.message),
                     style: SelahTypography.bodySmall(
                       color: SelahColors.textSecondary,
                     ),
@@ -469,6 +506,33 @@ class _WebToast extends StatelessWidget {
                 ),
               ],
             ),
+          ),
+        ),
+      );
+    }
+
+    return IgnorePointer(
+      ignoring: !visible || toast == null,
+      child: ExcludeSemantics(
+        excluding: !visible || toast == null,
+        child: AnimatedOpacity(
+          key: const ValueKey('webFeedbackToastOpacity'),
+          opacity: visible ? 1 : 0,
+          duration: SelahWebMotion.duration(
+            context,
+            visible ? SelahWebMotion.toast : SelahWebMotion.toastExit,
+          ),
+          curve: visible ? SelahWebMotion.enterCurve : SelahWebMotion.exitCurve,
+          child: AnimatedSlide(
+            offset: visible ? Offset.zero : const Offset(0, -.12),
+            duration: SelahWebMotion.duration(
+              context,
+              visible ? SelahWebMotion.toast : SelahWebMotion.toastExit,
+            ),
+            curve: visible
+                ? SelahWebMotion.enterCurve
+                : SelahWebMotion.exitCurve,
+            child: toastChild,
           ),
         ),
       ),
@@ -665,8 +729,11 @@ class _Sidebar extends StatelessWidget {
                   borderRadius: BorderRadius.circular(SelahCornerRadius.md),
                   onTap: () => controller.navigate(index),
                   child: AnimatedContainer(
-                    duration: SelahMotion.quick,
-                    curve: SelahMotion.standardCurve,
+                    duration: SelahWebMotion.duration(
+                      context,
+                      SelahWebMotion.state,
+                    ),
+                    curve: SelahWebMotion.enterCurve,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 11,
@@ -1265,6 +1332,7 @@ class _UpdateBannerState extends State<_UpdateBanner> {
     final s = SelahStrings.of(controller.uiLocale);
     final confirmed = await showDialog<bool>(
       context: context,
+      animationStyle: SelahWebMotion.dialogStyle(context),
       builder: (dialogContext) => AlertDialog(
         title: Text(s.text('settings.update')),
         content: Text(s.text('settings.updateConfirm')),
@@ -1429,10 +1497,8 @@ class _TodayPageState extends State<_TodayPage> {
       if (!mounted || target == null) return;
       Scrollable.ensureVisible(
         target,
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 320),
-        curve: Curves.easeOutCubic,
+        duration: SelahWebMotion.duration(context, SelahWebMotion.stageScroll),
+        curve: SelahWebMotion.enterCurve,
         alignment: 0.04,
       );
     });
@@ -2777,7 +2843,21 @@ class _ListenPageState extends State<_ListenPage> {
             ),
           ),
         );
-        return frame;
+        if (split) return frame;
+        return SelahWebStateTransition(
+          stateKey: inDetail
+              ? 'detail'
+              : loopMode
+              ? 'loop'
+              : 'list',
+          axis: Axis.horizontal,
+          enterFrom: inDetail || loopMode
+              ? const Offset(1, 0)
+              : const Offset(-1, 0),
+          distance: 16,
+          duration: SelahWebMotion.detail,
+          child: frame,
+        );
       },
     );
   }
@@ -3255,8 +3335,11 @@ class _ListenDetailState extends State<_ListenDetail> {
               reducedMotion
                   ? gloss
                   : AnimatedSize(
-                      duration: SelahMotion.quick,
-                      curve: SelahMotion.standardCurve,
+                      duration: SelahWebMotion.duration(
+                        context,
+                        SelahWebMotion.state,
+                      ),
+                      curve: SelahWebMotion.enterCurve,
                       alignment: Alignment.topCenter,
                       child: gloss,
                     ),
@@ -5317,6 +5400,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                       : () async {
                           final confirmed = await showDialog<bool>(
                             context: context,
+                            animationStyle: SelahWebMotion.dialogStyle(context),
                             builder: (dialogContext) => AlertDialog(
                               title: Text(s.text('settings.update')),
                               content: Text(s.text('settings.updateConfirm')),
@@ -5441,9 +5525,11 @@ class _OnboardingPageState extends State<_OnboardingPage> {
         if (target != null) {
           Scrollable.ensureVisible(
             target,
-            duration: MediaQuery.disableAnimationsOf(context)
-                ? Duration.zero
-                : const Duration(milliseconds: 220),
+            duration: SelahWebMotion.duration(
+              context,
+              SelahWebMotion.stageScroll,
+            ),
+            curve: SelahWebMotion.enterCurve,
             alignment: 0.12,
           );
         }
@@ -5834,9 +5920,7 @@ class _SeedChoice extends StatelessWidget {
         onTap: disabled ? null : onTap,
         borderRadius: BorderRadius.circular(SelahCornerRadius.lg),
         child: AnimatedContainer(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : SelahMotion.quick,
+          duration: SelahWebMotion.duration(context, SelahWebMotion.state),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: selected ? SelahColors.coralSoft : SelahColors.cardPrimary,
@@ -6056,6 +6140,7 @@ Future<void> _showBreakdownMeaning(
   required String locale,
 }) => showModalBottomSheet<void>(
   context: context,
+  sheetAnimationStyle: SelahWebMotion.bottomSheetStyle(context),
   showDragHandle: true,
   backgroundColor: SelahColors.cardPrimary,
   builder: (context) => SafeArea(
@@ -6738,13 +6823,37 @@ class _AuthDialogState extends State<_AuthDialog> {
 void _showAuth(BuildContext context, LearningController controller) {
   showDialog<void>(
     context: context,
+    animationStyle: SelahWebMotion.dialogStyle(context),
     builder: (_) => _AuthDialog(controller: controller),
   );
 }
 
 void _showFeedbackSurvey(BuildContext context, LearningController controller) {
+  final isDesktop = MediaQuery.sizeOf(context).width >= 900;
+  if (isDesktop) {
+    showDialog<void>(
+      context: context,
+      animationStyle: SelahWebMotion.dialogStyle(context),
+      builder: (dialogContext) => Dialog(
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            maxWidth: 600,
+            maxHeight: MediaQuery.sizeOf(dialogContext).height * .88,
+          ),
+          child: FeedbackSurveySheet(
+            controller: controller.feedbackSurvey,
+            uiLocale: controller.uiLocale,
+            onViewPlans: () => controller.navigate(4),
+          ),
+        ),
+      ),
+    );
+    return;
+  }
   showModalBottomSheet<void>(
     context: context,
+    sheetAnimationStyle: SelahWebMotion.bottomSheetStyle(context),
     isScrollControlled: true,
     useSafeArea: true,
     builder: (sheetContext) => FeedbackSurveySheet(
@@ -6761,6 +6870,7 @@ void _showSeedLibrary(BuildContext context, LearningController controller) {
   final strings = SelahStrings.of(controller.uiLocale);
   showDialog<void>(
     context: context,
+    animationStyle: SelahWebMotion.dialogStyle(context),
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setDialogState) {
         final added = controller.state.sentences
@@ -6853,6 +6963,7 @@ void _showMemories(BuildContext context, LearningController controller) {
       .toList();
   showDialog<void>(
     context: context,
+    animationStyle: SelahWebMotion.dialogStyle(context),
     builder: (_) => AlertDialog(
       title: Text(strings.translateLegacy('成长回忆册')),
       content: SizedBox(

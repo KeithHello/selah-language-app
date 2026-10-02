@@ -5,6 +5,7 @@ import '../../design/selah_typography.dart';
 import '../data/learning_gateway.dart';
 import '../domain/admin_membership.dart';
 import '../domain/learning_models.dart';
+import 'selah_web_motion.dart';
 
 String _actionLabel(String action) => switch (action) {
   'grant_membership' => '赠送会员',
@@ -117,6 +118,7 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
     final planLabel = _selectedPlan == 'pro' ? 'Pro' : 'Plus';
     final confirmed = await showDialog<bool>(
       context: context,
+      animationStyle: SelahWebMotion.dialogStyle(context),
       builder: (dialogContext) => AlertDialog(
         title: Text('确认${_actionLabel(_selectedAction)}'),
         content: Text(

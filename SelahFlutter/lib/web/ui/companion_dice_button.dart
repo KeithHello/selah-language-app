@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
 import '../domain/companion_names.dart';
+import 'selah_web_motion.dart';
 
 class CompanionDiceButton extends StatefulWidget {
   const CompanionDiceButton({
@@ -36,25 +37,34 @@ class _CompanionDiceButtonState extends State<CompanionDiceButton>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 380),
+      duration: SelahWebMotion.dice,
     );
-    _rotation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOutBack),
-    );
+    _rotation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
     _scale = TweenSequence<double>([
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.0, end: 1.22).chain(
-          CurveTween(curve: Curves.easeOutQuad),
-        ),
+        tween: Tween<double>(
+          begin: 1,
+          end: 1.08,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 45,
       ),
       TweenSequenceItem(
-        tween: Tween<double>(begin: 1.22, end: 1.0).chain(
-          CurveTween(curve: Curves.elasticOut),
-        ),
+        tween: Tween<double>(
+          begin: 1.08,
+          end: 1,
+        ).chain(CurveTween(curve: Curves.easeOutCubic)),
         weight: 55,
       ),
     ]).animate(_controller);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (SelahWebMotion.shouldReduceMotion(context)) _controller.stop();
   }
 
   @override
@@ -64,8 +74,15 @@ class _CompanionDiceButtonState extends State<CompanionDiceButton>
   }
 
   void _roll() {
-    if (!widget.enabled || _controller.isAnimating) return;
-    _controller.forward(from: 0.0);
+    if (!widget.enabled) return;
+    final reduceMotion = SelahWebMotion.shouldReduceMotion(context);
+    if (_controller.isAnimating && !reduceMotion) return;
+    if (reduceMotion) {
+      _controller.stop();
+      _controller.value = 0;
+    } else {
+      _controller.forward(from: 0.0);
+    }
     final newName = CompanionNamePool.randomName(
       widget.languageCode,
       currentName: widget.currentName,
@@ -75,6 +92,7 @@ class _CompanionDiceButtonState extends State<CompanionDiceButton>
 
   @override
   Widget build(BuildContext context) {
+    final reduceMotion = SelahWebMotion.shouldReduceMotion(context);
     return Tooltip(
       message: widget.tooltip,
       child: Material(
@@ -91,6 +109,7 @@ class _CompanionDiceButtonState extends State<CompanionDiceButton>
             child: AnimatedBuilder(
               animation: _controller,
               builder: (context, child) {
+                if (reduceMotion) return child!;
                 return Transform.scale(
                   scale: _scale.value,
                   child: Transform.rotate(
