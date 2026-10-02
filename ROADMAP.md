@@ -8,14 +8,14 @@
 
 ## 当前阶段
 
-### 2026-10-02 轻提示与同步状态反馈合并（已推送并通过 CI，预览部署待确认）
+### 2026-10-02 轻提示与同步状态反馈合并（已推送、CI 通过、预览部署完成）
 
 - [x] 合并 `codex/toast-feedback` 中兼容当前主线的轻提示 Toast 和真实同步状态卡；短暂提示可手动关闭并自动消失，需要处理的提示继续内联显示。桌面侧栏展示紧凑状态，设置页展示状态详情。
 - [x] 保留当前主线的直接逐句定位和单句／批量共享表达额度；不带入旧详情页路由与旧版分开额度协议。新增 Supabase 用量测试覆盖共享额度池、处理中预占和已释放请求。
 - [x] `flutter analyze --no-pub` 无问题，`flutter test --no-pub` 397 项通过；`tool/web.ps1 -Action build` Release 构建成功，Build ID `9844d8ce2d3aeffe`，预缓存 189 项。Playwright 本地浏览器打开成功，控制台无错误或警告。
 - [x] 合并提交 `0b1de78` 已推送到 GitHub `main`，复查后 `HEAD` 与 `origin/main` 一致。
 - [x] GitHub Actions [Build & Test](https://github.com/KeithHello/selah-language-app/actions/runs/36965890338) 全部通过，包括 Supabase Deno 格式、Lint、类型检查与测试，Supabase Migration & Concurrency，Swift Package，以及 iOS Build & Archive。
-- [ ] Cloudflare Pages 预览部署等待目标项目、别名、影响范围说明后的本步确认。
+- [x] Cloudflare Pages 预览部署：Build ID `9844d8ce2d3aeffe` 已部署到 `selah-language-app-preview` 项目的 `codex-web-ux-reliability` 别名；版本地址 [ad55c431](https://ad55c431.selah-language-app-preview.pages.dev)，别名地址 [预览环境](https://codex-web-ux-reliability.selah-language-app-preview.pages.dev)。两处首页、`selah-precache.json` 和 `main.dart.js` 均返回 HTTP 200，线上首页含匹配的 Build ID；未部署生产、未改 DNS 或项目配置。
 
 ### 2026-10-01 会员额度展示修复与通知横幅自动消失（实现与自动化验收完成）
 
