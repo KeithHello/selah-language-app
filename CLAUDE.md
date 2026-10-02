@@ -4,6 +4,13 @@
 
 Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。核心闭环是：用户用中文表达真实想法，系统生成自然英文与音频，用户完成聆听、理解、复习和开口练习。
 
+## 2026-10-02 部署统一与 CI/CD 自动发布（实施授权）
+
+- 主人已确认部署统一方案并授权完整实施：修改 `.github/workflows/build.yml` 新增 Flutter Web 构建、测试与 Cloudflare Pages 自动部署任务（含部署并发串行与线上 Build ID 校验）；新增仓库 secrets CLOUDFLARE_API_TOKEN、CLOUDFLARE_ACCOUNT_ID、SUPABASE_URL、SUPABASE_PUBLISHABLE_KEY，其中 CLOUDFLARE_API_TOKEN 由主人在 Cloudflare 控制台创建并仅授予 Cloudflare Pages: Edit 权限，经本地 `.env` 注入 GitHub secrets，值不进代码、commit 与聊天记录；wrangler 只读核对已确认生产项目 `selah-language-app` 的生产分支为 `main`；先经非 main 分支预览试跑，再由 CI 完成 main 首个生产部署。
+- 自本规范起，「push main → GitHub Actions 自动构建并部署生产」视为已授权的常规发布通道，无需逐次确认；手动 wrangler 生产部署、生产回滚、修改部署 workflow、增删部署 secrets、Cloudflare 控制台任何配置变更、数据库 migration 与 Edge Function 部署，仍须主人逐次确认。
+- 预览统一走生产项目 `selah-language-app` 的分支别名；独立项目 `selah-language-app-preview` 停用并保留归档，不再部署。
+- 稳定规范见下文「部署规范」段落。
+
 ## 2026-10-02 应用内动效总开关与研究资料数据库草案（实施授权）
 
 - 主人已基于 UI／UX 开发方案明确授权完整开发。动效按主人决定改为应用内总开关：默认开启，设置页「本機與應用程式」新增「動畫效果」行，关闭后全部动画按既有 reduce 行为直出；系统「减少动态效果」不再强制关闭动画，应用内开关即为无障碍通道。无 MotionScope 祖先的原生预览与直接组件测试回退沿用系统行为。
@@ -54,6 +61,17 @@ Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。
 - 推荐优先考虑到期回听、尚未听过的个人表达和真实内置种子；同一天保持稳定，学习或账户状态变化后更新。已听完的句子不在当天反复推荐，除非之后到期复习。加入句库不等于学会。
 - 点击学习入口直接进入选定句子的学习卡，不先展示选句列表；点击表达入口直接聚焦现有输入流程，不自动申请录音权限。已有输入、转写和分句草稿必须保留。
 - 本轮允许对应 Flutter Web 产品代码、三语文案、测试、本地构建与浏览器验收；不新增依赖、数据库字段、远端配置或公开部署。
+
+## 部署规范
+
+- 唯一生产发布通道：push `main` → GitHub Actions 自动完成「Flutter analyze/test → Deno／数据库测试 → `SelahFlutter/tool/web.ps1 -Action build` 构建 → wrangler 部署 Cloudflare Pages 生产项目 → 线上 Build ID 比对」。该通道视为已授权的常规部署，无需逐次确认。
+- 生产项目：`selah-language-app`（生产域名 https://selah-language-app.pages.dev ），唯一生产分支为 `main`。
+- 预览：非 `main` 分支由同一 workflow 部署到同一项目的分支别名 `<branch>.selah-language-app.pages.dev`（分支名中的 `/` 替换为 `-`）；独立项目 `selah-language-app-preview` 停用并保留归档，不再部署。
+- 构建唯一入口：`SelahFlutter/tool/web.ps1 -Action build`（负责 Supabase 公共配置注入、selah-precache.json 生成与 Build ID 计算）；禁止绕过该脚本产出部署包。
+- 部署验证口径：线上 index.html 的 selah-build-id 必须与构建一致，且 main.dart.js、selah-precache.json 返回 200；结果记入 ROADMAP。
+- 回滚：首选 `git revert` 后走 CI 重发；手动 wrangler 生产部署、CF 控制台回滚须主人逐次确认。
+- 红线不变：修改部署 workflow、增删部署 secrets、Cloudflare 控制台任何配置变更、数据库 migration 与 Edge Function 部署，均须先经主人确认。
+- 仅文档（*.md）变更的 push 不触发 CI 与部署。
 
 ## 当前工程边界
 
