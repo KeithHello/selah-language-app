@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-03 管理台、会员用量记录与限额（本地实现完成；远端发布待确认）
+### 2026-10-03 管理台、会员用量记录与限额（预览已部署；生产和后端发布待确认）
 
 - [x] 增加不出现在普通导航中的独立管理员登录路由，管理员登录后停留在管理台；实际授权仍由 `admin_members` 服务端检查。
 - [x] 用户管理页展示最近登录时间、注册时间及最近 100 条供应商调用明细；登录信息查询失败时单独标为不可用，不影响用量明细。
@@ -18,6 +18,7 @@
 - [x] 本地验证：Flutter 全量 418 项测试通过、`flutter analyze --no-pub` 通过；Supabase Deno 全量 363 项通过，Deno fmt／lint、20 个 Edge Function 类型检查通过。
 - [x] CI 数据库验证：首轮 run `37117787023` 找到重复会员 fixture 并失败；修正后 run `37117963924` 在隔离 PostgreSQL 成功应用 migration，pgTAP 23 条断言与并发测试全部通过。
 - [x] Cloudflare Pages 预览已部署版本 `1.3.0`、Build ID `174b53cb23cd7fea`；别名 `codex-admin-console-usage-li.selah-language-app.pages.dev` 的首页、`main.dart.js`、`selah-precache.json` 均 HTTP 200。该 run 的最终 CI 校验因 workflow 使用未截短分支名、而 Cloudflare 将别名截短而报失败；线上实际别名与构建指纹已手动核实一致。
+- [x] 项目级 `CLAUDE.md` 已补充分支合并到 `main`、确认远端主分支最新、依赖 migration／Edge Function 的发布顺序、发布后核验及旧分支清理规则；保留全局逐项授权红线。
 - [ ] 远端 Supabase migration、更新后的 Edge Functions、管理员账号及 `admin_members` 授权、Cloudflare 生产发布均待逐项确认；尚未变更生产 Supabase、创建账号或启用会员限额。部署规则：`codex/**` 自动发预览，只有 `main` 自动发生产。
 
 ### 2026-10-03 循环听音频失败回退与故障隔离（Web 生产已部署；Edge Function 待单独确认）

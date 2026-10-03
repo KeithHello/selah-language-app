@@ -7,7 +7,7 @@ Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。
 ## 2026-10-02 部署统一与 CI/CD 自动发布（实施授权）
 
 - 主人已确认部署统一方案并授权完整实施：修改 `.github/workflows/build.yml` 新增 Flutter Web 构建、测试与 Cloudflare Pages 自动部署任务（含部署并发串行与线上 Build ID 校验）；新增仓库 secrets CLOUDFLARE_API_TOKEN、CLOUDFLARE_ACCOUNT_ID、SUPABASE_URL、SUPABASE_PUBLISHABLE_KEY，其中 CLOUDFLARE_API_TOKEN 由主人在 Cloudflare 控制台创建并仅授予 Cloudflare Pages: Edit 权限，经本地 `.env` 注入 GitHub secrets，值不进代码、commit 与聊天记录；wrangler 只读核对已确认生产项目 `selah-language-app` 的生产分支为 `main`；先经非 main 分支预览试跑，再由 CI 完成 main 首个生产部署。
-- 自本规范起，「push main → GitHub Actions 自动构建并部署生产」视为已授权的常规发布通道，无需逐次确认；手动 wrangler 生产部署、生产回滚、修改部署 workflow、增删部署 secrets、Cloudflare 控制台任何配置变更、数据库 migration 与 Edge Function 部署，仍须主人逐次确认。
+- 「push main → GitHub Actions 自动构建并部署生产」是唯一常规生产发布通道；是否执行仍遵循全局 `AGENTS.md` 的 Cloudflare 逐步告知与确认要求，不视为永久或概括授权。手动 wrangler 生产部署、生产回滚、修改部署 workflow、增删部署 secrets、Cloudflare 控制台任何配置变更、数据库 migration 与 Edge Function 部署，仍须主人逐次确认。
 - 预览统一走生产项目 `selah-language-app` 的分支别名；独立项目 `selah-language-app-preview` 停用并保留归档，不再部署。
 - 稳定规范见下文「部署规范」段落。
 
@@ -64,7 +64,12 @@ Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。
 
 ## 部署规范
 
-- 唯一生产发布通道：push `main` → GitHub Actions 自动完成「Flutter analyze/test → Deno／数据库测试 → `SelahFlutter/tool/web.ps1 -Action build` 构建 → wrangler 部署 Cloudflare Pages 生产项目 → 线上 Build ID 比对」。该通道视为已授权的常规部署，无需逐次确认。
+- 唯一生产发布通道：push `main` → GitHub Actions 自动完成「Flutter analyze/test → Deno／数据库测试 → `SelahFlutter/tool/web.ps1 -Action build` 构建 → wrangler 部署 Cloudflare Pages 生产项目 → 线上 Build ID 比对」。该通道是常规自动发布机制，但不构成永久授权；是否执行按全局 `AGENTS.md` 的逐步确认规则处理。
+- 分支触发范围：push `main` 自动部署生产；push `codex/**` 自动运行同一 CI 并部署 Cloudflare 预览。分支别名可能受 Cloudflare 长度限制；以部署日志给出的真实别名为准，不能仅按完整 Git 分支名推导线上 URL。
+- 合并到 `main` 的步骤：先 `git fetch origin`，确认工作区干净并检查 `origin/main` 是否有新提交；在最新 `origin/main` 上合并已验证的功能分支，禁止 force-push。若远端 `main` 在合并期间前进，停止并先整合最新提交。
+- 生产依赖顺序：如果 Web 代码依赖数据库 migration 或 Edge Function 更新，必须先完成并验证这些后端步骤，再推送 `main`；不得让生产前端先于所需后端能力上线。后端远端变更按下方红线逐项确认。
+- 合并后的主分支核验：push 后确认 GitHub `main` 指向预期合并提交、`origin/main` 与本地已发布提交一致，且 GitHub Actions 全部必要任务通过；生产部署还须按本规范核对线上版本、Build ID 与静态资源 HTTP 状态。
+- 源分支清理：仅在合并成功、主分支及生产发布核验完成后，才考虑删除已合并的本地／远端源分支；先确认分支提交已包含在 `main` 且没有独有提交，并遵循全局 `AGENTS.md` 对远端删除操作的授权要求。
 - 生产项目：`selah-language-app`（生产域名 https://selah-language-app.pages.dev ），唯一生产分支为 `main`。
 - 预览：非 `main` 分支由同一 workflow 部署到同一项目的分支别名 `<branch>.selah-language-app.pages.dev`（分支名中的 `/` 替换为 `-`）；独立项目 `selah-language-app-preview` 停用并保留归档，不再部署。
 - 构建唯一入口：`SelahFlutter/tool/web.ps1 -Action build`（负责 Supabase 公共配置注入、selah-precache.json 生成与 Build ID 计算）；禁止绕过该脚本产出部署包。
@@ -73,7 +78,7 @@ Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。
 - 版本唯一性门禁：每次生产部署的版本号必须与当前线上不同；CI 在部署生产前读取线上 selah-version 比对，重复即拒绝部署并提示升级 pubspec 版本。因此凡要触发生产部署的提交，必须先升级版本号（功能轮次版本、修复轮补丁）。
 - 部署汇报：每次生产部署完成后，必须向主人汇报实际版本号、Build ID 与线上校验结果；CI Summary 同步记录版本、指纹与环境。
 - 回滚：首选 `git revert` 后走 CI 重发；手动 wrangler 生产部署、CF 控制台回滚须主人逐次确认。
-- 红线不变：修改部署 workflow、增删部署 secrets、Cloudflare 控制台任何配置变更、数据库 migration 与 Edge Function 部署，均须先经主人确认。
+- 红线不变：修改部署 workflow、增删部署 secrets、Cloudflare 控制台任何配置变更、数据库 migration 与 Edge Function 部署，均须先经主人确认；Cloudflare 操作另须逐步说明目标、配置影响、风险及其他项目影响，再取得当步确认。
 - 仅文档（*.md）变更的 push 不触发 CI 与部署。
 
 ## 当前工程边界
