@@ -2,11 +2,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../design/selah_theme.dart';
 import 'data/learning_gateway.dart';
 import 'data/supabase_learning_gateway.dart';
 import 'domain/learning_models.dart';
 import 'learning_controller.dart';
 import 'admin/admin_controller.dart';
+import 'admin/admin_console_route.dart';
+import 'ui/admin_console_page.dart';
 import 'platform/browser_platform.dart';
 import 'ui/web_learning_app.dart';
 
@@ -43,6 +46,18 @@ Future<void> launch() async {
       bundledAudio: audio,
       adminController: AdminController(gateway: gateway),
     );
+    if (isAdminConsoleUri(Uri.base)) {
+      final adminController = AdminController(gateway: gateway);
+      runApp(
+        MaterialApp(
+          debugShowCheckedModeBanner: false,
+          title: 'Selah Admin',
+          theme: SelahTheme.light(),
+          home: AdminConsolePage(controller: adminController),
+        ),
+      );
+      return;
+    }
     await controller.initialize();
     runApp(WebLearningApp(controller: controller));
   } catch (_) {

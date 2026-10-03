@@ -127,6 +127,12 @@ function fakeDependencies(
           if (name === "get_platform_service_controls") {
             return Promise.resolve({ data: null, error: null });
           }
+          if (name === "record_generation_usage") {
+            return Promise.resolve({
+              data: { reservationId: "test-usage-reservation-id" },
+              error: null,
+            });
+          }
           if (name === "complete_generation_request") {
             return Promise.resolve({ data: true, error: null });
           }
@@ -245,7 +251,17 @@ Deno.test("authenticates, claims capture capacity, and sends OpenAI multipart wi
       p_daily_limit: 10,
     },
   });
-  assertEquals(calls.at(-1)?.name, "complete_generation_request");
+  assertEquals(
+    calls.find((call) => call.name === "record_generation_usage")?.args
+      .p_feature,
+    "transcription",
+  );
+  assertEquals(
+    calls.find((call) => call.name === "settle_generation_allowance")?.args
+      .p_status,
+    "settled",
+  );
+  assertEquals(calls.at(-1)?.name, "settle_generation_allowance");
   assertEquals(fetchCalls.length, 1);
   const providerRequest = fetchCalls[0];
   assertEquals(

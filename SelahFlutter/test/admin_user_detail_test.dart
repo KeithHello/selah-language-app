@@ -26,6 +26,38 @@ class _AdminDetailGateway extends UnconfiguredGateway {
         'periods': [],
         'orders': [],
         'auditLogs': [],
+        'usageAttempts': [
+          {
+            'id': 'usage-2',
+            'feature': 'transcription',
+            'model': 'gpt-4o-mini-transcribe',
+            'provider_status': 'succeeded',
+            'delivery_status': 'succeeded',
+            'item_count': 1,
+            'input_characters': null,
+            'duration_ms': 60000,
+            'estimated_cost_usd': '0.0009000000',
+            'usage_source': 'provider',
+            'started_at': '2026-10-03T06:25:00Z',
+          },
+          {
+            'id': 'usage-1',
+            'feature': 'tts',
+            'model': 'tts-1',
+            'provider_status': 'succeeded',
+            'delivery_status': 'succeeded',
+            'item_count': 1,
+            'input_characters': 120,
+            'duration_ms': null,
+            'estimated_cost_usd': '0.0018000000',
+            'usage_source': 'request_estimate',
+            'started_at': '2026-10-03T06:20:00Z',
+          },
+        ],
+        'login': {
+          'lastLoginAt': '2026-10-03T06:30:00Z',
+          'createdAt': '2026-09-01T00:00:00Z',
+        },
       };
     }
     if (function == 'admin-membership-actions') return {'success': true};
@@ -93,5 +125,43 @@ void main() {
     expect(action['action'], 'grant_membership');
     expect(action['plan'], 'pro');
     expect(action['months'], 1);
+  });
+
+  testWidgets('admin user detail shows recent login and provider usage', (
+    tester,
+  ) async {
+    final gateway = _AdminDetailGateway();
+    final user = AdminUserItem(
+      userId: 'target-user',
+      emailMasked: 'u***@example.com',
+      plan: 'free',
+      status: 'none',
+      createdAt: DateTime.utc(2026, 9, 24),
+      lastLoginAt: DateTime.utc(2026, 10, 3, 6, 30),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) => Scaffold(
+            body: TextButton(
+              onPressed: () => showDialog<void>(
+                context: context,
+                builder: (_) =>
+                    AdminUserDetailDialog(gateway: gateway, user: user),
+              ),
+              child: const Text('open'),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('最近登录：'), findsOneWidget);
+    expect(find.textContaining('最近用量：2 笔'), findsOneWidget);
+    expect(find.textContaining('AI 配音 · 120 字元 · 成功'), findsOneWidget);
+    expect(find.textContaining('录音转写 · 1 分 · 成功'), findsOneWidget);
   });
 }

@@ -28,6 +28,7 @@ export interface AdminUsersClient {
       listUsers(
         options: { page: number; perPage: number },
       ): Promise<QueryResult>;
+      getUserById(id: string): Promise<QueryResult>;
     };
   };
 }
@@ -82,7 +83,7 @@ async function detail(
   supabase: AdminUsersClient,
   targetUserId: string,
 ): Promise<Response> {
-  const [memberships, orders, logs] = await Promise.all([
+  const [memberships, orders, logs, usage, login] = await Promise.all([
     supabase.from("user_memberships")
       .select("*")
       .eq("user_id", targetUserId)
@@ -95,15 +96,33 @@ async function detail(
       .select("*")
       .eq("target_user_id", targetUserId)
       .order("created_at", { ascending: false }),
+    supabase.from("generation_usage_attempts")
+      .select(
+        "id, feature, model, provider_status, delivery_status, item_count, input_characters, duration_ms, estimated_cost_usd, usage_source, started_at",
+      )
+      .eq("user_id", targetUserId)
+      .order("started_at", { ascending: false })
+      .limit(100),
+    supabase.auth?.admin?.getUserById
+      ? supabase.auth.admin.getUserById(targetUserId)
+      : Promise.resolve({ data: null, error: null }),
   ]);
-  if (memberships.error || orders.error || logs.error) {
+  if (memberships.error || orders.error || logs.error || usage.error) {
     return errorResponse("User detail unavailable", 503, "admin_query_failed");
   }
+  const authUser = (login.data as { user?: Record<string, unknown> } | null)
+    ?.user;
   return json({
     userId: targetUserId,
     periods: memberships.data ?? [],
     orders: orders.data ?? [],
     auditLogs: logs.data ?? [],
+    usageAttempts: usage.data ?? [],
+    login: {
+      available: !login.error && authUser != null,
+      lastLoginAt: authUser?.last_sign_in_at ?? null,
+      createdAt: authUser?.created_at ?? null,
+    },
   });
 }
 
@@ -162,6 +181,7 @@ async function listUsers(
       expiresAt: row.expires_at ?? null,
       serviceStatus: "active",
       createdAt: row.created_at,
+      lastLoginAt: null,
     }));
     return json({ users: items, nextCursor: null });
   }
@@ -205,6 +225,7 @@ async function listUsers(
       serviceStatus: "active",
       createdAt: user.created_at ?? membership?.created_at ??
         new Date().toISOString(),
+      lastLoginAt: user.last_sign_in_at ?? null,
     }];
   });
   return json({ users: items.slice(0, limit), nextCursor });

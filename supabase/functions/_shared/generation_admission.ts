@@ -28,10 +28,7 @@ export interface GenerationAdmissionOptions {
   };
   payloadHash: string;
   quote?: CostQuote;
-  /**
-   * When false, registered accounts use the public free allowance. When true,
-   * the request must reserve against a paid or trial membership.
-   */
+  /** When false, usage is metered without enforcing membership allowances. */
   enforcementEnabled?: boolean;
 }
 
@@ -117,17 +114,48 @@ export async function requestGenerationAdmission(
     };
   }
   const quote = quotePrep.quote;
-
-  // Membership enforcement is evaluated on the server before any reservation
-  // RPC. Free registered accounts still get request bounds checked here.
-  if (options.enforcementEnabled === false) {
-    return { allowed: true, quote };
-  }
-
   const unitsCount = options.units.itemCount ??
     options.units.characters ??
     options.units.durationMs ??
     1;
+
+  // Metering is always on. Enforcement changes which RPC is called: the
+  // audit-only ledger records usage without applying quotas or platform
+  // budget; enforcement reserves and checks the member allowance.
+  if (options.enforcementEnabled === false) {
+    try {
+      const result = await client.rpc("record_generation_usage", {
+        p_user_id: options.userId,
+        p_client_request_id: options.clientRequestId,
+        p_feature: options.feature,
+        p_units: unitsCount,
+        p_nano_usd: quote.maxNanoUsd,
+        p_payload_hash: options.payloadHash,
+      });
+      if (result.error) {
+        return {
+          allowed: false,
+          errorCode: "service_budget_protected",
+          errorMessage: "Usage metering unavailable",
+        };
+      }
+      const reservationId = typeof result.data === "string"
+        ? result.data
+        : (result.data as { reservationId?: string })?.reservationId;
+      return {
+        allowed: true,
+        ...(reservationId ? { reservationId } : {}),
+        reservationScope: "membership",
+        quote,
+      };
+    } catch {
+      return {
+        allowed: false,
+        errorCode: "service_budget_protected",
+        errorMessage: "Usage metering unavailable",
+      };
+    }
+  }
 
   try {
     const result = await client.rpc("reserve_generation_allowance", {

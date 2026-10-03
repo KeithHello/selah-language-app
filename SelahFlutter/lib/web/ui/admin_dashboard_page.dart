@@ -419,6 +419,53 @@ class _ServiceControlsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     String copy(String name) => _adminCopy(uiLocale, name);
     final controls = controller.controls;
+    Future<void> updateFlag({
+      required String flagName,
+      required bool value,
+      required String confirmMessage,
+    }) async {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(copy('confirmTitle')),
+          content: Text(confirmMessage),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: Text(copy('cancel')),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: Text(copy('confirm')),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true) return;
+      final reason = 'admin_console_${flagName}_${value ? 'on' : 'off'}';
+      if (flagName == 'membershipEnforcementEnabled') {
+        await controller.updateControls(
+          membershipEnforcementEnabled: value,
+          reason: reason,
+        );
+      } else if (flagName == 'trialSignupsEnabled') {
+        await controller.updateControls(
+          trialSignupsEnabled: value,
+          reason: reason,
+        );
+      } else if (flagName == 'membershipSalesEnabled') {
+        await controller.updateControls(
+          membershipSalesEnabled: value,
+          reason: reason,
+        );
+      } else if (flagName == 'generationEnabled') {
+        await controller.updateControls(
+          generationEnabled: value,
+          reason: reason,
+        );
+      }
+    }
+
     return _Card(
       title: copy('productModeTitle'),
       child: Column(
@@ -428,6 +475,66 @@ class _ServiceControlsCard extends StatelessWidget {
             leading: const Icon(Icons.verified_user_outlined),
             title: Text(copy('registeredOnly')),
             subtitle: Text(copy('registeredOnlyDetail')),
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: controls.membershipEnforcementEnabled,
+            onChanged: controller.controlsLoading
+                ? null
+                : (value) => updateFlag(
+                    flagName: 'membershipEnforcementEnabled',
+                    value: value,
+                    confirmMessage: value
+                        ? copy('membershipOnConfirm')
+                        : copy('membershipOffConfirm'),
+                  ),
+            title: Text(copy('membershipSwitch')),
+            subtitle: Text(copy('membershipSwitchDetail')),
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: controls.trialSignupsEnabled,
+            onChanged: controller.controlsLoading
+                ? null
+                : (value) => updateFlag(
+                    flagName: 'trialSignupsEnabled',
+                    value: value,
+                    confirmMessage: value
+                        ? copy('trialOnConfirm')
+                        : copy('trialOffConfirm'),
+                  ),
+            title: Text(copy('trialSwitch')),
+            subtitle: Text(copy('trialSwitchDetail')),
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: controls.membershipSalesEnabled,
+            onChanged: controller.controlsLoading
+                ? null
+                : (value) => updateFlag(
+                    flagName: 'membershipSalesEnabled',
+                    value: value,
+                    confirmMessage: value
+                        ? copy('salesOnConfirm')
+                        : copy('salesOffConfirm'),
+                  ),
+            title: Text(copy('salesSwitch')),
+            subtitle: Text(copy('salesSwitchDetail')),
+          ),
+          SwitchListTile.adaptive(
+            contentPadding: EdgeInsets.zero,
+            value: controls.generationEnabled,
+            onChanged: controller.controlsLoading
+                ? null
+                : (value) => updateFlag(
+                    flagName: 'generationEnabled',
+                    value: value,
+                    confirmMessage: value
+                        ? copy('generationOnConfirm')
+                        : copy('generationOffConfirm'),
+                  ),
+            title: Text(copy('generationSwitch')),
+            subtitle: Text(copy('generationSwitchDetail')),
           ),
           if (controller.controlsError != null)
             Align(

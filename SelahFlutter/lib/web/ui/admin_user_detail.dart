@@ -196,14 +196,15 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 540),
-        child: Padding(
-          padding: const EdgeInsets.all(SelahSpacing.xl),
-          child: _loading
-              ? const SizedBox(
-                  height: 200,
-                  child: Center(child: CircularProgressIndicator()),
-                )
-              : Column(
+        child: SingleChildScrollView(
+          child: Padding(
+            padding: const EdgeInsets.all(SelahSpacing.xl),
+            child: _loading
+                ? const SizedBox(
+                    height: 200,
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                : Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -223,6 +224,10 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
                     const SizedBox(height: SelahSpacing.lg),
                     if (_detail != null) ...[
                       _DetailSummary(detail: _detail!),
+                      const SizedBox(height: SelahSpacing.lg),
+                      _UsageAttemptList(
+                        attempts: _detail!.usageAttempts,
+                      ),
                       const SizedBox(height: SelahSpacing.lg),
                     ],
                     DropdownButtonFormField<String>(
@@ -386,8 +391,9 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
                     ),
                   ],
                 ),
-        ),
-      ),
+              ),
+            ),
+          ),
     );
   }
 }
@@ -411,11 +417,86 @@ class _DetailSummary extends StatelessWidget {
         spacing: SelahSpacing.lg,
         runSpacing: SelahSpacing.sm,
         children: [
+          Text(
+            '最近登录：${detail.login?.lastLoginLabel ?? '未记录'}',
+          ),
+          Text(
+            '账户创建：${detail.login?.createdAtLabel ?? '未记录'}',
+          ),
           Text('会员时间线：${detail.periods.length} 段'),
           Text('关联订单：${detail.orders.length} 笔'),
           Text('操作记录：${detail.auditLogs.length} 条'),
+          Text('最近用量：${detail.usageAttempts.length} 笔'),
         ],
       ),
     );
   }
+}
+
+class _UsageAttemptList extends StatelessWidget {
+  const _UsageAttemptList({required this.attempts});
+
+  final List<AdminUsageAttempt> attempts;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(SelahSpacing.md),
+      decoration: BoxDecoration(
+        color: SelahColors.cardSoft,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: SelahColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('最近调用（最多 100 笔）', style: SelahTypography.labelLarge()),
+          if (attempts.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: SelahSpacing.sm),
+              child: Text(
+                '尚无供应商用量记录。',
+                style: SelahTypography.bodyMedium(
+                  color: SelahColors.textSecondary,
+                ),
+              ),
+            )
+          else
+            for (final attempt in attempts) ...[
+              const SizedBox(height: SelahSpacing.sm),
+              Text(
+                '${attempt.featureLabel} · ${attempt.unitsLabel} · ${attempt.statusLabel}',
+                style: SelahTypography.bodyMedium(),
+              ),
+              Wrap(
+                spacing: SelahSpacing.md,
+                runSpacing: SelahSpacing.xs,
+                children: [
+                  Text(_usageTimestamp(attempt.startedAt)),
+                  if (attempt.model.isNotEmpty) Text('模型：${attempt.model}'),
+                  Text(attempt.deliveryStatusLabel),
+                ],
+              ),
+              if (attempt.estimatedCostUsd != null)
+                Text(
+                  '费用估算：US\$ ${attempt.estimatedCostUsd!.toStringAsFixed(6)} · ${attempt.usageSourceLabel}',
+                ),
+              const Divider(height: SelahSpacing.md),
+            ],
+        ],
+      ),
+    );
+  }
+}
+
+String _usageTimestamp(DateTime? value) {
+  if (value == null) return '时间未知';
+  final local = value.toLocal();
+  final year = local.year.toString().padLeft(4, '0');
+  final month = local.month.toString().padLeft(2, '0');
+  final day = local.day.toString().padLeft(2, '0');
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '$year-$month-$day $hour:$minute';
 }

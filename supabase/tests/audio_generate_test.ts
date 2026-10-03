@@ -307,6 +307,12 @@ function fakeAudioDependencies(
         if (name === "reserve_generation_allowance") {
           return { data: "test-reservation-id", error: null };
         }
+        if (name === "record_generation_usage") {
+          return {
+            data: { reservationId: "test-usage-reservation-id" },
+            error: null,
+          };
+        }
         if (name === "settle_generation_allowance") {
           return { data: true, error: null };
         }

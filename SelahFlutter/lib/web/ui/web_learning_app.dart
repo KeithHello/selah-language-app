@@ -27,6 +27,8 @@ import 'membership_widgets.dart';
 import 'research_profile_widgets.dart';
 import 'feedback_survey_widgets.dart';
 import 'admin_dashboard_page.dart';
+import 'admin_console_page.dart';
+import '../admin/admin_console_route.dart';
 import 'loop_listening_panel.dart';
 import 'listen_focus_controls.dart';
 import 'speed_selector.dart';
@@ -96,15 +98,13 @@ class WebLearningApp extends StatefulWidget {
 
 class _WebLearningAppState extends State<WebLearningApp> {
   bool _initializing = false;
-  bool _deepLinkApplied = false;
 
   @override
   void initState() {
     super.initState();
+    if (isAdminConsoleUri(Uri.base)) return;
     if (!widget.controller.initialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
-    } else {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _applyDeepLink());
     }
   }
 
@@ -113,18 +113,8 @@ class _WebLearningAppState extends State<WebLearningApp> {
     _initializing = true;
     try {
       await widget.controller.initialize();
-      _applyDeepLink();
     } finally {
       _initializing = false;
-    }
-  }
-
-  void _applyDeepLink() {
-    if (_deepLinkApplied || !mounted || !widget.controller.initialized) return;
-    if (Uri.base.fragment == '/admin' &&
-        widget.controller.state.preferences.onboarded) {
-      _deepLinkApplied = true;
-      widget.controller.navigate(5);
     }
   }
 
@@ -160,10 +150,19 @@ class _WebLearningAppState extends State<WebLearningApp> {
               fontFamilyFallback: const ['Noto Sans SC'],
             ),
           ),
-          home: MotionScope(
-            motionEnabled: widget.controller.state.preferences.motionEnabled,
-            child: _WebRoot(controller: widget.controller, strings: strings),
-          ),
+          home: isAdminConsoleUri(Uri.base)
+              ? AdminConsolePage(
+                  controller: widget.controller.admin,
+                  uiLocale: widget.controller.uiLocale,
+                )
+              : MotionScope(
+                  motionEnabled:
+                      widget.controller.state.preferences.motionEnabled,
+                  child: _WebRoot(
+                    controller: widget.controller,
+                    strings: strings,
+                  ),
+                ),
         );
       },
     );

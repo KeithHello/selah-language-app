@@ -45,12 +45,12 @@ test("requestGenerationAdmission approves valid request and returns reservationI
   assert.strictEqual(res.reservationId, "res-uuid-1234");
 });
 
-test("free mode bypasses membership reservation for registered users but still validates the request", async () => {
-  let calls = 0;
+test("free mode records usage without checking membership allowance", async () => {
+  const calls = [];
   const res = await requestGenerationAdmission({
-    rpc: async () => {
-      calls += 1;
-      throw new Error("reservation must not be called in free mode");
+    rpc: async (name, args) => {
+      calls.push({ name, args });
+      return { data: { reservationId: "audit-reservation" }, error: null };
     },
   }, {
     userId: "11111111-1111-1111-1111-111111111111",
@@ -61,8 +61,14 @@ test("free mode bypasses membership reservation for registered users but still v
     enforcementEnabled: false,
   });
   assert.strictEqual(res.allowed, true);
-  assert.strictEqual(res.reservationId, undefined);
-  assert.strictEqual(calls, 0);
+  assert.strictEqual(res.reservationId, "audit-reservation");
+  assert.deepStrictEqual(calls.map(({ name }) => name), [
+    "record_generation_usage",
+  ]);
+  assert.strictEqual(
+    calls[0].args.p_user_id,
+    "11111111-1111-1111-1111-111111111111",
+  );
 });
 
 test("registered membership mode reserves through membership entitlements", async () => {

@@ -63,7 +63,7 @@ void main() {
     expect(find.text('云端账户要求'), findsOneWidget);
     expect(find.text('正式账户模式'), findsOneWidget);
     expect(find.textContaining('生成、转写、个人音频、会员与同步均要求注册并登录'), findsOneWidget);
-    expect(find.text('启用会员限制'), findsNothing);
+    expect(find.text('启用会员限制'), findsOneWidget);
   });
 
   testWidgets('admin dashboard does not offer legacy test-mode controls', (

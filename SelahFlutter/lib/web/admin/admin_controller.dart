@@ -33,6 +33,37 @@ class AdminController extends ChangeNotifier {
 
   bool get hasData => data != null;
 
+  bool get signedIn => gateway.userId != null && !gateway.isAnonymous;
+  String? get email => gateway.email;
+
+  Future<void> signIn(String email, String password) async {
+    final normalizedEmail = email.trim();
+    if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(normalizedEmail) ||
+        password.length < 6) {
+      throw const LearningFailure('请输入有效邮箱，密码至少六位。');
+    }
+    await gateway.signIn(normalizedEmail, password);
+    error = null;
+    checked = false;
+    data = null;
+    notifyListeners();
+  }
+
+  Future<void> signOut() async {
+    await gateway.signOut();
+    data = null;
+    checked = false;
+    controls = const AdminServiceControls();
+    users = const [];
+    usersNextCursor = null;
+    error = null;
+    controlsError = null;
+    usersError = null;
+    audience = null;
+    audienceError = null;
+    notifyListeners();
+  }
+
   Future<void> load({
     DateTime? start,
     DateTime? end,
