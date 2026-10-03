@@ -1,12 +1,32 @@
 # Selah 开发路线图
 
-> 最后更新：2026-10-02
+> 最后更新：2026-10-03
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
 > 完成口径：遵循 `CLAUDE.md` 的五级完成定义。
 
 ## 当前阶段
+
+### 2026-10-03 版本号体系上线（v1.1.0，实现、验证并生产部署完成）
+
+- [x] 版本源统一：`SelahFlutter/pubspec.yaml` 的 `version:` 字段（本轮 1.1.0+2）；CLAUDE.md 部署规范新增版本升级规则（功能轮升次版本、修复轮升补丁，构建序号同步递增）与「每次生产部署后向主人汇报实际版本号、Build ID 与线上校验结果」义务。
+- [x] 构建注入：`tool/web.ps1` 构建后读取 pubspec 版本写入产物 index.html 的 `selah-version` meta，再计算 Build ID 指纹（版本注入先于指纹计算，版本变化必然改变指纹）；本地构建 Build ID `316e2348bbf21ee4`（v1.1.0）。
+- [x] 桥接与界面：`selah_bridge.js` 新增 `appVersion()` 随 platformInfo 与 checkUpdate 返回（缺省 dev）；设置页「版本」行改为「语义版本 · 指纹」展示。
+- [x] CI：web 任务读取版本与指纹、线上校验两者一致、部署成功后把版本／指纹／环境写入 GitHub Actions Summary。
+- [x] 测试：browser_bridge 新增 appVersion 用例（meta 读取与 dev 回退）、tool_web_cloud_config 断言版本注入、web_app_test 版本行断言更新；`flutter analyze` 无问题、全量 408 项通过、桥接 Node 测试通过。
+- [x] 生产部署：提交 66b5527 经 run 37088080839 全绿部署，CI 校验通过；生产域名 https://selah-language-app.pages.dev 线上 selah-version=`1.1.0`、Build ID `487657317b95e0e9`。
+- [x] 方案归档：docs/superpowers/plans/2026-10-03-version-and-motion.md（两轮完整方案与发版顺序）。
+
+### 2026-10-03 动效 M0—M2 上线（v1.2.0，实现、验证并生产部署完成）
+
+- [x] M0 导航过渡：`_TabEntrance` 包裹 IndexedStack，tab 切换时页面内容约 200ms 淡入＋上浮（easeOutCubic）；动画结构常驻、关闭开关时静止原位，页面滚动／草稿／播放状态不因开关切换丢失。
+- [x] M1 按压反馈：新增 `design/selah_pressable.dart`（按压缩至 0.97、约 110ms 回弹），覆盖立即同步、播放、儲存資料、onboarding 启动四个主 CTA。
+- [x] M2 首次入场 stagger：新增 `design/selah_stagger_entrance.dart`（40ms 间隔淡入上移），今天／聆聽／練習／筆記四页每页首次进入时播放（访问记录存内存不持久化），再次切换只走 M0。
+- [x] 门控：全部新动效走 MotionScope 唯一总门，「動畫效果」开关关闭时全部直出；组件树形稳定，开关切换不重挂页面。
+- [x] 验证：新增 `selah_motion_widgets_test.dart` 4 项（按压缩放与回弹、开关关闭不缩放、stagger 首次播放、关闭直出）；`flutter analyze` 无问题；全量 412 项测试通过；改动文件 dart format 干净。
+- [x] 生产部署：提交 f932341 经 run 37090419487 全绿部署，CI 校验通过；生产域名线上 selah-version=`1.2.0`、Build ID `8a47644ab4f207cb`。
+- [ ] 375px 真机与桌面浏览器的动效人工验收待主人确认；M3 骨架屏与性能 P0 基线测量排下一轮（待主人拍板）。
 
 ### 2026-10-02 部署统一与 CI/CD 自动发布通道（实现与验证全部完成）
 
