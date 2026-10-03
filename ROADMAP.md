@@ -1,6 +1,6 @@
 # Selah 开发路线图
 
-> 最后更新：2026-10-03
+> 最后更新：2026-10-04
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-03 Web 加载性能与品牌交互动效（实现与本地自动化验证完成）
+### 2026-10-03 Web 加载性能与品牌交互动效（实现、验证并已部署）
 
 - [x] 建立统一按压反馈分级：主要按钮 0.94 缩放、140ms 回弹，次要按钮和图标按钮分别收敛到对应 token；播放、速度、循环听、会员、管理和学习入口等常用按钮接入 `SelahPressable`。
 - [x] 增强页面切换、列表入场、弹窗、底部抽屉和通知横幅的可感知动效；导航图标新增选中弹跳；新页面内容使用 70ms 间隔、20px 上移和轻缩放入场；页面切换提升到 300ms 并加入轻微缩放。
@@ -17,6 +17,7 @@
 - [x] 启动骨架屏加入脉冲反馈；主页面栈改为懒构建的 `SelahLazyIndexedStack`，减少首次渲染时一次性构建全部 Tab 的压力。
 - [x] 修复循环听设置在品牌抽屉中保存后标签不刷新的问题：设置内容改为显式监听学习控制器，不再依赖弹窗关闭时触发的间接重建。
 - [x] 版本更新为 `1.4.0+7`。本地验证：`flutter analyze --no-pub` 无问题；Flutter 全量 420 项测试通过；动效、循环听与主流程针对性回归 60 项通过；`tool/web.ps1 -Action build` Release 构建成功，版本 `1.4.0`，本地 Build ID `a71e4b9d36631740`。
+- [x] 生产发布：提交 `f7b31c57a56ec746ca6df1e66fd7ceeef0dfb5bd` 已推送到 GitHub `main`；[Actions run 37135106873](https://github.com/KeithHello/selah-language-app/actions/runs/37135106873) 全部通过。线上 https://selah-language-app.pages.dev 版本 `1.4.0`、Build ID `5fdec95d784517e7`，部署别名 `2c240f7a.selah-language-app.pages.dev`；首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200。
 - [ ] 精灵资产转 WebP、skwasm 与 Cloudflare 响应头、375px 真机动效与加载验收仍待后续逐项确认。
 
 ### 2026-10-03 管理台、会员用量记录与限额（代码已合并并部署；限额已启用；管理员登录已就绪；SMTP 与邮件链接已修复）
