@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-03 管理台、会员用量记录与限额（后端已部署；生产前端待发布）
+### 2026-10-03 管理台、会员用量记录与限额（代码已合并并部署；管理员授权与限额启用待完成）
 
 - [x] 增加不出现在普通导航中的独立管理员登录路由，管理员登录后停留在管理台；实际授权仍由 `admin_members` 服务端检查。
 - [x] 用户管理页展示最近登录时间、注册时间及最近 100 条供应商调用明细；登录信息查询失败时单独标为不可用，不影响用量明细。
@@ -21,8 +21,10 @@
 - [x] 项目级 `CLAUDE.md` 已补充分支合并到 `main`、确认远端主分支最新、依赖 migration／Edge Function 的发布顺序、发布后核验及旧分支清理规则；保留全局逐项授权红线。
 - [x] Supabase 生产 migration `012_usage_metering.sql` 已应用，远端 migration 记录为 `001`—`012`；保留启用前历史账本，不回填或扣减历史额度。`record_generation_usage`、`settle_generation_allowance` 及用量索引已核验，事务回滚式记账／结算冒烟测试通过。
 - [x] 已部署并核验 `sentences-generate`、`sentences-batch-generate`、`sentences-prepare`、`audio-generate`、`speech-transcribe`、`admin-users` 六个 Edge Functions 均为 ACTIVE；六条生产路由的 CORS OPTIONS 均返回 HTTP 200。
-- [x] 生产中已有 2 个管理员成员和 2 个管理员操作员记录；未新建账号，仍需用现有登录会话确认管理台授权与管理员端入口。
-- [ ] Cloudflare Pages `main` 生产部署、线上版本／构建指纹校验，以及启用会员限额并复核设置值待完成。当前 `membership_enforcement_enabled=false`、试用注册与会员销售均关闭、生成服务开启；保持此状态直到新前端生产部署后再启用。部署规则：`codex/**` 自动发预览，只有 `main` 自动发生产。
+- [x] GitHub Actions run `37122085586` 全部成功；`main` 已部署至 Cloudflare Pages 生产，版本 `1.3.0`、Build ID `174b53cb23cd7fea`，首页、`main.dart.js`、`selah-precache.json` 均 HTTP 200。
+- [x] 生产中已有 2 个管理员成员和 2 个管理员操作员记录；新管理台路由可访问，但当前浏览器登录账号不在两张授权表中，服务端正确拒绝访问；未擅自扩大其权限。
+- [x] `codex/admin-console-usage-limits` 已合入 `main` 并删除本地及远端分支；`main` 与 `origin/main` 同步。
+- [ ] 需主人指定管理员邮箱以登录现有管理员账号或创建新的管理员邀请；获授权的管理员登录后启用会员限额，并复核试用注册、会员销售保持关闭、生成服务保持开启。当前 `membership_enforcement_enabled=false`，避免在管理员访问恢复前改变线上额度行为。部署规则：`codex/**` 自动发预览，只有 `main` 自动发生产。
 
 ### 2026-10-03 循环听音频失败回退与故障隔离（Web 生产已部署；Edge Function 待单独确认）
 
