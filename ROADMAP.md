@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-03 管理台、会员用量记录与限额（预览已部署；生产和后端发布待确认）
+### 2026-10-03 管理台、会员用量记录与限额（后端已部署；生产前端待发布）
 
 - [x] 增加不出现在普通导航中的独立管理员登录路由，管理员登录后停留在管理台；实际授权仍由 `admin_members` 服务端检查。
 - [x] 用户管理页展示最近登录时间、注册时间及最近 100 条供应商调用明细；登录信息查询失败时单独标为不可用，不影响用量明细。
@@ -19,7 +19,10 @@
 - [x] CI 数据库验证：首轮 run `37117787023` 找到重复会员 fixture 并失败；修正后 run `37117963924` 在隔离 PostgreSQL 成功应用 migration，pgTAP 23 条断言与并发测试全部通过。
 - [x] Cloudflare Pages 预览已部署版本 `1.3.0`、Build ID `174b53cb23cd7fea`；别名 `codex-admin-console-usage-li.selah-language-app.pages.dev` 的首页、`main.dart.js`、`selah-precache.json` 均 HTTP 200。该 run 的最终 CI 校验因 workflow 使用未截短分支名、而 Cloudflare 将别名截短而报失败；线上实际别名与构建指纹已手动核实一致。
 - [x] 项目级 `CLAUDE.md` 已补充分支合并到 `main`、确认远端主分支最新、依赖 migration／Edge Function 的发布顺序、发布后核验及旧分支清理规则；保留全局逐项授权红线。
-- [ ] 远端 Supabase migration、更新后的 Edge Functions、管理员账号及 `admin_members` 授权、Cloudflare 生产发布均待逐项确认；尚未变更生产 Supabase、创建账号或启用会员限额。部署规则：`codex/**` 自动发预览，只有 `main` 自动发生产。
+- [x] Supabase 生产 migration `012_usage_metering.sql` 已应用，远端 migration 记录为 `001`—`012`；保留启用前历史账本，不回填或扣减历史额度。`record_generation_usage`、`settle_generation_allowance` 及用量索引已核验，事务回滚式记账／结算冒烟测试通过。
+- [x] 已部署并核验 `sentences-generate`、`sentences-batch-generate`、`sentences-prepare`、`audio-generate`、`speech-transcribe`、`admin-users` 六个 Edge Functions 均为 ACTIVE；六条生产路由的 CORS OPTIONS 均返回 HTTP 200。
+- [x] 生产中已有 2 个管理员成员和 2 个管理员操作员记录；未新建账号，仍需用现有登录会话确认管理台授权与管理员端入口。
+- [ ] Cloudflare Pages `main` 生产部署、线上版本／构建指纹校验，以及启用会员限额并复核设置值待完成。当前 `membership_enforcement_enabled=false`、试用注册与会员销售均关闭、生成服务开启；保持此状态直到新前端生产部署后再启用。部署规则：`codex/**` 自动发预览，只有 `main` 自动发生产。
 
 ### 2026-10-03 循环听音频失败回退与故障隔离（Web 生产已部署；Edge Function 待单独确认）
 
