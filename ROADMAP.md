@@ -24,7 +24,8 @@
 - [x] GitHub Actions run `37122085586` 全部成功；`main` 已部署至 Cloudflare Pages 生产，版本 `1.3.0`、Build ID `174b53cb23cd7fea`，首页、`main.dart.js`、`selah-precache.json` 均 HTTP 200。
 - [x] 新建独立 Supabase Auth 管理员身份，并加入 `admin_members` 与 `admin_operators`；通过受保护的管理 Edge Function 成功认证并完成开关操作。生产管理员成员／操作员各 3 条；当前浏览器普通会员账号仍未扩大权限。
 - [x] 生产启用 `membership_enforcement_enabled`，设置版本修订为 `5`；后台审计事件已写入。试用注册和会员销售仍关闭，生成服务保持开启；启用前用量账本未改写。
-- [ ] 管理员密码重置邮件未发送：Supabase 默认邮件服务对非项目团队地址返回 `Error sending recovery email`（HTTP 500）。管理员账号及角色已存在，但需要配置自定义 SMTP 或由主人指定其他可收信的管理员邮箱，才能完成可持续的密码登录。
+- [ ] 管理员密码重置邮件未发送：Auth 日志显示 Gmail SMTP 返回 `535 5.7.8 Username and Password not accepted`；自定义 SMTP 已配置，但 Gmail 拒绝了认证凭据。需主人更新有效的 Gmail App Password 或替换 SMTP 凭据，再重新发送并验证管理员登录。
+- [ ] 本机 `.env` 的 `SUPABASE_SERVICE_ROLE_KEY` 与该 Supabase 项目的当前密钥不匹配；本次未更改密钥文件。后续本机 Auth Admin 操作前需由主人通过安全方式更新。
 - [x] `codex/admin-console-usage-limits` 已合入 `main` 并删除本地及远端分支；`main` 与 `origin/main` 同步。
 
 ### 2026-10-03 循环听音频失败回退与故障隔离（Web 生产已部署；Edge Function 待单独确认）
