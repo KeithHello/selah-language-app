@@ -8,13 +8,14 @@
 
 ## 当前阶段
 
-### 2026-10-03 循环听音频失败回退与故障隔离（本地实现与验证完成；线上待单独确认）
+### 2026-10-03 循环听音频失败回退与故障隔离（Web 生产已部署；Edge Function 待单独确认）
 
 - [x] `audio-generate` 为繁体中文 Azure TTS 增加 OpenAI TTS-1 备用路由：Azure 凭证缺失、超时、鉴权／限流／服务端错误、不可用音频或响应体读取失败时切换；无效请求不回退；`AUDIO_FALLBACK_ENABLED` 可显式关闭且默认为开启。用量按实际供应商记录，清单及响应保留实际生成模型／声线。
 - [x] 故障边界加固：禁用备用路由时不再命中备用供应商旧缓存；供应商最终返回非 429 的 4xx 时释放额度预留，不误记为结果未知。
 - [x] 循环听准备改为按完整双语句子组队：单条音轨失败时继续准备其他句子，只播放双语齐全的句子；部分可用时显示跳过数量，全部不可用时保留首个真实失败原因；错误与提示覆盖简中、繁中、日语。
 - [x] 回归验证：Supabase Deno 全量 354 项通过；Flutter 全量 414 项通过；`flutter analyze --no-pub` 无问题；Release Web 构建成功，版本 `1.2.2`，本地 Build ID `4a200c343c34472e`。
-- [ ] 尚未推送 GitHub `main`，因此 Cloudflare Pages 生产包尚未更新；Supabase `audio-generate` 也未部署，且未修改 Supabase Edge Secrets。远端 Azure `401` 的根因仍待主人确认后复核 `AZURE_SPEECH_KEY`／`AZURE_SPEECH_REGION`；部署后需用真实账户验证 Azure 正常与故障回退两条链路。
+- [x] 生产发布：提交 `2f91672` 已推送到 GitHub `main`；[Actions run 37101082940](https://github.com/KeithHello/selah-language-app/actions/runs/37101082940) 全部门禁与部署通过。线上 `https://selah-language-app.pages.dev` 版本 `1.2.2`、Build ID `ddfa1fbbf8cd17eb`；首页、`main.dart.js`、`selah-precache.json` 均返回 HTTP 200。
+- [ ] Supabase `audio-generate` Edge Function 尚未部署，未修改 Supabase Edge Secrets。远端 Azure `401` 的根因仍待主人确认后复核 `AZURE_SPEECH_KEY`／`AZURE_SPEECH_REGION`；Edge 部署后需用真实账户验证 Azure 正常与故障回退两条链路。
 - [ ] 当前回退沿用现有 `tts-1`；OpenAI 已公布其于 2027-01-06 退役，需在截止前核对并迁移到官方推荐替代模型 `gpt-realtime-2.1-mini`，另行验证中文语音质量与调用成本（[官方退役公告](https://developers.openai.com/api/docs/deprecations)）。
 
 ### 2026-10-03 生产部署版本唯一性门禁上线（实现、验证并生产部署完成）
