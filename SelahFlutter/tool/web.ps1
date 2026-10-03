@@ -6,6 +6,13 @@ param(
 $ErrorActionPreference = 'Stop'
 $flutterRoot = Split-Path -Parent $PSScriptRoot
 $repoRoot = Split-Path -Parent $flutterRoot
+$appVersion = 'dev'
+$pubspecPath = Join-Path $flutterRoot 'pubspec.yaml'
+if (Test-Path -LiteralPath $pubspecPath) {
+  foreach ($line in Get-Content -LiteralPath $pubspecPath) {
+    if ($line -match '^version:\s*([0-9]+\.[0-9]+\.[0-9]+)') { $appVersion = $Matches[1]; break }
+  }
+}
 $publicConfig = @{}
 $envPath = Join-Path $repoRoot '.env'
 if (Test-Path -LiteralPath $envPath) {
@@ -45,6 +52,9 @@ try {
     Write-Warning 'Selah Web: no public Supabase config was provided; this is a local-only build and cloud login is unavailable.'
   }
   $indexPath = Join-Path $bundleRoot 'index.html'
+  $index = [System.IO.File]::ReadAllText($indexPath)
+  $index = $index -replace '(name="selah-version" content=")[^"]*(")', ('${1}' + $appVersion + '${2}')
+  [System.IO.File]::WriteAllText($indexPath, $index, [System.Text.UTF8Encoding]::new($false))
   $assetPaths = Get-ChildItem -LiteralPath (Join-Path $bundleRoot 'assets') -File -Recurse |
     ForEach-Object { $_.FullName.Substring($bundleRoot.Length + 1).Replace('\', '/') }
   $precache = @{ assets = @($assetPaths) } | ConvertTo-Json -Depth 3
@@ -58,6 +68,7 @@ try {
     $bytes = [System.Text.Encoding]::UTF8.GetBytes(($bundleHashes -join "`n"))
     $buildId = [System.BitConverter]::ToString($hasher.ComputeHash($bytes)).Replace('-', '').Substring(0, 16).ToLowerInvariant()
   } finally { $hasher.Dispose() }
+  Write-Host "Selah Web: app version $appVersion, build id $buildId."
   $index = [System.IO.File]::ReadAllText($indexPath)
   $index = $index -replace '(name="selah-build-id" content=")[^"]*(")', ('${1}' + $buildId + '${2}')
   [System.IO.File]::WriteAllText($indexPath, $index, [System.Text.UTF8Encoding]::new($false))

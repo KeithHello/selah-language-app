@@ -26,3 +26,8 @@ test('release server warns when serving a bundle without cloud login config', ()
   assert.match(serveScript, /Supabase project URL/i);
   assert.match(serveScript, /cloud login is unavailable/i);
 });
+
+test('web build injects pubspec app version into the bundle index', () => {
+  assert.match(buildScript, /pubspec\.yaml/);
+  assert.match(buildScript, /name="selah-version" content="/);
+});

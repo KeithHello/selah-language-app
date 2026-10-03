@@ -5667,6 +5667,7 @@ class _SettingsPageState extends State<_SettingsPage> {
         : 'unsupported';
     final storagePersisted = platform['storagePersisted'];
     final buildId = platform['buildId']?.toString() ?? 'dev';
+    final appVersion = platform['appVersion']?.toString() ?? 'dev';
     return _PageFrame(
       maxWidth: 760,
       child: Column(
@@ -6125,7 +6126,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                 contentPadding: EdgeInsets.zero,
                 leading: const Icon(Icons.system_update_alt),
                 title: Text(s.text('settings.version')),
-                subtitle: Text(buildId),
+                subtitle: Text('$appVersion · $buildId'),
                 trailing: TextButton(
                   onPressed: c.busy
                       ? null

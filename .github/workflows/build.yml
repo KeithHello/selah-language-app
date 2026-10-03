@@ -181,7 +181,7 @@ jobs:
           if (-not $bundle.Contains($env:SUPABASE_URL)) { throw 'Bundled Supabase public config missing; aborting deploy.' }
           Write-Host 'Bundled Supabase public config verified.'
 
-      - name: Read build id
+      - name: Read build id and app version
         id: buildid
         run: |
           BUILD_ID=$(grep -oP 'name="selah-build-id" content="\K[a-f0-9]{16}' SelahFlutter/build/web/index.html)
@@ -189,7 +189,14 @@ jobs:
             echo "selah-build-id missing from bundle index.html"
             exit 1
           fi
+          APP_VERSION=$(grep -oP 'name="selah-version" content="\K[^"]+' SelahFlutter/build/web/index.html)
+          if [ -z "$APP_VERSION" ]; then
+            echo "selah-version missing from bundle index.html"
+            exit 1
+          fi
           echo "build_id=$BUILD_ID" >> "$GITHUB_OUTPUT"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "Web app version: $APP_VERSION, build id: $BUILD_ID"
           echo "Web Build ID: $BUILD_ID"
 
       - name: Compute deploy alias
@@ -214,9 +221,10 @@ jobs:
         run: |
           npx --yes wrangler@4.147.0 pages deploy SelahFlutter/build/web --project-name selah-language-app --branch main
 
-      - name: Verify deployed build id
+      - name: Verify deployed build id and version
         env:
           EXPECTED: ${{ steps.buildid.outputs.build_id }}
+          EXPECTED_VERSION: ${{ steps.buildid.outputs.app_version }}
           ALIAS: ${{ steps.alias.outputs.name }}
         run: |
           if [ "$GITHUB_REF_NAME" = "main" ]; then
@@ -226,14 +234,34 @@ jobs:
           fi
           for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
             sleep 10
-            LIVE=$(curl -sf "$BASE_URL" | grep -oP 'name="selah-build-id" content="\K[a-f0-9]{16}' || true)
-            if [ "$LIVE" = "$EXPECTED" ]; then
-              echo "Deployed build id matches at $BASE_URL: $LIVE"
+            PAGE=$(curl -sf "$BASE_URL" || true)
+            LIVE=$(printf '%s' "$PAGE" | grep -oP 'name="selah-build-id" content="\K[a-f0-9]{16}' || true)
+            LIVE_VERSION=$(printf '%s' "$PAGE" | grep -oP 'name="selah-version" content="\K[^"]+' || true)
+            if [ "$LIVE" = "$EXPECTED" ] && [ "$LIVE_VERSION" = "$EXPECTED_VERSION" ]; then
+              echo "Deployed build id and version match at $BASE_URL: $LIVE (v$LIVE_VERSION)"
               curl -sf -o /dev/null -w "main.dart.js HTTP %{http_code}\n" "$BASE_URL/main.dart.js"
               curl -sf -o /dev/null -w "selah-precache.json HTTP %{http_code}\n" "$BASE_URL/selah-precache.json"
               exit 0
             fi
-            echo "Attempt $i: expected $EXPECTED, got ${LIVE:-none}"
-          done
-          echo "Build id verification failed at $BASE_URL"
+            echo "Attempt $i: expected $EXPECTED (v$EXPECTED_VERSION), got ${LIVE:-none} (v${LIVE_VERSION:-none})"
+           done
+          echo "Build id or version verification failed at $BASE_URL"
           exit 1
+
+      - name: Write deployment summary
+        env:
+          APP_VERSION: ${{ steps.buildid.outputs.app_version }}
+          BUILD_ID: ${{ steps.buildid.outputs.build_id }}
+        run: |
+          if [ "$GITHUB_REF_NAME" = "main" ]; then
+            TARGET="生产 https://selah-language-app.pages.dev"
+          else
+            TARGET="预览 https://${{ steps.alias.outputs.name }}.selah-language-app.pages.dev"
+          fi
+          {
+            echo "## Selah Web 部署"
+            echo ""
+            echo "- 版本：v$APP_VERSION"
+            echo "- Build ID：$BUILD_ID"
+            echo "- 环境：$TARGET"
+          } >> "$GITHUB_STEP_SUMMARY"

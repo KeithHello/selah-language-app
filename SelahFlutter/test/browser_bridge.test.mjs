@@ -26,6 +26,7 @@ test('bridge parses JSON payloads and returns JSON encoded results', async () =>
     storagePersisted: null,
     installKind: 'unsupported',
     buildId: 'dev',
+    appVersion: 'dev',
   });
 });
 
@@ -63,6 +64,32 @@ test('platform reports install state and build id from browser signals', async (
   assert.equal(info.installKind, 'prompt');
   assert.equal(info.canInstall, true);
   assert.equal(info.buildId, 'build-42');
+});
+
+test('platform reports app version from meta and falls back to dev', async () => {
+  const withVersion = createBridge({
+    root: {
+      navigator: {},
+      matchMedia: () => ({ matches: false }),
+      document: {
+        querySelector: (selector) => selector === 'meta[name="selah-version"]'
+          ? { content: '1.1.0' } : null,
+        visibilityState: 'visible',
+      },
+    },
+  });
+  const info = JSON.parse(await withVersion('platformInfo', '{}'));
+  assert.equal(info.appVersion, '1.1.0');
+  assert.equal(info.buildId, 'dev');
+
+  const withoutVersion = createBridge({
+    root: {
+      navigator: {},
+      matchMedia: () => ({ matches: false }),
+    },
+  });
+  const fallback = JSON.parse(await withoutVersion('platformInfo', '{}'));
+  assert.equal(fallback.appVersion, 'dev');
 });
 
 test('platform distinguishes standalone and iOS manual installation', async () => {

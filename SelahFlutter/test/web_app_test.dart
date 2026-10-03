@@ -794,6 +794,7 @@ void main() {
         'canInstall': false,
         'updateAvailable': false,
         'buildId': 'build-42',
+        'appVersion': '1.1.0',
       };
       controller.navigate(4);
       await tester.pumpWidget(WebLearningApp(controller: controller));
@@ -804,7 +805,7 @@ void main() {
       expect(find.text('已加入主畫面'), findsOneWidget);
       expect(find.text('加入主畫面'), findsNothing);
       expect(find.text('更新到新版本'), findsNothing);
-      expect(find.text('build-42'), findsOneWidget);
+      expect(find.text('1.1.0 · build-42'), findsOneWidget);
     },
   );
 

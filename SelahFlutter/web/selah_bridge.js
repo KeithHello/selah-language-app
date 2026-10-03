@@ -1542,6 +1542,7 @@
         storagePersisted: storagePersisted,
         installKind: kind,
         buildId: buildId(),
+        appVersion: appVersion(),
       };
     }
 
@@ -1634,19 +1635,30 @@
       }
     }
 
+    function appVersion() {
+      var documentObject = root && root.document;
+      if (documentObject && typeof documentObject.querySelector === 'function') {
+        try {
+          var versionMeta = documentObject.querySelector('meta[name="selah-version"]');
+          if (versionMeta && typeof versionMeta.content === 'string' && versionMeta.content.trim()) return versionMeta.content.trim();
+        } catch (_) {}
+      }
+      return 'dev';
+    }
+
     async function checkUpdate() {
       var navigatorObject = root && root.navigator;
       var serviceWorker = navigatorObject && navigatorObject.serviceWorker;
       if (!serviceWorker || typeof serviceWorker.getRegistration !== 'function') {
-        return { status: 'unsupported', updateAvailable: false, buildId: buildId() };
+        return { status: 'unsupported', updateAvailable: false, buildId: buildId(), appVersion: appVersion() };
       }
       var registration;
       try {
         registration = await serviceWorker.getRegistration();
       } catch (_) {
-        return { status: 'unsupported', updateAvailable: false, buildId: buildId() };
+        return { status: 'unsupported', updateAvailable: false, buildId: buildId(), appVersion: appVersion() };
       }
-      if (!registration) return { status: 'unsupported', updateAvailable: false, buildId: buildId() };
+      if (!registration) return { status: 'unsupported', updateAvailable: false, buildId: buildId(), appVersion: appVersion() };
       if (typeof registration.update === 'function') {
         try { await registration.update(); } catch (_) {
           return { status: 'unsupported', updateAvailable: false, buildId: buildId() };
@@ -1657,6 +1669,7 @@
         status: available ? 'available' : 'latest',
         updateAvailable: available,
         buildId: buildId(),
+        appVersion: appVersion(),
       };
     }
 
