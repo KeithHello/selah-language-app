@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_dialog.dart';
+import '../../design/selah_sheet.dart';
 import '../../design/selah_motion.dart';
 import '../../design/selah_motion_scope.dart';
 import '../../design/selah_spacing.dart';
@@ -74,10 +76,7 @@ class MembershipStatusCard extends StatelessWidget {
         if (activePeriod && usage != null) {
           items.addAll([
             const SizedBox(height: SelahSpacing.xl),
-            Text(
-              _usageTitle(summary),
-              style: SelahTypography.headlineSmall(),
-            ),
+            Text(_usageTitle(summary), style: SelahTypography.headlineSmall()),
             const SizedBox(height: SelahSpacing.md),
             _UsageCardGrid(cards: _buildUsageCards(usage)),
           ]);
@@ -184,9 +183,7 @@ class MembershipStatusCard extends StatelessWidget {
               ),
               'plan': _planName(summary.futurePeriods.first.plan, uiLocale),
             }),
-            style: SelahTypography.bodySmall(
-              color: SelahColors.textSecondary,
-            ),
+            style: SelahTypography.bodySmall(color: SelahColors.textSecondary),
           ),
         ],
         if (summary.membershipModeEnabled) ...[
@@ -236,11 +233,10 @@ class MembershipStatusCard extends StatelessWidget {
     }
     final ending = daysLeft <= 3;
     return Text(
-      _membershipCopy(
-        uiLocale,
-        ending ? 'periodRangeEnding' : 'periodRange',
-        {...range, 'days': '$daysLeft'},
-      ),
+      _membershipCopy(uiLocale, ending ? 'periodRangeEnding' : 'periodRange', {
+        ...range,
+        'days': '$daysLeft',
+      }),
       style: SelahTypography.bodySmall(
         color: ending ? SelahColors.amber : SelahColors.textSecondary,
       ),
@@ -320,7 +316,8 @@ class MembershipStatusCard extends StatelessWidget {
         'feature': title,
       }),
       usedLabel: _membershipCopy(uiLocale, 'usedLabel', {
-        'value': '${formatQuotaAmount(usage.used, unit)} / '
+        'value':
+            '${formatQuotaAmount(usage.used, unit)} / '
             '${formatQuotaValue(usage.limit, unit, uiLocale)}',
       }),
       remainingLabel: _membershipCopy(uiLocale, 'remainingLabel', {
@@ -335,7 +332,7 @@ class MembershipStatusCard extends StatelessWidget {
   }
 
   void _showPlanChangeSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+    showSelahSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
@@ -364,10 +361,7 @@ class _MembershipHeroShell extends StatelessWidget {
           color: dark ? SelahColors.darkBorder : SelahColors.border,
         ),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(17),
-        child: child,
-      ),
+      child: Padding(padding: const EdgeInsets.all(17), child: child),
     );
   }
 }
@@ -711,7 +705,7 @@ class _QuotaHelpButton extends StatelessWidget {
   }
 
   void _showHelp(BuildContext context) {
-    showDialog<void>(
+    showSelahDialog<void>(
       context: context,
       builder: (dialogContext) => _QuotaHelpDialog(
         title: title,

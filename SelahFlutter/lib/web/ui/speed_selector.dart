@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_dialog.dart';
+import '../../design/selah_pressable.dart';
+import '../../design/selah_sheet.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
 import '../domain/learning_models.dart';
@@ -65,25 +68,28 @@ class SpeedSelector extends StatelessWidget {
             ),
           ),
         ),
-        OutlinedButton(
-          onPressed: controller.busy
-              ? null
-              : () => showCustomSpeedDialog(context, controller),
-          style: OutlinedButton.styleFrom(
-            visualDensity: VisualDensity.compact,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
-            backgroundColor: isPreset ? null : SelahColors.lavenderSoft,
-            foregroundColor: isPreset
-                ? SelahColors.textSecondary
-                : SelahColors.lavenderInk,
-            side: BorderSide(
-              color: isPreset ? SelahColors.border : SelahColors.lavender,
+        SelahPressable(
+          variant: SelahPressVariant.secondary,
+          child: OutlinedButton(
+            onPressed: controller.busy
+                ? null
+                : () => showCustomSpeedDialog(context, controller),
+            style: OutlinedButton.styleFrom(
+              visualDensity: VisualDensity.compact,
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+              backgroundColor: isPreset ? null : SelahColors.lavenderSoft,
+              foregroundColor: isPreset
+                  ? SelahColors.textSecondary
+                  : SelahColors.lavenderInk,
+              side: BorderSide(
+                color: isPreset ? SelahColors.border : SelahColors.lavender,
+              ),
             ),
-          ),
-          child: Text(
-            isPreset
-                ? strings.text('settings.speed.custom')
-                : '${strings.text('settings.speed.custom')}（${speedLabel(current)}x）',
+            child: Text(
+              isPreset
+                  ? strings.text('settings.speed.custom')
+                  : '${strings.text('settings.speed.custom')}（${speedLabel(current)}x）',
+            ),
           ),
         ),
       ],
@@ -148,7 +154,7 @@ class _CompactSpeedSelector extends StatelessWidget {
 
   Future<void> _open(BuildContext context, SelahStrings strings) async {
     final choice = MediaQuery.sizeOf(context).width < 900
-        ? await showModalBottomSheet<_CompactSpeedChoice>(
+        ? await showSelahSheet<_CompactSpeedChoice>(
             context: context,
             useSafeArea: true,
             builder: (sheetContext) =>
@@ -252,7 +258,7 @@ Future<void> showCustomSpeedDialog(
   var speed = controller.state.preferences.speed
       .clamp(minPlaybackSpeed, maxPlaybackSpeed)
       .toDouble();
-  await showDialog<void>(
+  await showSelahDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setState) => AlertDialog(

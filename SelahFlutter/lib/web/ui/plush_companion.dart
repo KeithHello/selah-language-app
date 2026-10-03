@@ -282,6 +282,16 @@ class PlushCompanionState extends State<PlushCompanion>
                       duration: duration,
                       switchInCurve: Curves.easeOut,
                       switchOutCurve: Curves.easeIn,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          scale: Tween<double>(
+                            begin: 0.98,
+                            end: 1,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      ),
                       child: PlushPoseImage(
                         key: ValueKey('$asset:${widget.revision}'),
                         stage: widget.decorationStage,

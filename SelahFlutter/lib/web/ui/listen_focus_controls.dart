@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_pressable.dart';
 import '../../design/selah_typography.dart';
 import '../l10n/selah_strings.dart';
 
@@ -159,6 +160,14 @@ class _ListenControlButton extends StatelessWidget {
             ),
             child: child,
           );
-    return Tooltip(message: label, child: button);
+    return Tooltip(
+      message: label,
+      child: SelahPressable(
+        variant: primary
+            ? SelahPressVariant.primary
+            : SelahPressVariant.secondary,
+        child: button,
+      ),
+    );
   }
 }

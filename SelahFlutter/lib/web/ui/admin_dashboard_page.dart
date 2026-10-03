@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_dialog.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
 import '../admin/admin_controller.dart';
@@ -157,7 +158,7 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               uiLocale: widget.uiLocale,
               searchController: _searchController,
               onOpenUser: (user) async {
-                final changed = await showDialog<bool>(
+                final changed = await showSelahDialog<bool>(
                   context: context,
                   builder: (_) => AdminUserDetailDialog(
                     gateway: controller.gateway,
@@ -424,7 +425,7 @@ class _ServiceControlsCard extends StatelessWidget {
       required bool value,
       required String confirmMessage,
     }) async {
-      final confirmed = await showDialog<bool>(
+      final confirmed = await showSelahDialog<bool>(
         context: context,
         builder: (dialogContext) => AlertDialog(
           title: Text(copy('confirmTitle')),

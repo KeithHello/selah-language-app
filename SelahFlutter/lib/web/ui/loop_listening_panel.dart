@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_dialog.dart';
+import '../../design/selah_sheet.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
 import '../domain/loop_listening.dart';
@@ -13,12 +15,13 @@ Future<void> showLoopListeningSettings(
   LearningController controller,
 ) async {
   final strings = SelahStrings.of(controller.uiLocale);
-  final content = LoopListeningPanel(
-    controller: controller,
-    settingsOnly: true,
+  final content = AnimatedBuilder(
+    animation: controller,
+    builder: (context, _) =>
+        LoopListeningPanel(controller: controller, settingsOnly: true),
   );
   if (MediaQuery.sizeOf(context).width < 900) {
-    await showModalBottomSheet<void>(
+    await showSelahSheet<void>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
@@ -56,7 +59,7 @@ Future<void> showLoopListeningSettings(
     return;
   }
 
-  await showDialog<void>(
+  await showSelahDialog<void>(
     context: context,
     builder: (dialogContext) => Dialog(
       constraints: BoxConstraints(
@@ -397,7 +400,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
     _customMinutes.text =
         '${currentMinutes ?? c.state.preferences.loopOptions.durationMinutes}';
     _customError = null;
-    await showDialog<void>(
+    await showSelahDialog<void>(
       context: context,
       builder: (dialogContext) => StatefulBuilder(
         builder: (context, setDialogState) {

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../design/selah_colors.dart';
+import '../../design/selah_dialog.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
 import '../data/learning_gateway.dart';
@@ -115,7 +116,7 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
       _selectedMonths = customMonths!;
     }
     final planLabel = _selectedPlan == 'pro' ? 'Pro' : 'Plus';
-    final confirmed = await showDialog<bool>(
+    final confirmed = await showSelahDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: Text('确认${_actionLabel(_selectedAction)}'),
@@ -205,195 +206,193 @@ class _AdminUserDetailDialogState extends State<AdminUserDetailDialog> {
                     child: Center(child: CircularProgressIndicator()),
                   )
                 : Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('用户会员管理', style: SelahTypography.headlineLarge()),
-                    const SizedBox(height: SelahSpacing.sm),
-                    Text(
-                      '用户: ${widget.user.emailMasked} (${widget.user.userId})',
-                      style: SelahTypography.bodyMedium(
-                        color: SelahColors.textSecondary,
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('用户会员管理', style: SelahTypography.headlineLarge()),
+                      const SizedBox(height: SelahSpacing.sm),
+                      Text(
+                        '用户: ${widget.user.emailMasked} (${widget.user.userId})',
+                        style: SelahTypography.bodyMedium(
+                          color: SelahColors.textSecondary,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: SelahSpacing.sm),
-                    Text(
-                      '当前：${widget.user.plan} · ${widget.user.status}${widget.user.expiresAt == null ? '' : ' · 有效至 ${widget.user.expiresAt!.toLocal().toString().substring(0, 10)}'}',
-                      style: SelahTypography.bodyMedium(),
-                    ),
-                    const SizedBox(height: SelahSpacing.lg),
-                    if (_detail != null) ...[
-                      _DetailSummary(detail: _detail!),
-                      const SizedBox(height: SelahSpacing.lg),
-                      _UsageAttemptList(
-                        attempts: _detail!.usageAttempts,
+                      const SizedBox(height: SelahSpacing.sm),
+                      Text(
+                        '当前：${widget.user.plan} · ${widget.user.status}${widget.user.expiresAt == null ? '' : ' · 有效至 ${widget.user.expiresAt!.toLocal().toString().substring(0, 10)}'}',
+                        style: SelahTypography.bodyMedium(),
                       ),
                       const SizedBox(height: SelahSpacing.lg),
-                    ],
-                    DropdownButtonFormField<String>(
-                      initialValue: _selectedAction,
-                      decoration: const InputDecoration(
-                        labelText: '操作类型',
-                        border: OutlineInputBorder(),
-                      ),
-                      items: const [
-                        DropdownMenuItem(
-                          value: 'grant_membership',
-                          child: Text('赠送会员'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'compensate_membership',
-                          child: Text('客服补偿'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'revoke_grant',
-                          child: Text('撤销误赠'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'replay_order',
-                          child: Text('补发已购权益'),
-                        ),
-                        DropdownMenuItem(
-                          value: 'record_manual_payment',
-                          child: Text('登记人工收款'),
-                        ),
+                      if (_detail != null) ...[
+                        _DetailSummary(detail: _detail!),
+                        const SizedBox(height: SelahSpacing.lg),
+                        _UsageAttemptList(attempts: _detail!.usageAttempts),
+                        const SizedBox(height: SelahSpacing.lg),
                       ],
-                      onChanged: _submitting
-                          ? null
-                          : (value) {
-                              if (value != null) {
-                                setState(() => _selectedAction = value);
-                              }
-                            },
-                    ),
-                    if (_selectedAction == 'grant_membership') ...[
-                      const SizedBox(height: SelahSpacing.md),
                       DropdownButtonFormField<String>(
-                        initialValue: _selectedPlan,
+                        initialValue: _selectedAction,
                         decoration: const InputDecoration(
-                          labelText: '会员方案',
+                          labelText: '操作类型',
                           border: OutlineInputBorder(),
                         ),
                         items: const [
                           DropdownMenuItem(
-                            value: 'monthly',
-                            child: Text('Plus'),
+                            value: 'grant_membership',
+                            child: Text('赠送会员'),
                           ),
-                          DropdownMenuItem(value: 'pro', child: Text('Pro')),
+                          DropdownMenuItem(
+                            value: 'compensate_membership',
+                            child: Text('客服补偿'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'revoke_grant',
+                            child: Text('撤销误赠'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'replay_order',
+                            child: Text('补发已购权益'),
+                          ),
+                          DropdownMenuItem(
+                            value: 'record_manual_payment',
+                            child: Text('登记人工收款'),
+                          ),
                         ],
                         onChanged: _submitting
                             ? null
                             : (value) {
                                 if (value != null) {
-                                  setState(() => _selectedPlan = value);
+                                  setState(() => _selectedAction = value);
                                 }
                               },
                       ),
-                    ],
-                    if (isGrant) ...[
-                      const SizedBox(height: SelahSpacing.md),
-                      const Text('会员时长：'),
-                      const SizedBox(height: SelahSpacing.xs),
-                      SegmentedButton<int>(
-                        segments: const [
-                          ButtonSegment(value: 1, label: Text('1 个月')),
-                          ButtonSegment(value: 3, label: Text('3 个月')),
-                          ButtonSegment(value: 6, label: Text('6 个月')),
-                        ],
-                        selected: {_selectedMonths},
-                        onSelectionChanged: (set) => setState(() {
-                          _selectedMonths = set.first;
-                          _customMonthsController.text = '$_selectedMonths';
-                        }),
-                      ),
-                      const SizedBox(height: SelahSpacing.sm),
-                      TextField(
-                        controller: _customMonthsController,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(
-                          labelText: '自定义月数（1—12）',
-                          helperText: '快捷项之外可输入任意 1—12 个月',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
-                    if (_selectedAction == 'revoke_grant') ...[
-                      const SizedBox(height: SelahSpacing.md),
-                      TextField(
-                        controller: _membershipController,
-                        decoration: const InputDecoration(
-                          labelText: '会员记录 ID（必填）',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
-                    if (_selectedAction == 'replay_order') ...[
-                      const SizedBox(height: SelahSpacing.md),
-                      TextField(
-                        controller: _orderController,
-                        decoration: const InputDecoration(
-                          labelText: '已核实订单 ID（必填）',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                    ],
-                    if (_selectedAction == 'record_manual_payment') ...[
-                      const SizedBox(height: SelahSpacing.md),
-                      TextField(
-                        controller: _channelController,
-                        decoration: const InputDecoration(
-                          labelText: '收款渠道',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: SelahSpacing.sm),
-                      TextField(
-                        controller: _transactionController,
-                        decoration: const InputDecoration(
-                          labelText: '唯一交易编号（必填）',
-                          border: OutlineInputBorder(),
-                        ),
-                      ),
-                      const SizedBox(height: SelahSpacing.xs),
-                      const Text('金额固定为 3990 分（39.9 元），服务端会再次核验。'),
-                    ],
-                    const SizedBox(height: SelahSpacing.md),
-                    TextField(
-                      controller: _reasonController,
-                      decoration: const InputDecoration(
-                        labelText: '操作原因（必填）',
-                        hintText: '如：客服补偿、内测赠送、活动兑现、订单补发等',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                    const SizedBox(height: SelahSpacing.lg),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('取消'),
-                        ),
-                        const SizedBox(width: SelahSpacing.sm),
-                        FilledButton(
-                          onPressed: _submitting ? null : _submitAction,
-                          child: _submitting
-                              ? const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('确认操作'),
+                      if (_selectedAction == 'grant_membership') ...[
+                        const SizedBox(height: SelahSpacing.md),
+                        DropdownButtonFormField<String>(
+                          initialValue: _selectedPlan,
+                          decoration: const InputDecoration(
+                            labelText: '会员方案',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'monthly',
+                              child: Text('Plus'),
+                            ),
+                            DropdownMenuItem(value: 'pro', child: Text('Pro')),
+                          ],
+                          onChanged: _submitting
+                              ? null
+                              : (value) {
+                                  if (value != null) {
+                                    setState(() => _selectedPlan = value);
+                                  }
+                                },
                         ),
                       ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
+                      if (isGrant) ...[
+                        const SizedBox(height: SelahSpacing.md),
+                        const Text('会员时长：'),
+                        const SizedBox(height: SelahSpacing.xs),
+                        SegmentedButton<int>(
+                          segments: const [
+                            ButtonSegment(value: 1, label: Text('1 个月')),
+                            ButtonSegment(value: 3, label: Text('3 个月')),
+                            ButtonSegment(value: 6, label: Text('6 个月')),
+                          ],
+                          selected: {_selectedMonths},
+                          onSelectionChanged: (set) => setState(() {
+                            _selectedMonths = set.first;
+                            _customMonthsController.text = '$_selectedMonths';
+                          }),
+                        ),
+                        const SizedBox(height: SelahSpacing.sm),
+                        TextField(
+                          controller: _customMonthsController,
+                          keyboardType: TextInputType.number,
+                          decoration: const InputDecoration(
+                            labelText: '自定义月数（1—12）',
+                            helperText: '快捷项之外可输入任意 1—12 个月',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                      if (_selectedAction == 'revoke_grant') ...[
+                        const SizedBox(height: SelahSpacing.md),
+                        TextField(
+                          controller: _membershipController,
+                          decoration: const InputDecoration(
+                            labelText: '会员记录 ID（必填）',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                      if (_selectedAction == 'replay_order') ...[
+                        const SizedBox(height: SelahSpacing.md),
+                        TextField(
+                          controller: _orderController,
+                          decoration: const InputDecoration(
+                            labelText: '已核实订单 ID（必填）',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                      if (_selectedAction == 'record_manual_payment') ...[
+                        const SizedBox(height: SelahSpacing.md),
+                        TextField(
+                          controller: _channelController,
+                          decoration: const InputDecoration(
+                            labelText: '收款渠道',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: SelahSpacing.sm),
+                        TextField(
+                          controller: _transactionController,
+                          decoration: const InputDecoration(
+                            labelText: '唯一交易编号（必填）',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: SelahSpacing.xs),
+                        const Text('金额固定为 3990 分（39.9 元），服务端会再次核验。'),
+                      ],
+                      const SizedBox(height: SelahSpacing.md),
+                      TextField(
+                        controller: _reasonController,
+                        decoration: const InputDecoration(
+                          labelText: '操作原因（必填）',
+                          hintText: '如：客服补偿、内测赠送、活动兑现、订单补发等',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                      const SizedBox(height: SelahSpacing.lg),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          TextButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            child: const Text('取消'),
+                          ),
+                          const SizedBox(width: SelahSpacing.sm),
+                          FilledButton(
+                            onPressed: _submitting ? null : _submitAction,
+                            child: _submitting
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Text('确认操作'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
           ),
+        ),
+      ),
     );
   }
 }
@@ -417,12 +416,8 @@ class _DetailSummary extends StatelessWidget {
         spacing: SelahSpacing.lg,
         runSpacing: SelahSpacing.sm,
         children: [
-          Text(
-            '最近登录：${detail.login?.lastLoginLabel ?? '未记录'}',
-          ),
-          Text(
-            '账户创建：${detail.login?.createdAtLabel ?? '未记录'}',
-          ),
+          Text('最近登录：${detail.login?.lastLoginLabel ?? '未记录'}'),
+          Text('账户创建：${detail.login?.createdAtLabel ?? '未记录'}'),
           Text('会员时间线：${detail.periods.length} 段'),
           Text('关联订单：${detail.orders.length} 笔'),
           Text('操作记录：${detail.auditLogs.length} 条'),

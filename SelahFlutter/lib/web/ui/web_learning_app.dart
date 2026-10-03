@@ -6,10 +6,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_dialog.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_motion.dart';
 import '../../design/selah_motion_scope.dart';
+import '../../design/selah_lazy_indexed_stack.dart';
+import '../../design/selah_nav_bounce.dart';
 import '../../design/selah_pressable.dart';
+import '../../design/selah_sheet.dart';
 import '../../design/selah_theme.dart';
 import '../../design/selah_typography.dart';
 import '../../design/selah_stagger_entrance.dart';
@@ -215,18 +219,36 @@ class _WebRoot extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             page,
-            if (notice != null &&
-                !controller.noticeRequiresInlineDisplay &&
-                controller.error == null)
-              Positioned(
-                top: top,
-                right: right,
-                width: toastWidth,
-                child: _WebToast(
-                  message: notice,
-                  onDismiss: controller.dismissNotice,
+            Positioned(
+              top: top,
+              right: right,
+              width: toastWidth,
+              child: AnimatedSwitcher(
+                duration: SelahMotion.toastOut,
+                switchInCurve: SelahMotion.standardCurve,
+                switchOutCurve: SelahMotion.exitCurve,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, -0.4),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
                 ),
+                child:
+                    (notice == null ||
+                        controller.noticeRequiresInlineDisplay ||
+                        controller.error != null)
+                    ? const SizedBox.shrink(key: ValueKey('toast-empty'))
+                    : _WebToast(
+                        key: ValueKey(notice),
+                        message: notice,
+                        onDismiss: controller.dismissNotice,
+                      ),
               ),
+            ),
           ],
         );
       },
@@ -235,7 +257,7 @@ class _WebRoot extends StatelessWidget {
 }
 
 class _WebToast extends StatelessWidget {
-  const _WebToast({required this.message, required this.onDismiss});
+  const _WebToast({super.key, required this.message, required this.onDismiss});
 
   final String message;
   final VoidCallback onDismiss;
@@ -411,15 +433,18 @@ class _WebShell extends StatelessWidget {
       bottomNavigationBar: NavigationBar(
         selectedIndex: controller.tab.clamp(0, tabs.length - 1),
         onDestinationSelected: controller.navigate,
-        destinations: tabs
-            .map(
-              (tab) => NavigationDestination(
-                icon: Icon(tab.icon),
-                selectedIcon: Icon(tab.icon),
-                label: tab.label,
-              ),
-            )
-            .toList(),
+        destinations: tabs.indexed.map((entry) {
+          final tab = entry.$2;
+          final selected = controller.tab == entry.$1;
+          return NavigationDestination(
+            icon: SelahNavBounce(selected: selected, child: Icon(tab.icon)),
+            selectedIcon: SelahNavBounce(
+              selected: selected,
+              child: Icon(tab.icon),
+            ),
+            label: tab.label,
+          );
+        }).toList(),
       ),
     );
   }
@@ -499,12 +524,15 @@ class _Sidebar extends StatelessWidget {
                     ),
                     child: Row(
                       children: [
-                        Icon(
-                          tab.icon,
-                          size: 19,
-                          color: selected
-                              ? SelahColors.coral
-                              : SelahColors.textSecondary,
+                        SelahNavBounce(
+                          selected: selected,
+                          child: Icon(
+                            tab.icon,
+                            size: 19,
+                            color: selected
+                                ? SelahColors.coral
+                                : SelahColors.textSecondary,
+                          ),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -945,7 +973,7 @@ class _ContentState extends State<_Content> {
         Expanded(
           child: _TabEntrance(
             tab: controller.tab,
-            child: IndexedStack(
+            child: SelahLazyIndexedStack(
               index: controller.tab,
               children: [
                 _TodayPage(
@@ -1010,7 +1038,7 @@ class _TabEntranceState extends State<_TabEntrance>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: SelahMotion.quick,
+    duration: SelahMotion.transition,
     value: 1,
   );
 
@@ -1020,8 +1048,13 @@ class _TabEntranceState extends State<_TabEntrance>
   );
 
   late final Animation<Offset> _rise = Tween<Offset>(
-    begin: const Offset(0, 0.03),
+    begin: const Offset(0, 0.05),
     end: Offset.zero,
+  ).animate(_fade);
+
+  late final Animation<double> _scale = Tween<double>(
+    begin: 0.985,
+    end: 1,
   ).animate(_fade);
 
   @override
@@ -1049,7 +1082,10 @@ class _TabEntranceState extends State<_TabEntrance>
     }
     return FadeTransition(
       opacity: _fade,
-      child: SlideTransition(position: _rise, child: widget.child),
+      child: SlideTransition(
+        position: _rise,
+        child: ScaleTransition(scale: _scale, child: widget.child),
+      ),
     );
   }
 }
@@ -3096,7 +3132,7 @@ class _ListenPageState extends State<_ListenPage> {
     String? selectedId;
     try {
       if (MediaQuery.sizeOf(context).width < 900) {
-        selectedId = await showModalBottomSheet<String>(
+        selectedId = await showSelahSheet<String>(
           context: context,
           isScrollControlled: true,
           useSafeArea: true,
@@ -3144,7 +3180,7 @@ class _ListenPageState extends State<_ListenPage> {
         );
       } else {
         final height = MediaQuery.sizeOf(context).height * 0.8;
-        selectedId = await showDialog<String>(
+        selectedId = await showSelahDialog<String>(
           context: context,
           builder: (dialogContext) {
             _libraryRoute = ModalRoute.of(dialogContext);
@@ -6285,7 +6321,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                   onPressed: c.busy || c.recording || c.hasPendingRecording
                       ? null
                       : () async {
-                          final confirmed = await showDialog<bool>(
+                          final confirmed = await showSelahDialog<bool>(
                             context: context,
                             builder: (dialogContext) => AlertDialog(
                               title: Text(s.text('settings.update')),
@@ -7023,7 +7059,7 @@ Future<void> _showBreakdownMeaning(
   String surface,
   String explanation, {
   required String locale,
-}) => showModalBottomSheet<void>(
+}) => showSelahSheet<void>(
   context: context,
   showDragHandle: true,
   backgroundColor: SelahColors.cardPrimary,
@@ -7647,14 +7683,14 @@ class _AuthDialogState extends State<_AuthDialog> {
 }
 
 void _showAuth(BuildContext context, LearningController controller) {
-  showDialog<void>(
+  showSelahDialog<void>(
     context: context,
     builder: (_) => _AuthDialog(controller: controller),
   );
 }
 
 void _showFeedbackSurvey(BuildContext context, LearningController controller) {
-  showModalBottomSheet<void>(
+  showSelahSheet<void>(
     context: context,
     isScrollControlled: true,
     useSafeArea: true,
@@ -7670,7 +7706,7 @@ void _showFeedbackSurvey(BuildContext context, LearningController controller) {
 
 void _showSeedLibrary(BuildContext context, LearningController controller) {
   final strings = SelahStrings.of(controller.uiLocale);
-  showDialog<void>(
+  showSelahDialog<void>(
     context: context,
     builder: (dialogContext) => StatefulBuilder(
       builder: (dialogContext, setDialogState) {
@@ -7762,7 +7798,7 @@ void _showMemories(BuildContext context, LearningController controller) {
   final keys = controller.state.memories.keys
       .where(memoryTitles.containsKey)
       .toList();
-  showDialog<void>(
+  showSelahDialog<void>(
     context: context,
     builder: (_) => AlertDialog(
       title: Text(strings.translateLegacy('成长回忆册')),

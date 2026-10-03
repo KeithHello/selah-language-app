@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_dialog.dart';
+import '../../design/selah_sheet.dart';
 import '../../design/selah_pressable.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
@@ -363,7 +365,7 @@ class ResearchProfileSummary extends StatelessWidget {
           spacing: 8,
           children: [
             OutlinedButton(
-              onPressed: () => showModalBottomSheet<void>(
+              onPressed: () => showSelahSheet<void>(
                 context: context,
                 isScrollControlled: true,
                 builder: (_) => Padding(
@@ -384,7 +386,7 @@ class ResearchProfileSummary extends StatelessWidget {
               onPressed: controller.saving
                   ? null
                   : () async {
-                      final confirmed = await showDialog<bool>(
+                      final confirmed = await showSelahDialog<bool>(
                         context: context,
                         builder: (dialogContext) => AlertDialog(
                           title: Text(copy('withdrawConfirmTitle')),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:selah/design/selah_nav_bounce.dart';
 import 'package:selah/design/selah_motion_scope.dart';
 import 'package:selah/design/selah_pressable.dart';
 import 'package:selah/design/selah_stagger_entrance.dart';
@@ -55,7 +56,7 @@ void main() {
         tester.getCenter(find.byType(SelahPressable)),
       );
       await tester.pumpAndSettle();
-      expect(_pressableScale(tester), moreOrLessEquals(0.97));
+      expect(_pressableScale(tester), moreOrLessEquals(0.94));
 
       await gesture.up();
       await tester.pumpAndSettle();
@@ -88,6 +89,75 @@ void main() {
 
     await gesture.up();
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('SelahPressable icon variant uses the deepest press scale', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        motionEnabled: true,
+        child: SelahPressable(
+          variant: SelahPressVariant.icon,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () {},
+            child: const SizedBox(width: 40, height: 40),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final gesture = await tester.startGesture(
+      tester.getCenter(find.byType(SelahPressable)),
+    );
+    await tester.pumpAndSettle();
+    expect(_pressableScale(tester), moreOrLessEquals(0.90));
+
+    await gesture.up();
+    await tester.pumpAndSettle();
+    expect(_pressableScale(tester), 1);
+  });
+
+  testWidgets('SelahNavBounce scales past 1 mid bounce and settles at 1', (
+    tester,
+  ) async {
+    var selected = false;
+    late StateSetter setInnerState;
+    await tester.pumpWidget(
+      _host(
+        motionEnabled: true,
+        child: StatefulBuilder(
+          builder: (context, setState) {
+            setInnerState = setState;
+            return Center(
+              child: SelahNavBounce(
+                selected: selected,
+                child: const SizedBox(width: 24, height: 24),
+              ),
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    setInnerState(() => selected = true);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    final midTransform = tester
+        .widget<Transform>(find.byType(Transform).first)
+        .transform
+        .storage[0];
+    expect(midTransform, greaterThan(1.0));
+
+    await tester.pumpAndSettle();
+    final settledTransform = tester
+        .widget<Transform>(find.byType(Transform).first)
+        .transform
+        .storage[0];
+    expect(settledTransform, moreOrLessEquals(1.0));
   });
 
   testWidgets('SelahStaggerEntrance plays once per first entry', (

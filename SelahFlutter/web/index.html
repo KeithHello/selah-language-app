@@ -21,6 +21,11 @@
     #selah-loading[hidden] { display: none; }
     #selah-loading .seed { width: 48px; height: 48px; margin-bottom: 16px; color: #5A9E82; }
     #selah-loading .content { display: grid; justify-items: center; }
+    #selah-loading .seed { animation: selah-seed-pulse 2.2s ease-in-out infinite; }
+    @keyframes selah-seed-pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.08); opacity: 0.75; }
+    }
   </style>
   <!-- The browser boundary must be ready before Flutter's bootstrap runs. -->
   <script src="selah_bridge.js"></script>

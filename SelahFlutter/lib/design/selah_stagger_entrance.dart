@@ -27,7 +27,7 @@ class SelahStaggerEntrance extends StatefulWidget {
 
 class _SelahStaggerEntranceState extends State<SelahStaggerEntrance>
     with SingleTickerProviderStateMixin {
-  static const Duration _interval = Duration(milliseconds: 40);
+  static const Duration _interval = Duration(milliseconds: 70);
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -108,8 +108,11 @@ class _SelahStaggerEntranceState extends State<SelahStaggerEntrance>
               return Opacity(
                 opacity: eased,
                 child: Transform.translate(
-                  offset: Offset(0, 12 * (1 - eased)),
-                  child: child,
+                  offset: Offset(0, 20 * (1 - eased)),
+                  child: Transform.scale(
+                    scale: 0.98 + 0.02 * eased,
+                    child: child,
+                  ),
                 ),
               );
             },
