@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_pressable.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_typography.dart';
 import '../domain/research_profile.dart';
@@ -133,28 +134,30 @@ class _ResearchProfileFormState extends State<ResearchProfileForm> {
               child: Text(copy('skip')),
             ),
             const Spacer(),
-            FilledButton(
-              onPressed: c.saving
-                  ? null
-                  : () async {
-                      try {
-                        await c.save(
-                          ResearchProfile(
-                            learningGoal: _goal,
-                            englishLevel: _level,
-                            ageGroup: _age,
-                            lifeStage: _lifeStage,
-                            gender: _gender,
-                            genderDescription: _genderDescription,
-                          ),
-                          consent: true,
-                        );
-                        widget.onDone?.call();
-                      } catch (_) {
-                        if (mounted) setState(() {});
-                      }
-                    },
-              child: Text(copy('save')),
+            SelahPressable(
+              child: FilledButton(
+                onPressed: c.saving
+                    ? null
+                    : () async {
+                        try {
+                          await c.save(
+                            ResearchProfile(
+                              learningGoal: _goal,
+                              englishLevel: _level,
+                              ageGroup: _age,
+                              lifeStage: _lifeStage,
+                              gender: _gender,
+                              genderDescription: _genderDescription,
+                            ),
+                            consent: true,
+                          );
+                          widget.onDone?.call();
+                        } catch (_) {
+                          if (mounted) setState(() {});
+                        }
+                      },
+                child: Text(copy('save')),
+              ),
             ),
           ],
         ),

@@ -9,8 +9,10 @@ import '../../design/selah_colors.dart';
 import '../../design/selah_spacing.dart';
 import '../../design/selah_motion.dart';
 import '../../design/selah_motion_scope.dart';
+import '../../design/selah_pressable.dart';
 import '../../design/selah_theme.dart';
 import '../../design/selah_typography.dart';
+import '../../design/selah_stagger_entrance.dart';
 import '../../domain/selah_enums.dart';
 import '../domain/learning_engine.dart';
 import '../domain/learning_models.dart';
@@ -875,10 +877,35 @@ class _CompanionProgress extends StatelessWidget {
   }
 }
 
-class _Content extends StatelessWidget {
+class _Content extends StatefulWidget {
   const _Content({required this.controller});
 
   final LearningController controller;
+
+  @override
+  State<_Content> createState() => _ContentState();
+}
+
+class _ContentState extends State<_Content> {
+  final Set<int> _staggeredTabs = <int>{};
+  bool _currentTabFirstEntry = true;
+  late int _lastTab = widget.controller.tab;
+
+  LearningController get controller => widget.controller;
+
+  @override
+  void didUpdateWidget(covariant _Content oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final tab = widget.controller.tab;
+    if (tab != _lastTab) {
+      _currentTabFirstEntry = !_staggeredTabs.contains(tab);
+      _staggeredTabs.add(tab);
+      _lastTab = tab;
+    }
+  }
+
+  bool _entranceForTab(int index) =>
+      index == controller.tab && _currentTabFirstEntry;
 
   @override
   Widget build(BuildContext context) {
@@ -917,37 +944,113 @@ class _Content extends StatelessWidget {
             child: _MessageBar(controller: controller),
           ),
         Expanded(
-          child: IndexedStack(
-            index: controller.tab,
-            children: [
-              _TodayPage(controller: controller, key: const ValueKey('today')),
-              _ListenPage(
-                controller: controller,
-                key: const ValueKey('listen'),
-              ),
-              _PracticePage(
-                controller: controller,
-                key: const ValueKey('practice'),
-              ),
-              _NotesPage(controller: controller, key: const ValueKey('notes')),
-              _SettingsPage(
-                controller: controller,
-                key: const ValueKey('settings'),
-              ),
-              if (controller.tab == 5)
-                AdminDashboardPage(
-                  controller: controller.admin,
-                  uiLocale: controller.uiLocale,
-                  onBack: () => controller.navigate(4),
-                  onLogin: () => _showAuth(context, controller),
-                  key: const ValueKey('admin'),
+          child: _TabEntrance(
+            tab: controller.tab,
+            child: IndexedStack(
+              index: controller.tab,
+              children: [
+                _TodayPage(
+                  controller: controller,
+                  entrance: _entranceForTab(0),
+                  key: const ValueKey('today'),
                 ),
-            ],
+                _ListenPage(
+                  controller: controller,
+                  entrance: _entranceForTab(1),
+                  key: const ValueKey('listen'),
+                ),
+                _PracticePage(
+                  controller: controller,
+                  entrance: _entranceForTab(2),
+                  key: const ValueKey('practice'),
+                ),
+                _NotesPage(
+                  controller: controller,
+                  entrance: _entranceForTab(3),
+                  key: const ValueKey('notes'),
+                ),
+                _SettingsPage(
+                  controller: controller,
+                  key: const ValueKey('settings'),
+                ),
+                if (controller.tab == 5)
+                  AdminDashboardPage(
+                    controller: controller.admin,
+                    uiLocale: controller.uiLocale,
+                    onBack: () => controller.navigate(4),
+                    onLogin: () => _showAuth(context, controller),
+                    key: const ValueKey('admin'),
+                  ),
+              ],
+            ),
           ),
         ),
         if (controller.tab != 1 && controller.loopSessionVisible)
           LoopListeningMiniPlayer(controller: controller),
       ],
+    );
+  }
+}
+
+/// Plays a gentle fade-and-rise each time the shell switches tabs.
+///
+/// The tree shape is stable whether or not motion is enabled: the
+/// transitions always exist and rest fully visible while the in-app
+/// 「動畫效果」 switch is off, so page state is never remounted.
+class _TabEntrance extends StatefulWidget {
+  const _TabEntrance({required this.tab, required this.child});
+
+  final int tab;
+  final Widget child;
+
+  @override
+  State<_TabEntrance> createState() => _TabEntranceState();
+}
+
+class _TabEntranceState extends State<_TabEntrance>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: SelahMotion.quick,
+    value: 1,
+  );
+
+  late final CurvedAnimation _fade = CurvedAnimation(
+    parent: _controller,
+    curve: SelahMotion.standardCurve,
+  );
+
+  late final Animation<Offset> _rise = Tween<Offset>(
+    begin: const Offset(0, 0.03),
+    end: Offset.zero,
+  ).animate(_fade);
+
+  @override
+  void didUpdateWidget(covariant _TabEntrance oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.tab != oldWidget.tab && MotionScope.of(context)) {
+      _controller.forward(from: 0);
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    _fade.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final motionOn = MotionScope.of(context);
+    if (!motionOn && (_controller.isAnimating || _controller.value != 1)) {
+      _controller
+        ..stop()
+        ..value = 1;
+    }
+    return FadeTransition(
+      opacity: _fade,
+      child: SlideTransition(position: _rise, child: widget.child),
     );
   }
 }
@@ -1083,9 +1186,17 @@ class _PageFrame extends StatelessWidget {
 }
 
 class _TodayPage extends StatefulWidget {
-  const _TodayPage({required this.controller, super.key});
+  const _TodayPage({
+    required this.controller,
+    this.entrance = false,
+    super.key,
+  });
 
   final LearningController controller;
+
+  /// True while the shell enters this page for the first time this session;
+  /// drives the one-time card stagger.
+  final bool entrance;
 
   @override
   State<_TodayPage> createState() => _TodayPageState();
@@ -1535,7 +1646,8 @@ class _TodayPageState extends State<_TodayPage> {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final desktop = constraints.maxWidth >= 780;
-          return Column(
+          return SelahStaggerEntrance(
+            animate: widget.entrance,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _TodayGreeting(controller: c),
@@ -2812,9 +2924,17 @@ class _DraftsCard extends StatelessWidget {
 }
 
 class _ListenPage extends StatefulWidget {
-  const _ListenPage({required this.controller, super.key});
+  const _ListenPage({
+    required this.controller,
+    this.entrance = false,
+    super.key,
+  });
 
   final LearningController controller;
+
+  /// True while the shell enters this page for the first time this session;
+  /// drives the one-time card stagger.
+  final bool entrance;
 
   @override
   State<_ListenPage> createState() => _ListenPageState();
@@ -3579,7 +3699,8 @@ class _ListenPageState extends State<_ListenPage> {
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 860),
-                  child: Column(
+                  child: SelahStaggerEntrance(
+                    animate: widget.entrance,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _ListenHeader(controller: c, count: sentences.length),
@@ -4367,24 +4488,26 @@ class _PlaybackControls extends StatelessWidget {
         if (showTransport)
           Row(
             children: [
-              FilledButton.icon(
-                onPressed: controller.busy
-                    ? null
-                    : () async {
-                        controller.clearMessage();
-                        if (controller.isPlaybackFor(sentence) &&
-                            (playing ||
-                                controller.playback['state'] == 'paused')) {
-                          await controller.togglePlayback();
-                        } else {
-                          await controller.play(sentence);
-                        }
-                      },
-                icon: Icon(
-                  playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
-                  size: 20,
+              SelahPressable(
+                child: FilledButton.icon(
+                  onPressed: controller.busy
+                      ? null
+                      : () async {
+                          controller.clearMessage();
+                          if (controller.isPlaybackFor(sentence) &&
+                              (playing ||
+                                  controller.playback['state'] == 'paused')) {
+                            await controller.togglePlayback();
+                          } else {
+                            await controller.play(sentence);
+                          }
+                        },
+                  icon: Icon(
+                    playing ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                    size: 20,
+                  ),
+                  label: Text(strings.translateLegacy(playing ? '暂停' : '播放')),
                 ),
-                label: Text(strings.translateLegacy(playing ? '暂停' : '播放')),
               ),
               const SizedBox(width: 9),
               IconButton(
@@ -4424,9 +4547,17 @@ class _PlaybackControls extends StatelessWidget {
 }
 
 class _PracticePage extends StatefulWidget {
-  const _PracticePage({required this.controller, super.key});
+  const _PracticePage({
+    required this.controller,
+    this.entrance = false,
+    super.key,
+  });
 
   final LearningController controller;
+
+  /// True while the shell enters this page for the first time this session;
+  /// drives the one-time card stagger.
+  final bool entrance;
 
   @override
   State<_PracticePage> createState() => _PracticePageState();
@@ -4545,7 +4676,8 @@ class _PracticePageState extends State<_PracticePage> {
     if (current == null) return const SizedBox.shrink();
     return _PageFrame(
       maxWidth: 760,
-      child: Column(
+      child: SelahStaggerEntrance(
+        animate: widget.entrance,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
@@ -4870,9 +5002,17 @@ class _LearnedPicker extends StatelessWidget {
 }
 
 class _NotesPage extends StatefulWidget {
-  const _NotesPage({required this.controller, super.key});
+  const _NotesPage({
+    required this.controller,
+    this.entrance = false,
+    super.key,
+  });
 
   final LearningController controller;
+
+  /// True while the shell enters this page for the first time this session;
+  /// drives the one-time card stagger.
+  final bool entrance;
 
   @override
   State<_NotesPage> createState() => _NotesPageState();
@@ -4926,7 +5066,8 @@ class _NotesPageState extends State<_NotesPage> {
     }).toList();
     return _PageFrame(
       maxWidth: 980,
-      child: Column(
+      child: SelahStaggerEntrance(
+        animate: widget.entrance,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
@@ -5933,16 +6074,18 @@ class _SettingsPageState extends State<_SettingsPage> {
                 ),
                 Row(
                   children: [
-                    FilledButton.icon(
-                      onPressed: c.syncing
-                          ? null
-                          : () async {
-                              c.clearMessage();
-                              await c.sync();
-                            },
-                      icon: const Icon(Icons.sync_rounded, size: 17),
-                      label: Text(
-                        s.translateLegacy(c.syncing ? '同步中…' : '立即同步'),
+                    SelahPressable(
+                      child: FilledButton.icon(
+                        onPressed: c.syncing
+                            ? null
+                            : () async {
+                                c.clearMessage();
+                                await c.sync();
+                              },
+                        icon: const Icon(Icons.sync_rounded, size: 17),
+                        label: Text(
+                          s.translateLegacy(c.syncing ? '同步中…' : '立即同步'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 10),

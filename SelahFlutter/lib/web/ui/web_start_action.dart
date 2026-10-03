@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../design/selah_colors.dart';
 import '../../design/selah_motion.dart';
 import '../../design/selah_motion_scope.dart';
+import '../../design/selah_pressable.dart';
 import '../../design/selah_typography.dart';
 import '../domain/learning_models.dart';
 import '../l10n/selah_strings.dart';
@@ -72,31 +73,33 @@ class WebStartAction extends StatelessWidget {
               child: Tooltip(
                 message: _strings.text('onboarding.start'),
                 excludeFromSemantics: true,
-                child: SizedBox.square(
-                  dimension: 64,
-                  child: FilledButton(
-                    onPressed: enabled ? (valid ? onStart : onInvalid) : null,
-                    style: FilledButton.styleFrom(
-                      backgroundColor: SelahColors.coral,
-                      foregroundColor: SelahColors.textOnAccent,
-                      disabledBackgroundColor: SelahColors.coral.withValues(
-                        alpha: .34,
+                child: SelahPressable(
+                  child: SizedBox.square(
+                    dimension: 64,
+                    child: FilledButton(
+                      onPressed: enabled ? (valid ? onStart : onInvalid) : null,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: SelahColors.coral,
+                        foregroundColor: SelahColors.textOnAccent,
+                        disabledBackgroundColor: SelahColors.coral.withValues(
+                          alpha: .34,
+                        ),
+                        disabledForegroundColor: SelahColors.textOnAccent
+                            .withValues(alpha: .78),
+                        fixedSize: const Size.square(64),
+                        minimumSize: const Size.square(64),
+                        maximumSize: const Size.square(64),
+                        padding: EdgeInsets.zero,
+                        elevation: enabled ? 2 : 0,
+                        shape: const CircleBorder(),
+                        animationDuration: reducedMotion
+                            ? Duration.zero
+                            : SelahMotion.quick,
                       ),
-                      disabledForegroundColor: SelahColors.textOnAccent
-                          .withValues(alpha: .78),
-                      fixedSize: const Size.square(64),
-                      minimumSize: const Size.square(64),
-                      maximumSize: const Size.square(64),
-                      padding: EdgeInsets.zero,
-                      elevation: enabled ? 2 : 0,
-                      shape: const CircleBorder(),
-                      animationDuration: reducedMotion
-                          ? Duration.zero
-                          : SelahMotion.quick,
-                    ),
-                    child: _ActionIcon(
-                      busy: busy,
-                      reducedMotion: reducedMotion,
+                      child: _ActionIcon(
+                        busy: busy,
+                        reducedMotion: reducedMotion,
+                      ),
                     ),
                   ),
                 ),
