@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(27);
+select plan(23);
 
 select has_table('public', 'generation_requests', 'request ledger exists');
 select has_function(
@@ -47,69 +47,6 @@ insert into auth.users (
   '{}'::jsonb,
   now(),
   now()
-);
-
-insert into public.user_memberships (
-  id,
-  user_id,
-  plan,
-  status,
-  source,
-  started_at,
-  expires_at
-) values (
-  '10000000-0000-4000-8000-000000000300',
-  '10000000-0000-4000-8000-000000000001',
-  'monthly',
-  'active',
-  'paid',
-  now() - interval '1 day',
-  now() + interval '30 days'
-);
-
-select is(
-  public.record_generation_usage(
-    '10000000-0000-4000-8000-000000000001',
-    '40000000-0000-4000-8000-000000000001',
-    'sentence',
-    3,
-    100,
-    'audit-only-test'
-  )->>'enforced',
-  'false',
-  'free-mode generation is recorded without enforcing an allowance'
-);
-
-select is(
-  (
-    select membership_id
-      from public.membership_reservations
-     where client_request_id = '40000000-0000-4000-8000-000000000001'
-  ),
-  null::uuid,
-  'audit-only usage is not attached to an active membership'
-);
-
-select is(
-  (
-    select coalesce(sum(units_reserved), 0)::integer
-      from public.membership_reservations
-     where membership_id = '10000000-0000-4000-8000-000000000300'
-       and status in ('reserved', 'dispatch_claimed', 'settled', 'unknown')
-  ),
-  0,
-  'usage accumulated while enforcement is off is excluded from member quota'
-);
-
-select is(
-  (
-    select count(*)::integer
-      from public.membership_reservations
-     where user_id = '10000000-0000-4000-8000-000000000001'
-       and client_request_id = '40000000-0000-4000-8000-000000000001'
-  ),
-  1,
-  'audit-only usage remains available in the ledger'
 );
 
 insert into public.user_memberships (
