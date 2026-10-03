@@ -70,6 +70,7 @@ Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。
 - 构建唯一入口：`SelahFlutter/tool/web.ps1 -Action build`（负责 Supabase 公共配置注入、selah-precache.json 生成与 Build ID 计算）；禁止绕过该脚本产出部署包。
 - 部署验证口径：线上 index.html 的 selah-build-id 与 selah-version 必须与构建一致，且 main.dart.js、selah-precache.json 返回 200；结果记入 ROADMAP。
 - 版本规则：SelahFlutter/pubspec.yaml 的 version 字段是唯一人工版本源（语义版本）；功能轮升次版本、修复轮升补丁，构建序号同步递增。web.ps1 构建时先注入版本到产物 index.html 的 selah-version，再计算 Build ID 指纹，版本变化必然改变指纹。设置页「版本」行展示「语义版本 · 指纹」。
+- 版本唯一性门禁：每次生产部署的版本号必须与当前线上不同；CI 在部署生产前读取线上 selah-version 比对，重复即拒绝部署并提示升级 pubspec 版本。因此凡要触发生产部署的提交，必须先升级版本号（功能轮次版本、修复轮补丁）。
 - 部署汇报：每次生产部署完成后，必须向主人汇报实际版本号、Build ID 与线上校验结果；CI Summary 同步记录版本、指纹与环境。
 - 回滚：首选 `git revert` 后走 CI 重发；手动 wrangler 生产部署、CF 控制台回滚须主人逐次确认。
 - 红线不变：修改部署 workflow、增删部署 secrets、Cloudflare 控制台任何配置变更、数据库 migration 与 Edge Function 部署，均须先经主人确认。

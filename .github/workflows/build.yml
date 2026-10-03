@@ -199,6 +199,23 @@ jobs:
           echo "Web app version: $APP_VERSION, build id: $BUILD_ID"
           echo "Web Build ID: $BUILD_ID"
 
+      - name: Guard production version uniqueness
+        if: github.ref == 'refs/heads/main'
+        env:
+          APP_VERSION: ${{ steps.buildid.outputs.app_version }}
+        run: |
+          LIVE_VERSION=""
+          for i in 1 2 3; do
+            LIVE_VERSION=$(curl -sf https://selah-language-app.pages.dev/ | grep -oP 'name="selah-version" content="\K[^"]+' || true)
+            if [ -n "$LIVE_VERSION" ]; then break; fi
+            sleep 5
+          done
+          if [ -n "$LIVE_VERSION" ] && [ "$LIVE_VERSION" = "$APP_VERSION" ]; then
+            echo "::error::生产已在运行版本 $APP_VERSION：每次生产部署必须使用新版本号。请在 SelahFlutter/pubspec.yaml 升级 version 后重新提交。"
+            exit 1
+          fi
+          echo "Version uniqueness guard passed: deploying $APP_VERSION (live: ${LIVE_VERSION:-unknown})"
+
       - name: Compute deploy alias
         id: alias
         run: |
