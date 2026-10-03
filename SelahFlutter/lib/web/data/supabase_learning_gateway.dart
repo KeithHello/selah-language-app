@@ -72,6 +72,42 @@ class SupabaseLearningGateway implements LearningGateway {
   }
 
   @override
+  Future<void> updatePassword(String newPassword) async {
+    if (client.auth.currentUser == null) {
+      throw const LearningFailure(
+        '重置链接已失效，请重新申请找回密码邮件。',
+        code: 'recovery_link_invalid',
+      );
+    }
+    try {
+      await client.auth.updateUser(UserAttributes(password: newPassword));
+    } on AuthException catch (error) {
+      if (error.statusCode == '422') {
+        throw const LearningFailure(
+          '新密码强度不足，请换一个更长的密码。',
+          code: 'recovery_weak_password',
+        );
+      }
+      if (error.statusCode == '429') {
+        throw const LearningFailure(
+          '操作太频繁了，请稍后再试。',
+          code: 'recovery_rate_limited',
+        );
+      }
+      if (error.statusCode == '400' || error.statusCode == '401') {
+        throw const LearningFailure(
+          '重置链接已失效，请重新申请找回密码邮件。',
+          code: 'recovery_link_invalid',
+        );
+      }
+      throw LearningFailure(
+        error.message.isEmpty ? '密码更新失败，请稍后再试。' : error.message,
+        code: 'recovery_failed',
+      );
+    }
+  }
+
+  @override
   Future<void> signOut() => client.auth.signOut(scope: SignOutScope.local);
   String _requireUser() {
     final id = userId;

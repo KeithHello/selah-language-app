@@ -44,6 +44,8 @@ class LearningController extends ChangeNotifier {
     MembershipController? membershipController,
     ResearchProfileController? researchProfileController,
     FeedbackSurveyController? feedbackSurveyController,
+    this.initialPasswordRecovery = false,
+    this.recoveryEmailHintFromLink,
   }) : _baseSeeds = seeds,
        store = LearningStore(platform),
        admin = adminController ?? AdminController(gateway: gateway),
@@ -58,6 +60,7 @@ class LearningController extends ChangeNotifier {
           gateway: gateway,
           recordEvent: _recordFeedbackEvent,
         );
+    _passwordResetRequired = initialPasswordRecovery;
   }
   final Map<String, dynamic> bundledAudio;
   final List<LearnSentence> _baseSeeds;
@@ -95,6 +98,11 @@ class LearningController extends ChangeNotifier {
   String? errorCode;
   String? _notice;
   Timer? _noticeTimer;
+  final bool initialPasswordRecovery;
+  final String? recoveryEmailHintFromLink;
+  bool _passwordResetRequired = false;
+  bool get passwordResetRequired => _passwordResetRequired;
+  String? get recoveryEmailHint => gateway.email ?? recoveryEmailHintFromLink;
   int tab = 0;
   int? detailTab;
   String? detailSentenceId;
@@ -981,6 +989,17 @@ class LearningController extends ChangeNotifier {
           ? 'guest'
           : gateway.userId ?? 'guest';
       await _switchAccount(initialAccount, force: true);
+      if (initialPasswordRecovery) {
+        final hint = recoveryEmailHintFromLink;
+        final sessionEmail = gateway.email;
+        if (gateway.userId == null ||
+            (hint != null &&
+                sessionEmail != null &&
+                sessionEmail.toLowerCase() != hint.toLowerCase())) {
+          _passwordResetRequired = false;
+          notice = '重置链接已失效或已被使用，请重新申请找回密码邮件。';
+        }
+      }
       platformInfo = objectMap(await platform.invoke('platformInfo'));
       if (polling) {
         _timer ??= Timer.periodic(
@@ -2950,6 +2969,30 @@ class LearningController extends ChangeNotifier {
     await gateway.resetPassword(email, emailRedirectTo: selahAuthRedirectUrl());
     notice = '如果这个邮箱已注册，找回密码邮件很快会送到。';
   });
+  Future<void> submitNewPassword({
+    required String newPassword,
+    required String confirmPassword,
+  }) => _run((generation) async {
+    if (newPassword.length < 6) {
+      throw const LearningFailure(
+        '新密码至少需要 6 个字符。',
+        code: 'recovery_weak_password',
+      );
+    }
+    if (newPassword != confirmPassword) {
+      throw const LearningFailure('两次输入的密码不一致。', code: 'recovery_mismatch');
+    }
+    await gateway.updatePassword(newPassword);
+    _passwordResetRequired = false;
+    notice = '密码已更新，下次登录请使用新密码。';
+    notifyListeners();
+  });
+
+  void dismissPasswordRecovery() {
+    _passwordResetRequired = false;
+    notifyListeners();
+  }
+
   Future<void> sync() async {
     if (syncing ||
         !initialized ||

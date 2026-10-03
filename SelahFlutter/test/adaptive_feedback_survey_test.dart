@@ -241,6 +241,8 @@ class _Gateway implements LearningGateway {
 
   @override
   Future<void> resetPassword(String email, {String? emailRedirectTo}) async {}
+  @override
+  Future<void> updatePassword(String newPassword) async {}
 
   @override
   Future<void> signOut() async {}

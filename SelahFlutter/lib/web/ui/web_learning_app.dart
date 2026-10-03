@@ -249,6 +249,11 @@ class _WebRoot extends StatelessWidget {
                       ),
               ),
             ),
+            if (controller.passwordResetRequired)
+              Positioned.fill(
+                key: const ValueKey('password-recovery-overlay'),
+                child: _PasswordRecoveryOverlay(controller: controller),
+              ),
           ],
         );
       },
@@ -7523,6 +7528,14 @@ class _AuthDialogState extends State<_AuthDialog> {
     }
   }
 
+  Future<void> _forgotPassword() async {
+    widget.controller.clearMessage();
+    await widget.controller.resetPassword(_email.text.trim());
+    if (widget.controller.error == null && mounted) {
+      Navigator.of(context).pop();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(widget.controller.uiLocale);
@@ -7552,6 +7565,19 @@ class _AuthDialogState extends State<_AuthDialog> {
                 helperText: strings.translateLegacy('至少 6 个字符'),
               ),
             ),
+            if (!_register) ...[
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton(
+                  onPressed: _busy ? null : _forgotPassword,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, SelahSpacing.minTouchTarget),
+                  ),
+                  child: Text(strings.text('auth.forgotPassword')),
+                ),
+              ),
+            ],
             if (_register) ...[
               const SizedBox(height: 16),
               Align(
@@ -7676,6 +7702,127 @@ class _AuthDialogState extends State<_AuthDialog> {
           child: Text(
             strings.translateLegacy(_busy ? '处理中…' : (_register ? '注册' : '登录')),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+class _PasswordRecoveryOverlay extends StatelessWidget {
+  const _PasswordRecoveryOverlay({required this.controller});
+
+  final LearningController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () {},
+      child: ColoredBox(
+        color: Colors.black54,
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: _PasswordRecoveryCard(controller: controller),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PasswordRecoveryCard extends StatefulWidget {
+  const _PasswordRecoveryCard({required this.controller});
+
+  final LearningController controller;
+
+  @override
+  State<_PasswordRecoveryCard> createState() => _PasswordRecoveryCardState();
+}
+
+class _PasswordRecoveryCardState extends State<_PasswordRecoveryCard> {
+  final _newPassword = TextEditingController();
+  final _confirmPassword = TextEditingController();
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _newPassword.dispose();
+    _confirmPassword.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    setState(() => _busy = true);
+    widget.controller.clearMessage();
+    try {
+      await widget.controller.submitNewPassword(
+        newPassword: _newPassword.text,
+        confirmPassword: _confirmPassword.text,
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final strings = SelahStrings.of(widget.controller.uiLocale);
+    return AlertDialog(
+      title: Text(strings.text('auth.recovery.title')),
+      content: SizedBox(
+        width: 360,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              strings.text('auth.recovery.forAccount'),
+              style: SelahTypography.bodySmall(
+                color: SelahColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(widget.controller.recoveryEmailHint ?? ''),
+            if (widget.controller.error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                strings.translateLegacy(widget.controller.error!),
+                style: SelahTypography.bodySmall(color: SelahColors.danger),
+              ),
+            ],
+            const SizedBox(height: 12),
+            TextField(
+              controller: _newPassword,
+              obscureText: true,
+              autofocus: true,
+              decoration: InputDecoration(
+                labelText: strings.text('auth.recovery.newPassword'),
+                helperText: strings.translateLegacy('至少 6 个字符'),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirmPassword,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: strings.text('auth.recovery.confirmPassword'),
+              ),
+              onSubmitted: _busy ? null : (_) => _submit(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          key: const ValueKey('password-recovery-dismiss'),
+          onPressed: _busy ? null : widget.controller.dismissPasswordRecovery,
+          child: Text(strings.text('auth.recovery.dismiss')),
+        ),
+        FilledButton(
+          key: const ValueKey('password-recovery-submit'),
+          onPressed: _busy ? null : _submit,
+          child: Text(strings.text('auth.recovery.submit')),
         ),
       ],
     );

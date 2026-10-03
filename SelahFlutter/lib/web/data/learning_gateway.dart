@@ -32,6 +32,7 @@ abstract class LearningGateway {
   Future<void> signIn(String email, String password);
   Future<void> signUp(String email, String password, {String? emailRedirectTo});
   Future<void> resetPassword(String email, {String? emailRedirectTo});
+  Future<void> updatePassword(String newPassword);
   Future<void> signOut();
   Future<Map<String, dynamic>> invoke(
     String function,
@@ -69,6 +70,8 @@ class UnconfiguredGateway implements LearningGateway {
   @override
   Future<void> resetPassword(String email, {String? emailRedirectTo}) async =>
       _missing();
+  @override
+  Future<void> updatePassword(String newPassword) async => _missing();
   @override
   Future<void> signOut() async {}
   @override

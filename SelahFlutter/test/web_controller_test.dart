@@ -129,6 +129,22 @@ class AuthRedirectGateway extends FakeGateway {
   }
 }
 
+class RecoveryGateway extends FakeGateway {
+  RecoveryGateway({this.sessionEmail = 'user@example.com'});
+
+  final String? sessionEmail;
+  String? updatedPassword;
+
+  @override
+  String? get userId => sessionEmail == null ? null : 'user-1';
+  @override
+  String? get email => sessionEmail;
+  @override
+  Future<void> updatePassword(String newPassword) async {
+    updatedPassword = newPassword;
+  }
+}
+
 class SwitchingGateway extends FakeGateway {
   String? current;
   final changes = StreamController<String?>.broadcast(sync: true);
@@ -462,6 +478,56 @@ void main() {
       expect(expectedRedirect.contains('?'), isFalse);
     });
   });
+
+  test('recovery link opens the reset flow and updates the password', () async {
+    final gateway = RecoveryGateway();
+    final controller = LearningController(
+      gateway: gateway,
+      platform: MemoryPlatform(),
+      seeds: seeds(),
+      polling: false,
+      initialPasswordRecovery: true,
+      recoveryEmailHintFromLink: 'user@example.com',
+    );
+    addTearDown(controller.dispose);
+    await controller.initialize();
+    expect(controller.passwordResetRequired, isTrue);
+    expect(controller.recoveryEmailHint, 'user@example.com');
+
+    await controller.submitNewPassword(
+      newPassword: 'abcdef',
+      confirmPassword: 'ghijkl',
+    );
+    expect(controller.errorCode, 'recovery_mismatch');
+    expect(gateway.updatedPassword, isNull);
+
+    await controller.submitNewPassword(
+      newPassword: '654321',
+      confirmPassword: '654321',
+    );
+    expect(gateway.updatedPassword, '654321');
+    expect(controller.passwordResetRequired, isFalse);
+    expect(controller.error, isNull);
+  });
+
+  test(
+    'expired recovery link without a session falls back to the app',
+    () async {
+      final gateway = RecoveryGateway(sessionEmail: null);
+      final controller = LearningController(
+        gateway: gateway,
+        platform: MemoryPlatform(),
+        seeds: seeds(),
+        polling: false,
+        initialPasswordRecovery: true,
+        recoveryEmailHintFromLink: 'user@example.com',
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      expect(controller.passwordResetRequired, isFalse);
+      expect(controller.notice, isNotNull);
+    },
+  );
 
   test('failed storage never advances onboarding or claims success', () async {
     final platform = MemoryPlatform()..failSave = true;

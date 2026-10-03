@@ -16,6 +16,8 @@ import 'ui/web_learning_app.dart';
 Future<void> launch() async {
   WidgetsFlutterBinding.ensureInitialized();
   try {
+    final passwordRecovery = _passwordRecoveryRequested();
+    final recoveryEmailHint = _passwordRecoveryEmail();
     const url = String.fromEnvironment('SUPABASE_URL');
     const key = String.fromEnvironment('SUPABASE_PUBLISHABLE_KEY');
     LearningGateway gateway = UnconfiguredGateway();
@@ -45,6 +47,8 @@ Future<void> launch() async {
       seeds: seeds,
       bundledAudio: audio,
       adminController: AdminController(gateway: gateway),
+      initialPasswordRecovery: passwordRecovery,
+      recoveryEmailHintFromLink: recoveryEmailHint,
     );
     if (isAdminConsoleUri(Uri.base)) {
       final adminController = AdminController(gateway: gateway);
@@ -98,5 +102,27 @@ bool _publicKey(String key) {
         'anon';
   } catch (_) {
     return false;
+  }
+}
+
+bool _passwordRecoveryRequested() {
+  return Uri.base.fragment.contains('type=recovery');
+}
+
+String? _passwordRecoveryEmail() {
+  try {
+    final token = RegExp(
+      'access_token=([^&]+)',
+    ).firstMatch(Uri.base.fragment)?.group(1);
+    if (token == null) return null;
+    final parts = token.split('.');
+    if (parts.length != 3) return null;
+    final payload = objectMap(
+      jsonDecode(utf8.decode(base64Url.decode(base64Url.normalize(parts[1])))),
+    );
+    final email = payload['email'];
+    return email is String ? email : null;
+  } catch (_) {
+    return null;
   }
 }
