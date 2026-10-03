@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-03 管理台、会员用量记录与限额（代码已合并并部署；限额已启用；管理员登录已就绪；SMTP 送达待确认）
+### 2026-10-03 管理台、会员用量记录与限额（代码已合并并部署；限额已启用；管理员登录已就绪；SMTP 与邮件链接已修复）
 
 - [x] 增加不出现在普通导航中的独立管理员登录路由，管理员登录后停留在管理台；实际授权仍由 `admin_members` 服务端检查。
 - [x] 用户管理页展示最近登录时间、注册时间及最近 100 条供应商调用明细；登录信息查询失败时单独标为不可用，不影响用量明细。
@@ -24,7 +24,8 @@
 - [x] GitHub Actions run `37122085586` 全部成功；`main` 已部署至 Cloudflare Pages 生产，版本 `1.3.0`、Build ID `174b53cb23cd7fea`，首页、`main.dart.js`、`selah-precache.json` 均 HTTP 200。
 - [x] 新建独立 Supabase Auth 管理员身份，并加入 `admin_members` 与 `admin_operators`；通过受保护的管理 Edge Function 成功认证并完成开关操作。生产管理员成员／操作员各 3 条；当前浏览器普通会员账号仍未扩大权限。
 - [x] 生产启用 `membership_enforcement_enabled`，设置版本修订为 `5`；后台审计事件已写入。试用注册和会员销售仍关闭，生成服务保持开启；启用前用量账本未改写。
-- [ ] Gmail SMTP 送达待最终确认：凭据已由主人更新为有效 App Password（发件账号切换为 `kd.agentic@gmail.com`）；2026-10-03 重新触发的管理员密码重置邮件已被 Supabase 接受、SMTP 配置读取正常（该网关不支持日志 API，无法服务端复核投递结果）。待收件箱确认收到「Reset your password」邮件后，用重置链接或临时密码登录管理台。
+- [x] Gmail SMTP 送达已由主人确认：2026-10-03 主人收到「Reset your password」邮件，`535` 认证错误未再出现。
+- [x] Auth 邮件链接根因已修复：Auth 配置 Site URL 由 `http://localhost:3000` 改为 `https://selah-language-app.pages.dev`，`uri_allow_list` 写入生产、预览别名（`https://*.selah-language-app.pages.dev/**`）与本地开发通配；首次写入误用连字符通配（无法匹配 Pages 预览子域名），已修正为点号子域通配并回读核验；修复后已重发重置邮件，链接域名待收件箱确认。
 - [x] 本机 `.env` 的 `SUPABASE_SERVICE_ROLE_KEY` 已验证可用：本轮用它完成 Auth Admin 管理员账号创建、管理员表写入与登录验证；调用必须携带非浏览器 User-Agent（如 `codex-agent/1.0`），否则网关会按浏览器请求拒绝。
 - [x] `codex/admin-console-usage-limits` 已合入 `main` 并删除本地及远端分支；`main` 与 `origin/main` 同步。
 
