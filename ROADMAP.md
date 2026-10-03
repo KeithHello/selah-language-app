@@ -16,8 +16,9 @@
 - [x] 管理台提供带二次确认的会员限额、试用注册、会员销售与生成服务开关；前端开关仍受服务端管理员授权保护。
 - [x] 版本更新为 `1.3.0+6`，符合功能轮次版本递增规则。
 - [x] 本地验证：Flutter 全量 418 项测试通过、`flutter analyze --no-pub` 通过；Supabase Deno 全量 363 项通过，Deno fmt／lint、20 个 Edge Function 类型检查通过。
-- [ ] `supabase/migrations/012_usage_metering.sql` 已编写并有静态合约及 pgTAP 用例；首轮 CI（run `37117787023`）成功应用 migration，但 pgTAP 因测试重复插入会员 fixture 失败，重复项与断言计划数已在本地修正，等待 CI 重跑验证。本机无 Docker／Supabase CLI。
-- [ ] 远端 Supabase migration、更新后的 Edge Functions、管理员账号及 `admin_members` 授权、Cloudflare 预览和生产发布均待分别确认；尚未变更远端服务、创建账号或启用会员限额。
+- [x] CI 数据库验证：首轮 run `37117787023` 找到重复会员 fixture 并失败；修正后 run `37117963924` 在隔离 PostgreSQL 成功应用 migration，pgTAP 23 条断言与并发测试全部通过。
+- [x] Cloudflare Pages 预览已部署版本 `1.3.0`、Build ID `174b53cb23cd7fea`；别名 `codex-admin-console-usage-li.selah-language-app.pages.dev` 的首页、`main.dart.js`、`selah-precache.json` 均 HTTP 200。该 run 的最终 CI 校验因 workflow 使用未截短分支名、而 Cloudflare 将别名截短而报失败；线上实际别名与构建指纹已手动核实一致。
+- [ ] 远端 Supabase migration、更新后的 Edge Functions、管理员账号及 `admin_members` 授权、Cloudflare 生产发布均待逐项确认；尚未变更生产 Supabase、创建账号或启用会员限额。部署规则：`codex/**` 自动发预览，只有 `main` 自动发生产。
 
 ### 2026-10-03 循环听音频失败回退与故障隔离（Web 生产已部署；Edge Function 待单独确认）
 
