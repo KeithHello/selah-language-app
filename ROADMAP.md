@@ -8,14 +8,14 @@
 
 ## 当前阶段
 
-### 2026-10-04 密码恢复闭环（实现与本地验证完成；生产发布待确认）
+### 2026-10-04 密码恢复闭环（实现、验证并已部署）
 
 - [x] 登录窗口增加「忘记密码？」；恢复邮件使用当前站点根地址回跳，成功提示不暴露邮箱是否已注册。
 - [x] 应用在 Supabase Flutter SDK 消费初始回调前识别 `type=recovery` 与令牌内邮箱提示；SDK 建立恢复会话后显示新密码表单。缺少会话或账户不匹配时提示重新申请。
 - [x] 新密码确认、至少 6 字符校验、Supabase Auth 更新、弱密码／限流／失效链接反馈，以及繁中、简中、日语文案均已接入；无数据库、Edge Function、密钥或远端配置变更。
 - [x] 设计与实施记录见 `docs/superpowers/specs/2026-10-04-password-recovery-design.md` 与 `docs/superpowers/plans/2026-10-04-password-recovery-plan.md`。
 - [x] 本地验证：`flutter analyze --no-pub` 无问题；Flutter 全量 423 项通过；Release Web 构建成功，版本 `1.5.0`，Build ID `f255c608aab51cf4`。
-- [ ] 提交已准备；推送 `main` 会触发 GitHub Actions 并部署到 Cloudflare Pages 生产。须按根目录 `CLAUDE.md` 的逐步告知与确认规则执行；之后核对 Actions、线上版本／Build ID 和关键资源状态。
+- [x] 生产发布：提交 `d186656` 已推送到 GitHub `main`；[Actions run 37139155819](https://github.com/KeithHello/selah-language-app/actions/runs/37139155819) 五个工作全部成功。Cloudflare Pages 正式站版本 `1.5.0`、CI Build ID `32645f749a16a878`；首页、`main.dart.js` 与 `selah-precache.json` 均返回 HTTP 200。
 
 ### 2026-10-03 Web 加载性能与品牌交互动效（实现、验证并已部署）
 

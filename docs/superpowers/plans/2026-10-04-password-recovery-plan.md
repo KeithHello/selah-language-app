@@ -42,6 +42,6 @@
 ### T5：提交、推送与生产核验
 
 - [x] 创建中文 Conventional Commit，检查提交只含本功能、验证记录及此前尚未推送的路线图记录。
-- [ ] 按 Cloudflare 逐步确认规则，在告知影响与风险后推送 `main`。
-- [ ] 核对 Actions 全部成功，线上版本／Build ID 与构建一致，首页、`main.dart.js`、`selah-precache.json` 返回 HTTP 200。
-- [ ] 更新路线图中的生产提交、Actions run 和线上核验结果。
+- [x] 按 Cloudflare 逐步确认规则，将 `main` 推送到 GitHub；确认后由 Actions 自动部署生产。
+- [x] Actions run `37139155819` 全部成功；线上版本 `1.5.0`、CI Build ID `32645f749a16a878` 与 CI 构建一致，首页、`main.dart.js`、`selah-precache.json` 均返回 HTTP 200。
+- [x] 更新路线图中的生产提交、Actions run 和线上核验结果。
