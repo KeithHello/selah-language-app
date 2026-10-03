@@ -5,6 +5,7 @@ import {
 import {
   audioCacheKey,
   buildAzureSsml,
+  resolveAudioFallbackRoute,
   resolveAudioRoute,
 } from "../functions/_shared/audio_routing.ts";
 import { shouldRetryProviderResponse } from "../functions/_shared/audio_generation_policy.ts";
@@ -30,6 +31,19 @@ Deno.test("routes traditional Chinese source audio to Azure Taiwan Mandarin", ()
     result.route.providerModel,
     "azure-speech/zh-TW-HsiaoChenNeural",
   );
+});
+
+Deno.test("uses the matching OpenAI native voice as the Azure fallback", () => {
+  const result = resolveAudioRoute(BASE);
+  assertEquals(result.ok, true);
+  if (!result.ok) return;
+
+  assertEquals(resolveAudioFallbackRoute(result.route), {
+    ...result.route,
+    provider: "openai",
+    providerVoice: "alloy",
+    providerModel: "openai/tts-1/alloy",
+  });
 });
 
 Deno.test("routes British English target audio to OpenAI British voice", () => {

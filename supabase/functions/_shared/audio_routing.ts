@@ -203,6 +203,20 @@ export function resolveAudioRoute(input: {
   };
 }
 
+export function resolveAudioFallbackRoute(
+  route: AudioRoute,
+): AudioRoute | null {
+  if (route.provider !== "azure" || route.language !== "zh-Hant") return null;
+  const providerVoice = VOICE_MAP[route.voiceProfile];
+  if (!providerVoice) return null;
+  return {
+    ...route,
+    provider: "openai",
+    providerVoice,
+    providerModel: `openai/${TTS_MODEL}/${providerVoice}`,
+  };
+}
+
 export function audioCacheKey(input: {
   provider: AudioProvider;
   providerVoice: string;

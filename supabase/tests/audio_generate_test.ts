@@ -129,6 +129,7 @@ function fakeAudioDependencies(
   calls: {
     rpc: Array<{ name: string; args: Record<string, unknown> }>;
     fetch: Request[];
+    usageModels: string[];
     upload: Array<{ path: string; byteLength: number }>;
     download: string[];
     signed: Array<{ path: string; ttl: number }>;
@@ -138,6 +139,7 @@ function fakeAudioDependencies(
   const calls = {
     rpc: [] as Array<{ name: string; args: Record<string, unknown> }>,
     fetch: [] as Request[],
+    usageModels: [] as string[],
     upload: [] as Array<{ path: string; byteLength: number }>,
     download: [] as string[],
     signed: [] as Array<{ path: string; ttl: number }>,
@@ -201,6 +203,7 @@ function fakeAudioDependencies(
           if (
             tableName === "generation_usage_attempts" && action === "insert"
           ) {
+            calls.usageModels.push(String(payload?.model));
             return { data: { id: "usage-attempt-1" }, error: null };
           }
           if (action === "insert" && tableName === "audio_manifests") {
@@ -238,6 +241,12 @@ function fakeAudioDependencies(
               const statusFilter = filters.find((filter) =>
                 filter.key === "generation_status" && filter.op === "in"
               );
+              const readyFilter = filters.find((filter) =>
+                filter.key === "generation_status" && filter.op === "eq"
+              );
+              const modelFilter = filters.find((filter) =>
+                filter.key === "tts_model" && filter.op === "eq"
+              );
               const cutoffFilter = filters.find((filter) =>
                 filter.key === "updated_at" && filter.op === "lt"
               );
@@ -246,7 +255,12 @@ function fakeAudioDependencies(
               const beforeCutoff = cutoffFilter &&
                 new Date(manifest.updated_at).getTime() <
                   new Date(String(cutoffFilter.value)).getTime();
-              if (!allowedStatus || !beforeCutoff) {
+              const replacingReadyManifest = readyFilter?.value === "ready" &&
+                manifest.generation_status === "ready" &&
+                modelFilter?.value === manifest.tts_model;
+              if (
+                !replacingReadyManifest && (!allowedStatus || !beforeCutoff)
+              ) {
                 return { data: null, error: { code: "PGRST116" } };
               }
             }
@@ -285,6 +299,15 @@ function fakeAudioDependencies(
           return { data: true, error: null };
         }
         if (name === "fail_generation_request") {
+          return { data: true, error: null };
+        }
+        if (name === "get_platform_service_controls") {
+          return { data: null, error: new Error("controls unavailable") };
+        }
+        if (name === "reserve_generation_allowance") {
+          return { data: "test-reservation-id", error: null };
+        }
+        if (name === "settle_generation_allowance") {
           return { data: true, error: null };
         }
         return { data: null, error: new Error("unexpected rpc") };
@@ -448,11 +471,11 @@ Deno.test("retries a provider timeout once and then returns the successful audio
   assertEquals(setup.calls.fetch.length, 2);
 });
 
-Deno.test("does not silently fall back from Azure to OpenAI after provider failure", async () => {
+Deno.test("falls back from an Azure authorization failure to OpenAI TTS", async () => {
   const setup = fakeAudioDependencies({
     providerResponses: [
-      new Response(null, { status: 503 }),
-      new Response(null, { status: 503 }),
+      new Response("Unauthorized", { status: 401 }),
+      new Response(mp3Bytes()),
     ],
   });
   const response = await createAudioGenerateHandler(setup.deps)(
@@ -467,14 +490,186 @@ Deno.test("does not silently fall back from Azure to OpenAI after provider failu
       voiceProfile: "native-gentle",
     }),
   );
-  assertEquals(response.status, 502);
+  assertEquals(response.status, 200);
   assertEquals(setup.calls.fetch.length, 2);
-  assertEquals(
-    setup.calls.fetch.every((request) =>
-      request.url.startsWith("https://japaneast.tts.speech.microsoft.com/")
-    ),
-    true,
+  assertStringIncludes(
+    setup.calls.fetch[0].url,
+    "https://japaneast.tts.speech.microsoft.com/",
   );
+  assertEquals(
+    setup.calls.fetch[1].url,
+    "https://api.openai.com/v1/audio/speech",
+  );
+  assertEquals(await setup.calls.fetch[1].json(), {
+    model: "tts-1",
+    input: "你好",
+    voice: "alloy",
+    response_format: "mp3",
+    speed: 1,
+  });
+  assertEquals(setup.calls.usageModels, [
+    "azure-speech/zh-TW-HsiaoChenNeural",
+    "openai/tts-1/alloy",
+  ]);
+  assertEquals(setup.getManifest()?.tts_model, "openai/tts-1/alloy");
+  assertEquals((await responseBody(response)).provider, "openai");
+});
+
+Deno.test("does not fall back for a non-retryable malformed request response", async () => {
+  const setup = fakeAudioDependencies({
+    providerResponse: new Response("Bad Request", { status: 400 }),
+  });
+  const response = await createAudioGenerateHandler(setup.deps)(
+    makeRequest(REQUEST_ID, {
+      contractVersion: 2,
+      text: "你好",
+      targetText: undefined,
+      audioRole: "source",
+      sourceLanguage: "zh-Hant",
+      targetLanguage: "en",
+      accent: "zh-TW",
+      voiceProfile: "native-gentle",
+    }),
+  );
+
+  assertEquals(response.status, 502);
+  assertEquals(setup.calls.fetch.length, 1);
+});
+
+Deno.test("replaces cached fallback audio when fallback is disabled", async () => {
+  const setup = fakeAudioDependencies({
+    manifest: makeManifest({
+      generation_status: "ready",
+      tts_model: "openai/tts-1/alloy",
+      byte_size: mp3Bytes().byteLength,
+    }),
+    storedAudio: mp3Bytes(),
+    envOverrides: { AUDIO_FALLBACK_ENABLED: "false" },
+  });
+  const response = await createAudioGenerateHandler(setup.deps)(
+    makeRequest(REQUEST_ID, {
+      contractVersion: 2,
+      text: "你好",
+      targetText: undefined,
+      audioRole: "source",
+      sourceLanguage: "zh-Hant",
+      targetLanguage: "en",
+      accent: "zh-TW",
+      voiceProfile: "native-gentle",
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(setup.calls.fetch.length, 1);
+  assertStringIncludes(
+    setup.calls.fetch[0].url,
+    "https://japaneast.tts.speech.microsoft.com/",
+  );
+  assertEquals(
+    setup.getManifest()?.tts_model,
+    "azure-speech/zh-TW-HsiaoChenNeural",
+  );
+  assertEquals((await responseBody(response)).provider, "azure");
+});
+
+Deno.test("releases reserved quota after a non-retryable provider 4xx", async () => {
+  const setup = fakeAudioDependencies({
+    providerResponse: new Response("Bad Request", { status: 400 }),
+    envOverrides: { MEMBERSHIP_ENFORCEMENT_ENABLED: "true" },
+  });
+  const response = await createAudioGenerateHandler(setup.deps)(
+    makeRequest(REQUEST_ID, {
+      contractVersion: 2,
+      text: "你好",
+      targetText: undefined,
+      audioRole: "source",
+      sourceLanguage: "zh-Hant",
+      targetLanguage: "en",
+      accent: "zh-TW",
+      voiceProfile: "native-gentle",
+    }),
+  );
+
+  assertEquals(response.status, 502);
+  const settlement = setup.calls.rpc.find((call) =>
+    call.name === "settle_generation_allowance"
+  );
+  assertEquals(settlement?.args.p_status, "released_unsent");
+});
+
+Deno.test("falls back when the provider response body cannot be read", async () => {
+  const brokenBody = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.error(new Error("provider response body failed"));
+    },
+  });
+  const setup = fakeAudioDependencies({
+    providerResponses: [new Response(brokenBody), new Response(mp3Bytes())],
+  });
+  const response = await createAudioGenerateHandler(setup.deps)(
+    makeRequest(REQUEST_ID, {
+      contractVersion: 2,
+      text: "你好",
+      targetText: undefined,
+      audioRole: "source",
+      sourceLanguage: "zh-Hant",
+      targetLanguage: "en",
+      accent: "zh-TW",
+      voiceProfile: "native-gentle",
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(setup.calls.fetch.length, 2);
+  assertEquals((await responseBody(response)).provider, "openai");
+});
+
+Deno.test("disabling fallback keeps Azure as the only provider", async () => {
+  const setup = fakeAudioDependencies({
+    providerResponses: [new Response("Unauthorized", { status: 401 })],
+    envOverrides: { AUDIO_FALLBACK_ENABLED: "false" },
+  });
+  const response = await createAudioGenerateHandler(setup.deps)(
+    makeRequest(REQUEST_ID, {
+      contractVersion: 2,
+      text: "你好",
+      targetText: undefined,
+      audioRole: "source",
+      sourceLanguage: "zh-Hant",
+      targetLanguage: "en",
+      accent: "zh-TW",
+      voiceProfile: "native-gentle",
+    }),
+  );
+
+  assertEquals(response.status, 502);
+  assertEquals(setup.calls.fetch.length, 1);
+});
+
+Deno.test("uses OpenAI fallback when Azure credentials are not configured", async () => {
+  const setup = fakeAudioDependencies({
+    envOverrides: { AZURE_SPEECH_KEY: "", AZURE_SPEECH_REGION: "" },
+  });
+  const response = await createAudioGenerateHandler(setup.deps)(
+    makeRequest(REQUEST_ID, {
+      contractVersion: 2,
+      text: "你好",
+      targetText: undefined,
+      audioRole: "source",
+      sourceLanguage: "zh-Hant",
+      targetLanguage: "en",
+      accent: "zh-TW",
+      voiceProfile: "native-gentle",
+    }),
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(setup.calls.fetch.length, 1);
+  assertEquals(
+    setup.calls.fetch[0].url,
+    "https://api.openai.com/v1/audio/speech",
+  );
+  assertEquals(setup.getManifest()?.tts_model, "openai/tts-1/alloy");
 });
 
 // ============================================================

@@ -22,6 +22,7 @@ class _LoopPlatform implements LearningPlatform {
   final hashes = <String, String>{};
   final actions = <String>[];
   final snapshots = <String, Object?>{};
+  List<Map<String, Object?>> lastLoopTracks = const [];
 
   @override
   Future<Object?> invoke(
@@ -50,6 +51,9 @@ class _LoopPlatform implements LearningPlatform {
       case 'audioCacheDelete':
         return cached.remove(payload['key']);
       case 'audioLoopStart':
+        lastLoopTracks = (payload['tracks'] as List)
+            .cast<Map<String, Object?>>()
+            .toList();
         return {
           'sessionId': payload['sessionId'],
           'state': loopStartState,
@@ -132,6 +136,24 @@ class _GeneratingGateway extends _SignedInGateway {
       };
     }
     throw StateError('unexpected cloud function');
+  }
+}
+
+class _PartiallyFailingGateway extends _GeneratingGateway {
+  _PartiallyFailingGateway(this.failedText);
+
+  final String failedText;
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    if (function == 'audio-generate' && body['text'] == failedText) {
+      throw const LearningFailure('语音生成暂时失败，请稍后重试。', code: 'tts_failed');
+    }
+    return super.invoke(function, body, get: get);
   }
 }
 
@@ -218,7 +240,11 @@ void main() {
 
       await controller.prepareLoop();
       expect(platform.actions, isNot(contains('audioLoopStart')));
-      expect(controller.loopReady, isTrue);
+      expect(
+        controller.loopReady,
+        isTrue,
+        reason: '${controller.errorCode}: ${controller.error}',
+      );
 
       platform.actions.clear();
       await controller.startLoop();
@@ -226,6 +252,60 @@ void main() {
       expect(platform.actions, contains('audioLoopStart'));
       expect(platform.actions, isNot(contains('audioCached')));
       expect(controller.notice, isNull);
+    },
+  );
+
+  test(
+    'skips a sentence with a failed track and starts with complete bilingual sentences',
+    () async {
+      final platform = _LoopPlatform();
+      platform.hashes.addAll({
+        '第一句母语音频': 'a' * 64,
+        'First target sentence.': 'b' * 64,
+        '第二句母语音频': 'c' * 64,
+        'Second target sentence.': 'd' * 64,
+      });
+      final gateway = _PartiallyFailingGateway('第一句母语音频');
+      final controller = LearningController(
+        gateway: gateway,
+        platform: platform,
+        polling: false,
+        seeds: const [],
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      final first = LearnSentence(
+        id: '11111111-1111-4111-8111-111111111111',
+        source: '第一句母语音频',
+        target: 'First target sentence.',
+      );
+      final second = LearnSentence(
+        id: '22222222-2222-4222-8222-222222222222',
+        source: '第二句母语音频',
+        target: 'Second target sentence.',
+      );
+      controller.state.sentences.addAll([first, second]);
+      controller.state.preferences.onboarded = true;
+      controller.initialized = true;
+
+      await controller.prepareLoop();
+
+      expect(
+        controller.loopReady,
+        isTrue,
+        reason: '${controller.errorCode}: ${controller.error}',
+      );
+      expect(controller.loopSkippedSentences, 1);
+      expect(controller.notice, contains('1'));
+
+      await controller.startLoop();
+
+      expect(controller.loopSessionId, isNotNull);
+      expect(platform.lastLoopTracks, hasLength(2));
+      expect(
+        platform.lastLoopTracks.map((track) => track['sentenceId']).toSet(),
+        {'22222222-2222-4222-8222-222222222222'},
+      );
     },
   );
 

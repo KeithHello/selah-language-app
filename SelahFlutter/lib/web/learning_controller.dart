@@ -125,6 +125,7 @@ class LearningController extends ChangeNotifier {
   bool loopReady = false;
   int loopPreparedTracks = 0;
   int loopTotalTracks = 0;
+  int loopSkippedSentences = 0;
   List<Map<String, Object?>> _loopTracks = [];
   String? _loopPreparedFingerprint;
   final AudioPreparationService _audioPreparation = AudioPreparationService();
@@ -586,6 +587,7 @@ class LearningController extends ChangeNotifier {
     loopPreparing = true;
     loopPreparedTracks = 0;
     loopTotalTracks = 0;
+    loopSkippedSentences = 0;
     _loopTracks = [];
     notifyListeners();
     try {
@@ -595,13 +597,24 @@ class LearningController extends ChangeNotifier {
       if (items.isEmpty) throw const LearningFailure('还没有可循环播放的句子。');
 
       final references = <AudioTrackRef>[];
+      final referencesBySentence =
+          <String, Map<LoopTrackRole, AudioTrackRef>>{};
       for (final item in items) {
         final sentence = state.sentences.firstWhere(
           (candidate) => candidate.id == item.sentenceId,
         );
-        references
-          ..add(await _loopTrackReference(sentence, LoopTrackRole.target))
-          ..add(await _loopTrackReference(sentence, LoopTrackRole.source));
+        final sentenceReferences = <LoopTrackRole, AudioTrackRef>{
+          LoopTrackRole.target: await _loopTrackReference(
+            sentence,
+            LoopTrackRole.target,
+          ),
+          LoopTrackRole.source: await _loopTrackReference(
+            sentence,
+            LoopTrackRole.source,
+          ),
+        };
+        referencesBySentence[item.sentenceId] = sentenceReferences;
+        references.addAll(sentenceReferences.values);
       }
       _ensureCurrent(generation);
       final diff = diffAudioTracks(
@@ -621,23 +634,61 @@ class LearningController extends ChangeNotifier {
       _ensureCurrent(generation);
       loopTotalTracks = diff.missing.length;
       notifyListeners();
+      Object? firstFailure;
       for (final reference in diff.missing) {
-        await _audioPreparation.ensure(
-          reference,
-          (track) => _ensureAudioTrack(track, generation),
-        );
+        try {
+          await _audioPreparation.ensure(
+            reference,
+            (track) => _ensureAudioTrack(track, generation),
+          );
+        } catch (failure) {
+          _ensureCurrent(generation);
+          await _recordAudioFailure(reference, failure, generation);
+          firstFailure ??= failure;
+          if (_stopLoopPreparationAfterFailure(failure)) break;
+        }
         _sameAccount(account);
         _ensureCurrent(generation);
         loopPreparedTracks += 1;
         notifyListeners();
       }
+      final completeSentenceIds = items
+          .where((item) {
+            final sentenceReferences = referencesBySentence[item.sentenceId]!;
+            return sentenceReferences.values.every(
+              (reference) => _loopVerifiedKeys.contains(reference.key),
+            );
+          })
+          .map((item) => item.sentenceId)
+          .toSet();
+      loopSkippedSentences = items.length - completeSentenceIds.length;
       _loopTracks = references
+          .where(
+            (reference) => completeSentenceIds.contains(reference.sentenceId),
+          )
           .map((reference) => reference.toLoopTrack())
           .toList();
+      if (_loopTracks.isEmpty) {
+        if (firstFailure != null &&
+            (firstFailure is! LearningFailure ||
+                firstFailure.code != 'audio_cancelled')) {
+          throw firstFailure;
+        }
+        throw LearningFailure(
+          SelahStrings.of(uiLocale).text('loop.audioUnavailable'),
+          code: 'loop_audio_unavailable',
+        );
+      }
       _loopPreparedFingerprint = _loopPreparationFingerprint();
       loopPreparing = false;
       loopReady = true;
-      if (announce) notice = '双语音频已准备好。';
+      if (loopSkippedSentences > 0) {
+        notice = SelahStrings.of(
+          uiLocale,
+        ).message('loop.partialPrepared', {'count': '$loopSkippedSentences'});
+      } else if (announce) {
+        notice = '双语音频已准备好。';
+      }
       notifyListeners();
     } catch (_) {
       loopPreparing = false;
@@ -647,6 +698,26 @@ class LearningController extends ChangeNotifier {
       notifyListeners();
       rethrow;
     }
+  }
+
+  bool _stopLoopPreparationAfterFailure(Object failure) {
+    if (failure is! LearningFailure) return false;
+    return const {
+      'account_changed',
+      'login_required',
+      'unauthorized',
+      'registered_account_required',
+      'not_configured',
+      'audio_provider_unavailable',
+      'service_paused',
+      'service_budget_protected',
+      'membership_required',
+      'feature_limit_reached',
+      'request_exceeds_feature_limit',
+      'quota_exceeded',
+      'rate_limited',
+      'request_in_progress',
+    }.contains(failure.code);
   }
 
   Future<void> _ensureLoopAudio(String account, String key, String url) async {
@@ -1594,7 +1665,19 @@ class LearningController extends ChangeNotifier {
   });
 
   String _message(Object e, {String fallback = '暂时无法完成操作，内容已保留，请稍后重试。'}) {
-    if (e is LearningFailure) return e.message;
+    if (e is LearningFailure) {
+      final strings = SelahStrings.of(uiLocale);
+      switch (e.code) {
+        case 'tts_failed':
+        case 'audio_invalid':
+          return strings.text('audio.generationFailed');
+        case 'provider_timeout':
+          return strings.text('audio.providerTimedOut');
+        case 'audio_provider_unavailable':
+          return strings.text('audio.providerUnavailable');
+      }
+      return e.message;
+    }
     if (e is FormatException) return e.message;
     final original = e.toString();
     final text = original.toLowerCase();

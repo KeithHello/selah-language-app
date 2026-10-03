@@ -91,6 +91,37 @@ void main() {
     expect(SelahStrings.of('ja').text('listen.peekHint'), 'タップして母語を表示');
   });
 
+  test('audio failover and partial-loop notices are localized', () {
+    expect(
+      SelahStrings.of('zh-Hans').text('audio.generationFailed'),
+      '语音生成暂时失败，请稍后重试。',
+    );
+    expect(
+      SelahStrings.of('zh-Hant').text('audio.generationFailed'),
+      '語音產生暫時失敗，請稍後重試。',
+    );
+    expect(
+      SelahStrings.of('ja').text('audio.generationFailed'),
+      '音声を生成できませんでした。しばらくしてから再試行してください。',
+    );
+    expect(
+      SelahStrings.of(
+        'zh-Hans',
+      ).message('loop.partialPrepared', {'count': '2'}),
+      contains('2 句'),
+    );
+    expect(
+      SelahStrings.of(
+        'zh-Hant',
+      ).message('loop.partialPrepared', {'count': '2'}),
+      contains('2 句'),
+    );
+    expect(
+      SelahStrings.of('ja').message('loop.partialPrepared', {'count': '2'}),
+      contains('2件'),
+    );
+  });
+
   test(
     'onboarding selection copy states a three-sentence minimum in every locale',
     () {
