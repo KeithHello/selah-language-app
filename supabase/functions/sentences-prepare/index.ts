@@ -5,10 +5,10 @@ import {
   buildCapturePreparationRequest,
   CapturePreparationInput,
   normalizePreparationSegments,
+  PREPARATION_PROMPT_VERSION,
   validateCapturePreparationInput,
 } from "../_shared/capture_contract.ts";
 import {
-  GENERATION_PROMPT_VERSION,
   isTruncatedCompletion,
   TRANSLATION_MODEL,
 } from "../_shared/sentence_contract.ts";
@@ -293,7 +293,7 @@ Deno.serve(async (req: Request) => {
       normalizedTranscript: validation.rawTranscript,
       segments,
       model: TRANSLATION_MODEL,
-      promptVersion: GENERATION_PROMPT_VERSION,
+      promptVersion: PREPARATION_PROMPT_VERSION,
       sourceLanguage: validation.sourceLanguage,
       targetLanguage: validation.targetLanguage,
       preparationVersion: "ai-v1",

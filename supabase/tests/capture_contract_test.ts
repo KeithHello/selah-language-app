@@ -11,6 +11,9 @@ import {
 } from "../functions/_shared/capture_contract.ts";
 
 const id = "8d42c8e5-4f0e-4a37-b63d-51c4ab25d1f0";
+const CAPTURE_CONTRACT_SOURCE = await Deno.readTextFile(
+  "supabase/functions/_shared/capture_contract.ts",
+);
 const PREPARATION_FUNCTION_SOURCE = await Deno.readTextFile(
   "supabase/functions/sentences-prepare/index.ts",
 );
@@ -86,6 +89,32 @@ Deno.test("preparation request uses strict structured output", () => {
   assertStringIncludes(system, "Do not translate");
 });
 
+Deno.test("preparation prompt keeps complete learnable sentences together", () => {
+  const request = buildCapturePreparationRequest(
+    "我今天很累。",
+    "zh-Hant",
+    "en",
+  );
+  const system =
+    (request.messages as Array<{ role: string; content: string }>)[0]
+      .content;
+  assertStringIncludes(
+    system,
+    "Prefer fewer, complete sentences: split only where each part can stand alone as a learnable sentence.",
+  );
+  assertStringIncludes(
+    system,
+    "Do not emit standalone segments that are only meaningless conversational fillers. Keep short acknowledgements as standalone sentences when they convey a complete response or useful learning value; otherwise attach fillers to the neighbouring segment or omit them.",
+  );
+});
+
+Deno.test("preparation prompt has its own version", () => {
+  assertStringIncludes(
+    CAPTURE_CONTRACT_SOURCE,
+    'export const PREPARATION_PROMPT_VERSION = "prep-v1"',
+  );
+});
+
 Deno.test("batch request carries stable segment IDs", () => {
   const request = buildBatchTranslationRequest(
     [{ segmentId: id, sourceText: "我今天很累。" }],
@@ -154,7 +183,7 @@ Deno.test("preparation response carries generation provenance", () => {
   assertStringIncludes(PREPARATION_FUNCTION_SOURCE, "model: TRANSLATION_MODEL");
   assertStringIncludes(
     PREPARATION_FUNCTION_SOURCE,
-    "promptVersion: GENERATION_PROMPT_VERSION",
+    "promptVersion: PREPARATION_PROMPT_VERSION",
   );
   assertStringIncludes(
     PREPARATION_FUNCTION_SOURCE,

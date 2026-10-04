@@ -7,6 +7,8 @@ import {
   TRANSLATION_TEMPERATURE,
 } from "./sentence_contract.ts";
 
+export const PREPARATION_PROMPT_VERSION = "prep-v1";
+
 export interface CapturePreparationInput {
   rawTranscript?: string;
   sourceLanguage?: string;
@@ -185,6 +187,8 @@ export function buildCapturePreparationRequest(
           "Split into ordered, independently learnable source-language segments.",
           "Do not translate, infer, or invent content.",
           "Return every meaningful proposition exactly once.",
+          "Prefer fewer, complete sentences: split only where each part can stand alone as a learnable sentence.",
+          "Do not emit standalone segments that are only meaningless conversational fillers. Keep short acknowledgements as standalone sentences when they convey a complete response or useful learning value; otherwise attach fillers to the neighbouring segment or omit them.",
           `Source language: ${sourceLanguage}. Target language: ${targetLanguage}.`,
         ].join("\n"),
       },
