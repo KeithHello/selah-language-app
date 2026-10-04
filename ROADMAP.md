@@ -15,9 +15,20 @@
 - [x] 文档：docs/superpowers/specs/2026-10-04-preparation-quota-clarity-design.md 与 docs/superpowers/plans/2026-10-04-preparation-quota-clarity.md。
 - [x] 主人已授权本轮完整开发；不改数据库、不加 migration，生产发布另按逐步确认规则处理。
 - [x] 实施：分句预览条数与额度预检、三语额度说明、整理提示词独立版本与分句约束完成；未改数据库、migration 或额度预留逻辑。
-- [x] 验证：Flutter 全量 431 项通过、flutter analyze 通过；Deno 格式检查（91 个文件）、类型检查（20 个 Edge Functions）和全量测试（365 项）通过。Deno lint 在隔离项目配置后检查 90 个文件通过；本机父目录 package.json 额外启用了仓库规则，已单独识别。
-- [ ] Web Release 最终构建待在合并最新 origin/main 后重跑，候选版本 1.7.0+12；此前 1.7.0+11 的本地构建不作为最终验证。
+- [x] 验证：Flutter 全量 431 项通过、flutter analyze 通过；Deno 格式检查 92 个文件、项目默认 lint 检查 91 个文件、20 个 Edge Functions 类型检查、后端全量测试 368 项均通过。格式检查在 LF 临时副本运行，以避开 Windows CRLF 检出差异；本机父级 package.json 会额外启用 workspace/no-import-prefix 规则，已隔离识别。
+- [x] Web Release 构建成功：版本 1.7.0+12，Build ID 97b4ce6fd816980c；本地构建缺少公开 Supabase 配置，云端登录不可用。
 - [ ] 浏览器真实会员与长文整理流程验收、生产 Edge Function 部署、GitHub push 与 Pages 生产部署待逐步确认及线上 Build ID 核验。
+
+### 2026-10-04 平台日预算自动补建（本地实现完成；数据库集成与生产迁移待确认）
+
+- [x] 新增 `supabase/migrations/013_platform_budget_auto_provision.sql`：在受保护的 `platform_settings` 中加入默认日预算，默认 5 USD（5,000,000,000 nano-USD）；预算行不存在时，会员与匿名预留路径通过同一个事务锁定的私有函数按 UTC 日期自动建行。
+- [x] 已有每日预算行沿用原预算；预算配置缺失仍失败关闭，超出个人额度或平台日预算仍拒绝预留。未改 Edge Function 调用契约。
+- [x] 新增 pgTAP 用例覆盖零预算失败关闭、会员／匿名路径首次自动建账和预算耗尽拒绝；并发脚本覆盖不同用户同时首次请求只创建一条预算行。
+- [x] Supabase Deno 全量测试 366 项通过，Deno lint 全量通过；新增测试文件定向格式检查通过。Windows 全量 `deno fmt --check` 受 8 个既有文件的 CRLF 行尾差异影响，未格式化无关文件。
+- [x] Web Release 构建成功，版本 `1.6.1+11`、Build ID `07820ecd009cad6b`。版本补丁用于满足生产部署版本唯一性门禁。
+- [x] 只读生产查询确认 UTC `2026-10-04` 的 `platform:day:2026-10-04` 预算行不存在，与截图中的 `service_budget_protected` 触发条件一致；migration dry-run 仅列出 013，未写远端。
+- [ ] pgTAP 与数据库并发测试尚未运行：本机 Docker Desktop 未能启动数据库引擎；须在隔离 PostgreSQL 环境补验。
+- [ ] 只读 `supabase migration list` 已核实生产远端为 `001`—`012`，本地仅多出待应用的 `013`。生产 migration 013 尚未应用；应用前须单独确认。生产 `main` 推送会触发 Cloudflare Pages 发布，执行前须按全局规则说明并逐步确认。
 
 ### 2026-10-04 Web 1.6.0 整体速度与动效复评（调研完成，两项资源优化待主人确认）
 
