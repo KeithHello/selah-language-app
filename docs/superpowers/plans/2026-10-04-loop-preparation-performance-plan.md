@@ -66,5 +66,5 @@
 - [x] Set the feature version to `1.6.0+10`.
 - [x] Run `flutter analyze --no-pub`, `flutter test --no-pub`, the browser bridge Node tests, and `tool/web.ps1 -Action build`.
 - [x] Update `ROADMAP.md` with only verified implementation and local build/test results; record production publication as pending until CI and online checks actually finish.
-- [ ] Review the final diff and stage only files belonging to this feature. Create a Chinese `feat:` commit.
+- [x] Review the final diff, stage only the feature files, and create the Chinese `feat:` commit `3fa8547`.
 - [ ] Before any GitHub push that triggers Cloudflare Pages production deployment, report the exact target project, resulting production flow, affected configuration, risks, and cross-project impact, then wait for the required step confirmation.
