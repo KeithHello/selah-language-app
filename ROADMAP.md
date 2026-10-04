@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-04 性能与动效修正（实现并本地验证，待生产部署）
+### 2026-10-04 性能与动效修正（实现、验证并已部署）
 
 - [x] 动效总开关上移到 `MaterialApp` 外层：弹窗、底部抽屉、菜单等 Navigator 路由继承「動畫效果」偏好；关闭开关后 `showSelahSheet` 使用 `AnimationStyle.noAnimation`、桌面 `showMenu` 使用 `AnimationStyle.noAnimation`，系统过渡不再滑入。
 - [x] `SelahLazyIndexedStack` 为隐藏页面包上关闭的 `TickerMode`：后台 Tab 的 AnimationController 与多帧图片暂停，页面状态、滚动位置和草稿保持；精灵 `PlushPoseImage` 也挂 `TickerMode`，关闭开关即停播。
@@ -16,7 +16,8 @@
 - [x] 控件反馈补齐：循环设置关闭图标接入 `SelahPressable` 图标分级；抽屉内容入场统一为一层 240ms 过渡；启动骨架屏脉冲增加 `prefers-reduced-motion` 降级。
 - [x] Web 资源瘦身：pubspec 显式列出五十个运行时 PNG，排除同名 GIF 副本，预计减少约 26MB 的构建产物与预缓存候选（本地构建后以清单核验为准）。
 - [x] 版本升级为 `1.5.1+9`。本地验证：`flutter analyze --no-pub` 无问题；Flutter 全量 423 项测试通过。
-- [ ] 待办：Release Web 构建核验（清单中不含 .gif、版本与 Build ID 写入）、真实手机与受控网络验收。
+- [x] 生产发布：提交 `df2eb8e` 推送到 GitHub `main`；[Actions run 37175503952](https://github.com/KeithHello/selah-language-app/actions/runs/37175503952) 五个工作全部成功。Cloudflare Pages 正式站版本 `1.5.1`、Build ID `4cdf2e39fff8020b`；首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200；线上清单 128 项、精灵 PNG 50 个、`.gif` 副本 0 个。
+- [ ] 待办：真实手机与受控网络验收（切页流畅度、动效开关行为、离线升级路径）。
 
 ### 2026-10-04 Web 正式环境性能与动效调研（调研完成，产品修正待实施）
 
