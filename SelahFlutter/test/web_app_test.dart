@@ -628,12 +628,12 @@ void main() {
         ..onboarded = true
         ..name = '小芽'
         ..motionEnabled = false;
-      configuredController.errorCode = 'service_budget_protected';
-      configuredController.error = '今天的测试预算已用完，请明天再试。';
+      configuredController.errorCode = 'generation_temporarily_unavailable';
+      configuredController.error = '生成暂时无法完成，当前输入已保留，请稍后重试。';
       configuredController.notifyListeners();
 
       await tester.pumpWidget(WebLearningApp(controller: configuredController));
-      expect(find.text('今天的测试预算已用完，请明天再试。'), findsOneWidget);
+      expect(find.text('產生暫時無法完成，目前輸入已保留，請稍後重試。'), findsOneWidget);
       expect(find.text('注册／登录'), findsNothing);
     },
   );

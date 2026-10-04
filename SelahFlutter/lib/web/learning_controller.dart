@@ -936,6 +936,7 @@ class LearningController extends ChangeNotifier {
       'not_configured',
       'audio_provider_unavailable',
       'service_paused',
+      'generation_temporarily_unavailable',
       'service_budget_protected',
       'membership_required',
       'feature_limit_reached',

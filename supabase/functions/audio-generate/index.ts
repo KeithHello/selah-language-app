@@ -49,6 +49,9 @@ import {
 } from "../_shared/generation_usage_contract.ts";
 import {
   admissionErrorDetails,
+  admissionHttpStatus,
+  admissionPublicCode,
+  admissionPublicMessage,
   requestGenerationAdmission,
   settleGenerationAdmission,
 } from "../_shared/generation_admission.ts";
@@ -576,9 +579,9 @@ export function createAudioGenerateHandler(
         p_client_request_id: clientRequestId,
       });
       return errorResponse(
-        admission.errorMessage ?? "Feature limit reached",
-        admission.errorCode === "rate_limited" ? 429 : 403,
-        admission.errorCode ?? "service_budget_protected",
+        admissionPublicMessage(admission),
+        admissionHttpStatus(admission),
+        admissionPublicCode(admission),
         admissionErrorDetails(admission, {
           feature: "tts",
           clientRequestId,

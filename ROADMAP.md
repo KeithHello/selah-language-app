@@ -1,12 +1,21 @@
 # Selah 开发路线图
 
-> 最后更新：2026-10-04
+> 最后更新：2026-10-05
 >
 > 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
 >
 > 完成口径：遵循 `CLAUDE.md` 的五级完成定义。
 
 ## 当前阶段
+
+### 2026-10-05 平台日预算用户提示与管理员监控（本地开发完成；迁移、部署待确认）
+
+- [x] 新增 migration 014：会员限制关闭时仍为已认证请求原子预留平台日账本；将日预算耗尽与预算配置／计量故障分开，保留已有会员权益检查。
+- [x] 生成、批量生成、整理、语音与转写接口统一向用户返回通用暂不可用提示和重试时间信息；客户端按功能显示简体中文、繁体中文和日文提示，不展示平台预算金额或内部原因，并在适用场景说明输入或已有内容仍保留。
+- [x] 管理员概览增加今日平台预算、已结算、已预留、剩余及超额金额；75%、90%、100% 分级提示。会员限制开关说明改为明确个人额度与平台日保护彼此独立。
+- [x] 验证：合并最新 `origin/main` 后，Flutter 全量测试 433 项通过，`flutter analyze --no-pub` 无问题；Supabase Node 测试 67 项通过；Web Release 构建成功，版本 `1.8.0+13`、Build ID `c6d8120c2612c281`。
+- [ ] Deno 测试／lint／格式检查与 pgTAP 数据库集成测试尚未运行：本机无 Deno，Docker CLI 无法连接 Docker Desktop 引擎；需在具备运行环境的 CI 或隔离数据库补验。
+- [ ] migration 014 尚未应用到生产，Edge Functions 与 Web 尚未推送／部署；生产数据库迁移及 Cloudflare 发布须逐步确认后执行。
 
 ### 2026-10-04 长文整理与个人表达计费透明化（本地开发完成，生产发布待确认）
 
@@ -21,16 +30,16 @@
 - [x] 生产 Edge Function：2026-10-04 已将 `sentences-prepare` 部署到 Supabase 项目 `ijonabyyppmgvoufgamt`；OPTIONS 返回 200、无 JWT 的 POST 返回 401，未触发计费生成请求。
 - [ ] 浏览器真实会员与长文整理流程验收、GitHub push 与 Pages 生产部署及线上 Build ID 核验仍待完成。
 
-### 2026-10-04 平台日预算自动补建（本地实现完成；数据库集成与生产迁移待确认）
-
+### 2026-10-04 平台日预算自动补建（生产迁移已应用；线上首次预留待自然流量核验）
 - [x] 新增 `supabase/migrations/013_platform_budget_auto_provision.sql`：在受保护的 `platform_settings` 中加入默认日预算，默认 5 USD（5,000,000,000 nano-USD）；预算行不存在时，会员与匿名预留路径通过同一个事务锁定的私有函数按 UTC 日期自动建行。
 - [x] 已有每日预算行沿用原预算；预算配置缺失仍失败关闭，超出个人额度或平台日预算仍拒绝预留。未改 Edge Function 调用契约。
 - [x] 新增 pgTAP 用例覆盖零预算失败关闭、会员／匿名路径首次自动建账和预算耗尽拒绝；并发脚本覆盖不同用户同时首次请求只创建一条预算行。
 - [x] Supabase Deno 全量测试 366 项通过，Deno lint 全量通过；新增测试文件定向格式检查通过。Windows 全量 `deno fmt --check` 受 8 个既有文件的 CRLF 行尾差异影响，未格式化无关文件。
-- [x] Web Release 构建成功，版本 `1.6.1+11`、Build ID `07820ecd009cad6b`。版本补丁用于满足生产部署版本唯一性门禁。
-- [x] 只读生产查询确认 UTC `2026-10-04` 的 `platform:day:2026-10-04` 预算行不存在，与截图中的 `service_budget_protected` 触发条件一致；migration dry-run 仅列出 013，未写远端。
-- [ ] pgTAP 与数据库并发测试尚未运行：本机 Docker Desktop 未能启动数据库引擎；须在隔离 PostgreSQL 环境补验。
-- [ ] 只读 `supabase migration list` 已核实生产远端为 `001`—`012`，本地仅多出待应用的 `013`。生产 migration 013 尚未应用；应用前须单独确认。生产 `main` 推送会触发 Cloudflare Pages 发布，执行前须按全局规则说明并逐步确认。
+- [x] Web Release 本地构建版本 `1.6.1+11`、Build ID `07820ecd009cad6b`；GitHub Actions 已部署生产版本 `1.6.1`、Build ID `bf55085719a34389`。版本补丁用于满足生产部署版本唯一性门禁。
+- [x] 只读生产查询确认 UTC `2026-10-04` 的 `platform:day:2026-10-04` 预算行曾缺失，与截图中的 `service_budget_protected` 触发条件一致。migration dry-run 仅列出 013。
+- [x] GitHub Actions 的隔离 Supabase 已成功应用全部迁移，并通过 pgTAP 与数据库并发测试；Deno 测试、lint、Flutter Web 测试、构建及生产部署验证均通过（run `37203464934`）。
+- [x] 已将 migration 013 应用到生产项目 `ijonabyyppmgvoufgamt`；远端迁移记录为 `001`—`013`。只读查询确认默认日预算为 `5,000,000,000` nano-USD（5 USD），会员与平台预留函数调用自动建账函数，且 helper 未授权给 anon/authenticated 直接执行。
+- [ ] 生产当天账本在查询时仍为空；这是按需建账设计，第一次有效会员或访客预留请求会创建账本。尚未人工发起生产 AI 请求，以避免消耗预算；待真实请求后核验两条路径。
 
 ### 2026-10-04 Web 1.6.0 整体速度与动效复评（调研完成，两项资源优化待主人确认）
 

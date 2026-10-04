@@ -21,6 +21,7 @@ export interface AdminSummaryDependencies {
   rpcResults?: {
     summary?: Record<string, unknown>;
     attempts?: unknown[];
+    platformBudget?: Record<string, unknown>;
   };
 }
 
@@ -170,7 +171,7 @@ export function createAdminSummaryHandler(
       });
     }
 
-    const [summaryResult, attemptsResult] = await Promise.all([
+    const [summaryResult, attemptsResult, budgetResult] = await Promise.all([
       supabase.rpc("admin_dashboard_summary", {
         p_start: startDate.toISOString(),
         p_end: endDate.toISOString(),
@@ -187,9 +188,13 @@ export function createAdminSummaryHandler(
         p_offset: 0,
         p_admin_user_id: auth,
       }),
+      supabase.rpc("admin_platform_budget_summary", {
+        p_admin_user_id: auth,
+      }),
     ]);
     const summary = normalize<Record<string, unknown>>(summaryResult);
     const attempts = normalize<unknown[]>(attemptsResult);
+    const platformBudget = normalize<Record<string, unknown>>(budgetResult);
     if (summary.error || !summary.data || attempts.error) {
       return errorResponse(
         "Admin dashboard unavailable",
@@ -200,6 +205,7 @@ export function createAdminSummaryHandler(
     return json({
       summary: summary.data,
       attempts: attempts.data ?? [],
+      platformBudget: platformBudget.error ? null : platformBudget.data,
       view,
       generatedAt: new Date().toISOString(),
     });

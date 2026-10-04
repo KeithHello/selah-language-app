@@ -5,6 +5,16 @@ void main() {
   test('parses summary and keeps estimated and vendor cost separate', () {
     final dashboard = AdminDashboardData.fromJson({
       'generatedAt': '2026-09-10T12:00:00.000Z',
+      'platformBudget': {
+        'periodKey': 'platform:day:2026-09-10',
+        'configured': true,
+        'ledgerExists': true,
+        'budgetNanoUsd': 5000000000,
+        'reservedNanoUsd': 300000000,
+        'committedNanoUsd': 600000000,
+        'remainingNanoUsd': 4100000000,
+        'overrunNanoUsd': 0,
+      },
       'summary': {
         'activeLearners': 128,
         'learningSessions': 486,
@@ -55,6 +65,9 @@ void main() {
     expect(dashboard.summary.api.knownEstimatedCostUsd, 8.42);
     expect(dashboard.summary.api.providerRecordedCostUsd, 8.30);
     expect(dashboard.summary.api.unknownUsageAttempts, 3);
+    expect(dashboard.platformBudget?.ledgerExists, isTrue);
+    expect(dashboard.platformBudget?.budgetNanoUsd, 5000000000);
+    expect(dashboard.platformBudget?.remainingNanoUsd, 4100000000);
     expect(dashboard.attempts.single.featureLabelTextValue, '语音合成');
     expect(dashboard.attempts.single.statusLabel, '结果未知');
   });
@@ -66,10 +79,10 @@ void main() {
       expect(summary.activeLearners, 0);
       expect(summary.effectiveDurationLabel, '0 分钟');
       expect(summary.api.providerAttempts, 0);
-    expect(
-      AdminAttempt.fromJson({'feature': 'unknown'}).featureLabelTextValue,
-      '其他',
-    );
+      expect(
+        AdminAttempt.fromJson({'feature': 'unknown'}).featureLabelTextValue,
+        '其他',
+      );
     },
   );
 }

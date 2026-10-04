@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/web/data/learning_gateway.dart';
 import 'package:selah/web/data/supabase_learning_gateway.dart';
 import 'package:selah/web/domain/learning_models.dart';
+import 'package:selah/web/l10n/selah_strings.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -326,6 +327,35 @@ void main() {
     });
     expect(failure.code, 'registered_account_required');
     expect(failure.message, contains('注册或登录正式账户'));
+  });
+
+  test('temporary generation failures use safe feature-specific copy', () {
+    final tts = SupabaseLearningGateway.functionFailure(503, {
+      'error': 'generation_temporarily_unavailable',
+      'feature': 'tts',
+      'message': 'platform_daily_budget_exhausted: internal cap',
+    });
+    final transcription = SupabaseLearningGateway.functionFailure(503, {
+      'error': 'service_budget_protected',
+      'feature': 'transcription',
+      'message': 'platform_daily_budget_exhausted: internal cap',
+    });
+    final sentence = SupabaseLearningGateway.functionFailure(503, {
+      'error': 'generation_temporarily_unavailable',
+      'feature': 'sentence',
+      'message': 'platform_daily_budget_exhausted: internal cap',
+    });
+
+    expect(tts.message, contains('语音'));
+    expect(tts.code, 'generation_temporarily_unavailable');
+    expect(transcription.message, contains('转写'));
+    expect(sentence.message, contains('输入已保留'));
+    for (final failure in [tts, transcription, sentence]) {
+      expect(failure.message, isNot(contains('budget')));
+      expect(failure.message, isNot(contains('费用')));
+      expect(failure.message, isNot(contains('5 美元')));
+    }
+    expect(SelahStrings.of('ja').translateLegacy(tts.message), contains('音声'));
   });
 
   test('sentence sync preserves language and generation provenance', () {

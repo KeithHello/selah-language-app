@@ -43,6 +43,21 @@ function deps(overrides: Partial<AdminSummaryDependencies["rpcResults"]> = {}) {
           if (name === "admin_generation_attempts") {
             return { data: overrides.attempts ?? [], error: null };
           }
+          if (name === "admin_platform_budget_summary") {
+            return {
+              data: overrides.platformBudget ?? {
+                periodKey: "platform:day:2026-09-07",
+                configured: true,
+                ledgerExists: true,
+                budgetNanoUsd: 5000000000,
+                reservedNanoUsd: 250000000,
+                committedNanoUsd: 500000000,
+                remainingNanoUsd: 4250000000,
+                overrunNanoUsd: 0,
+              },
+              error: null,
+            };
+          }
           return { data: null, error: new Error("unexpected RPC") };
         },
       }),
@@ -60,6 +75,8 @@ Deno.test("returns summary and attempts for an administrator", async () => {
   const body = await response.json();
   assertEquals(body.summary.activeLearners, 12);
   assertEquals(body.attempts.length, 1);
+  assertEquals(body.platformBudget.budgetNanoUsd, 5000000000);
+  assertEquals(body.platformBudget.remainingNanoUsd, 4250000000);
   assertEquals(setup.calls[0].name, "is_admin_member");
 });
 
