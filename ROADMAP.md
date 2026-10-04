@@ -8,15 +8,15 @@
 
 ## 当前阶段
 
-### 2026-10-05 平台日预算用户提示与管理员监控（后端已部署；Web 生产发布待确认）
+### 2026-10-05 平台日预算用户提示与管理员监控（后端已部署；Web 生产发布待 CI）
 
 - [x] 新增并应用 migration 014：会员限制关闭时仍为已认证请求原子预留平台日账本；将日预算耗尽与预算配置／计量故障分开，保留已有会员权益检查。生产远端迁移为 001—014，预算 RPC 存在且管理员 RPC 未授予 anon／authenticated。
 - [x] 生成、批量生成、整理、语音与转写接口统一向用户返回通用暂不可用提示和重试时间信息；客户端按功能显示简体中文、繁体中文和日文提示，不展示平台预算金额或内部原因，并在适用场景说明输入或已有内容仍保留。
 - [x] 管理员概览增加今日平台预算、已结算、已预留、剩余及超额金额；75%、90%、100% 分级提示。会员限制开关说明改为明确个人额度与平台日保护彼此独立。
 - [x] 已部署 `sentences-generate`、`sentences-batch-generate`、`sentences-prepare`、`audio-generate`、`speech-transcribe`、`admin-summary` 六个生产 Edge Functions；各函数 OPTIONS 返回 200，无凭证 POST 返回 401。
 - [x] 验证：合并最新 `origin/main` 后，Flutter 全量测试 433 项通过，`flutter analyze --no-pub` 无问题；Supabase Node 测试 67 项通过；Web Release 构建成功，版本 `1.8.0+13`、Build ID `c6d8120c2612c281`。
-- [ ] Deno 测试／lint／格式检查与 pgTAP 数据库集成测试尚未运行：本机无 Deno，Docker CLI 无法连接 Docker Desktop 引擎；需在具备运行环境的 CI 或隔离数据库补验。
-- [ ] 合并提交尚未推送到 GitHub；推送 `main` 会运行 Deno／数据库／Flutter CI，并在必要检查通过后发布 Cloudflare Pages 生产站，需按 Cloudflare 逐步确认规则办理。
+- [x] Deno 2.9.3 本地验证：375 项测试、93 个文件 lint、20 个 Edge Function 类型检查及本次涉及 4 个文件的格式检查均通过；GitHub run `37213796169` 的隔离数据库迁移、pgTAP、并发、iOS 与 Swift 检查通过。
+- [ ] 首次生产流水线 `37213796169` 因 4 处 Deno 格式差异及测试 mock 的 `require-await` lint 失败，已在本地修正；修正后的 `main` 提交待推送并由 CI 重跑，通过后再核验 Cloudflare Pages 生产版本与 Build ID。
 
 ### 2026-10-04 长文整理与个人表达计费透明化（本地开发完成，生产发布待确认）
 

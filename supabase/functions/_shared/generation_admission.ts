@@ -49,10 +49,12 @@ export function admissionErrorDetails(
         result.errorCode === "trial_expired"
       ? { currentPeriodEndsAt: null }
       : {}),
-    ...(result.resetsAt ? {
-      resetsAt: result.resetsAt,
-      retryAfterSeconds: result.retryAfterSeconds,
-    } : {}),
+    ...(result.resetsAt
+      ? {
+        resetsAt: result.resetsAt,
+        retryAfterSeconds: result.retryAfterSeconds,
+      }
+      : {}),
   };
 }
 

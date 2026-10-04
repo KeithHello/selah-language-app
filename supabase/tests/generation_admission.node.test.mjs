@@ -97,7 +97,10 @@ test("free mode still applies the daily platform allowance without leaking detai
   assert.strictEqual(result.errorCode, "service_budget_protected");
   assert.strictEqual(result.internalReason, "daily_limit_reached");
   assert.strictEqual(admissionHttpStatus(result), 503);
-  assert.strictEqual(admissionPublicCode(result), "generation_temporarily_unavailable");
+  assert.strictEqual(
+    admissionPublicCode(result),
+    "generation_temporarily_unavailable",
+  );
   assert.strictEqual(
     admissionPublicMessage(result),
     "Generation is temporarily unavailable",

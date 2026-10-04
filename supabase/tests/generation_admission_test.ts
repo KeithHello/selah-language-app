@@ -74,12 +74,12 @@ Deno.test("a metering ledger failure fails closed even with limits off", async (
 Deno.test("the public-mode recorder enforces the daily platform allowance", async () => {
   const client = {
     calls: [] as Array<{ name: string; args: Record<string, unknown> }>,
-    async rpc(name: string, args: Record<string, unknown>) {
+    rpc(name: string, args: Record<string, unknown>) {
       this.calls.push({ name, args });
-      return {
+      return Promise.resolve({
         data: null,
         error: { message: "platform_daily_budget_exhausted" },
-      };
+      });
     },
   };
   const result = await requestGenerationAdmission(client, {
@@ -95,8 +95,14 @@ Deno.test("the public-mode recorder enforces the daily platform allowance", asyn
   assertEquals(result.errorCode, "service_budget_protected");
   assertEquals(result.internalReason, "daily_limit_reached");
   assertEquals(admissionHttpStatus(result), 503);
-  assertEquals(admissionPublicCode(result), "generation_temporarily_unavailable");
-  assertEquals(admissionPublicMessage(result), "Generation is temporarily unavailable");
+  assertEquals(
+    admissionPublicCode(result),
+    "generation_temporarily_unavailable",
+  );
+  assertEquals(
+    admissionPublicMessage(result),
+    "Generation is temporarily unavailable",
+  );
   const publicDetails = admissionErrorDetails(result, {
     feature: "sentence",
     clientRequestId: REQUEST_ID,

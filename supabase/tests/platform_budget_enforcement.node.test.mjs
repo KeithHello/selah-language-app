@@ -11,10 +11,19 @@ const migration = readFileSync(
 );
 
 test("public-mode reservations enforce and settle against the daily ledger", () => {
-  assert.match(migration, /CREATE OR REPLACE FUNCTION public\.record_generation_usage/);
-  assert.match(migration, /public\.ensure_platform_daily_budget\(v_budget_period_key\)/);
+  assert.match(
+    migration,
+    /CREATE OR REPLACE FUNCTION public\.record_generation_usage/,
+  );
+  assert.match(
+    migration,
+    /public\.ensure_platform_daily_budget\(v_budget_period_key\)/,
+  );
   assert.match(migration, /platform_daily_budget_exhausted/);
-  assert.match(migration, /reserved_nano_usd = reserved_nano_usd \+ v_nano_usd/);
+  assert.match(
+    migration,
+    /reserved_nano_usd = reserved_nano_usd \+ v_nano_usd/,
+  );
   assert.match(
     migration,
     /budget_period_key\s*\n\s*\) VALUES/,
