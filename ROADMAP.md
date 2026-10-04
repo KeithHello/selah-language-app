@@ -1,14 +1,14 @@
 # Selah 开发路线图
 
-> 最后更新：2026-10-04
+> 最后更新：2026-10-05
 >
-> 状态依据：仓库当前代码、本地自动化与浏览器验收，以及明确标记日期的历史 GitHub Actions 结果。
+> 状态依据：仓库当前代码、本地自动化、GitHub Actions 与生产站点只读核验，以及明确标记日期的历史结果。
 >
 > 完成口径：遵循 `CLAUDE.md` 的五级完成定义。
 
 ## 当前阶段
 
-### 2026-10-04 长文整理与个人表达计费透明化（本地开发完成，生产发布待确认）
+### 2026-10-04 长文整理与个人表达计费透明化（生产发布完成，真实会员流程验收待补）
 
 - [x] 结论：维持四项额度与现有记账不变；长文整理按「次」、确认生成按实际保存条数计入个人表达（sentence 与 batch 已共池）。
 - [x] 方案：整理预览显示本次占用条数、已知额度不足时预检禁用并附刷新入口、三语帮助文案补「整理按次、确认按条」两层关系、整理提示词减少碎片分句；不改数据库、不加 migration、不动 reserve_generation_allowance。
@@ -17,9 +17,10 @@
 - [x] 实施：分句预览条数与额度预检、三语额度说明、整理提示词独立版本与分句约束完成；未改数据库、migration 或额度预留逻辑。
 - [x] 验证：Flutter 全量 431 项通过、flutter analyze 通过；Deno 格式检查 92 个文件、项目默认 lint 检查 91 个文件、20 个 Edge Functions 类型检查、后端全量测试 368 项均通过。格式检查在 LF 临时副本运行，以避开 Windows CRLF 检出差异；本机父级 package.json 会额外启用 workspace/no-import-prefix 规则，已隔离识别。
 - [x] Web Release 构建成功：版本 1.7.0+12，Build ID 97b4ce6fd816980c；本地构建缺少公开 Supabase 配置，云端登录不可用。
-- [x] 本地提交：功能实现提交 64cce61、dd13c20、6ba6872；合并最新 origin/main 的提交为 192259f。
+- [x] 本地提交：功能实现提交 64cce61、dd13c20、6ba6872；合并最新 origin/main 的提交为 192259f；发布记录提交为 db3c28a。
 - [x] 生产 Edge Function：2026-10-04 已将 `sentences-prepare` 部署到 Supabase 项目 `ijonabyyppmgvoufgamt`；OPTIONS 返回 200、无 JWT 的 POST 返回 401，未触发计费生成请求。
-- [ ] 浏览器真实会员与长文整理流程验收、GitHub push 与 Pages 生产部署及线上 Build ID 核验仍待完成。
+- [x] 2026-10-05 已将 `db3c28a` 推送到 `origin/main`；GitHub Actions `37211930276` 的全部 5 个任务通过。Cloudflare Pages 生产版本为 `1.7.0`、Build ID `8c59930a2059c617`；`main.dart.js` 与 `selah-precache.json` 均返回 HTTP 200。
+- [ ] 真实会员登录下的浏览器长文整理流程仍待手动验收；生产发布工作流只核验版本、Build ID 与静态资源状态。
 
 ### 2026-10-04 平台日预算自动补建（本地实现完成；数据库集成与生产迁移待确认）
 
