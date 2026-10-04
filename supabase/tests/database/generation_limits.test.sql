@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(23);
+select plan(35);
 
 select has_table('public', 'generation_requests', 'request ledger exists');
 select has_function(
@@ -279,6 +279,191 @@ select throws_ok(
   '22023',
   'Unsupported generation operation',
   'unsupported operations are rejected'
+);
+
+update public.platform_settings
+   set default_daily_budget_nano_usd = 0
+ where id = 'global';
+
+select throws_ok(
+  $$select public.reserve_generation_allowance(
+    '10000000-0000-4000-8000-000000000001',
+    '40000000-0000-4000-8000-000000000020',
+    'tts',
+    2,
+    100,
+    'member-zero-budget'
+  )$$,
+  'P0009',
+  'service_budget_protected',
+  'zero default budget blocks reservations'
+);
+
+select is(
+  (
+    select count(*)::integer
+      from public.platform_budget_ledgers
+     where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD')
+  ),
+  0,
+  'failed zero-budget reservation leaves no partial daily ledger row'
+);
+
+update public.platform_settings
+   set default_daily_budget_nano_usd = 5000000000
+ where id = 'global';
+
+select is(
+  public.reserve_generation_allowance(
+    '10000000-0000-4000-8000-000000000001',
+    '40000000-0000-4000-8000-000000000021',
+    'tts',
+    2,
+    100,
+    'member-auto-budget'
+  )->>'status',
+  'reserved',
+  'member reservation provisions the missing daily ledger'
+);
+
+select is(
+  (
+    select budget_nano_usd
+      from public.platform_budget_ledgers
+     where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD')
+  ),
+  5000000000::bigint,
+  'new daily ledger uses the configured default budget'
+);
+
+select is(
+  (
+    select reserved_nano_usd
+      from public.platform_budget_ledgers
+     where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD')
+  ),
+  100::bigint,
+  'member request is atomically included in the daily reservation total'
+);
+
+update public.platform_budget_ledgers
+   set committed_nano_usd = budget_nano_usd - reserved_nano_usd
+ where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD');
+
+select throws_ok(
+  $$select public.reserve_generation_allowance(
+    '10000000-0000-4000-8000-000000000001',
+    '40000000-0000-4000-8000-000000000022',
+    'tts',
+    1,
+    1,
+    'member-budget-exhausted'
+  )$$,
+  'P0009',
+  'service_budget_protected',
+  'member reservation remains blocked when the daily budget is exhausted'
+);
+
+select is(
+  (
+    select count(*)::integer
+      from public.membership_reservations
+     where client_request_id = '40000000-0000-4000-8000-000000000022'
+  ),
+  0,
+  'budget rejection creates no member reservation'
+);
+
+delete from public.membership_reservations
+ where client_request_id = '40000000-0000-4000-8000-000000000021';
+delete from public.platform_budget_ledgers
+ where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD');
+
+insert into auth.users (
+  id,
+  instance_id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  created_at,
+  updated_at
+) values (
+  '10000000-0000-4000-8000-000000000003',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated',
+  'authenticated',
+  'platform-budget-test@example.com',
+  '',
+  now(),
+  '{}'::jsonb,
+  '{}'::jsonb,
+  now(),
+  now()
+);
+
+select is(
+  public.reserve_platform_generation_allowance(
+    '10000000-0000-4000-8000-000000000003',
+    '40000000-0000-4000-8000-000000000023',
+    'tts',
+    3,
+    200,
+    'anonymous-auto-budget'
+  )->>'status',
+  'reserved',
+  'anonymous reservation provisions the missing daily ledger'
+);
+
+select is(
+  (
+    select budget_nano_usd
+      from public.platform_budget_ledgers
+     where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD')
+  ),
+  5000000000::bigint,
+  'anonymous reservation uses the same configured default budget'
+);
+
+select is(
+  (
+    select reserved_nano_usd
+      from public.platform_budget_ledgers
+     where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD')
+  ),
+  200::bigint,
+  'anonymous request is atomically included in the daily reservation total'
+);
+
+update public.platform_budget_ledgers
+   set committed_nano_usd = budget_nano_usd - reserved_nano_usd
+ where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD');
+
+select throws_ok(
+  $$select public.reserve_platform_generation_allowance(
+    '10000000-0000-4000-8000-000000000003',
+    '40000000-0000-4000-8000-000000000024',
+    'tts',
+    1,
+    1,
+    'anonymous-budget-exhausted'
+  )$$,
+  'P0009',
+  'service_budget_protected',
+  'anonymous reservation remains blocked when the daily budget is exhausted'
+);
+
+select is(
+  (
+    select count(*)::integer
+      from public.platform_generation_reservations
+     where client_request_id = '40000000-0000-4000-8000-000000000024'
+  ),
+  0,
+  'budget rejection creates no anonymous reservation'
 );
 
 select * from finish();
