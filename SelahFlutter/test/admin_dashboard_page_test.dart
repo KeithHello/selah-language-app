@@ -15,26 +15,39 @@ class _DashboardGateway extends UnconfiguredGateway {
   String get userId => 'admin';
 }
 
-AdminDashboardData _data() => AdminDashboardData(
-  summary: AdminSummary(
-    activeLearners: 0,
-    learningSessions: 0,
-    effectiveLearningMinutes: 0,
-    featureUsage: const [],
-    dailyActivity: const [],
-    api: AdminApiSummary(
-      businessRequests: 0,
-      reusedRequests: 0,
-      providerAttempts: 0,
-      knownEstimatedCostUsd: 0,
-      providerRecordedCostUsd: 0,
-      unknownUsageAttempts: 0,
-      byFeature: const [],
-    ),
-  ),
-  attempts: const [],
-  generatedAt: DateTime.utc(2026, 9, 18),
-);
+AdminDashboardData _data({AdminPlatformBudget? platformBudget}) =>
+    AdminDashboardData(
+      platformBudget:
+          platformBudget ??
+          const AdminPlatformBudget(
+            periodKey: 'platform:day:2026-10-04',
+            configured: true,
+            ledgerExists: true,
+            budgetNanoUsd: 5000000000,
+            reservedNanoUsd: 350000000,
+            committedNanoUsd: 550000000,
+            remainingNanoUsd: 4100000000,
+            overrunNanoUsd: 0,
+          ),
+      summary: AdminSummary(
+        activeLearners: 0,
+        learningSessions: 0,
+        effectiveLearningMinutes: 0,
+        featureUsage: const [],
+        dailyActivity: const [],
+        api: AdminApiSummary(
+          businessRequests: 0,
+          reusedRequests: 0,
+          providerAttempts: 0,
+          knownEstimatedCostUsd: 0,
+          providerRecordedCostUsd: 0,
+          unknownUsageAttempts: 0,
+          byFeature: const [],
+        ),
+      ),
+      attempts: const [],
+      generatedAt: DateTime.utc(2026, 9, 18),
+    );
 
 void main() {
   testWidgets('admin dashboard explains registered-account access', (
@@ -64,6 +77,10 @@ void main() {
     expect(find.text('正式账户模式'), findsOneWidget);
     expect(find.textContaining('生成、转写、个人音频、会员与同步均要求注册并登录'), findsOneWidget);
     expect(find.text('启用会员限制'), findsOneWidget);
+    expect(find.text('今日平台用量'), findsOneWidget);
+    expect(find.text('日预算 USD 5.000000'), findsOneWidget);
+    expect(find.text('已预留 USD 0.350000'), findsOneWidget);
+    expect(find.text('剩余 USD 4.100000'), findsOneWidget);
   });
 
   testWidgets('admin dashboard does not offer legacy test-mode controls', (
@@ -92,5 +109,39 @@ void main() {
     expect(find.text('测试模式'), findsNothing);
     expect(find.text('开放匿名测试'), findsNothing);
     expect(find.text('应用生产模式'), findsNothing);
+  });
+
+  testWidgets('admin dashboard highlights actual platform budget overrun', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1200, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final controller = AdminController(gateway: _DashboardGateway())
+      ..checked = true
+      ..data = _data(
+        platformBudget: const AdminPlatformBudget(
+          periodKey: 'platform:day:2026-10-04',
+          configured: true,
+          ledgerExists: true,
+          budgetNanoUsd: 5000000000,
+          reservedNanoUsd: 100000000,
+          committedNanoUsd: 5100000000,
+          remainingNanoUsd: 0,
+          overrunNanoUsd: 200000000,
+        ),
+      );
+    addTearDown(controller.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: SelahTheme.light(),
+        home: Scaffold(
+          body: AdminDashboardPage(controller: controller, uiLocale: 'zh-Hans'),
+        ),
+      ),
+    );
+
+    expect(find.text('实际用量已超过预算，需要核对账单与预估。'), findsOneWidget);
+    expect(find.text('超出 USD 0.200000'), findsOneWidget);
   });
 }

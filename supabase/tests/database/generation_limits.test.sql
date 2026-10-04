@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(35);
+select plan(40);
 
 select has_table('public', 'generation_requests', 'request ledger exists');
 select has_function(
@@ -21,7 +21,7 @@ select has_function(
   'public',
   'record_generation_usage',
   array['uuid', 'uuid', 'text', 'integer', 'bigint', 'text'],
-  'audit-only usage recorder exists'
+  'public-mode usage recorder exists'
 );
 insert into auth.users (
   id,
@@ -87,7 +87,7 @@ select is(
      where client_request_id = '40000000-0000-4000-8000-000000000001'
   ),
   null::uuid,
-  'audit-only usage is not attached to an active membership'
+  'public-mode usage is not attached to an active membership'
 );
 
 select is(
@@ -109,7 +109,7 @@ select is(
        and client_request_id = '40000000-0000-4000-8000-000000000001'
   ),
   1,
-  'audit-only usage remains available in the ledger'
+  'public-mode usage remains available in the reservation ledger'
 );
 
 select is(
@@ -281,6 +281,11 @@ select throws_ok(
   'unsupported operations are rejected'
 );
 
+delete from public.membership_reservations
+ where client_request_id = '40000000-0000-4000-8000-000000000001';
+delete from public.platform_budget_ledgers
+ where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD');
+
 update public.platform_settings
    set default_daily_budget_nano_usd = 0
  where id = 'global';
@@ -295,7 +300,7 @@ select throws_ok(
     'member-zero-budget'
   )$$,
   'P0009',
-  'service_budget_protected',
+  'platform_daily_budget_exhausted',
   'zero default budget blocks reservations'
 );
 
@@ -360,7 +365,7 @@ select throws_ok(
     'member-budget-exhausted'
   )$$,
   'P0009',
-  'service_budget_protected',
+  'platform_daily_budget_exhausted',
   'member reservation remains blocked when the daily budget is exhausted'
 );
 
@@ -376,6 +381,72 @@ select is(
 
 delete from public.membership_reservations
  where client_request_id = '40000000-0000-4000-8000-000000000021';
+delete from public.platform_budget_ledgers
+ where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD');
+
+select is(
+  public.record_generation_usage(
+    '10000000-0000-4000-8000-000000000001',
+    '40000000-0000-4000-8000-000000000025',
+    'sentence',
+    1,
+    250,
+    'public-mode-budget-reservation'
+  )->>'enforced',
+  'false',
+  'public mode records usage without applying member entitlements'
+);
+
+select is(
+  (
+    select budget_nano_usd
+      from public.platform_budget_ledgers
+     where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD')
+  ),
+  5000000000::bigint,
+  'public-mode usage provisions the shared daily budget'
+);
+
+select is(
+  (
+    select reserved_nano_usd
+      from public.platform_budget_ledgers
+     where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD')
+  ),
+  250::bigint,
+  'public-mode usage is reserved in the shared daily ledger'
+);
+
+update public.platform_budget_ledgers
+   set committed_nano_usd = budget_nano_usd - reserved_nano_usd
+ where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD');
+
+select throws_ok(
+  $$select public.record_generation_usage(
+    '10000000-0000-4000-8000-000000000001',
+    '40000000-0000-4000-8000-000000000026',
+    'sentence',
+    1,
+    1,
+    'public-mode-budget-exhausted'
+  )$$,
+  'P0009',
+  'platform_daily_budget_exhausted',
+  'public mode fails closed when the shared daily budget is exhausted'
+);
+
+select is(
+  (
+    select count(*)::integer
+      from public.membership_reservations
+     where client_request_id = '40000000-0000-4000-8000-000000000026'
+  ),
+  0,
+  'public-mode budget rejection creates no usage reservation'
+);
+
+delete from public.membership_reservations
+ where client_request_id = '40000000-0000-4000-8000-000000000025';
 delete from public.platform_budget_ledgers
  where period_key = 'platform:day:' || to_char(now() at time zone 'UTC', 'YYYY-MM-DD');
 
@@ -452,7 +523,7 @@ select throws_ok(
     'anonymous-budget-exhausted'
   )$$,
   'P0009',
-  'service_budget_protected',
+  'platform_daily_budget_exhausted',
   'anonymous reservation remains blocked when the daily budget is exhausted'
 );
 

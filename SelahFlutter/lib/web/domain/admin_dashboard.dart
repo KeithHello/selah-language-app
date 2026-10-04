@@ -5,12 +5,14 @@ class AdminDashboardData {
     required this.summary,
     required this.attempts,
     required this.generatedAt,
+    this.platformBudget,
     this.audience,
   });
 
   final AdminSummary summary;
   final List<AdminAttempt> attempts;
   final DateTime? generatedAt;
+  final AdminPlatformBudget? platformBudget;
   final AdminAudienceSummary? audience;
 
   factory AdminDashboardData.fromJson(Map<String, dynamic> json) {
@@ -20,11 +22,54 @@ class AdminDashboardData {
         json['attempts'],
       ).map((item) => AdminAttempt.fromJson(objectMap(item))).toList(),
       generatedAt: DateTime.tryParse(stringValue(json['generatedAt'] ?? '')),
+      platformBudget: json['platformBudget'] is Map
+          ? AdminPlatformBudget.fromJson(objectMap(json['platformBudget']))
+          : null,
       audience: json['audience'] is Map
           ? AdminAudienceSummary.fromJson(objectMap(json['audience']))
           : null,
     );
   }
+}
+
+class AdminPlatformBudget {
+  const AdminPlatformBudget({
+    required this.periodKey,
+    required this.configured,
+    required this.ledgerExists,
+    required this.budgetNanoUsd,
+    required this.reservedNanoUsd,
+    required this.committedNanoUsd,
+    required this.remainingNanoUsd,
+    required this.overrunNanoUsd,
+  });
+
+  final String periodKey;
+  final bool configured;
+  final bool ledgerExists;
+  final int budgetNanoUsd;
+  final int reservedNanoUsd;
+  final int committedNanoUsd;
+  final int remainingNanoUsd;
+  final int overrunNanoUsd;
+
+  factory AdminPlatformBudget.fromJson(Map<String, dynamic> json) =>
+      AdminPlatformBudget(
+        periodKey: stringValue(json['periodKey']),
+        configured: json['configured'] == true,
+        ledgerExists: json['ledgerExists'] == true,
+        budgetNanoUsd: intValue(json['budgetNanoUsd']),
+        reservedNanoUsd: intValue(json['reservedNanoUsd']),
+        committedNanoUsd: intValue(json['committedNanoUsd']),
+        remainingNanoUsd: intValue(json['remainingNanoUsd']),
+        overrunNanoUsd: intValue(json['overrunNanoUsd']),
+      );
+
+  int get usedNanoUsd => reservedNanoUsd + committedNanoUsd;
+
+  double get utilization => budgetNanoUsd <= 0
+      ? (usedNanoUsd > 0 ? 1 : 0)
+      : usedNanoUsd / budgetNanoUsd;
 }
 
 class AdminSummary {

@@ -210,6 +210,11 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
               },
             ),
             const SizedBox(height: SelahSpacing.xl),
+            _PlatformBudgetCard(
+              budget: dashboard.platformBudget,
+              uiLocale: widget.uiLocale,
+            ),
+            const SizedBox(height: SelahSpacing.lg),
             _AudienceCard(controller: controller, uiLocale: widget.uiLocale),
             const SizedBox(height: SelahSpacing.lg),
             _Card(
@@ -243,6 +248,87 @@ class _AdminDashboardPageState extends State<AdminDashboardPage> {
           ],
         );
       },
+    );
+  }
+}
+
+class _PlatformBudgetCard extends StatelessWidget {
+  const _PlatformBudgetCard({required this.budget, required this.uiLocale});
+
+  final AdminPlatformBudget? budget;
+  final String uiLocale;
+
+  @override
+  Widget build(BuildContext context) {
+    String copy(String key) => _adminCopy(uiLocale, key);
+    final current = budget;
+    return _Card(
+      title: copy('platformBudgetTitle'),
+      child: current == null || !current.configured
+          ? Text(copy('platformBudgetUnavailable'))
+          : _budgetDetails(current, copy),
+    );
+  }
+
+  Widget _budgetDetails(
+    AdminPlatformBudget budget,
+    String Function(String key) copy,
+  ) {
+    String money(int nanoUsd) =>
+        'USD ${(nanoUsd / 1000000000).toStringAsFixed(6)}';
+    final ratio = budget.utilization.clamp(0.0, 1.0).toDouble();
+    final color = budget.overrunNanoUsd > 0 || budget.utilization >= 1
+        ? SelahColors.coral
+        : budget.utilization >= .9
+        ? SelahColors.amber
+        : SelahColors.sage;
+    final state = budget.overrunNanoUsd > 0
+        ? copy('platformBudgetOverrun')
+        : budget.utilization >= 1
+        ? copy('platformBudgetReached')
+        : budget.utilization >= .9
+        ? copy('platformBudgetNear')
+        : budget.utilization >= .75
+        ? copy('platformBudgetWatch')
+        : copy('platformBudgetNormal');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${copy('platformBudgetLimit')} ${money(budget.budgetNanoUsd)}'),
+        const SizedBox(height: SelahSpacing.sm),
+        LinearProgressIndicator(
+          value: ratio,
+          color: color,
+          backgroundColor: SelahColors.borderLight,
+          minHeight: 6,
+        ),
+        const SizedBox(height: SelahSpacing.sm),
+        Wrap(
+          spacing: SelahSpacing.lg,
+          runSpacing: SelahSpacing.xs,
+          children: [
+            Text(
+              '${copy('platformBudgetCommitted')} ${money(budget.committedNanoUsd)}',
+            ),
+            Text(
+              '${copy('platformBudgetReserved')} ${money(budget.reservedNanoUsd)}',
+            ),
+            Text(
+              '${copy('platformBudgetRemaining')} ${money(budget.remainingNanoUsd)}',
+            ),
+          ],
+        ),
+        const SizedBox(height: SelahSpacing.xs),
+        Text(
+          budget.ledgerExists ? state : copy('platformBudgetNotStarted'),
+          style: SelahTypography.bodySmall(color: color),
+        ),
+        if (budget.overrunNanoUsd > 0)
+          Text(
+            '${copy('platformBudgetOverrunAmount')} ${money(budget.overrunNanoUsd)}',
+            style: SelahTypography.bodySmall(color: SelahColors.coral),
+          ),
+      ],
     );
   }
 }
@@ -842,7 +928,7 @@ const _adminCopies = <String, Map<String, String>>{
     'registeredOnlyDetail': '生成、转写、个人音频、会员与同步均要求注册并登录。访客仍可使用本机学习和示例内容。',
     'controlsTitle': '服务与会员开关',
     'membershipSwitch': '启用会员限制',
-    'membershipSwitchDetail': '关闭时不检查会员额度；打开后所有新增生成都走服务端限额。',
+    'membershipSwitchDetail': '关闭时不检查个人会员额度；平台日用量保护始终生效。',
     'trialSwitch': '开放 7 天试用',
     'trialSwitchDetail': '只控制新试用入口，不影响已开始的试用。',
     'salesSwitch': '开放月会员购买',
@@ -850,7 +936,7 @@ const _adminCopies = <String, Map<String, String>>{
     'generationSwitch': '允许新增生成',
     'generationSwitchDetail': '关闭时保留已有内容学习，暂停新的模型与配音调用。',
     'membershipOnConfirm': '打开后，新生成会按会员方案检查额度；请确认预算与数据库迁移已就绪。',
-    'membershipOffConfirm': '关闭后将进入公开体验模式，不再执行会员额度限制。',
+    'membershipOffConfirm': '关闭后不执行个人会员额度限制；平台日用量保护仍生效。',
     'trialOnConfirm': '开放新的 7 天试用入口？试用仍会在第一条个人表达成功后开始。',
     'trialOffConfirm': '关闭新试用入口？已开始的试用和已购权益不受影响。',
     'salesOnConfirm': '开放新的月会员订单？支付核验完成前不会发放会员。',
@@ -868,6 +954,19 @@ const _adminCopies = <String, Map<String, String>>{
     'search': '搜索',
     'usersEmpty': '没有匹配的用户。',
     'nextPage': '加载下一页',
+    'platformBudgetTitle': '今日平台用量',
+    'platformBudgetUnavailable': '日用量信息暂时无法读取。',
+    'platformBudgetLimit': '日预算',
+    'platformBudgetCommitted': '已结算',
+    'platformBudgetReserved': '已预留',
+    'platformBudgetRemaining': '剩余',
+    'platformBudgetNormal': '状态正常',
+    'platformBudgetWatch': '已用量达到 75%，建议关注。',
+    'platformBudgetNear': '接近日上限（90%），建议检查近期用量。',
+    'platformBudgetReached': '已达到日上限，新请求将暂缓。',
+    'platformBudgetOverrun': '实际用量已超过预算，需要核对账单与预估。',
+    'platformBudgetOverrunAmount': '超出',
+    'platformBudgetNotStarted': '今日尚无生成请求，首次请求时会建立账本。',
     'audienceTitle': '用户画像摘要',
     'audienceLoad': '加载摘要',
     'audienceHint': '按单一维度查看已同意研究资料的聚合结果；不显示个人明细。',
@@ -884,7 +983,7 @@ const _adminCopies = <String, Map<String, String>>{
     'registeredOnlyDetail': '生成、轉寫、個人音訊、會員與同步均須註冊並登入。訪客仍可使用本機學習與範例內容。',
     'controlsTitle': '服務與會員開關',
     'membershipSwitch': '啟用會員限制',
-    'membershipSwitchDetail': '關閉時不檢查會員額度；開啟後所有新增產生都走伺服器限額。',
+    'membershipSwitchDetail': '關閉時不檢查個人會員額度；平台每日用量保護仍會生效。',
     'trialSwitch': '開放 7 天試用',
     'trialSwitchDetail': '只控制新試用入口，不影響已開始的試用。',
     'salesSwitch': '開放月會員購買',
@@ -892,7 +991,7 @@ const _adminCopies = <String, Map<String, String>>{
     'generationSwitch': '允許新增產生',
     'generationSwitchDetail': '關閉時保留已有內容學習，暫停新的模型與配音呼叫。',
     'membershipOnConfirm': '開啟後，新產生會按會員方案檢查額度；請確認預算與資料庫 migration 已就緒。',
-    'membershipOffConfirm': '關閉後將進入公開體驗模式，不再執行會員額度限制。',
+    'membershipOffConfirm': '關閉後不執行個人會員額度限制；平台每日用量保護仍會生效。',
     'trialOnConfirm': '開放新的 7 天試用入口？試用仍會在第一條個人表達成功後開始。',
     'trialOffConfirm': '關閉新試用入口？已開始的試用和已購權益不受影響。',
     'salesOnConfirm': '開放新的月會員訂單？付款核驗完成前不會發放會員。',
@@ -910,6 +1009,19 @@ const _adminCopies = <String, Map<String, String>>{
     'search': '搜尋',
     'usersEmpty': '沒有符合的使用者。',
     'nextPage': '載入下一頁',
+    'platformBudgetTitle': '今日平台用量',
+    'platformBudgetUnavailable': '暫時無法讀取每日用量資訊。',
+    'platformBudgetLimit': '每日預算',
+    'platformBudgetCommitted': '已結算',
+    'platformBudgetReserved': '已預留',
+    'platformBudgetRemaining': '剩餘',
+    'platformBudgetNormal': '狀態正常',
+    'platformBudgetWatch': '已用量達到 75%，建議留意。',
+    'platformBudgetNear': '接近每日上限（90%），建議檢查近期用量。',
+    'platformBudgetReached': '已達每日上限，新請求將暫緩。',
+    'platformBudgetOverrun': '實際用量已超出預算，請核對帳單與預估。',
+    'platformBudgetOverrunAmount': '超出',
+    'platformBudgetNotStarted': '今日尚無生成請求，首次請求時會建立帳本。',
     'audienceTitle': '使用者畫像摘要',
     'audienceLoad': '載入摘要',
     'audienceHint': '按單一維度查看已同意研究資料的聚合結果；不顯示個人明細。',
@@ -927,7 +1039,7 @@ const _adminCopies = <String, Map<String, String>>{
         '生成、文字起こし、個人音声、会員機能、同期には登録とログインが必要です。ゲストは端末内の学習と例文を利用できます。',
     'controlsTitle': 'サービスと会員設定',
     'membershipSwitch': '会員制限を有効にする',
-    'membershipSwitchDetail': 'オフでは会員上限を確認せず、オンでは全生成をサーバー上限で管理します。',
+    'membershipSwitchDetail': 'オフでは個人会員の枠を確認しませんが、プラットフォームの日次利用保護は引き続き有効です。',
     'trialSwitch': '7日間トライアルを開く',
     'trialSwitchDetail': '新規トライアルだけを制御し、開始済みの期間には影響しません。',
     'salesSwitch': '月額購入を開く',
@@ -935,7 +1047,7 @@ const _adminCopies = <String, Map<String, String>>{
     'generationSwitch': '新しい生成を許可',
     'generationSwitchDetail': 'オフでも保存済みの内容と下書きは利用できます。',
     'membershipOnConfirm': '会員制限を有効にしますか？データベースと予算の準備を確認してください。',
-    'membershipOffConfirm': '公開体験モードに戻しますか？会員上限は適用されません。',
+    'membershipOffConfirm': '個人会員の枠は適用されません。プラットフォームの日次利用保護は引き続き有効です。',
     'trialOnConfirm': '新しいトライアルを開きますか？最初の生成成功から開始します。',
     'trialOffConfirm': '新しいトライアルを閉じますか？開始済みの期間には影響しません。',
     'salesOnConfirm': '月額注文を開きますか？支払い確認前に権限は付与しません。',
@@ -953,6 +1065,19 @@ const _adminCopies = <String, Map<String, String>>{
     'search': '検索',
     'usersEmpty': '一致するユーザーがいません。',
     'nextPage': '次のページを読み込む',
+    'platformBudgetTitle': '本日のプラットフォーム使用量',
+    'platformBudgetUnavailable': '本日の使用量を読み込めません。',
+    'platformBudgetLimit': '日次予算',
+    'platformBudgetCommitted': '確定済み',
+    'platformBudgetReserved': '予約済み',
+    'platformBudgetRemaining': '残り',
+    'platformBudgetNormal': '正常',
+    'platformBudgetWatch': '使用量が75%に達しました。状況を確認してください。',
+    'platformBudgetNear': '日次上限の90%に近づいています。最近の使用量を確認してください。',
+    'platformBudgetReached': '日次上限に達しました。新しいリクエストは一時停止します。',
+    'platformBudgetOverrun': '実際の使用量が予算を超えています。請求と見積もりを確認してください。',
+    'platformBudgetOverrunAmount': '超過',
+    'platformBudgetNotStarted': '本日の生成リクエストはまだありません。最初のリクエスト時に記録が作成されます。',
     'audienceTitle': 'ユーザー調査の概要',
     'audienceLoad': '概要を読み込む',
     'audienceHint': '同意済みの資料を一つの軸で集計します。個人の回答は表示しません。',
