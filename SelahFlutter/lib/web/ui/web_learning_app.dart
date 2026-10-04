@@ -1638,23 +1638,43 @@ class _TodayPageState extends State<_TodayPage> {
         _ModelDisclosure(strings: strings),
         if (_segments.isNotEmpty && preparation != null) ...[
           const SizedBox(height: 18),
-          _SegmentEditor(
-            segments: _segments,
-            preparationSegments: preparation.segments,
-            strings: strings,
-            spokenPolish:
-                _spokenCapture &&
-                shouldPolishSpokenSource(
-                  _input.text,
-                  nativeLanguage: c.nativeLanguage,
-                ) &&
-                preparation.sourceText.trim() == _input.text.trim(),
-            busy: c.busy,
-            onGenerate: _generateSegments,
-            onCancel: _cancelSegments,
-            onRemoveSegment: _removeSegment,
-            onUndoRemove: _undoRemoveSegment,
-            removedSegment: (index: _removedIndex, segment: _removedSegment),
+          AnimatedBuilder(
+            animation: c.membership,
+            builder: (context, _) {
+              final membership = c.membership;
+              final usage = membership.summary.usage;
+              final quotaRemaining =
+                  c.isRegistered &&
+                      membership.membershipModeEnabled &&
+                      membership.checked &&
+                      membership.statusError == null
+                  ? usage?.sentences.remaining
+                  : null;
+              return _SegmentEditor(
+                segments: _segments,
+                preparationSegments: preparation.segments,
+                strings: strings,
+                spokenPolish:
+                    _spokenCapture &&
+                    shouldPolishSpokenSource(
+                      _input.text,
+                      nativeLanguage: c.nativeLanguage,
+                    ) &&
+                    preparation.sourceText.trim() == _input.text.trim(),
+                busy: c.busy,
+                quotaRemaining: quotaRemaining,
+                quotaRefreshing: membership.checked && membership.loading,
+                onRefreshQuota: () => unawaited(membership.load()),
+                onGenerate: _generateSegments,
+                onCancel: _cancelSegments,
+                onRemoveSegment: _removeSegment,
+                onUndoRemove: _undoRemoveSegment,
+                removedSegment: (
+                  index: _removedIndex,
+                  segment: _removedSegment,
+                ),
+              );
+            },
           ),
         ],
         if (c.legacySentence != null) ...[
@@ -2549,6 +2569,9 @@ class _SegmentEditor extends StatelessWidget {
     required this.strings,
     required this.spokenPolish,
     required this.busy,
+    required this.quotaRemaining,
+    required this.quotaRefreshing,
+    required this.onRefreshQuota,
     required this.onGenerate,
     required this.onCancel,
     required this.onRemoveSegment,
@@ -2561,6 +2584,9 @@ class _SegmentEditor extends StatelessWidget {
   final SelahStrings strings;
   final bool spokenPolish;
   final bool busy;
+  final int? quotaRemaining;
+  final bool quotaRefreshing;
+  final VoidCallback onRefreshQuota;
   final VoidCallback onGenerate;
   final VoidCallback onCancel;
   final ValueChanged<int> onRemoveSegment;
@@ -2569,101 +2595,156 @@ class _SegmentEditor extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      color: SelahColors.lavenderSoft,
-      child: Padding(
-        padding: const EdgeInsets.all(18),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
+    return AnimatedBuilder(
+      animation: Listenable.merge(segments),
+      builder: (context, _) {
+        final pendingCount = segments.asMap().entries.where((entry) {
+          final hasText = entry.value.text.trim().isNotEmpty;
+          final isComplete =
+              entry.key < preparationSegments.length &&
+              preparationSegments[entry.key].isComplete;
+          return hasText && !isComplete;
+        }).length;
+        final remaining = quotaRemaining;
+        final quotaBlocked = remaining != null && pendingCount > remaining;
+        return Card(
+          color: SelahColors.lavenderSoft,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(
-                  Icons.call_split_rounded,
-                  size: 20,
-                  color: SelahColors.lavender,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  strings.text(
-                    spokenPolish
-                        ? 'today.confirmPractice'
-                        : 'today.segmentTitle',
-                  ),
-                  style: SelahTypography.headlineMedium(),
-                ),
-                const Spacer(),
-                Text(
-                  '${segments.length} / 20',
-                  style: SelahTypography.labelSmall(
-                    color: SelahColors.textTertiary,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              strings.text(
-                spokenPolish
-                    ? 'today.confirmPractice.detail'
-                    : 'today.segmentDetail',
-              ),
-              style: SelahTypography.bodySmall(),
-            ),
-            const SizedBox(height: 14),
-            ...segments.asMap().entries.map(
-              (entry) => _SegmentInput(
-                index: entry.key,
-                controller: entry.value,
-                metadata: entry.key < preparationSegments.length
-                    ? preparationSegments[entry.key]
-                    : null,
-                strings: strings,
-                busy: busy,
-                canRemove: segments.length > 1,
-                onRemoveSegment: onRemoveSegment,
-                onCancel: onCancel,
-              ),
-            ),
-            if (removedSegment.index != null && removedSegment.segment != null)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: Row(
+                Row(
                   children: [
-                    Expanded(
-                      child: Text(
-                        strings.message('today.segmentRemoved', {
-                          'index': '${removedSegment.index! + 1}',
-                        }),
-                        style: SelahTypography.labelSmall(
-                          color: SelahColors.lavenderInk,
-                        ),
-                      ),
+                    Icon(
+                      Icons.call_split_rounded,
+                      size: 20,
+                      color: SelahColors.lavender,
                     ),
-                    TextButton(
-                      onPressed: busy ? null : onUndoRemove,
-                      child: Text(strings.text('today.undo')),
+                    const SizedBox(width: 8),
+                    Text(
+                      strings.text(
+                        spokenPolish
+                            ? 'today.confirmPractice'
+                            : 'today.segmentTitle',
+                      ),
+                      style: SelahTypography.headlineMedium(),
+                    ),
+                    const Spacer(),
+                    Text(
+                      '${segments.length} / 20',
+                      style: SelahTypography.labelSmall(
+                        color: SelahColors.textTertiary,
+                      ),
                     ),
                   ],
                 ),
-              ),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: busy ? null : onCancel,
-                  child: Text(strings.text('common.cancel')),
+                const SizedBox(height: 6),
+                Text(
+                  strings.text(
+                    spokenPolish
+                        ? 'today.confirmPractice.detail'
+                        : 'today.segmentDetail',
+                  ),
+                  style: SelahTypography.bodySmall(),
                 ),
-                const Spacer(),
-                FilledButton.icon(
-                  onPressed: busy ? null : onGenerate,
-                  icon: const Icon(Icons.auto_awesome_rounded, size: 17),
-                  label: Text(strings.confirmGenerateLabel(busy: busy)),
+                const SizedBox(height: 8),
+                Text(
+                  strings.message('today.segmentQuotaHint', {
+                    'count': '$pendingCount',
+                  }),
+                  style: SelahTypography.labelSmall(
+                    color: SelahColors.lavenderInk,
+                  ),
+                ),
+                if (quotaBlocked) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    strings.message('today.segmentQuotaBlocked', {
+                      'count': '$pendingCount',
+                    }),
+                    style: SelahTypography.bodySmall(color: SelahColors.amber),
+                  ),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: busy || quotaRefreshing
+                          ? null
+                          : onRefreshQuota,
+                      icon: quotaRefreshing
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.refresh_rounded, size: 16),
+                      label: Text(strings.text('today.segmentQuotaRefresh')),
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 14),
+                ...segments.asMap().entries.map(
+                  (entry) => _SegmentInput(
+                    index: entry.key,
+                    controller: entry.value,
+                    metadata: entry.key < preparationSegments.length
+                        ? preparationSegments[entry.key]
+                        : null,
+                    strings: strings,
+                    busy: busy,
+                    canRemove: segments.length > 1,
+                    onRemoveSegment: onRemoveSegment,
+                    onCancel: onCancel,
+                  ),
+                ),
+                if (removedSegment.index != null &&
+                    removedSegment.segment != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            strings.message('today.segmentRemoved', {
+                              'index': '${removedSegment.index! + 1}',
+                            }),
+                            style: SelahTypography.labelSmall(
+                              color: SelahColors.lavenderInk,
+                            ),
+                          ),
+                        ),
+                        TextButton(
+                          onPressed: busy ? null : onUndoRemove,
+                          child: Text(strings.text('today.undo')),
+                        ),
+                      ],
+                    ),
+                  ),
+                Row(
+                  children: [
+                    TextButton(
+                      onPressed: busy ? null : onCancel,
+                      child: Text(strings.text('common.cancel')),
+                    ),
+                    const Spacer(),
+                    FilledButton.icon(
+                      onPressed:
+                          busy ||
+                              quotaRefreshing ||
+                              pendingCount == 0 ||
+                              quotaBlocked
+                          ? null
+                          : onGenerate,
+                      icon: const Icon(Icons.auto_awesome_rounded, size: 17),
+                      label: Text(strings.confirmGenerateLabel(busy: busy)),
+                    ),
+                  ],
                 ),
               ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }

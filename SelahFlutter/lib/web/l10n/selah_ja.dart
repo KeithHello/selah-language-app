@@ -159,6 +159,10 @@ const selahJaOverrides = <String, String>{
   'today.polishFallback': '今回は事前整理をせず、元の内容で続けます。',
   'today.segmentTitle': '文に整理する',
   'today.segmentDetail': '練習したい表現になっているか確認してください。5文ずつ生成します。',
+  'today.segmentQuotaHint': 'すべて生成すると、個人表現 {count} 文を使用します。',
+  'today.segmentQuotaBlocked':
+      '今回の生成には個人表現 {count} 文が必要で、今期の利用可能な枠を超えています。文を減らしてから再試行してください。',
+  'today.segmentQuotaRefresh': '利用枠を再確認する',
   'today.confirmPractice': '練習する文を確認',
   'today.confirmPractice.detail': '言いよどみを取り除きました。練習する表現として確認し、自由に修正できます。',
   'today.removedFillers': '取り除いた言葉：{items}',

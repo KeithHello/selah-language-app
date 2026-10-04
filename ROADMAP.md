@@ -8,6 +8,17 @@
 
 ## 当前阶段
 
+### 2026-10-04 长文整理与个人表达计费透明化（本地开发完成，生产发布待确认）
+
+- [x] 结论：维持四项额度与现有记账不变；长文整理按「次」、确认生成按实际保存条数计入个人表达（sentence 与 batch 已共池）。
+- [x] 方案：整理预览显示本次占用条数、已知额度不足时预检禁用并附刷新入口、三语帮助文案补「整理按次、确认按条」两层关系、整理提示词减少碎片分句；不改数据库、不加 migration、不动 reserve_generation_allowance。
+- [x] 文档：docs/superpowers/specs/2026-10-04-preparation-quota-clarity-design.md 与 docs/superpowers/plans/2026-10-04-preparation-quota-clarity.md。
+- [x] 主人已授权本轮完整开发；不改数据库、不加 migration，生产发布另按逐步确认规则处理。
+- [x] 实施：分句预览条数与额度预检、三语额度说明、整理提示词独立版本与分句约束完成；未改数据库、migration 或额度预留逻辑。
+- [x] 验证：Flutter 全量 431 项通过、flutter analyze 通过；Deno 格式检查（91 个文件）、类型检查（20 个 Edge Functions）和全量测试（365 项）通过。Deno lint 在隔离项目配置后检查 90 个文件通过；本机父目录 package.json 额外启用了仓库规则，已单独识别。
+- [ ] Web Release 最终构建待在合并最新 origin/main 后重跑，候选版本 1.7.0+12；此前 1.7.0+11 的本地构建不作为最终验证。
+- [ ] 浏览器真实会员与长文整理流程验收、生产 Edge Function 部署、GitHub push 与 Pages 生产部署待逐步确认及线上 Build ID 核验。
+
 ### 2026-10-04 Web 1.6.0 整体速度与动效复评（调研完成，两项资源优化待主人确认）
 
 - [x] 正式站 `1.6.0`（Build ID `2387f0a7fbc37cbe`）桌面实测：3 次独立冷启动 Flutter 首帧 1781—2097ms，热重载首帧 610—1179ms 且传输 0 字节（Service Worker 缓存完全接管）；精灵动画经连续帧像素差异确认仍在工作（差异集中在精灵区域 896—1151×128—383）。

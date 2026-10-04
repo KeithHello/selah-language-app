@@ -76,6 +76,8 @@ class _RecordingFakePlatform extends _FakePlatform {
 class _SpokenGateway extends CaptureGateway {
   String transcript = '';
   Object? prepareFailure;
+  Map<String, dynamic>? membershipStatus;
+  int membershipStatusCalls = 0;
   final functions = <String>[];
   final generationSources = <String>[];
 
@@ -92,6 +94,10 @@ class _SpokenGateway extends CaptureGateway {
     bool get = false,
   }) async {
     functions.add(function);
+    if (function == 'membership-status' && membershipStatus != null) {
+      membershipStatusCalls++;
+      return Map<String, dynamic>.from(membershipStatus!);
+    }
     if (function == 'sentences-prepare' && prepareFailure != null) {
       throw prepareFailure!;
     }
@@ -186,6 +192,28 @@ LearnSentence _seed(int index) => LearnSentence.seed({
   'deconstruction': const [],
   'vocab_candidates': const [],
 });
+
+Map<String, dynamic> _activeMembershipStatus(int sentenceRemaining) {
+  final now = DateTime.now().toUtc();
+  return {
+    'membershipModeEnabled': true,
+    'plan': 'monthly',
+    'status': 'active',
+    'periodStartsAt': now.subtract(const Duration(days: 5)).toIso8601String(),
+    'periodEndsAt': now.add(const Duration(days: 25)).toIso8601String(),
+    'usage': {
+      'asOf': now.toIso8601String(),
+      'sentences': {
+        'used': 300 - sentenceRemaining,
+        'limit': 300,
+        'remaining': sentenceRemaining,
+      },
+      'ttsCharacters': {'used': 0, 'limit': 30000, 'remaining': 30000},
+      'transcriptionMs': {'used': 0, 'limit': 3600000, 'remaining': 3600000},
+      'preparations': {'used': 0, 'limit': 30, 'remaining': 30},
+    },
+  };
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -538,11 +566,11 @@ void main() {
     );
     addTearDown(configuredController.dispose);
     await configuredController.initialize();
-      configuredController.state.preferences
-        ..onboarded = true
-        ..uiLocale = 'zh-Hans'
-        ..motionEnabled = false;
-      configuredController.navigate(5);
+    configuredController.state.preferences
+      ..onboarded = true
+      ..uiLocale = 'zh-Hans'
+      ..motionEnabled = false;
+    configuredController.navigate(5);
 
     await tester.pumpWidget(WebLearningApp(controller: configuredController));
     await tester.pumpAndSettle();
@@ -1221,6 +1249,114 @@ void main() {
       await _disposeTodayController(tester, spokenController);
     },
   );
+
+  testWidgets('segment preview shows and updates pending expression count', (
+    tester,
+  ) async {
+    final gateway = _SpokenGateway()
+      ..fail = false
+      ..membershipStatus = _activeMembershipStatus(10)
+      ..prepareResult = List.generate(
+        4,
+        (index) => {
+          'segmentId': newId(),
+          'orderIndex': index,
+          'sourceText': '第 ${index + 1} 句话。',
+        },
+      );
+    final todayController = await _todayController(
+      gateway,
+      _RecordingFakePlatform()..info['online'] = true,
+    );
+    await todayController.membership.load();
+    await tester.pumpWidget(WebLearningApp(controller: todayController));
+    await tester.pumpAndSettle();
+    await _openTodayComposer(tester);
+    await todayController.prepare('这是一段需要整理的长文。');
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部生成将占用 4 条个人表达。'), findsOneWidget);
+
+    todayController.state.preparationDraft!.segments.first.status = 'succeeded';
+    todayController.notifyListeners();
+    await tester.pumpAndSettle();
+    expect(find.text('全部生成将占用 3 条个人表达。'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField).at(1), '');
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部生成将占用 3 条个人表达。'), findsOneWidget);
+    await _disposeTodayController(tester, todayController);
+  });
+
+  testWidgets(
+    'insufficient membership allowance blocks generation and refreshes',
+    (tester) async {
+      final gateway = _SpokenGateway()
+        ..fail = false
+        ..membershipStatus = _activeMembershipStatus(2)
+        ..prepareResult = List.generate(
+          3,
+          (index) => {
+            'segmentId': newId(),
+            'orderIndex': index,
+            'sourceText': '第 ${index + 1} 句话。',
+          },
+        );
+      final todayController = await _todayController(
+        gateway,
+        _RecordingFakePlatform()..info['online'] = true,
+      );
+      await todayController.membership.load();
+      await tester.pumpWidget(WebLearningApp(controller: todayController));
+      await tester.pumpAndSettle();
+      await _openTodayComposer(tester);
+      await todayController.prepare('这是一段需要整理的长文。');
+      await tester.pumpAndSettle();
+
+      expect(find.text('本次需要 3 条个人表达，已超出本期可用额度。可删减分句后再试。'), findsOneWidget);
+      final generateButton = find.widgetWithText(FilledButton, '确认并生成');
+      expect(tester.widget<FilledButton>(generateButton).onPressed, isNull);
+
+      gateway.membershipStatus = _activeMembershipStatus(3);
+      await tester.tap(find.text('重新查询额度'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('已超出本期可用额度'), findsNothing);
+      expect(tester.widget<FilledButton>(generateButton).onPressed, isNotNull);
+      await _disposeTodayController(tester, todayController);
+    },
+  );
+
+  testWidgets('missing membership usage does not block segment generation', (
+    tester,
+  ) async {
+    final gateway = _SpokenGateway()
+      ..fail = false
+      ..prepareResult = List.generate(
+        3,
+        (index) => {
+          'segmentId': newId(),
+          'orderIndex': index,
+          'sourceText': '第 ${index + 1} 句话。',
+        },
+      );
+    final todayController = await _todayController(
+      gateway,
+      _RecordingFakePlatform()..info['online'] = true,
+    );
+    await tester.pumpWidget(WebLearningApp(controller: todayController));
+    await tester.pumpAndSettle();
+    await _openTodayComposer(tester);
+    await todayController.prepare('这是一段需要整理的长文。');
+    await tester.pumpAndSettle();
+
+    expect(find.text('全部生成将占用 3 条个人表达。'), findsOneWidget);
+    expect(find.textContaining('已超出本期可用额度'), findsNothing);
+    final generateButton = find.widgetWithText(FilledButton, '确认并生成');
+    expect(tester.widget<FilledButton>(generateButton).onPressed, isNotNull);
+    await _disposeTodayController(tester, todayController);
+  });
 
   testWidgets('clean spoken transcript skips preparation', (tester) async {
     final gateway = _SpokenGateway()
