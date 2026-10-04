@@ -22,6 +22,8 @@ class _Platform implements LearningPlatform {
         return {'online': true};
       case 'contentHash':
         return 'a' * 64;
+      case 'contentHashes':
+        return List<String>.filled((payload['texts'] as List).length, 'a' * 64);
       case 'audioEnsure':
         ensured.add(payload['key'] as String);
         ensuredUrls.add(payload['url'] as String);

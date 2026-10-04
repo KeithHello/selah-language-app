@@ -182,6 +182,25 @@ test('content hash gives audio a stable version without exposing the sentence', 
   assert.match(await hash('你好。'), /^[0-9a-f]{64}$/);
 });
 
+test('content hash batch preserves order and matches single-text hashes', async () => {
+  const { webcrypto } = await import('node:crypto');
+  const bridge = createBridge({ root: { navigator: {}, crypto: webcrypto } });
+  const texts = ['Hello.', '你好。', 'Hello!'];
+  const hashes = JSON.parse(await bridge('contentHashes', JSON.stringify({ texts })));
+  const singleHashes = await Promise.all(texts.map(async (text) =>
+    JSON.parse(await bridge('contentHash', JSON.stringify({ text }))),
+  ));
+
+  assert.deepEqual(hashes, singleHashes);
+  assert.equal(new Set(hashes).size, texts.length);
+  await assert.rejects(
+    () => bridge('contentHashes', JSON.stringify({ texts: ['valid', null] })),
+  );
+  await assert.rejects(
+    () => bridge('contentHashes', JSON.stringify({ texts: Array(513).fill('x') })),
+  );
+});
+
 test('platform reports waiting updates and notifications use the service worker', async () => {
   let notified = false;
   const registration = { waiting: { postMessage() {} }, showNotification: async () => { notified = true; } };

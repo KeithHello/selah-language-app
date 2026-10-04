@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:selah/web/data/learning_gateway.dart';
+import 'package:selah/web/domain/audio_preparation.dart';
 import 'package:selah/web/domain/learning_models.dart';
 import 'package:selah/web/learning_controller.dart';
 import 'package:selah/web/platform/learning_platform.dart';
@@ -23,6 +25,13 @@ class _LoopPlatform implements LearningPlatform {
   final actions = <String>[];
   final snapshots = <String, Object?>{};
   List<Map<String, Object?>> lastLoopTracks = const [];
+  int contentHashCalls = 0;
+  int contentHashesCalls = 0;
+  int audioCacheKeysCalls = 0;
+  int audioCachedCalls = 0;
+  Completer<void>? contentHashesCalled;
+  Completer<List<String>>? contentHashesResponse;
+  Completer<void>? audioCacheKeysCalled;
 
   @override
   Future<Object?> invoke(
@@ -42,8 +51,30 @@ class _LoopPlatform implements LearningPlatform {
       case 'platformInfo':
         return {'online': true};
       case 'contentHash':
+        contentHashCalls += 1;
         return hashes[payload['text']] ?? 'a' * 64;
+      case 'contentHashes':
+        contentHashesCalls += 1;
+        if (contentHashesCalled != null && !contentHashesCalled!.isCompleted) {
+          contentHashesCalled!.complete();
+        }
+        if (contentHashesResponse != null) {
+          return contentHashesResponse!.future;
+        }
+        return (payload['texts'] as List)
+            .map((text) => hashes[text] ?? 'a' * 64)
+            .toList();
+      case 'audioCacheKeys':
+        audioCacheKeysCalls += 1;
+        if (audioCacheKeysCalled != null &&
+            !audioCacheKeysCalled!.isCompleted) {
+          audioCacheKeysCalled!.complete();
+        }
+        return cached
+            .where((key) => key.startsWith(audioCacheKeyPrefix))
+            .toList();
       case 'audioCached':
+        audioCachedCalls += 1;
         return cached.contains(payload['key']);
       case 'audioEnsure':
         cached.add(payload['key'] as String);
@@ -139,6 +170,26 @@ class _GeneratingGateway extends _SignedInGateway {
   }
 }
 
+class _BlockingGeneratingGateway extends _GeneratingGateway {
+  final generationStarted = Completer<void>();
+  final generationResponse = Completer<Map<String, dynamic>>();
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    if (function != 'audio-generate') {
+      return super.invoke(function, body, get: get);
+    }
+    requests.add((function: function, get: get));
+    bodies.add(Map<String, dynamic>.from(body));
+    if (!generationStarted.isCompleted) generationStarted.complete();
+    return generationResponse.future;
+  }
+}
+
 class _PartiallyFailingGateway extends _GeneratingGateway {
   _PartiallyFailingGateway(this.failedText);
 
@@ -217,6 +268,24 @@ Map<String, Map<String, String>> _bundledSeedAudio() => {
   },
 };
 
+List<String> _loopAudioKeys({
+  required String sourceHash,
+  required String targetHash,
+}) => [
+  audioTrackKey(
+    voice: 'native-gentle',
+    role: AudioTrackRole.source,
+    language: 'zh-Hant',
+    contentHash: sourceHash,
+  ),
+  audioTrackKey(
+    voice: 'gentle-natural',
+    role: AudioTrackRole.target,
+    language: 'en',
+    contentHash: targetHash,
+  ),
+];
+
 void _setUpSentence(LearningController controller, LearnSentence sentence) {
   controller.state.sentences.add(sentence);
   controller.state.preferences.onboarded = true;
@@ -252,6 +321,202 @@ void main() {
       expect(platform.actions, contains('audioLoopStart'));
       expect(platform.actions, isNot(contains('audioCached')));
       expect(controller.notice, isNull);
+    },
+  );
+
+  test(
+    'loop preparation batches text hashes and trusts the cache inventory',
+    () async {
+      const source = '缓存中的母语音轨';
+      const target = 'The cached target track.';
+      final sourceHash = 'c' * 64;
+      final targetHash = 'd' * 64;
+      final platform = _LoopPlatform()
+        ..hashes.addAll({source: sourceHash, target: targetHash});
+      platform.cached.addAll([
+        audioTrackKey(
+          voice: 'native-gentle',
+          role: AudioTrackRole.source,
+          language: 'zh-Hant',
+          contentHash: sourceHash,
+        ),
+        audioTrackKey(
+          voice: 'gentle-natural',
+          role: AudioTrackRole.target,
+          language: 'en',
+          contentHash: targetHash,
+        ),
+      ]);
+      final controller = LearningController(
+        gateway: _SignedOutGateway(),
+        platform: platform,
+        polling: false,
+        seeds: const [],
+      );
+      addTearDown(controller.dispose);
+      _setUpSentence(
+        controller,
+        LearnSentence(
+          id: '11111111-1111-4111-8111-111111111111',
+          source: source,
+          target: target,
+        ),
+      );
+
+      await controller.prepareLoop();
+
+      expect(controller.loopReady, isTrue);
+      expect(platform.contentHashesCalls, 1);
+      expect(platform.contentHashCalls, 0);
+      expect(platform.audioCacheKeysCalls, 1);
+      expect(platform.audioCachedCalls, 0);
+      expect(platform.actions, isNot(contains('audioEnsure')));
+    },
+  );
+
+  test(
+    'startup silently recognizes a fully cached loop without cloud or download work',
+    () async {
+      const source = '本机缓存的母语句';
+      const target = 'A sentence already cached locally.';
+      final sourceHash = 'e' * 64;
+      final targetHash = 'f' * 64;
+      final sentence = LearnSentence(
+        id: '11111111-1111-4111-8111-111111111111',
+        source: source,
+        target: target,
+      );
+      final platform = _LoopPlatform()
+        ..hashes.addAll({source: sourceHash, target: targetHash})
+        ..cached.addAll(
+          _loopAudioKeys(sourceHash: sourceHash, targetHash: targetHash),
+        )
+        ..contentHashesCalled = Completer<void>()
+        ..contentHashesResponse = Completer<List<String>>();
+      final snapshot = LearningSnapshot.empty()..sentences.add(sentence);
+      platform.snapshots['guest'] = snapshot.toBackup();
+      final gateway = _SignedOutGateway();
+      final controller = LearningController(
+        gateway: gateway,
+        platform: platform,
+        polling: false,
+        seeds: const [],
+      );
+      addTearDown(controller.dispose);
+      final ready = Completer<void>();
+      controller.addListener(() {
+        if (controller.loopReady && !ready.isCompleted) ready.complete();
+      });
+
+      await controller.initialize();
+      await platform.contentHashesCalled!.future.timeout(
+        const Duration(seconds: 2),
+      );
+      expect(controller.busy, isFalse);
+      expect(controller.error, isNull);
+      expect(controller.notice, isNull);
+      expect(gateway.requests, isEmpty);
+      expect(platform.actions, isNot(contains('audioEnsure')));
+
+      platform.contentHashesResponse!.complete([targetHash, sourceHash]);
+      await ready.future.timeout(const Duration(seconds: 2));
+
+      expect(controller.loopReady, isTrue);
+      expect(platform.audioCacheKeysCalls, 1);
+      expect(platform.audioCachedCalls, 0);
+      expect(gateway.requests, isEmpty);
+      expect(platform.actions, isNot(contains('audioEnsure')));
+      expect(controller.error, isNull);
+      expect(controller.notice, isNull);
+    },
+  );
+
+  test(
+    'startup leaves an incomplete loop unready and does not fetch missing audio',
+    () async {
+      const source = '尚未缓存的母语句';
+      const target = 'A target track that is not cached yet.';
+      final platform = _LoopPlatform()
+        ..hashes.addAll({source: 'a' * 64, target: 'b' * 64})
+        ..audioCacheKeysCalled = Completer<void>();
+      final snapshot = LearningSnapshot.empty()
+        ..sentences.add(
+          LearnSentence(
+            id: '11111111-1111-4111-8111-111111111111',
+            source: source,
+            target: target,
+          ),
+        );
+      platform.snapshots['guest'] = snapshot.toBackup();
+      final gateway = _SignedOutGateway();
+      final controller = LearningController(
+        gateway: gateway,
+        platform: platform,
+        polling: false,
+        seeds: const [],
+      );
+      addTearDown(controller.dispose);
+
+      await controller.initialize();
+      await platform.audioCacheKeysCalled!.future.timeout(
+        const Duration(seconds: 2),
+      );
+      await Future<void>.delayed(Duration.zero);
+
+      expect(controller.loopReady, isFalse);
+      expect(controller.loopPreparing, isFalse);
+      expect(controller.busy, isFalse);
+      expect(controller.error, isNull);
+      expect(controller.notice, isNull);
+      expect(gateway.requests, isEmpty);
+      expect(platform.audioCachedCalls, 0);
+      expect(platform.actions, isNot(contains('audioEnsure')));
+    },
+  );
+
+  test(
+    'entering loop mode starts background preparation and Start joins it',
+    () async {
+      final platform = _LoopPlatform();
+      final gateway = _BlockingGeneratingGateway();
+      final controller = LearningController(
+        gateway: gateway,
+        platform: platform,
+        polling: false,
+        seeds: const [],
+      );
+      addTearDown(controller.dispose);
+      await controller.initialize();
+      _setUpSentence(controller, _sentence());
+
+      await controller.setListenLoopMode(true);
+      await gateway.generationStarted.future.timeout(
+        const Duration(seconds: 2),
+      );
+
+      expect(controller.listenLoopMode, isTrue);
+      expect(controller.busy, isFalse);
+      expect(controller.loopPreparing, isTrue);
+      expect(platform.actions, isNot(contains('audioLoopStart')));
+
+      final cacheKeyCallsBeforeStart = platform.audioCacheKeysCalls;
+      final start = controller.startLoop();
+      expect(controller.busy, isTrue);
+      gateway.generationResponse.complete({
+        'status': 'ready',
+        'downloadUrl': 'http://127.0.0.1:5180/audio.mp3',
+      });
+      await start;
+
+      expect(
+        gateway.requests.where(
+          (request) => request.function == 'audio-generate',
+        ),
+        hasLength(2),
+      );
+      expect(platform.audioCacheKeysCalls, cacheKeyCallsBeforeStart);
+      expect(controller.loopReady, isTrue);
+      expect(controller.loopSessionId, isNotNull);
     },
   );
 

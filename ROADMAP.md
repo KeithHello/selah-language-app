@@ -8,6 +8,15 @@
 
 ## 当前阶段
 
+### 2026-10-04 循环听缓存预检与后台准备（本地实现与验证完成；生产发布待确认）
+
+- [x] 新增浏览器批量内容哈希，一次最多处理 512 条；循环音轨引用按唯一文本批量计算并在账户生命周期内复用。
+- [x] 本机账户数据加载后静默检查循环音频缓存；只查内容指纹与当前账户缓存清单，不下载音频、不请求云端生成、不占用通用忙碌状态；只有完整双语队列缓存齐全才提前标记就绪。
+- [x] 进入循环听后不等待模式切换、不自动播放，改为后台复用既有准备管线；点击开始会加入同一准备任务，缓存清单不可用时保留逐轨检查与原开始兜底；账户切换后隔离旧预热状态。
+- [x] 更新设计补充与实施计划；版本升至 `1.6.0+10`。
+- [x] 本地验证：`flutter analyze --no-pub` 无问题；Flutter 全量 427 项通过；循环听控制器、种子音频和响应式 UI 专项 25 项通过；`node --test test/browser_bridge.test.mjs` 23 项通过；`tool/web.ps1 -Action build` Release 构建成功，版本 `1.6.0`，Build ID `fd77e21208e804e4`，本地产物 `main.dart.js` 与 `selah-precache.json` 存在。真实浏览器走通引导、切入循环听、开始／暂停播放，并在 390×844 检查移动布局；控制台 0 错误（截图：`output/playwright/loop-mode-local.png`）。
+- [ ] 推送 GitHub `main` 与 Cloudflare Pages 生产发布：待本轮逐步确认。该 push 会触发 `selah-language-app` 生产部署；不改 Cloudflare 控制台、DNS、绑定或密钥，不影响其他项目。
+
 ### 2026-10-04 性能与动效修正（实现、验证并已部署）
 
 - [x] 动效总开关上移到 `MaterialApp` 外层：弹窗、底部抽屉、菜单等 Navigator 路由继承「動畫效果」偏好；关闭开关后 `showSelahSheet` 使用 `AnimationStyle.noAnimation`、桌面 `showMenu` 使用 `AnimationStyle.noAnimation`，系统过渡不再滑入。

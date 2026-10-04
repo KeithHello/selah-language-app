@@ -19,6 +19,9 @@ class _LoopPlatform implements LearningPlatform {
   ]) async {
     if (action == 'platformInfo') return {'online': true};
     if (action == 'contentHash') return 'a' * 64;
+    if (action == 'contentHashes') {
+      return List<String>.filled((payload['texts'] as List).length, 'a' * 64);
+    }
     if (action == 'audioCached') return true;
     if (action == 'audioLoopStart') {
       final firstTrack = (payload['tracks'] as List).first as Map;
@@ -125,6 +128,7 @@ void main() {
       await _pumpUi(tester);
 
       expect(controller.listenLoopMode, isTrue);
+      expect(controller.loopReady, isTrue);
       expect(find.byKey(const ValueKey('listen-focus-card')), findsOneWidget);
       expect(find.byKey(const ValueKey('loop-status')), findsOneWidget);
       expect(find.byKey(const ValueKey('listen-library-button')), findsNothing);
@@ -145,11 +149,8 @@ void main() {
       await tester.tap(playButton);
       await _pumpUi(tester);
       expect(controller.loopReady, isTrue);
-      expect(platform.loop['state'], 'idle');
-
-      await tester.tap(playButton);
-      await _pumpUi(tester);
       expect(controller.loopPlayback['state'], 'playing');
+      expect(platform.loop['state'], 'playing');
       expect(find.text('正在播放英語'), findsOneWidget);
       expect(find.byType(Slider), findsOneWidget);
       expect(tester.widget<Slider>(find.byType(Slider)).onChanged, isNull);
@@ -249,8 +250,6 @@ void main() {
       final playButton = find.byKey(const ValueKey('listen-playback'));
       await tester.tap(playButton);
       await _pumpUi(tester);
-      await tester.tap(playButton);
-      await _pumpUi(tester);
 
       expect(find.text('我们一步一步来。'), findsOneWidget);
       expect(find.text('第二句排在逐句听前面。'), findsNothing);
@@ -274,8 +273,6 @@ void main() {
     await tester.tap(find.text('循環聽'));
     await _pumpUi(tester);
     final playButton = find.byKey(const ValueKey('listen-playback'));
-    await tester.tap(playButton);
-    await _pumpUi(tester);
     await tester.tap(playButton);
     await _pumpUi(tester);
 

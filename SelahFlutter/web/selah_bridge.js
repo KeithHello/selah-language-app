@@ -30,6 +30,7 @@
   var AUDIO_CACHE = 'selah-audio-v1';
   var RECORDING_LIMIT_MS = 180000;
   var BACKUP_LIMIT_BYTES = 10 * 1024 * 1024;
+  var CONTENT_HASH_BATCH_LIMIT = 512;
   var AUDIO_PREFIX = '/__selah_audio/';
   var SILENT_AUDIO_DATA_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
 
@@ -277,6 +278,12 @@
       for (var i = 0; i < array.length; i += 1) hex += array[i].toString(16).padStart(2, '0');
       return hex;
     });
+  }
+
+  function hashText(root, text) {
+    var encoder = root && root.TextEncoder || (typeof TextEncoder !== 'undefined' && TextEncoder);
+    if (!encoder) throw safeError('当前浏览器无法校验音频内容。');
+    return digestSha256(root, new encoder().encode(text));
   }
 
   function normaliseHash(hash) {
@@ -1833,9 +1840,15 @@
       audioLoopStop: function (payload) { return loopAudio.stop(payload || {}); },
       audioLoopOrder: function (payload) { return loopAudio.setOrder(payload || {}); },
       contentHash: function (payload) {
-        var encoder = root.TextEncoder || (typeof TextEncoder !== 'undefined' && TextEncoder);
-        if (!encoder) throw safeError('浏览器无法校验音频内容。');
-        return digestSha256(root, new encoder().encode(requiredString(payload, 'text')));
+        return hashText(root, requiredString(payload, 'text'));
+      },
+      contentHashes: function (payload) {
+        var texts = payload.texts;
+        if (!Array.isArray(texts) || texts.length > CONTENT_HASH_BATCH_LIMIT ||
+            texts.some(function (text) { return typeof text !== 'string'; })) {
+          throw safeError('音频内容列表无效。');
+        }
+        return Promise.all(texts.map(function (text) { return hashText(root, text); }));
       },
       recordStart: function () { return recorder.start(); },
       recordStop: function () { return recorder.stop(); },

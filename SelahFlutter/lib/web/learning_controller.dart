@@ -34,6 +34,9 @@ String selahAuthRedirectUrl({Uri? current}) {
 }
 
 class LearningController extends ChangeNotifier {
+  static const _loopContentHashBatchSize = 512;
+  static const _loopContentHashCacheLimit = 2048;
+
   LearningController({
     required this.gateway,
     required this.platform,
@@ -138,6 +141,12 @@ class LearningController extends ChangeNotifier {
   String? _loopPreparedFingerprint;
   final AudioPreparationService _audioPreparation = AudioPreparationService();
   final Set<String> _loopVerifiedKeys = <String>{};
+  final Map<String, String> _loopContentHashCache = <String, String>{};
+  int _loopContentHashScope = 0;
+  Future<void>? _loopCacheWarmup;
+  int? _loopCacheWarmupGeneration;
+  Future<void>? _loopPreparation;
+  int? _loopPreparationGeneration;
   String? _loopSessionId;
   String? _loopAccountId;
   Map<String, dynamic> platformInfo = {};
@@ -279,15 +288,76 @@ class LearningController extends ChangeNotifier {
       ? state.preferences.nativeVoice
       : state.preferences.voice;
 
+  void _rememberLoopContentHash(String text, String hash) {
+    if (!_loopContentHashCache.containsKey(text) &&
+        _loopContentHashCache.length >= _loopContentHashCacheLimit) {
+      _loopContentHashCache.clear();
+    }
+    _loopContentHashCache[text] = hash;
+  }
+
+  Future<String> _loopContentHash(String text) async {
+    final cached = _loopContentHashCache[text];
+    if (cached != null) return cached;
+    final scope = _loopContentHashScope;
+    final hash = await platform.invoke('contentHash', {'text': text});
+    if (hash is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)) {
+      throw const LearningFailure('浏览器无法校验音频内容。');
+    }
+    if (scope == _loopContentHashScope) {
+      _rememberLoopContentHash(text, hash);
+    }
+    return hash;
+  }
+
+  Future<Map<String, String>> _loopContentHashes(Iterable<String> texts) async {
+    final uniqueTexts = texts.toSet().toList(growable: false);
+    final hashes = <String, String>{};
+    final missing = <String>[];
+    for (final text in uniqueTexts) {
+      final cached = _loopContentHashCache[text];
+      if (cached == null) {
+        missing.add(text);
+      } else {
+        hashes[text] = cached;
+      }
+    }
+    if (missing.isEmpty) return hashes;
+
+    final scope = _loopContentHashScope;
+    for (
+      var offset = 0;
+      offset < missing.length;
+      offset += _loopContentHashBatchSize
+    ) {
+      final batch = missing
+          .skip(offset)
+          .take(_loopContentHashBatchSize)
+          .toList(growable: false);
+      final result = await platform.invoke('contentHashes', {'texts': batch});
+      if (result is! List || result.length != batch.length) {
+        throw const LearningFailure('浏览器音频校验结果无效。');
+      }
+      for (var index = 0; index < batch.length; index += 1) {
+        final hash = result[index];
+        if (hash is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)) {
+          throw const LearningFailure('浏览器无法校验音频内容。');
+        }
+        hashes[batch[index]] = hash;
+        if (scope == _loopContentHashScope) {
+          _rememberLoopContentHash(batch[index], hash);
+        }
+      }
+    }
+    return hashes;
+  }
+
   Future<String> _loopAudioKey(
     String text,
     LoopTrackRole role,
     String language,
   ) async {
-    final hash = await platform.invoke('contentHash', {'text': text});
-    if (hash is! String || !RegExp(r'^[a-f0-9]{64}$').hasMatch(hash)) {
-      throw const LearningFailure('浏览器无法校验音频内容。');
-    }
+    final hash = await _loopContentHash(text);
     return audioTrackKey(
       voice: _loopVoiceFor(role),
       role: role == LoopTrackRole.source
@@ -319,6 +389,42 @@ class LearningController extends ChangeNotifier {
       text: text,
       key: key,
     );
+  }
+
+  Future<Map<String, Map<LoopTrackRole, AudioTrackRef>>> _loopTrackReferences(
+    List<LoopQueueItem> items,
+  ) async {
+    final tracks = [
+      for (final item in items) ...[item.target, item.source],
+    ];
+    final hashes = await _loopContentHashes(tracks.map((track) => track.text));
+    final referencesBySentence = <String, Map<LoopTrackRole, AudioTrackRef>>{};
+    for (final item in items) {
+      final references = <LoopTrackRole, AudioTrackRef>{};
+      for (final track in [item.target, item.source]) {
+        final role = track.role;
+        final voice = _loopVoiceFor(role);
+        references[role] = AudioTrackRef(
+          sentenceId: track.sentenceId,
+          role: role == LoopTrackRole.source
+              ? AudioTrackRole.source
+              : AudioTrackRole.target,
+          language: track.language,
+          voice: voice,
+          text: track.text,
+          key: audioTrackKey(
+            voice: voice,
+            role: role == LoopTrackRole.source
+                ? AudioTrackRole.source
+                : AudioTrackRole.target,
+            language: track.language,
+            contentHash: hashes[track.text]!,
+          ),
+        );
+      }
+      referencesBySentence[item.sentenceId] = references;
+    }
+    return referencesBySentence;
   }
 
   Map<String, dynamic>? _bundledLoopAudio(
@@ -375,8 +481,10 @@ class LearningController extends ChangeNotifier {
     return true;
   }
 
-  Future<void> prepareLoop() =>
-      _run((generation) => _prepareLoop(generation, announce: true));
+  Future<void> prepareLoop() => _run((generation) async {
+    await _waitForLoopCacheWarmup(generation);
+    await _prepareLoopOnce(generation, announce: true);
+  });
 
   Future<void> _recordAudioFailure(
     AudioTrackRef reference,
@@ -555,12 +663,12 @@ class LearningController extends ChangeNotifier {
     }
   }
 
-  Future<Set<String>> _cachedLoopAudioKeys(String account) async {
+  Future<Set<String>?> _cachedLoopAudioKeys(String account) async {
     try {
       final value = await platform.invoke('audioCacheKeys', {
         'accountId': account,
       });
-      if (value is! List) return <String>{};
+      if (value is! List) return null;
       return value
           .whereType<String>()
           .where((key) => key.startsWith(audioCacheKeyPrefix))
@@ -568,7 +676,7 @@ class LearningController extends ChangeNotifier {
     } catch (_) {
       // Older bridge versions may not enumerate cache keys. Known in-memory
       // keys are still cleaned up below.
-      return <String>{};
+      return null;
     }
   }
 
@@ -590,7 +698,111 @@ class LearningController extends ChangeNotifier {
         .toList(),
   });
 
+  void _scheduleLoopCacheWarmup(int generation) {
+    if (!initialized || !_current(generation)) return;
+    if (_loopCacheWarmupGeneration == generation && _loopCacheWarmup != null) {
+      return;
+    }
+    late final Future<void> warmup;
+    warmup =
+        Future<void>.microtask(() async {
+          try {
+            await _warmLoopCacheState(generation);
+          } catch (_) {
+            // Startup cache inspection is opportunistic and stays invisible.
+          }
+        }).whenComplete(() {
+          if (identical(_loopCacheWarmup, warmup)) {
+            _loopCacheWarmup = null;
+            _loopCacheWarmupGeneration = null;
+          }
+        });
+    _loopCacheWarmup = warmup;
+    _loopCacheWarmupGeneration = generation;
+    unawaited(warmup);
+  }
+
+  Future<void> _waitForLoopCacheWarmup(int generation) async {
+    final warmup = _loopCacheWarmup;
+    if (warmup != null && _loopCacheWarmupGeneration == generation) {
+      await warmup;
+      _ensureCurrent(generation);
+    }
+  }
+
+  Future<void> _warmLoopCacheState(int generation) async {
+    _ensureCurrent(generation);
+    final account = _accountId;
+    final fingerprint = _loopPreparationFingerprint();
+    final items = buildLoopQueue(
+      state.sentences.where((sentence) => !sentence.archived).toList(),
+    );
+    if (items.isEmpty) return;
+
+    final referencesBySentence = await _loopTrackReferences(items);
+    _ensureCurrent(generation);
+    final references = <AudioTrackRef>[
+      for (final item in items)
+        ...referencesBySentence[item.sentenceId]!.values,
+    ];
+    final cachedKeys = await _cachedLoopAudioKeys(account);
+    _sameAccount(account);
+    _ensureCurrent(generation);
+    if (cachedKeys == null || fingerprint != _loopPreparationFingerprint()) {
+      return;
+    }
+
+    final desiredKeys = references.map((reference) => reference.key).toSet();
+    _loopVerifiedKeys
+      ..retainAll(cachedKeys)
+      ..addAll(desiredKeys.where(cachedKeys.contains));
+    if (!desiredKeys.every(_loopVerifiedKeys.contains)) return;
+
+    _loopTracks = references
+        .map((reference) => reference.toLoopTrack())
+        .toList();
+    _loopPreparedFingerprint = fingerprint;
+    loopSkippedSentences = 0;
+    loopReady = true;
+    notifyListeners();
+  }
+
+  Future<void> _prepareLoopOnce(int generation, {required bool announce}) {
+    final pending = _loopPreparation;
+    if (pending != null && _loopPreparationGeneration == generation) {
+      return pending;
+    }
+    late final Future<void> preparation;
+    preparation = _prepareLoop(generation, announce: announce).whenComplete(() {
+      if (identical(_loopPreparation, preparation)) {
+        _loopPreparation = null;
+        _loopPreparationGeneration = null;
+      }
+    });
+    _loopPreparation = preparation;
+    _loopPreparationGeneration = generation;
+    return preparation;
+  }
+
+  Future<void> _prepareLoopAfterModeEntry(int generation) async {
+    try {
+      await _waitForLoopCacheWarmup(generation);
+      if (!_current(generation) || !listenLoopMode) return;
+      if (loopReady &&
+          _loopPreparedFingerprint == _loopPreparationFingerprint()) {
+        return;
+      }
+      await _prepareLoopOnce(generation, announce: false);
+    } catch (failure) {
+      if (!_current(generation) || !listenLoopMode) return;
+      errorCode = failure is LearningFailure ? failure.code : null;
+      error = _message(failure);
+      notifyListeners();
+    }
+  }
+
   Future<void> _prepareLoop(int generation, {required bool announce}) async {
+    final fingerprint = _loopPreparationFingerprint();
     loopReady = false;
     loopPreparing = true;
     loopPreparedTracks = 0;
@@ -604,37 +816,34 @@ class LearningController extends ChangeNotifier {
       );
       if (items.isEmpty) throw const LearningFailure('还没有可循环播放的句子。');
 
-      final references = <AudioTrackRef>[];
-      final referencesBySentence =
-          <String, Map<LoopTrackRole, AudioTrackRef>>{};
-      for (final item in items) {
-        final sentence = state.sentences.firstWhere(
-          (candidate) => candidate.id == item.sentenceId,
-        );
-        final sentenceReferences = <LoopTrackRole, AudioTrackRef>{
-          LoopTrackRole.target: await _loopTrackReference(
-            sentence,
-            LoopTrackRole.target,
-          ),
-          LoopTrackRole.source: await _loopTrackReference(
-            sentence,
-            LoopTrackRole.source,
-          ),
-        };
-        referencesBySentence[item.sentenceId] = sentenceReferences;
-        references.addAll(sentenceReferences.values);
+      final referencesBySentence = await _loopTrackReferences(items);
+      final references = <AudioTrackRef>[
+        for (final item in items)
+          ...referencesBySentence[item.sentenceId]!.values,
+      ];
+      _ensureCurrent(generation);
+      if (fingerprint != _loopPreparationFingerprint()) {
+        throw const LearningFailure('句子在准备期间发生变化，请重试。');
       }
       _ensureCurrent(generation);
+      final account = _accountId;
+      final desiredKeys = references.map((reference) => reference.key).toSet();
+      final cachedKeys = await _cachedLoopAudioKeys(account);
+      _sameAccount(account);
+      _ensureCurrent(generation);
+      if (cachedKeys != null) {
+        _loopVerifiedKeys
+          ..retainAll(cachedKeys)
+          ..addAll(desiredKeys.where(cachedKeys.contains));
+      }
       final diff = diffAudioTracks(
         desired: references,
         preparedKeys: _loopVerifiedKeys,
       );
-      final account = _accountId;
-      final desiredKeys = references.map((reference) => reference.key).toSet();
-      final cachedKeys = await _cachedLoopAudioKeys(account);
       final orphanKeys = <String>{
         ...diff.removedKeys,
-        ...cachedKeys.where((key) => !desiredKeys.contains(key)),
+        if (cachedKeys != null)
+          ...cachedKeys.where((key) => !desiredKeys.contains(key)),
       };
       _loopVerifiedKeys.removeAll(orphanKeys);
       await _cleanupRemovedLoopAudio(account, orphanKeys);
@@ -644,6 +853,9 @@ class LearningController extends ChangeNotifier {
       notifyListeners();
       Object? firstFailure;
       for (final reference in diff.missing) {
+        if (fingerprint != _loopPreparationFingerprint()) {
+          throw const LearningFailure('句子在准备期间发生变化，请重试。');
+        }
         try {
           await _audioPreparation.ensure(
             reference,
@@ -687,6 +899,10 @@ class LearningController extends ChangeNotifier {
           code: 'loop_audio_unavailable',
         );
       }
+      _ensureCurrent(generation);
+      if (fingerprint != _loopPreparationFingerprint()) {
+        throw const LearningFailure('句子在准备期间发生变化，请重试。');
+      }
       _loopPreparedFingerprint = _loopPreparationFingerprint();
       loopPreparing = false;
       loopReady = true;
@@ -699,11 +915,13 @@ class LearningController extends ChangeNotifier {
       }
       notifyListeners();
     } catch (_) {
-      loopPreparing = false;
-      loopReady = false;
-      _loopTracks = [];
-      _loopPreparedFingerprint = null;
-      notifyListeners();
+      if (_current(generation)) {
+        loopPreparing = false;
+        loopReady = false;
+        _loopTracks = [];
+        _loopPreparedFingerprint = null;
+        notifyListeners();
+      }
       rethrow;
     }
   }
@@ -765,6 +983,7 @@ class LearningController extends ChangeNotifier {
   }
 
   Future<void> startLoop() => _run((generation) async {
+    await _waitForLoopCacheWarmup(generation);
     if (loopReady &&
         _loopPreparedFingerprint != _loopPreparationFingerprint()) {
       loopReady = false;
@@ -772,7 +991,7 @@ class LearningController extends ChangeNotifier {
       _loopPreparedFingerprint = null;
     }
     if (!loopReady || _loopTracks.isEmpty) {
-      await _prepareLoop(generation, announce: false);
+      await _prepareLoopOnce(generation, announce: false);
     }
     if (!loopReady || _loopTracks.isEmpty) {
       throw const LearningFailure('请先准备循环听音频。', code: 'loop_not_ready');
@@ -787,7 +1006,7 @@ class LearningController extends ChangeNotifier {
       _ensureCurrent(generation);
       await _beginLoopSession(generation);
     } catch (_) {
-      loopPreparing = false;
+      if (_current(generation)) loopPreparing = false;
       rethrow;
     }
   });
@@ -1030,6 +1249,12 @@ class LearningController extends ChangeNotifier {
     loopReady = false;
     _loopPreparedFingerprint = null;
     _loopVerifiedKeys.clear();
+    _loopContentHashScope += 1;
+    _loopContentHashCache.clear();
+    _loopCacheWarmup = null;
+    _loopCacheWarmupGeneration = null;
+    _loopPreparation = null;
+    _loopPreparationGeneration = null;
     _audioPreparation.clear();
     if (initialized && (_inputDirty || localSaveFailed)) {
       _saveDepartingInput(_accountId, state.copy());
@@ -1159,6 +1384,7 @@ class LearningController extends ChangeNotifier {
         unawaited(researchProfile.load());
         _scheduleSync();
       }
+      _scheduleLoopCacheWarmup(generation);
     } catch (e) {
       if (_current(generation)) {
         errorCode = e is LearningFailure ? e.code : null;
@@ -1597,6 +1823,9 @@ class LearningController extends ChangeNotifier {
     } finally {
       listenModeChanging = false;
       if (!_disposed) notifyListeners();
+    }
+    if (loopMode && _current(generation) && listenLoopMode) {
+      unawaited(_prepareLoopAfterModeEntry(generation));
     }
   }
 
@@ -3426,6 +3655,8 @@ class LearningController extends ChangeNotifier {
     _localInputTimer?.cancel();
     _noticeTimer?.cancel();
     _disposed = true;
+    _loopContentHashScope += 1;
+    _loopContentHashCache.clear();
     _timer?.cancel();
     unawaited(stopLoop(reason: 'disposed'));
     _activityTimer?.cancel();
