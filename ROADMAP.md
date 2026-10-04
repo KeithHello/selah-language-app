@@ -15,6 +15,7 @@
 - [x] 新增 pgTAP 用例覆盖零预算失败关闭、会员／匿名路径首次自动建账和预算耗尽拒绝；并发脚本覆盖不同用户同时首次请求只创建一条预算行。
 - [x] Supabase Deno 全量测试 366 项通过，Deno lint 全量通过；新增测试文件定向格式检查通过。Windows 全量 `deno fmt --check` 受 8 个既有文件的 CRLF 行尾差异影响，未格式化无关文件。
 - [x] Web Release 构建成功，版本 `1.6.1+11`、Build ID `07820ecd009cad6b`。版本补丁用于满足生产部署版本唯一性门禁。
+- [x] 只读生产查询确认 UTC `2026-10-04` 的 `platform:day:2026-10-04` 预算行不存在，与截图中的 `service_budget_protected` 触发条件一致；migration dry-run 仅列出 013，未写远端。
 - [ ] pgTAP 与数据库并发测试尚未运行：本机 Docker Desktop 未能启动数据库引擎；须在隔离 PostgreSQL 环境补验。
 - [ ] 只读 `supabase migration list` 已核实生产远端为 `001`—`012`，本地仅多出待应用的 `013`。生产 migration 013 尚未应用；应用前须单独确认。生产 `main` 推送会触发 Cloudflare Pages 发布，执行前须按全局规则说明并逐步确认。
 
