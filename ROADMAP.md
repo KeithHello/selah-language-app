@@ -19,6 +19,14 @@
 - [x] 生产发布：提交 `df2eb8e` 推送到 GitHub `main`；[Actions run 37175503952](https://github.com/KeithHello/selah-language-app/actions/runs/37175503952) 五个工作全部成功。Cloudflare Pages 正式站版本 `1.5.1`、Build ID `4cdf2e39fff8020b`；首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200；线上清单 128 项、精灵 PNG 50 个、`.gif` 副本 0 个。
 - [ ] 待办：真实手机与受控网络验收（切页流畅度、动效开关行为、离线升级路径）。
 
+### 2026-10-04 Web 1.5.1 加载与切换速度调研（调研完成，报告已归档）
+
+- [x] 正式站 `1.5.1` 桌面实测：冷启动 Flutter 首帧约 1456—1665ms（上轮 1.5.0 为 2117—3882ms），热重载约 610ms（上轮 1144—2152ms）；热重载传输仅 7.5KB，Service Worker 缓存接管正常。
+- [x] 普通指针切页采样：最大 RAF 间隔 24—64ms、长任务最多 53ms（1.5.0 同口径为 115—224ms、208ms），页面切换无停顿信号。
+- [x] 线上预缓存核验：清单 128 项、精灵 PNG 50 个、`.gif` 副本 0 个；冷启动仍下载阶段一十动作约 18.7MB，时序已改善但字节总量未降。
+- [x] 报告见 `docs/web-performance-151-audit-2026-10-04.md`；测量数据与截图归档在 `output/playwright/selah-151-perf-audit/`。
+- [ ] 待办：切页坐标点击的视觉复认；精灵格式（WebP 等）评估；导航语义标签补齐；真实手机与受控网络验收。
+
 ### 2026-10-04 Web 正式环境性能与动效调研（调研完成，产品修正待实施）
 
 - [x] 核对正式站 `1.5.0`、Build ID `32645f749a16a878`，首页及五类关键静态资源 HTTP 200；线上 Service Worker 与源码一致，当前生产发布 CI 五项成功；GitHub main 与本地／origin main 核对时均为 `d682a4f`。
