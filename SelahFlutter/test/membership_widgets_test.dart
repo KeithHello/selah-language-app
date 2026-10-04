@@ -118,14 +118,18 @@ Map<String, dynamic> _quote({
   'unavailableReason': unavailableReason,
 };
 
-Future<void> _pumpCard(WidgetTester tester, MembershipController controller) {
+Future<void> _pumpCard(
+  WidgetTester tester,
+  MembershipController controller, {
+  String uiLocale = 'zh-Hans',
+}) {
   return tester.pumpWidget(
     MaterialApp(
       home: Scaffold(
         body: SingleChildScrollView(
           child: MembershipStatusCard(
             controller: controller,
-            uiLocale: 'zh-Hans',
+            uiLocale: uiLocale,
           ),
         ),
       ),
@@ -449,7 +453,9 @@ void main() {
     await tester.tap(find.byIcon(Icons.help_outline_rounded).first);
     await tester.pumpAndSettle();
     expect(
-      find.text('写下今天的母语句子，生成对应的英语学习内容；每成功生成一条，计一次。'),
+      find.text(
+        '写下今天的母语句子，生成对应的英语学习内容；每成功生成一条，计一次。长文整理后确认生成的句子，也按条计入这里。',
+      ),
       findsOneWidget,
     );
     expect(find.text('关闭'), findsOneWidget);
@@ -457,10 +463,72 @@ void main() {
     await tester.tap(find.text('关闭'));
     await tester.pumpAndSettle();
     expect(
-      find.text('写下今天的母语句子，生成对应的英语学习内容；每成功生成一条，计一次。'),
+      find.text(
+        '写下今天的母语句子，生成对应的英语学习内容；每成功生成一条，计一次。长文整理后确认生成的句子，也按条计入这里。',
+      ),
       findsNothing,
     );
     controller.dispose();
+  });
+
+  testWidgets('quota help copy explains both preparation counting layers', (
+    tester,
+  ) async {
+    final copies = [
+      {
+        'locale': 'zh-Hans',
+        'close': '关闭',
+        'sentences': '写下今天的母语句子，生成对应的英语学习内容；每成功生成一条，计一次。长文整理后确认生成的句子，也按条计入这里。',
+        'tts': '为英语和母语句子合成语音；按新增配音的字符数计。',
+        'transcription': '把「说出来」的录音转成文字；按录音时长计。',
+        'preparations':
+            '超过直接生成长度的长文，先自动分段整理再逐段生成；每整理一次计一次。整理本身不消耗个人表达条数；确认生成时，按实际保存的条数计入个人表达。',
+      },
+      {
+        'locale': 'zh-Hant',
+        'close': '關閉',
+        'sentences': '寫下今天的母語句子，產生對應的英語學習內容；每成功產生一條，計一次。長文整理後確認產生的句子，也按條計入這裡。',
+        'tts': '為英語和母語句子合成語音；按新增配音的字元數計。',
+        'transcription': '把「說出來」的錄音轉成文字；按錄音時長計。',
+        'preparations':
+            '超過直接產生長度的長文，先自動分段整理再逐段產生；每整理一次計一次。整理本身不消耗個人表達條數；確認產生時，按實際保存的條數計入個人表達。',
+      },
+      {
+        'locale': 'ja',
+        'close': '閉じる',
+        'sentences':
+            '今日の母語の文を書くと、対応する英語学習コンテンツを生成します。生成 1 件ごとにカウントします。長文整理で確認生成した文も、ここに 1 文ずつカウントされます。',
+        'tts': '英語と母語の文の音声を合成します。新規音声の文字数でカウントします。',
+        'transcription': '話した録音を文字に起こします。録音時間でカウントします。',
+        'preparations':
+            '直接生成できる長さを超える長文は、先に分割して整理してから生成します。整理 1 回ごとにカウントします。整理自体は個人表現の件数を消費せず、確認生成時に実際に保存した文数が個人表現としてカウントされます。',
+      },
+    ];
+
+    for (final copy in copies) {
+      final controller = MembershipController(
+        gateway: _Gateway(status: _monthlyStatus()),
+      );
+      await controller.load();
+      await _pumpCard(tester, controller, uiLocale: copy['locale']!);
+      await tester.pumpAndSettle();
+
+      for (final index in [0, 1, 2, 3]) {
+        await tester.tap(find.byIcon(Icons.help_outline_rounded).at(index));
+        await tester.pumpAndSettle();
+        final helpKey = [
+          'sentences',
+          'tts',
+          'transcription',
+          'preparations',
+        ][index];
+        expect(find.text(copy[helpKey]!), findsOneWidget);
+        await tester.tap(find.text(copy['close']!));
+        await tester.pumpAndSettle();
+      }
+
+      controller.dispose();
+    }
   });
 
   testWidgets('usage grid switches between two columns and one column', (
