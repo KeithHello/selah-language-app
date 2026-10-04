@@ -175,8 +175,15 @@ class SupabaseLearningGateway implements LearningGateway {
         return membershipFailure('这类生成额度已达到当前方案上限，已有内容仍可学习。');
       case 'request_exceeds_feature_limit':
         return membershipFailure('这次请求超过当前方案单次上限，请缩短内容后重试。');
+      case 'generation_temporarily_unavailable':
       case 'service_budget_protected':
-        return membershipFailure('系统正在保护服务预算，暂时不能新增生成；草稿已保留。');
+        final message = switch (feature) {
+          'tts' => '语音暂时无法生成，请稍后重试；已有内容仍可继续学习。',
+          'transcription' => '录音暂时无法转写，请稍后重试。',
+          'preparation' => '整理暂时无法完成，请稍后重试；已有内容仍可继续学习。',
+          _ => '生成暂时无法完成，当前输入已保留，请稍后重试。',
+        };
+        return membershipFailure(message);
       case 'request_conflict':
         return membershipFailure('同一个请求的内容发生变化，请保留当前草稿并重新提交。');
       case 'generation_in_progress':

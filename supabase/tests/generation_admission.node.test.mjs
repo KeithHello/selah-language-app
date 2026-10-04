@@ -3,6 +3,10 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 const {
+  admissionHttpStatus,
+  admissionErrorDetails,
+  admissionPublicCode,
+  admissionPublicMessage,
   prepareAdmissionQuote,
   requestGenerationAdmission,
 } = await import("../functions/_shared/generation_admission.ts");
@@ -69,6 +73,46 @@ test("free mode records usage without checking membership allowance", async () =
     calls[0].args.p_user_id,
     "11111111-1111-1111-1111-111111111111",
   );
+});
+
+test("free mode still applies the daily platform allowance without leaking details", async () => {
+  const result = await requestGenerationAdmission({
+    rpc: async (name) => {
+      assert.strictEqual(name, "record_generation_usage");
+      return {
+        data: null,
+        error: { message: "platform_daily_budget_exhausted" },
+      };
+    },
+  }, {
+    userId: "11111111-1111-1111-1111-111111111111",
+    clientRequestId: "22222222-2222-2222-2222-222222222222",
+    feature: "sentence",
+    units: {},
+    payloadHash: "hash123",
+    enforcementEnabled: false,
+  });
+
+  assert.strictEqual(result.allowed, false);
+  assert.strictEqual(result.errorCode, "service_budget_protected");
+  assert.strictEqual(result.internalReason, "daily_limit_reached");
+  assert.strictEqual(admissionHttpStatus(result), 503);
+  assert.strictEqual(
+    admissionPublicCode(result),
+    "generation_temporarily_unavailable",
+  );
+  assert.strictEqual(
+    admissionPublicMessage(result),
+    "Generation is temporarily unavailable",
+  );
+  const publicDetails = admissionErrorDetails(result, {
+    feature: "sentence",
+    clientRequestId: "22222222-2222-2222-2222-222222222222",
+  });
+  assert.strictEqual("internalReason" in publicDetails, false);
+  assert.strictEqual("resetsAt" in publicDetails, true);
+  assert.strictEqual(result.resetsAt?.endsWith("T00:00:00.000Z"), true);
+  assert.ok((result.retryAfterSeconds ?? 0) > 0);
 });
 
 test("registered membership mode reserves through membership entitlements", async () => {

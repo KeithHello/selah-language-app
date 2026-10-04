@@ -14,6 +14,12 @@ export interface AdmissionCheckResult {
   reservationScope?: "membership" | "platform";
   errorCode?: MembershipErrorCode;
   errorMessage?: string;
+  internalReason?:
+    | "daily_limit_reached"
+    | "budget_configuration_unavailable"
+    | "admission_service_unavailable";
+  resetsAt?: string;
+  retryAfterSeconds?: number;
   quote?: CostQuote;
 }
 
@@ -43,7 +49,32 @@ export function admissionErrorDetails(
         result.errorCode === "trial_expired"
       ? { currentPeriodEndsAt: null }
       : {}),
+    ...(result.resetsAt
+      ? {
+        resetsAt: result.resetsAt,
+        retryAfterSeconds: result.retryAfterSeconds,
+      }
+      : {}),
   };
+}
+
+export function admissionHttpStatus(result: AdmissionCheckResult): number {
+  if (result.errorCode === "rate_limited") return 429;
+  if (result.errorCode === "service_budget_protected") return 503;
+  return 403;
+}
+
+export function admissionPublicCode(result: AdmissionCheckResult): string {
+  return result.errorCode === "service_budget_protected"
+    ? "generation_temporarily_unavailable"
+    : result.errorCode ?? "generation_request_unavailable";
+}
+
+export function admissionPublicMessage(result: AdmissionCheckResult): string {
+  if (result.errorCode === "service_budget_protected") {
+    return "Generation is temporarily unavailable";
+  }
+  return result.errorMessage ?? "Generation request unavailable";
 }
 
 export interface RpcCaller {
@@ -119,9 +150,9 @@ export async function requestGenerationAdmission(
     options.units.durationMs ??
     1;
 
-  // Metering is always on. Enforcement changes which RPC is called: the
-  // audit-only ledger records usage without applying quotas or platform
-  // budget; enforcement reserves and checks the member allowance.
+  // Metering and the platform daily safeguard are always on. The public-mode
+  // recorder skips personal membership entitlements; the member RPC checks
+  // those entitlements and the same shared platform budget.
   if (options.enforcementEnabled === false) {
     try {
       const result = await client.rpc("record_generation_usage", {
@@ -133,11 +164,7 @@ export async function requestGenerationAdmission(
         p_payload_hash: options.payloadHash,
       });
       if (result.error) {
-        return {
-          allowed: false,
-          errorCode: "service_budget_protected",
-          errorMessage: "Usage metering unavailable",
-        };
+        return platformAdmissionFailure(result.error, options);
       }
       const reservationId = typeof result.data === "string"
         ? result.data
@@ -149,11 +176,7 @@ export async function requestGenerationAdmission(
         quote,
       };
     } catch {
-      return {
-        allowed: false,
-        errorCode: "service_budget_protected",
-        errorMessage: "Usage metering unavailable",
-      };
+      return platformAdmissionFailure(null, options);
     }
   }
 
@@ -200,11 +223,7 @@ export async function requestGenerationAdmission(
           errorMessage: "Rate limit reached",
         };
       }
-      return {
-        allowed: false,
-        errorCode: "service_budget_protected",
-        errorMessage: errStr || "Platform budget limit reached",
-      };
+      return platformAdmissionFailure(errStr, options);
     }
 
     const reservationId = typeof result.data === "string"
@@ -219,12 +238,71 @@ export async function requestGenerationAdmission(
       quote,
     };
   } catch (err) {
-    return {
+    return platformAdmissionFailure(err, options);
+  }
+}
+
+function platformAdmissionFailure(
+  error: unknown,
+  options: Pick<GenerationAdmissionOptions, "feature" | "clientRequestId">,
+): AdmissionCheckResult {
+  const details = typeof error === "object" && error !== null
+    ? (error as { message?: string }).message ?? ""
+    : String(error ?? "");
+  const now = new Date();
+  if (details.includes("platform_daily_budget_exhausted")) {
+    const resetsAt = new Date(Date.UTC(
+      now.getUTCFullYear(),
+      now.getUTCMonth(),
+      now.getUTCDate() + 1,
+    ));
+    const result: AdmissionCheckResult = {
       allowed: false,
       errorCode: "service_budget_protected",
-      errorMessage: `Admission service unavailable: ${String(err)}`,
+      errorMessage: "platform_daily_budget_exhausted",
+      internalReason: "daily_limit_reached",
+      resetsAt: resetsAt.toISOString(),
+      retryAfterSeconds: Math.max(
+        1,
+        Math.ceil((resetsAt.getTime() - now.getTime()) / 1000),
+      ),
     };
+    console.warn("Generation admission failed", {
+      feature: options.feature,
+      requestId: options.clientRequestId,
+      reason: result.internalReason,
+    });
+    return result;
   }
+  if (
+    details.includes("platform_daily_budget_unavailable") ||
+    details.includes("service_budget_protected")
+  ) {
+    const result: AdmissionCheckResult = {
+      allowed: false,
+      errorCode: "service_budget_protected",
+      errorMessage: "platform_daily_budget_unavailable",
+      internalReason: "budget_configuration_unavailable",
+    };
+    console.error("Generation admission failed", {
+      feature: options.feature,
+      requestId: options.clientRequestId,
+      reason: result.internalReason,
+    });
+    return result;
+  }
+  const result: AdmissionCheckResult = {
+    allowed: false,
+    errorCode: "service_budget_protected",
+    errorMessage: "generation_admission_unavailable",
+    internalReason: "admission_service_unavailable",
+  };
+  console.error("Generation admission failed", {
+    feature: options.feature,
+    requestId: options.clientRequestId,
+    reason: result.internalReason,
+  });
+  return result;
 }
 
 export async function settleGenerationAdmission(
