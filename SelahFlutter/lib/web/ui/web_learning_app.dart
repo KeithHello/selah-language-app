@@ -130,43 +130,45 @@ class _WebLearningAppState extends State<WebLearningApp> {
         final strings = widget.controller.strings;
         final theme = SelahTheme.light();
         final locale = _materialLocale(widget.controller.uiLocale);
-        return MaterialApp(
-          debugShowCheckedModeBanner: false,
-          title: 'Selah',
-          locale: locale,
-          localizationsDelegates: const [
-            _SelahMaterialLocalizationsDelegate(),
-            _SelahCupertinoLocalizationsDelegate(),
-          ],
-          supportedLocales: const [
-            Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
-            Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
-            Locale('ja'),
-          ],
-          localeListResolutionCallback: (_, _) => locale,
-          theme: theme.copyWith(
-            textTheme: theme.textTheme.apply(
-              fontFamily: 'Plus Jakarta Sans',
-              fontFamilyFallback: const ['Noto Sans SC'],
+        // Keep the app-level motion gate above MaterialApp so Navigator
+        // push routes (dialogs, sheets, menus) inherit the motion
+        // preference instead of falling back to the system setting.
+        return MotionScope(
+          motionEnabled: widget.controller.state.preferences.motionEnabled,
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            title: 'Selah',
+            locale: locale,
+            localizationsDelegates: const [
+              _SelahMaterialLocalizationsDelegate(),
+              _SelahCupertinoLocalizationsDelegate(),
+            ],
+            supportedLocales: const [
+              Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+              Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
+              Locale('ja'),
+            ],
+            localeListResolutionCallback: (_, _) => locale,
+            theme: theme.copyWith(
+              textTheme: theme.textTheme.apply(
+                fontFamily: 'Plus Jakarta Sans',
+                fontFamilyFallback: const ['Noto Sans SC'],
+              ),
+              primaryTextTheme: theme.primaryTextTheme.apply(
+                fontFamily: 'Plus Jakarta Sans',
+                fontFamilyFallback: const ['Noto Sans SC'],
+              ),
             ),
-            primaryTextTheme: theme.primaryTextTheme.apply(
-              fontFamily: 'Plus Jakarta Sans',
-              fontFamilyFallback: const ['Noto Sans SC'],
-            ),
-          ),
-          home: isAdminConsoleUri(Uri.base)
-              ? AdminConsolePage(
-                  controller: widget.controller.admin,
-                  uiLocale: widget.controller.uiLocale,
-                )
-              : MotionScope(
-                  motionEnabled:
-                      widget.controller.state.preferences.motionEnabled,
-                  child: _WebRoot(
+            home: isAdminConsoleUri(Uri.base)
+                ? AdminConsolePage(
+                    controller: widget.controller.admin,
+                    uiLocale: widget.controller.uiLocale,
+                  )
+                : _WebRoot(
                     controller: widget.controller,
                     strings: strings,
                   ),
-                ),
+          ),
         );
       },
     );

@@ -130,7 +130,7 @@ void main() {
     },
   );
 
-  testWidgets('failed stage precache is retried on the next request', (
+  testWidgets('failed pose precache is retried on the next request', (
     tester,
   ) async {
     final bundle = _FailOnceAssetBundle();
@@ -215,7 +215,7 @@ void main() {
     );
   });
 
-  testWidgets('concurrent stage precache requests share one warmup', (
+  testWidgets('concurrent pose precache requests share one warmup', (
     tester,
   ) async {
     final bundle = _FailOnceAssetBundle();

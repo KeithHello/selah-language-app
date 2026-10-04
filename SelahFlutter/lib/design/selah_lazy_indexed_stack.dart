@@ -5,6 +5,9 @@ import 'package:flutter/widgets.dart';
 /// 保持 IndexedStack 的状态保持语义：页面首次构建后 Element 不销毁，
 /// 滚动、草稿、播放状态不因切换丢失；未访问的 tab 不参与首帧构建，
 /// 降低进入时的首帧工作量。
+///
+/// 隐藏页面统一包在关闭的 TickerMode 里：AnimationController 与多帧
+/// 图片（GIF/WebP）都会暂停，避免后台 Tab 持续消耗解码与栅格资源。
 class SelahLazyIndexedStack extends StatefulWidget {
   const SelahLazyIndexedStack({
     super.key,
@@ -37,7 +40,10 @@ class _SelahLazyIndexedStackState extends State<SelahLazyIndexedStack> {
       children: [
         for (var i = 0; i < widget.children.length; i++)
           _visited.contains(i)
-              ? widget.children[i]
+              ? TickerMode(
+                enabled: i == widget.index,
+                child: widget.children[i],
+              )
               : const SizedBox.shrink(),
       ],
     );

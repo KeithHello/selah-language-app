@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../design/selah_pressable.dart';
+
 import '../../design/selah_colors.dart';
 import '../../design/selah_dialog.dart';
 import '../../design/selah_sheet.dart';
@@ -120,10 +122,13 @@ class _LoopSettingsHeader extends StatelessWidget {
                 style: SelahTypography.headlineLarge(),
               ),
             ),
-            IconButton(
-              tooltip: strings.text('common.close'),
-              onPressed: onClose,
-              icon: const Icon(Icons.close_rounded),
+            SelahPressable(
+              variant: SelahPressVariant.icon,
+              child: IconButton(
+                tooltip: strings.text('common.close'),
+                onPressed: onClose,
+                icon: const Icon(Icons.close_rounded),
+              ),
             ),
           ],
         ),

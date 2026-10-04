@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../design/selah_motion_scope.dart';
+
 import '../../design/selah_colors.dart';
 import '../../design/selah_dialog.dart';
 import '../../design/selah_pressable.dart';
@@ -177,6 +179,7 @@ class _CompactSpeedSelector extends StatelessWidget {
     final origin = box.localToGlobal(Offset.zero);
     final rect = origin & box.size;
     final size = MediaQuery.sizeOf(context);
+    final motionOn = MotionScope.of(context);
     return showMenu<_CompactSpeedChoice>(
       context: context,
       position: RelativeRect.fromLTRB(
@@ -186,6 +189,7 @@ class _CompactSpeedSelector extends StatelessWidget {
         size.height - rect.top,
       ),
       items: _menuItems(strings),
+      popUpAnimationStyle: motionOn ? null : AnimationStyle.noAnimation,
     );
   }
 }

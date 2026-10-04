@@ -185,15 +185,28 @@ class PlushCompanionState extends State<PlushCompanion>
   void _scheduleStagePrefetch() {
     if (widget.imageProvider != null) return;
     final stage = widget.decorationStage;
+    final currentAssetWidth = widget.size;
+    final currentAction = widget.action;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      unawaited(
-        PlushPosePrecache.ensureStage(
+      // The visible pose wins immediately; remaining actions of the stage
+      // trickle in one-by-one afterwards so first interaction never waits
+      // behind a 10-pose burst.
+      final backgroundWarmup = PlushPosePrecache.ensurePose(
+        context,
+        stage,
+        currentAction,
+        displayWidth: currentAssetWidth,
+      ).then((_) {
+        if (!mounted) return null;
+        return PlushPosePrecache.warmRemaining(
           context,
           stage,
-          displayWidth: widget.size,
-        ),
-      );
+          displayWidth: currentAssetWidth,
+          skip: currentAction,
+        );
+      });
+      unawaited(backgroundWarmup);
     });
   }
 

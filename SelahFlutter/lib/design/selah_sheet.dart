@@ -13,6 +13,7 @@ Future<T?> showSelahSheet<T>({
   bool showDragHandle = false,
   RouteSettings? settings,
 }) {
+  final motionOn = MotionScope.of(context);
   return showModalBottomSheet<T>(
     context: context,
     isScrollControlled: isScrollControlled,
@@ -20,6 +21,7 @@ Future<T?> showSelahSheet<T>({
     backgroundColor: backgroundColor,
     showDragHandle: showDragHandle,
     routeSettings: settings,
+    sheetAnimationStyle: motionOn ? null : AnimationStyle.noAnimation,
     builder: (sheetContext) {
       return SelahSheetEntrance(child: Builder(builder: builder));
     },
@@ -40,7 +42,7 @@ class _SelahSheetEntranceState extends State<SelahSheetEntrance>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: SelahMotion.overlay,
+    duration: SelahMotion.toastIn,
   );
 
   late final CurvedAnimation _fade = CurvedAnimation(
@@ -84,7 +86,7 @@ class _SelahSheetEntranceState extends State<SelahSheetEntrance>
         return Opacity(
           opacity: eased,
           child: Transform.translate(
-            offset: Offset(0, 16 * (1 - eased)),
+            offset: Offset(0, 12 * (1 - eased)),
             child: child,
           ),
         );
