@@ -18,7 +18,8 @@
 - [x] 验证：Flutter 全量 431 项通过、flutter analyze 通过；Deno 格式检查 92 个文件、项目默认 lint 检查 91 个文件、20 个 Edge Functions 类型检查、后端全量测试 368 项均通过。格式检查在 LF 临时副本运行，以避开 Windows CRLF 检出差异；本机父级 package.json 会额外启用 workspace/no-import-prefix 规则，已隔离识别。
 - [x] Web Release 构建成功：版本 1.7.0+12，Build ID 97b4ce6fd816980c；本地构建缺少公开 Supabase 配置，云端登录不可用。
 - [x] 本地提交：功能实现提交 64cce61、dd13c20、6ba6872；合并最新 origin/main 的提交为 192259f。
-- [ ] 浏览器真实会员与长文整理流程验收、生产 Edge Function 部署、GitHub push 与 Pages 生产部署待逐步确认及线上 Build ID 核验。
+- [x] 生产 Edge Function：2026-10-04 已将 `sentences-prepare` 部署到 Supabase 项目 `ijonabyyppmgvoufgamt`；OPTIONS 返回 200、无 JWT 的 POST 返回 401，未触发计费生成请求。
+- [ ] 浏览器真实会员与长文整理流程验收、GitHub push 与 Pages 生产部署及线上 Build ID 核验仍待完成。
 
 ### 2026-10-04 平台日预算自动补建（本地实现完成；数据库集成与生产迁移待确认）
 
