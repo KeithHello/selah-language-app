@@ -1,4 +1,5 @@
 import importlib.util
+import hashlib
 import json
 import tempfile
 import unittest
@@ -15,10 +16,17 @@ SPEC.loader.exec_module(MODULE)
 
 class AzureSeedAudioScriptTests(unittest.TestCase):
     def test_build_ssml_escapes_text_and_uses_taiwan_voice(self):
-        ssml = MODULE.build_ssml("A&B <今天>")
+        ssml = MODULE.build_ssml("A&B <今天>", "zh-Hant", "native-gentle")
         self.assertIn('name="zh-TW-HsiaoChenNeural"', ssml)
         self.assertIn("A&amp;B &lt;今天&gt;", ssml)
         self.assertIn('xml:lang="zh-TW"', ssml)
+
+    def test_build_ssml_routes_japanese_and_applies_native_profile(self):
+        ssml = MODULE.build_ssml("今日は晴れです。", "ja", "native-calm")
+        self.assertIn('name="ja-JP-NanamiNeural"', ssml)
+        self.assertIn('xml:lang="ja-JP"', ssml)
+        self.assertIn('rate="-8%"', ssml)
+        self.assertIn('pitch="-1st"', ssml)
 
     def test_voice_output_path_uses_source_zh_hant_filename(self):
         path = MODULE.voice_output_path("seed-001", Path("audio"))
@@ -53,12 +61,13 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            count = MODULE.generate_seed_audio(
+            with mock.patch.object(MODULE, "load_local_env", side_effect=AssertionError("dry-run must not read env")):
+                count = MODULE.generate_seed_audio(
                 seed_path=seed_path,
                 audio_dir=root / "audio",
                 env_path=root / ".env",
                 dry_run=True,
-            )
+                )
             self.assertEqual(count, 2)
             self.assertFalse((root / "audio").exists())
 
@@ -83,8 +92,46 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
                         seed_path=seed_path,
                         audio_dir=root / "audio",
                         env_path=root / ".env",
+                        execute=True,
                     )
             request.assert_not_called()
+
+    def test_normalizes_azure_audio_before_atomic_write(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            seed_path = root / "seed.json"
+            seed_path.write_text(
+                json.dumps({"sentences": [{"id": "seed-001", "ja_text": "こんにちは。"}]}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            normalized = b"ID3" + b"normalized" * 50
+            metadata = {"integratedLufs": -22.0, "truePeakDbtp": -1.2, "revision": "lufs-v1"}
+            with mock.patch.dict(MODULE.os.environ, {"AZURE_SPEECH_KEY": "test-key", "AZURE_SPEECH_REGION": "japaneast"}), \
+                 mock.patch.object(MODULE, "_azure_speech_request", return_value=b"ID3" + b"raw" * 50) as request, \
+                 mock.patch.object(MODULE, "normalize_mp3", return_value=(normalized, metadata)) as normalize:
+                count = MODULE.generate_seed_audio(
+                    seed_path=seed_path,
+                    audio_dir=root / "audio",
+                    env_path=root / ".env",
+                    language="ja",
+                    voice_profile="native-gentle",
+                    execute=True,
+                )
+            output = root / "audio" / "seed-001-source-ja.mp3"
+            self.assertEqual(count, 1)
+            self.assertEqual(output.read_bytes(), normalized)
+            index = json.loads((root / "audio" / "audio-index.json").read_text(encoding="utf-8"))
+            self.assertEqual(
+                index["seed-001:source:ja:native-gentle"]["normalizerRevision"],
+                "lufs-v1",
+            )
+            self.assertEqual(
+                index["seed-001:source:ja:native-gentle"]["sha256"],
+                hashlib.sha256(normalized).hexdigest(),
+            )
+            request.assert_called_once()
+            self.assertIn(b"NanamiNeural", request.call_args.args[2].encode())
+            normalize.assert_called_once()
 
     def test_is_valid_mp3_accepts_id3_and_mpeg_headers(self):
         self.assertTrue(MODULE.is_valid_mp3(b"ID3" + b"x" * 32))

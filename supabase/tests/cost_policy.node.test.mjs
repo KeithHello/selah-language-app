@@ -6,6 +6,8 @@ const {
   calculatePreparationMaxCost,
   calculateBatchMaxCost,
   calculateTtsMaxCost,
+  calculateAzureTtsMaxCost,
+  calculateOperationMaxCost,
   calculateTranscriptionMaxCost,
   createCostQuote,
   verifyCostQuote,
@@ -45,6 +47,46 @@ test("TTS cost calculation respects character rates", () => {
   assert.deepStrictEqual(calculateTtsMaxCost(1000), 15_000_000n);
   assert.throws(() => calculateTtsMaxCost(0));
   assert.throws(() => calculateTtsMaxCost(-5));
+});
+
+test("Azure TTS reservation uses Azure billable characters and processor reserve", () => {
+  const units = {
+    characters: 7,
+    provider: "azure",
+    azureBillableCharacters: 202,
+    azureNanoUsdPerBillableCharacter: 1000,
+    normalizerReserveNanoUsd: 5000,
+    azurePriceVersion: "azure-neural-resource-2026-10-v1",
+  };
+  assert.deepStrictEqual(
+    calculateAzureTtsMaxCost(202, 1000, 5000),
+    207_000n,
+  );
+  assert.deepStrictEqual(calculateOperationMaxCost("tts", units), 207_000n);
+  assert.throws(() =>
+    calculateOperationMaxCost("tts", { provider: "azure", characters: 7 })
+  );
+  const now = new Date("2026-10-09T10:00:00Z");
+  const quote = createCostQuote("tts", units, now, 10);
+  assert.deepStrictEqual(quote.priceVersion, units.azurePriceVersion);
+  assert.deepStrictEqual(quote.maxNanoUsd, "207000");
+  assert.deepStrictEqual(verifyCostQuote(quote, "tts", units, now), {
+    ok: true,
+    maxNanoUsd: 207_000n,
+  });
+});
+
+test("normalization recovery reserves processor cost without member characters", () => {
+  const units = {
+    characters: 1,
+    provider: "audio-normalizer",
+    normalizerReserveNanoUsd: 5000,
+    azurePriceVersion: "azure-neural-resource-2026-10-v1",
+  };
+  assert.deepStrictEqual(calculateOperationMaxCost("tts", units), 5000n);
+  const quote = createCostQuote("tts", units);
+  assert.deepStrictEqual(quote.maxNanoUsd, "5000");
+  assert.deepStrictEqual(quote.priceVersion, units.azurePriceVersion);
 });
 
 test("transcription cost calculation respects ms rates and ceiling", () => {

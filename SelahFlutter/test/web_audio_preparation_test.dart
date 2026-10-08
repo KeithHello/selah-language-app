@@ -12,8 +12,41 @@ void main() {
           language: 'en',
           contentHash: 'a' * 64,
         ),
-        'audio:v2:loop:openai:gentle-natural:1:gentle-natural:target:en:${'a' * 64}',
+        'audio:v3:loop:azure:en-US-JennyNeural@gentle-natural:1:lufs-v1:gentle-natural:target:en:${'a' * 64}',
       );
+    },
+  );
+
+  test('routes native Japanese and British English to Azure voices', () {
+    expect(audioProviderForLanguage('ja'), 'azure');
+    expect(
+      audioProviderVoice(voice: 'native-gentle', language: 'ja'),
+      'ja-JP-NanamiNeural@native-gentle',
+    );
+    expect(
+      audioProviderVoice(voice: 'elegant-british', language: 'en'),
+      'en-GB-SoniaNeural@elegant-british',
+    );
+    expect(
+      audioProviderModel(voice: 'native-gentle', language: 'ja'),
+      'azure-speech/ja-JP-NanamiNeural',
+    );
+    expect(
+      audioManifestCachePattern(voice: 'gentle-natural', language: 'en'),
+      'azure:en-US-JennyNeural@gentle-natural:1:lufs-v1:%',
+    );
+  });
+
+  test(
+    'bundled audio is reusable only when its normalizer revision matches',
+    () {
+      expect(isNormalizedAudioEntry({'normalizerRevision': 'lufs-v1'}), isTrue);
+      expect(
+        isNormalizedAudioEntry({'normalizerRevision': 'lufs-v0'}),
+        isFalse,
+      );
+      expect(isNormalizedAudioEntry({'sha256': 'a' * 64}), isFalse);
+      expect(isNormalizedAudioEntry(null), isFalse);
     },
   );
 

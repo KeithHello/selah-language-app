@@ -46,6 +46,17 @@ export interface AdmissionInput {
   quote: CostQuote;
 }
 
+export interface CostUnits {
+  itemCount?: number;
+  characters?: number;
+  durationMs?: number;
+  provider?: "azure" | "openai" | "audio-normalizer";
+  azureBillableCharacters?: number;
+  azureNanoUsdPerBillableCharacter?: number;
+  normalizerReserveNanoUsd?: number;
+  azurePriceVersion?: string;
+}
+
 export function calculateSingleSentenceMaxCost(): bigint {
   return (
     SINGLE_SENTENCE_MAX_INPUT_TOKENS * TEXT_INPUT_NANO_USD_PER_TOKEN +
@@ -83,6 +94,30 @@ export function calculateTtsMaxCost(characters: number): bigint {
   return BigInt(characters) * TTS_NANO_USD_PER_CHARACTER;
 }
 
+export function calculateAzureTtsMaxCost(
+  billableCharacters: number,
+  nanoUsdPerBillableCharacter: number,
+  normalizerReserveNanoUsd: number,
+): bigint {
+  for (
+    const [value, name] of [
+      [billableCharacters, "billableCharacters"],
+      [nanoUsdPerBillableCharacter, "nanoUsdPerBillableCharacter"],
+      [normalizerReserveNanoUsd, "normalizerReserveNanoUsd"],
+    ] as const
+  ) {
+    if (!Number.isSafeInteger(value) || value < 0) {
+      throw new RangeError(`${name} must be a non-negative safe integer`);
+    }
+  }
+  if (billableCharacters < 1 || nanoUsdPerBillableCharacter < 1) {
+    throw new RangeError("Azure TTS characters and rate must be positive");
+  }
+  return BigInt(billableCharacters) *
+      BigInt(nanoUsdPerBillableCharacter) +
+    BigInt(normalizerReserveNanoUsd);
+}
+
 export function calculateTranscriptionMaxCost(durationMs: number): bigint {
   if (!Number.isInteger(durationMs) || durationMs < 1) {
     throw new RangeError("durationMs must be a positive integer");
@@ -92,11 +127,7 @@ export function calculateTranscriptionMaxCost(durationMs: number): bigint {
 
 export function calculateOperationMaxCost(
   feature: GenerationFeature,
-  units: {
-    itemCount?: number;
-    characters?: number;
-    durationMs?: number;
-  } = {},
+  units: CostUnits = {},
 ): bigint {
   switch (feature) {
     case "sentence":
@@ -106,6 +137,22 @@ export function calculateOperationMaxCost(
     case "batch":
       return calculateBatchMaxCost(units.itemCount ?? 1);
     case "tts":
+      if (units.provider === "audio-normalizer") {
+        const reserve = units.normalizerReserveNanoUsd ?? 0;
+        if (!Number.isSafeInteger(reserve) || reserve < 1) {
+          throw new RangeError(
+            "normalizerReserveNanoUsd must be a positive safe integer",
+          );
+        }
+        return BigInt(reserve);
+      }
+      if (units.provider === "azure") {
+        return calculateAzureTtsMaxCost(
+          units.azureBillableCharacters ?? 0,
+          units.azureNanoUsdPerBillableCharacter ?? 0,
+          units.normalizerReserveNanoUsd ?? 0,
+        );
+      }
       return calculateTtsMaxCost(units.characters ?? 1);
     case "transcription":
       if ((units.durationMs ?? 1) > MAX_TRANSCRIPTION_DURATION_MS) {
@@ -121,37 +168,50 @@ export function calculateOperationMaxCost(
   }
 }
 
+function expectedPriceVersion(
+  feature: GenerationFeature,
+  units: CostUnits,
+): string {
+  if (
+    feature === "tts" &&
+    (units.provider === "azure" || units.provider === "audio-normalizer")
+  ) {
+    const value = units.azurePriceVersion;
+    if (!value || !/^[a-zA-Z0-9._-]{1,80}$/.test(value)) {
+      throw new RangeError("azurePriceVersion is required");
+    }
+    return value;
+  }
+  return PRICE_POLICY_VERSION;
+}
+
 export function createCostQuote(
   feature: GenerationFeature,
-  units: {
-    itemCount?: number;
-    characters?: number;
-    durationMs?: number;
-  } = {},
+  units: CostUnits = {},
   now: Date = new Date(),
   validityMinutes: number = 10,
 ): CostQuote {
   const maxNanoUsd = calculateOperationMaxCost(feature, units);
+  const priceVersion = expectedPriceVersion(feature, units);
   const validUntil = new Date(now.getTime() + validityMinutes * 60_000)
     .toISOString();
   return {
     currency: "USD",
     maxNanoUsd: maxNanoUsd.toString(),
-    priceVersion: PRICE_POLICY_VERSION,
+    priceVersion,
     fxGuardVersion: FX_GUARD_VERSION,
     validUntil,
-    evidenceVersion: "2026-09-11-v1",
+    evidenceVersion: feature === "tts" &&
+        (units.provider === "azure" || units.provider === "audio-normalizer")
+      ? `azure-resource-price:${priceVersion}`
+      : "2026-09-11-v1",
   };
 }
 
 export function verifyCostQuote(
   quote: CostQuote,
   expectedFeature: GenerationFeature,
-  units: {
-    itemCount?: number;
-    characters?: number;
-    durationMs?: number;
-  } = {},
+  units: CostUnits = {},
   now: Date = new Date(),
 ): { ok: true; maxNanoUsd: bigint } | {
   ok: false;
@@ -165,7 +225,13 @@ export function verifyCostQuote(
       message: "Quote currency must be USD",
     };
   }
-  if (quote.priceVersion !== PRICE_POLICY_VERSION) {
+  let expectedVersion: string;
+  try {
+    expectedVersion = expectedPriceVersion(expectedFeature, units);
+  } catch (err) {
+    return { ok: false, code: "invalid_units", message: String(err) };
+  }
+  if (quote.priceVersion !== expectedVersion) {
     return {
       ok: false,
       code: "stale_price_version",

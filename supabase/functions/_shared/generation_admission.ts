@@ -2,6 +2,7 @@
 
 import {
   type CostQuote,
+  type CostUnits,
   createCostQuote,
   type GenerationFeature,
   verifyCostQuote,
@@ -27,11 +28,7 @@ export interface GenerationAdmissionOptions {
   userId: string;
   clientRequestId: string;
   feature: GenerationFeature;
-  units: {
-    itemCount?: number;
-    characters?: number;
-    durationMs?: number;
-  };
+  units: CostUnits;
   payloadHash: string;
   quote?: CostQuote;
   /** When false, usage is metered without enforcing membership allowances. */
@@ -89,11 +86,7 @@ export interface RpcCaller {
  */
 export function prepareAdmissionQuote(
   feature: GenerationFeature,
-  units: {
-    itemCount?: number;
-    characters?: number;
-    durationMs?: number;
-  },
+  units: CostUnits,
   providedQuote?: CostQuote,
   now: Date = new Date(),
 ): { ok: true; quote: CostQuote } | {

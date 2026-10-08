@@ -81,11 +81,11 @@ Deno.test("manifest access permits seed and owning user only", () => {
   );
 });
 
-Deno.test("all user-facing profiles map to supported OpenAI TTS voices", () => {
-  assertEquals(VOICE_MAP["gentle-natural"], "nova");
-  assertEquals(VOICE_MAP["clear-slow"], "sage");
-  assertEquals(VOICE_MAP["daily-bright"], "ash");
-  assertEquals(VOICE_MAP["elegant-british"], "shimmer");
+Deno.test("all user-facing English profiles map to Azure neural voices", () => {
+  assertEquals(VOICE_MAP["gentle-natural"], "en-US-JennyNeural");
+  assertEquals(VOICE_MAP["clear-slow"], "en-US-JennyNeural");
+  assertEquals(VOICE_MAP["daily-bright"], "en-US-GuyNeural");
+  assertEquals(VOICE_MAP["elegant-british"], "en-GB-SoniaNeural");
 });
 
 Deno.test("estimated duration remains positive", () => {

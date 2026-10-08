@@ -73,6 +73,7 @@ void main() {
         'seed-001:gentle-natural': {
           'path': 'assets/audio/sample.mp3',
           'sha256': 'a' * 64,
+          'normalizerRevision': 'lufs-v1',
         },
       },
     );
@@ -351,12 +352,15 @@ void main() {
     expect(c.pendingPracticeSignal, 'almost');
   });
 
-  test('poll auto-applies a ready update when learning state is safe', () async {
-    c.state.preferences.onboarded = true;
-    p.info = {'online': true, 'updateAvailable': true};
-    await c.poll();
-    expect(p.calls, contains('applyUpdate'));
-  });
+  test(
+    'poll auto-applies a ready update when learning state is safe',
+    () async {
+      c.state.preferences.onboarded = true;
+      p.info = {'online': true, 'updateAvailable': true};
+      await c.poll();
+      expect(p.calls, contains('applyUpdate'));
+    },
+  );
 
   test(
     'poll waits for saved input before auto-applying a ready update',

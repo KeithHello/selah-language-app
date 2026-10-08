@@ -261,10 +261,12 @@ Map<String, Map<String, String>> _bundledSeedAudio() => {
   'seed-001:gentle-natural': {
     'path': 'assets/audio/seed-001-gentle-natural.mp3',
     'sha256': 'b' * 64,
+    'normalizerRevision': 'lufs-v1',
   },
   'seed-001:source': {
     'path': 'assets/audio/seed-001-source.mp3',
     'sha256': 'c' * 64,
+    'normalizerRevision': 'lufs-v1',
   },
 };
 
@@ -699,10 +701,12 @@ void main() {
         'seed-001:gentle-natural': {
           'path': 'assets/audio/seed-001-gentle-natural.mp3',
           'sha256': 'b' * 64,
+          'normalizerRevision': 'lufs-v1',
         },
         'seed-001:source': {
           'path': 'assets/audio/seed-001-source.mp3',
           'sha256': 'c' * 64,
+          'normalizerRevision': 'lufs-v1',
         },
       },
     );
@@ -849,9 +853,9 @@ void main() {
       gateway.requests.clear();
       _setUpSentence(controller, _sentence());
       final key =
-          'audio:v2:loop:openai:gentle-natural:1:gentle-natural:target:en:${'a' * 64}';
+          'audio:v3:loop:azure:en-US-JennyNeural@gentle-natural:1:lufs-v1:gentle-natural:target:en:${'a' * 64}';
       final sourceKey =
-          'audio:v2:loop:azure:zh-TW-HsiaoChenNeural@native-gentle:1:native-gentle:source:zh-Hant:${'a' * 64}';
+          'audio:v3:loop:azure:zh-TW-HsiaoChenNeural@native-gentle:1:lufs-v1:native-gentle:source:zh-Hant:${'a' * 64}';
       controller.state.audio[key] = {'manifestId': 'manifest-1'};
       controller.state.audio[sourceKey] = {'manifestId': 'manifest-2'};
 

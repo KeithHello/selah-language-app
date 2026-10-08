@@ -19,6 +19,17 @@
 - [ ] IndexedDB 拆分存储及版本化数据迁移暂缓：尚未获得针对该本地数据库结构／数据迁移的明确授权；本轮未改 IndexedDB schema、Supabase 数据库或云端配置。
 - [ ] 未部署预览或生产环境。后续需在获准发布后采集真实用户 Core Web Vitals，与生产基线对比。
 
+### 2026-10-09 Azure 三语 TTS 与响度校准统一（本地实现与验证完成；外部资源配置待确认）
+
+- [x] 主人已授权按已确认方案完整开发；项目规范、设计规格和实施计划已更新。
+- [x] 中文、日语母语及美式／英式英语统一到 Azure Speech 标准神经语音，SSML 按 locale 与现有 profile 设置语速／音高；新 TTS 不再回退到 OpenAI。
+- [x] 新生成音频经独立 FFmpeg 处理器双遍 loudnorm 校准，验收目标为 `-22 LUFS ±1 LU`、`≤ -1 dBTP`；Edge 只把校准成品标记为 ready，恢复流程复用保存的 Azure 源音频；客户端升至 `audio:v3` 并以 normalizer revision 区分旧缓存。
+- [x] 平台成本使用独立 Azure 计费字符、显式 Azure 资源单价版本与 normalizer 预留成本；会员字数权益保持原规则，缺少费率时阻止新付费 TTS。
+- [x] 更新 Azure 种子生成、inventory、清单完整性与本地打包流程；dry-run 未读取 `.env`、未联网调用 Azure、未写入或覆盖现有音频资产。
+- [x] 本地验证通过：Deno 386 项、Flutter 435 项、Python 19 项、Node 成本策略 12 项；`flutter analyze --no-pub` 无问题；Deno 格式／脚本检查通过；Flutter Web Release 构建成功。
+- [ ] 当前静态种子音频及 manifest 尚无可验证的 `lufs-v1`／Azure 身份，会被新版 `audio:v3` 客户端有意拒绝；上线前需经 Azure 付费合成、响度校准并重新打包，以保留访客离线循环听。
+- [ ] 部署处理器、写入 Azure 与处理器密钥／费率、部署 Supabase Edge Function、真实 Azure 试听与重制种子音频均待后续逐项确认；不改数据库 schema 或 migration。
+
 ### 2026-10-08 循环听音档静音（已合入 main 并生产部署；分支预览校验缺陷待修）
 
 - [x] 根因：浏览器解锁时创建的循环听预热音轨以静音状态播放；首次正式循环音档复用该元素，但没有恢复 `muted` 与 `volume`，所以时间轴前进而没有声音。

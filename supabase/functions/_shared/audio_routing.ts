@@ -1,6 +1,6 @@
 import {
   AUDIO_FORMAT,
-  TTS_MODEL,
+  AUDIO_NORMALIZER_REVISION,
   TTS_SPEED,
   VOICE_ACCENTS,
   VOICE_MAP,
@@ -27,15 +27,23 @@ export type AudioRouteResult =
   | { ok: false; code: string; message: string };
 
 const AZURE_ZH_TW_VOICE = "zh-TW-HsiaoChenNeural";
+const AZURE_JA_JP_VOICE = "ja-JP-NanamiNeural";
+const AZURE_EN_US_JENNY = "en-US-JennyNeural";
+const AZURE_EN_US_GUY = "en-US-GuyNeural";
+const AZURE_EN_GB_SONIA = "en-GB-SoniaNeural";
 
-const NATIVE_PROSODY: Record<
+const PROFILE_PROSODY: Record<
   string,
-  { rate: string; pitch: string }
+  { rate: string; pitch: string; speed: number }
 > = {
-  "native-gentle": { rate: "0%", pitch: "0%" },
-  "native-clear": { rate: "-5%", pitch: "0%" },
-  "native-bright": { rate: "+5%", pitch: "+1st" },
-  "native-calm": { rate: "-8%", pitch: "-1st" },
+  "gentle-natural": { rate: "0%", pitch: "0%", speed: TTS_SPEED },
+  "clear-slow": { rate: "-10%", pitch: "0%", speed: 0.9 },
+  "daily-bright": { rate: "+5%", pitch: "+1st", speed: 1.05 },
+  "elegant-british": { rate: "0%", pitch: "0%", speed: TTS_SPEED },
+  "native-gentle": { rate: "0%", pitch: "0%", speed: TTS_SPEED },
+  "native-clear": { rate: "-5%", pitch: "0%", speed: 0.95 },
+  "native-bright": { rate: "+5%", pitch: "+1st", speed: 1.05 },
+  "native-calm": { rate: "-8%", pitch: "-1st", speed: 0.92 },
 };
 
 function canonicalLanguage(value: unknown): "zh-Hant" | "ja" | "en" | null {
@@ -94,6 +102,14 @@ export function resolveAudioRoute(input: {
       message: "Unsupported voice profile",
     };
   }
+  const profileProsody = PROFILE_PROSODY[voiceProfile];
+  if (!profileProsody) {
+    return {
+      ok: false,
+      code: "unsupported_voice_profile",
+      message: "Unsupported voice profile",
+    };
+  }
 
   const language = canonicalLanguage(
     input.audioRole === "source" ? input.sourceLanguage : input.targetLanguage,
@@ -115,12 +131,13 @@ export function resolveAudioRoute(input: {
     };
   }
 
-  if (language === "zh-Hant") {
-    if (requestedAccent != null && requestedAccent !== "zh-TW") {
+  if (language === "zh-Hant" || language === "ja") {
+    const expectedAccent = language === "zh-Hant" ? "zh-TW" : "ja-JP";
+    if (requestedAccent != null && requestedAccent !== expectedAccent) {
       return {
         ok: false,
         code: "accent_language_mismatch",
-        message: "Traditional Chinese audio requires the zh-TW accent",
+        message: `${language} audio requires the ${expectedAccent} accent`,
       };
     }
     if (!voiceProfile.startsWith("native-")) {
@@ -130,17 +147,20 @@ export function resolveAudioRoute(input: {
         message: "Chinese source audio requires a native voice profile",
       };
     }
+    const baseVoice = language === "zh-Hant"
+      ? AZURE_ZH_TW_VOICE
+      : AZURE_JA_JP_VOICE;
     return {
       ok: true,
       route: {
         provider: "azure",
         audioRole: input.audioRole,
         language,
-        accent: "zh-TW",
+        accent: expectedAccent,
         voiceProfile,
-        providerVoice: `${AZURE_ZH_TW_VOICE}@${voiceProfile}`,
-        providerModel: `azure-speech/${AZURE_ZH_TW_VOICE}`,
-        speed: TTS_SPEED,
+        providerVoice: `${baseVoice}@${voiceProfile}`,
+        providerModel: `azure-speech/${baseVoice}`,
+        speed: profileProsody.speed,
         format: AUDIO_FORMAT,
       },
     };
@@ -162,58 +182,31 @@ export function resolveAudioRoute(input: {
         message: "Accent does not match the selected voice profile",
       };
     }
+    const azureVoice = voiceProfile === "elegant-british"
+      ? AZURE_EN_GB_SONIA
+      : voiceProfile === "daily-bright"
+      ? AZURE_EN_US_GUY
+      : AZURE_EN_US_JENNY;
     return {
       ok: true,
       route: {
-        provider: "openai",
+        provider: "azure",
         audioRole: input.audioRole,
         language,
         accent: expectedAccent,
         voiceProfile,
-        providerVoice,
-        providerModel: `openai/${TTS_MODEL}/${providerVoice}`,
-        speed: TTS_SPEED,
+        providerVoice: `${azureVoice}@${voiceProfile}`,
+        providerModel: `azure-speech/${azureVoice}`,
+        speed: profileProsody.speed,
         format: AUDIO_FORMAT,
       },
     };
   }
 
-  // Japanese remains on the existing OpenAI path for this phase.  It is
-  // deliberately explicit so it cannot be mistaken for Azure Chinese audio.
-  if (requestedAccent != null && requestedAccent !== "ja-JP") {
-    return {
-      ok: false,
-      code: "accent_language_mismatch",
-      message: "Japanese audio requires the ja-JP accent",
-    };
-  }
   return {
-    ok: true,
-    route: {
-      provider: "openai",
-      audioRole: input.audioRole,
-      language,
-      accent: "ja-JP",
-      voiceProfile,
-      providerVoice,
-      providerModel: `openai/${TTS_MODEL}/${providerVoice}`,
-      speed: TTS_SPEED,
-      format: AUDIO_FORMAT,
-    },
-  };
-}
-
-export function resolveAudioFallbackRoute(
-  route: AudioRoute,
-): AudioRoute | null {
-  if (route.provider !== "azure" || route.language !== "zh-Hant") return null;
-  const providerVoice = VOICE_MAP[route.voiceProfile];
-  if (!providerVoice) return null;
-  return {
-    ...route,
-    provider: "openai",
-    providerVoice,
-    providerModel: `openai/${TTS_MODEL}/${providerVoice}`,
+    ok: false,
+    code: "unsupported_audio_language",
+    message: "Unsupported spoken language",
   };
 }
 
@@ -222,14 +215,17 @@ export function audioCacheKey(input: {
   providerVoice: string;
   speed: number;
   textHash: string;
+  normalizerRevision?: string;
 }): string {
-  return `${input.provider}:${input.providerVoice}:${input.speed}:${input.textHash}`;
+  return `${input.provider}:${input.providerVoice}:${input.speed}:${
+    input.normalizerRevision ?? AUDIO_NORMALIZER_REVISION
+  }:${input.textHash}`;
 }
 
 export function buildAzureSsml(text: string, route: AudioRoute): string {
   const baseVoice = route.providerVoice.split("@", 1)[0];
-  const profile = NATIVE_PROSODY[route.voiceProfile] ??
-    NATIVE_PROSODY["native-gentle"];
+  const profile = PROFILE_PROSODY[route.voiceProfile];
+  if (!profile) throw new Error("unsupported_voice_profile");
   const escaped = text.replace(
     /[&<>"']/g,
     (value) => ({
@@ -240,5 +236,5 @@ export function buildAzureSsml(text: string, route: AudioRoute): string {
       "'": "&apos;",
     }[value] ?? value),
   );
-  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="zh-TW"><voice name="${baseVoice}"><prosody rate="${profile.rate}" pitch="${profile.pitch}">${escaped}</prosody></voice></speak>`;
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${route.accent}"><voice name="${baseVoice}" xml:lang="${route.accent}"><prosody rate="${profile.rate}" pitch="${profile.pitch}">${escaped}</prosody></voice></speak>`;
 }

@@ -19,10 +19,20 @@ const voices = [
   "daily-bright",
   "elegant-british",
 ] as const;
-const seeds = Array.from(
-  { length: 30 },
-  (_, index) => `seed-${String(index + 1).padStart(3, "0")}`,
+const expectedVoices = {
+  "gentle-natural": { model: "azure-speech/en-US-JennyNeural", speed: 1 },
+  "clear-slow": { model: "azure-speech/en-US-JennyNeural", speed: 0.9 },
+  "daily-bright": { model: "azure-speech/en-US-GuyNeural", speed: 1.05 },
+  "elegant-british": { model: "azure-speech/en-GB-SoniaNeural", speed: 1 },
+} as const;
+const seedPath = new URL(
+  "../../SeedContent/seed-sentences.json",
+  import.meta.url,
 );
+const seedContent = JSON.parse(await Deno.readTextFile(seedPath)) as {
+  sentences: Array<{ id: string }>;
+};
+const seeds = seedContent.sentences.map((sentence) => sentence.id);
 
 const supabase = createClient(supabaseUrl, serviceRoleKey, {
   auth: { persistSession: false },
@@ -30,7 +40,7 @@ const supabase = createClient(supabaseUrl, serviceRoleKey, {
 const { data, error } = await supabase
   .from("audio_manifests")
   .select(
-    "seed_sentence_id,voice_profile,generation_status,storage_path,sha256,byte_size,tts_model,speed,audio_format",
+    "seed_sentence_id,voice_profile,generation_status,storage_path,content_hash,sha256,byte_size,tts_model,speed,audio_format",
   )
   .not("seed_sentence_id", "is", null);
 
@@ -53,8 +63,10 @@ for (const seed of seeds) {
       continue;
     }
     if (
-      row.tts_model !== "tts-1" ||
-      Number(row.speed) !== 0.85 ||
+      row.tts_model !== expectedVoices[voice].model ||
+      Number(row.speed) !== expectedVoices[voice].speed ||
+      typeof row.content_hash !== "string" ||
+      !row.content_hash.includes(":lufs-v1:") ||
       row.audio_format !== "mp3" ||
       typeof row.byte_size !== "number" ||
       row.byte_size <= 0 ||

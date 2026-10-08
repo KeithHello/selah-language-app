@@ -1,6 +1,6 @@
 import { type AudioRoute, buildAzureSsml } from "./audio_routing.ts";
 
-export const AZURE_OUTPUT_FORMAT = "audio-16khz-128kbitrate-mono-mp3";
+export const AZURE_OUTPUT_FORMAT = "audio-24khz-160kbitrate-mono-mp3";
 
 export function azureSpeechEndpoint(region: string): string {
   const normalized = region.trim().toLowerCase();
@@ -29,4 +29,25 @@ export function buildAzureSpeechRequest(
       body: buildAzureSsml(text, route),
     },
   };
+}
+
+export function azureBillableCharacterCount(
+  text: string,
+  route: AudioRoute,
+): number {
+  const ssml = buildAzureSsml(text, route);
+  const voiceContent = ssml.match(/<voice\b[^>]*>([\s\S]*)<\/voice>/)?.[1];
+  if (voiceContent === undefined) {
+    throw new Error("invalid_azure_ssml_voice_content");
+  }
+  const decoded = voiceContent.replace(
+    /&(amp|lt|gt|quot|apos);/g,
+    (_, entity: string) =>
+      ({ amp: "&", lt: "<", gt: ">", quot: '"', apos: "'" })[entity] ?? _,
+  );
+  let characters = 0;
+  for (const character of decoded) {
+    characters += /\p{Script=Han}/u.test(character) ? 2 : 1;
+  }
+  return characters;
 }
