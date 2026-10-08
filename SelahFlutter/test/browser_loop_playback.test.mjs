@@ -9,8 +9,11 @@ function createAudioClass(timers, { blocked = false } = {}) {
     static lastInstance;
     static instances = [];
     static playSources = [];
+    static playStates = [];
     constructor() {
       this.listeners = {};
+      this.muted = false;
+      this.volume = 1;
       this.playbackRate = 1;
       this.currentTime = 0;
       this.duration = Number.NaN;
@@ -32,6 +35,7 @@ function createAudioClass(timers, { blocked = false } = {}) {
     }
     async play() {
       FakeAudio.playSources.push(this.src);
+      FakeAudio.playStates.push({ src: this.src, muted: this.muted, volume: this.volume });
       if (blocked) {
         const error = new Error('autoplay is not allowed');
         error.name = 'NotAllowedError';
@@ -194,6 +198,8 @@ test('audio unlock primes the reusable loop element before the first track', asy
 
   assert.equal(env.Audio.instances.length, 2);
   assert.match(env.Audio.playSources[0], /^data:audio\/wav;base64,/);
+  assert.equal(env.Audio.playStates[0].muted, true);
+  assert.equal(env.Audio.playStates[0].volume, 0);
 
   for (const track of env.tracks) {
     await env.call('audioEnsure', { accountId: 'guest', key: track.key, url: `https://example.test/${track.key}.mp3` });
@@ -208,6 +214,10 @@ test('audio unlock primes the reusable loop element before the first track', asy
   await env.flush();
 
   assert.equal(env.Audio.instances.length, 2);
+  const realTrackPlay = env.Audio.playStates.find(({ src }) => src.startsWith('blob:audio-'));
+  assert.ok(realTrackPlay);
+  assert.equal(realTrackPlay.muted, false);
+  assert.equal(realTrackPlay.volume, 1);
 });
 
 test('loop playback exposes a retryable ready state when autoplay is blocked', async () => {

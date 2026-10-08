@@ -909,6 +909,8 @@
       } else {
         session.element = createAudioElement();
       }
+      session.element.muted = false;
+      session.element.volume = 1;
       return session.element;
     }
 
