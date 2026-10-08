@@ -8,13 +8,15 @@
 
 ## 当前阶段
 
-### 2026-10-08 循环听音档静音（本地实现与验证完成；预览部署待确认）
+### 2026-10-08 循环听音档静音（预览已部署并核验；Actions 地址校验待修）
 
 - [x] 根因：浏览器解锁时创建的循环听预热音轨以静音状态播放；首次正式循环音档复用该元素，但没有恢复 `muted` 与 `volume`，所以时间轴前进而没有声音。
 - [x] 修复：循环听控制器准备正式音档元素时显式设为 `muted = false`、`volume = 1`；测试验证静音预热与正式播放各自状态。
 - [x] 版本升至 `1.8.1+14`。Node 浏览器桥接测试 33 项通过，Flutter 全量测试 433 项通过，`flutter analyze --no-pub` 无问题。
 - [x] Web Release 构建成功：版本 `1.8.1`、本地 Build ID `9d1b4843b2dff529`。本机未配置公开 Supabase 环境，访客构建由本地静态音档完成浏览器烟测；实际播放时 `muted=false`、`volume=1` 且播放进度增长。
-- [ ] 已准备提交至 `codex/fix-loop-audio-mute`。推送该分支会触发 GitHub Actions，并自动更新 Cloudflare Pages 预览；待主人确认后执行推送并核验远端结果。
+- [x] 提交 `99e6890` 已推送至 GitHub 分支 `codex/fix-loop-audio-mute`。Actions run `37745090867` 的 Swift、iOS、Deno、数据库 migration／pgTAP／并发、Flutter Analyze／测试与 Web 构建均通过；Cloudflare Pages 预览部署步骤成功。
+- [x] Cloudflare Pages 预览别名 `https://codex-fix-loop-audio-mute.selah-language-app.pages.dev` 返回版本 `1.8.1`、Build ID `815e5e0638e822eb`；首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
+- [ ] Actions 最终 Build ID 校验因现有 `.github/workflows/build.yml` 将带斜杠的原始分支名用于校验 URL 而失败；Wrangler 实际生成的是连字符别名，线上资源已独立核验匹配。修复 CI/CD workflow 需单独确认，本次未修改该配置。
 
 ### 2026-10-05 平台日预算用户提示与管理员监控（已完成；生产 v1.8.0 已发布）
 
