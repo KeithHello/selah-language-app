@@ -16,7 +16,7 @@ publish_to: 'none' # Remove this line if you wish to publish to pub.dev
 # https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
 # In Windows, build-name is used as the major, minor, and patch parts
 # of the product and file versions while build-number is used as the build suffix.
-version: 1.8.1+14
+version: 1.9.0+15
 
 environment:
   sdk: ^3.12.2
@@ -64,59 +64,58 @@ flutter:
   uses-material-design: true
 
   assets:
-    # Web builds only ship the runtime .png poses; the identical .gif copies
-    # stay in the repo for the asset contract test and native previews,
-    # keeping ~26MB of duplicate bytes out of the web bundle and precache.
-    - assets/sprites/PlushV4S1A01.png
-    - assets/sprites/PlushV4S1A02.png
-    - assets/sprites/PlushV4S1A03.png
-    - assets/sprites/PlushV4S1A04.png
-    - assets/sprites/PlushV4S1A05.png
-    - assets/sprites/PlushV4S1A06.png
-    - assets/sprites/PlushV4S1A07.png
-    - assets/sprites/PlushV4S1A08.png
-    - assets/sprites/PlushV4S1A09.png
-    - assets/sprites/PlushV4S1A10.png
-    - assets/sprites/PlushV4S2A01.png
-    - assets/sprites/PlushV4S2A02.png
-    - assets/sprites/PlushV4S2A03.png
-    - assets/sprites/PlushV4S2A04.png
-    - assets/sprites/PlushV4S2A05.png
-    - assets/sprites/PlushV4S2A06.png
-    - assets/sprites/PlushV4S2A07.png
-    - assets/sprites/PlushV4S2A08.png
-    - assets/sprites/PlushV4S2A09.png
-    - assets/sprites/PlushV4S2A10.png
-    - assets/sprites/PlushV4S3A01.png
-    - assets/sprites/PlushV4S3A02.png
-    - assets/sprites/PlushV4S3A03.png
-    - assets/sprites/PlushV4S3A04.png
-    - assets/sprites/PlushV4S3A05.png
-    - assets/sprites/PlushV4S3A06.png
-    - assets/sprites/PlushV4S3A07.png
-    - assets/sprites/PlushV4S3A08.png
-    - assets/sprites/PlushV4S3A09.png
-    - assets/sprites/PlushV4S3A10.png
-    - assets/sprites/PlushV4S4A01.png
-    - assets/sprites/PlushV4S4A02.png
-    - assets/sprites/PlushV4S4A03.png
-    - assets/sprites/PlushV4S4A04.png
-    - assets/sprites/PlushV4S4A05.png
-    - assets/sprites/PlushV4S4A06.png
-    - assets/sprites/PlushV4S4A07.png
-    - assets/sprites/PlushV4S4A08.png
-    - assets/sprites/PlushV4S4A09.png
-    - assets/sprites/PlushV4S4A10.png
-    - assets/sprites/PlushV4S5A01.png
-    - assets/sprites/PlushV4S5A02.png
-    - assets/sprites/PlushV4S5A03.png
-    - assets/sprites/PlushV4S5A04.png
-    - assets/sprites/PlushV4S5A05.png
-    - assets/sprites/PlushV4S5A06.png
-    - assets/sprites/PlushV4S5A07.png
-    - assets/sprites/PlushV4S5A08.png
-    - assets/sprites/PlushV4S5A09.png
-    - assets/sprites/PlushV4S5A10.png
+    # Web builds ship optimized animated WebP poses; PNG-named GIF source
+    # files remain in the repo for asset validation and are not bundled.
+    - assets/sprites/PlushV4S1A01.webp
+    - assets/sprites/PlushV4S1A02.webp
+    - assets/sprites/PlushV4S1A03.webp
+    - assets/sprites/PlushV4S1A04.webp
+    - assets/sprites/PlushV4S1A05.webp
+    - assets/sprites/PlushV4S1A06.webp
+    - assets/sprites/PlushV4S1A07.webp
+    - assets/sprites/PlushV4S1A08.webp
+    - assets/sprites/PlushV4S1A09.webp
+    - assets/sprites/PlushV4S1A10.webp
+    - assets/sprites/PlushV4S2A01.webp
+    - assets/sprites/PlushV4S2A02.webp
+    - assets/sprites/PlushV4S2A03.webp
+    - assets/sprites/PlushV4S2A04.webp
+    - assets/sprites/PlushV4S2A05.webp
+    - assets/sprites/PlushV4S2A06.webp
+    - assets/sprites/PlushV4S2A07.webp
+    - assets/sprites/PlushV4S2A08.webp
+    - assets/sprites/PlushV4S2A09.webp
+    - assets/sprites/PlushV4S2A10.webp
+    - assets/sprites/PlushV4S3A01.webp
+    - assets/sprites/PlushV4S3A02.webp
+    - assets/sprites/PlushV4S3A03.webp
+    - assets/sprites/PlushV4S3A04.webp
+    - assets/sprites/PlushV4S3A05.webp
+    - assets/sprites/PlushV4S3A06.webp
+    - assets/sprites/PlushV4S3A07.webp
+    - assets/sprites/PlushV4S3A08.webp
+    - assets/sprites/PlushV4S3A09.webp
+    - assets/sprites/PlushV4S3A10.webp
+    - assets/sprites/PlushV4S4A01.webp
+    - assets/sprites/PlushV4S4A02.webp
+    - assets/sprites/PlushV4S4A03.webp
+    - assets/sprites/PlushV4S4A04.webp
+    - assets/sprites/PlushV4S4A05.webp
+    - assets/sprites/PlushV4S4A06.webp
+    - assets/sprites/PlushV4S4A07.webp
+    - assets/sprites/PlushV4S4A08.webp
+    - assets/sprites/PlushV4S4A09.webp
+    - assets/sprites/PlushV4S4A10.webp
+    - assets/sprites/PlushV4S5A01.webp
+    - assets/sprites/PlushV4S5A02.webp
+    - assets/sprites/PlushV4S5A03.webp
+    - assets/sprites/PlushV4S5A04.webp
+    - assets/sprites/PlushV4S5A05.webp
+    - assets/sprites/PlushV4S5A06.webp
+    - assets/sprites/PlushV4S5A07.webp
+    - assets/sprites/PlushV4S5A08.webp
+    - assets/sprites/PlushV4S5A09.webp
+    - assets/sprites/PlushV4S5A10.webp
     - assets/content/
     - assets/audio/seed-001-gentle-natural.mp3
     - assets/audio/seed-001-clear-slow.mp3
@@ -178,7 +177,9 @@ flutter:
     - assets/audio/seed-020-elegant-british.mp3
     - assets/audio/seed-020-source-zh-Hant.mp3
     - assets/audio/seed-020-source-ja.mp3
-    - assets/fonts/
+    - assets/fonts/Roboto.ttf
+    - assets/fonts/PlusJakartaSans.ttf
+    - assets/fonts/NotoSansSC-subset.ttf
 
   fonts:
     - family: Roboto

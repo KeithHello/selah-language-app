@@ -23,10 +23,10 @@ class _FailOnceAssetBundle extends CachingAssetBundle {
     if (key == 'AssetManifest.bin') {
       final manifest = <String, List<Map<String, Object>>>{
         for (var action = 1; action <= 10; action++)
-          'assets/sprites/PlushV4S5A${action.toString().padLeft(2, '0')}.png': [
+          'assets/sprites/PlushV4S5A${action.toString().padLeft(2, '0')}.webp': [
             {
               'asset':
-                  'assets/sprites/PlushV4S5A${action.toString().padLeft(2, '0')}.png',
+                  'assets/sprites/PlushV4S5A${action.toString().padLeft(2, '0')}.webp',
             },
           ],
       };
@@ -37,7 +37,7 @@ class _FailOnceAssetBundle extends CachingAssetBundle {
       (value) => value + 1,
       ifAbsent: () => 1,
     );
-    if (key.endsWith('PlushV4S5A02.png') && attempt == 1) {
+    if (key.endsWith('PlushV4S5A02.webp') && attempt == 1) {
       throw StateError('simulated first-load failure');
     }
     return ByteData.sublistView(_testPngBytes);
@@ -52,10 +52,10 @@ class _CountingAssetBundle extends CachingAssetBundle {
     if (key == 'AssetManifest.bin') {
       final manifest = <String, List<Map<String, Object>>>{
         for (var action = 1; action <= 10; action++)
-          'assets/sprites/PlushV4S5A${action.toString().padLeft(2, '0')}.png': [
+          'assets/sprites/PlushV4S5A${action.toString().padLeft(2, '0')}.webp': [
             {
               'asset':
-                  'assets/sprites/PlushV4S5A${action.toString().padLeft(2, '0')}.png',
+                  'assets/sprites/PlushV4S5A${action.toString().padLeft(2, '0')}.webp',
             },
           ],
       };
@@ -105,11 +105,11 @@ void main() {
     expect(assets.toSet(), hasLength(50));
     expect(
       plushPoseAsset(DecorationStage.none, SpriteActionId.gentleFloat),
-      'assets/sprites/PlushV4S1A01.png',
+      'assets/sprites/PlushV4S1A01.webp',
     );
     expect(
       plushPoseAsset(DecorationStage.bloom, SpriteActionId.quizFail),
-      'assets/sprites/PlushV4S5A10.png',
+      'assets/sprites/PlushV4S5A10.webp',
     );
   });
 
@@ -118,7 +118,7 @@ void main() {
     (tester) async {
       final requested = <String>[];
       await tester.pumpWidget(host(requestedAssets: requested));
-      expect(requested, contains('assets/sprites/PlushV4S2A01.png'));
+      expect(requested, contains('assets/sprites/PlushV4S2A01.webp'));
       await tester.pumpWidget(
         host(
           action: SpriteActionId.quizFail,
@@ -126,7 +126,7 @@ void main() {
           requestedAssets: requested,
         ),
       );
-      expect(requested, contains('assets/sprites/PlushV4S5A10.png'));
+      expect(requested, contains('assets/sprites/PlushV4S5A10.webp'));
     },
   );
 
@@ -166,7 +166,7 @@ void main() {
       ),
     );
 
-    expect(bundle.attempts['assets/sprites/PlushV4S5A02.png'], 2);
+    expect(bundle.attempts['assets/sprites/PlushV4S5A02.webp'], 2);
   });
 
   testWidgets(
@@ -251,7 +251,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(bundle.attempts['assets/sprites/PlushV4S5A02.png'], 1);
+    expect(bundle.attempts['assets/sprites/PlushV4S5A02.webp'], 1);
   });
 
   testWidgets('a larger concurrent precache request upgrades the warmup', (
@@ -290,7 +290,7 @@ void main() {
     );
 
     expect(tester.takeException(), isNull);
-    expect(bundle.attempts['assets/sprites/PlushV4S5A01.png'], 2);
+    expect(bundle.attempts['assets/sprites/PlushV4S5A01.webp'], 2);
   });
 
   testWidgets('native SelahSprite shares the selected complete pose', (
@@ -310,7 +310,7 @@ void main() {
         ),
       ),
     );
-    expect(requested, contains('assets/sprites/PlushV4S4A06.png'));
+    expect(requested, contains('assets/sprites/PlushV4S4A06.webp'));
   });
 
   testWidgets('native feedback is one-shot and pauses in the background', (

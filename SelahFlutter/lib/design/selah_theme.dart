@@ -9,7 +9,11 @@ import 'selah_typography.dart';
 class SelahTheme {
   const SelahTheme._();
 
-  static ThemeData light() {
+  static final ThemeData _light = _buildLight();
+
+  static ThemeData light() => _light;
+
+  static ThemeData _buildLight() {
     final base = ThemeData(
       useMaterial3: true,
       brightness: Brightness.light,

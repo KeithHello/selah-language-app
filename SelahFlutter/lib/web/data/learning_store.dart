@@ -17,7 +17,7 @@ class LearningStore {
     snapshot.accountScope = accountId;
     await platform.invoke('save', {
       'accountId': accountId,
-      'snapshot': snapshot.toBackup(),
+      'snapshot': snapshot.toStorage(),
     });
   }
 }

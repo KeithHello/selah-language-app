@@ -57,10 +57,17 @@ try {
   [System.IO.File]::WriteAllText($indexPath, $index, [System.Text.UTF8Encoding]::new($false))
   $assetPaths = Get-ChildItem -LiteralPath (Join-Path $bundleRoot 'assets') -File -Recurse |
     ForEach-Object { $_.FullName.Substring($bundleRoot.Length + 1).Replace('\', '/') }
-  $precache = @{ assets = @($assetPaths) } | ConvertTo-Json -Depth 3
+  $resourceHashes = @{}
+  Get-ChildItem -LiteralPath $bundleRoot -File -Recurse |
+    Where-Object { $_.Name -notin @('.last_build_id', 'selah-precache.json') } |
+    ForEach-Object {
+      $path = $_.FullName.Substring($bundleRoot.Length + 1).Replace('\', '/')
+      $resourceHashes[$path] = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+  $precache = @{ assets = @($assetPaths); hashes = $resourceHashes } | ConvertTo-Json -Depth 3
   [System.IO.File]::WriteAllText((Join-Path $bundleRoot 'selah-precache.json'), $precache, [System.Text.UTF8Encoding]::new($false))
   $bundleHashes = Get-ChildItem -LiteralPath $bundleRoot -File -Recurse |
-    Where-Object { $_.Name -ne '.last_build_id' } |
+    Where-Object { $_.Name -notin @('.last_build_id', 'selah-precache.json') } |
     Sort-Object FullName |
     ForEach-Object { $_.FullName.Substring($bundleRoot.Length) + ':' + (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash }
   $hasher = [System.Security.Cryptography.SHA256]::Create()
@@ -72,6 +79,11 @@ try {
   $index = [System.IO.File]::ReadAllText($indexPath)
   $index = $index -replace '(name="selah-build-id" content=")[^"]*(")', ('${1}' + $buildId + '${2}')
   [System.IO.File]::WriteAllText($indexPath, $index, [System.Text.UTF8Encoding]::new($false))
+  # The final index contains the computed build ID. Refresh its cache hash after
+  # injection; the derived precache manifest itself is excluded from build ID.
+  $resourceHashes['index.html'] = (Get-FileHash -LiteralPath $indexPath -Algorithm SHA256).Hash.ToLowerInvariant()
+  $precache = @{ assets = @($assetPaths); hashes = $resourceHashes } | ConvertTo-Json -Depth 3
+  [System.IO.File]::WriteAllText((Join-Path $bundleRoot 'selah-precache.json'), $precache, [System.Text.UTF8Encoding]::new($false))
   if ($Action -eq 'run') {
     Write-Host "Selah Web: http://127.0.0.1:$Port"
     & python -m http.server $Port --bind 127.0.0.1 --directory $bundleRoot

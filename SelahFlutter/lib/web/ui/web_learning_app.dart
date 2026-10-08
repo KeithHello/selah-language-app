@@ -102,6 +102,16 @@ class WebLearningApp extends StatefulWidget {
 
 class _WebLearningAppState extends State<WebLearningApp> {
   bool _initializing = false;
+  late final ThemeData _theme = SelahTheme.light().copyWith(
+    textTheme: SelahTheme.light().textTheme.apply(
+      fontFamily: 'Plus Jakarta Sans',
+      fontFamilyFallback: const ['Noto Sans SC'],
+    ),
+    primaryTextTheme: SelahTheme.light().primaryTextTheme.apply(
+      fontFamily: 'Plus Jakarta Sans',
+      fontFamilyFallback: const ['Noto Sans SC'],
+    ),
+  );
 
   @override
   void initState() {
@@ -128,7 +138,6 @@ class _WebLearningAppState extends State<WebLearningApp> {
       listenable: widget.controller,
       builder: (context, _) {
         final strings = widget.controller.strings;
-        final theme = SelahTheme.light();
         final locale = _materialLocale(widget.controller.uiLocale);
         // Keep the app-level motion gate above MaterialApp so Navigator
         // push routes (dialogs, sheets, menus) inherit the motion
@@ -149,16 +158,8 @@ class _WebLearningAppState extends State<WebLearningApp> {
               Locale('ja'),
             ],
             localeListResolutionCallback: (_, _) => locale,
-            theme: theme.copyWith(
-              textTheme: theme.textTheme.apply(
-                fontFamily: 'Plus Jakarta Sans',
-                fontFamilyFallback: const ['Noto Sans SC'],
-              ),
-              primaryTextTheme: theme.primaryTextTheme.apply(
-                fontFamily: 'Plus Jakarta Sans',
-                fontFamilyFallback: const ['Noto Sans SC'],
-              ),
-            ),
+            themeAnimationDuration: Duration.zero,
+            theme: _theme,
             home: isAdminConsoleUri(Uri.base)
                 ? AdminConsolePage(
                     controller: widget.controller.admin,
@@ -4171,11 +4172,15 @@ class _ListenDetailState extends State<_ListenDetail> {
     final controller = widget.controller;
     final sentence = widget.sentence;
     final strings = SelahStrings.of(controller.uiLocale);
-    final playback =
+    final livePlayback =
         widget.playbackOverride ??
         (controller.isPlaybackFor(sentence)
             ? controller.playback
             : const <String, dynamic>{});
+    final progress = widget.playbackOverride == null
+        ? controller.playbackProgress.value
+        : widget.playbackOverride!;
+    final playback = {...livePlayback, ...progress};
     final playing = _isPlaying(playback);
     final position =
         _numValue(playback, const ['positionMs', 'position', 'currentMs']) ?? 0;
@@ -4348,20 +4353,52 @@ class _ListenDetailState extends State<_ListenDetail> {
               ],
             ],
             const SizedBox(height: 26),
-            _PlaybackControls(
-              controller: controller,
-              sentence: sentence,
-              playing: playing,
-              position: position,
-              duration: duration,
-              cacheToken:
-                  '${controller.playback['state']}:${controller.playback['key'] ?? ''}',
-              showTransport: !widget.focusMode,
-              showSpeedSelector: !widget.focusMode,
-              showProgress: widget.playbackOverride == null || duration > 0,
-              allowSeek: widget.playbackOverride == null,
-              hideCache: widget.playbackOverride != null,
-            ),
+            if (widget.playbackOverride == null)
+              ValueListenableBuilder<Map<String, dynamic>>(
+                valueListenable: controller.playbackProgress,
+                builder: (context, progress, _) {
+                  final currentProgress = controller.isPlaybackFor(sentence)
+                      ? progress
+                      : const <String, dynamic>{};
+                  return _PlaybackControls(
+                    controller: controller,
+                    sentence: sentence,
+                    playing: _isPlaying({...livePlayback, ...currentProgress}),
+                    position:
+                        _numValue(currentProgress, const [
+                          'positionMs',
+                          'position',
+                          'currentMs',
+                        ]) ??
+                        0,
+                    duration:
+                        _numValue(currentProgress, const [
+                          'durationMs',
+                          'duration',
+                        ]) ??
+                        0,
+                    cacheToken:
+                        '${currentProgress['state']}:${currentProgress['key'] ?? ''}',
+                    showTransport: !widget.focusMode,
+                    showSpeedSelector: !widget.focusMode,
+                  );
+                },
+              )
+            else
+              _PlaybackControls(
+                controller: controller,
+                sentence: sentence,
+                playing: playing,
+                position: position,
+                duration: duration,
+                cacheToken:
+                    '${controller.playback['state']}:${controller.playback['key'] ?? ''}',
+                showTransport: !widget.focusMode,
+                showSpeedSelector: !widget.focusMode,
+                showProgress: duration > 0,
+                allowSeek: false,
+                hideCache: true,
+              ),
             if (widget.footer != null) ...[
               const SizedBox(height: 14),
               widget.footer!,

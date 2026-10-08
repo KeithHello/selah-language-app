@@ -340,6 +340,19 @@ void main() {
     },
   );
 
+  test('snapshot copy preserves pending sync state without JSON encoding', () {
+    final snapshot = LearningSnapshot.empty()
+      ..pendingEventIds.add(newId())
+      ..sentenceSyncCursor = DateTime.utc(2026, 10, 8);
+    final copy = snapshot.copy();
+    expect(copy.pendingEventIds, snapshot.pendingEventIds);
+    expect(
+      copy.sentenceSyncCursor?.toUtc(),
+      snapshot.sentenceSyncCursor?.toUtc(),
+    );
+    expect(snapshot.toBackup().containsKey('pendingEventIds'), isFalse);
+  });
+
   test('generated contract uses real targetText and vocabulary fields', () {
     final sentence = LearnSentence.generated(
       source: '你好',

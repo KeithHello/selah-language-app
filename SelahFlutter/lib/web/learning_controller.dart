@@ -123,6 +123,11 @@ class LearningController extends ChangeNotifier {
     'positionMs': 0,
     'durationMs': 0,
   };
+  final ValueNotifier<Map<String, dynamic>> playbackProgress = ValueNotifier({
+    'state': 'idle',
+    'positionMs': 0,
+    'durationMs': 0,
+  });
   Map<String, dynamic> loopPlayback = {
     'state': 'idle',
     'phase': null,
@@ -132,6 +137,8 @@ class LearningController extends ChangeNotifier {
     'order': 'targetFirst',
     'stopReason': null,
   };
+  final ValueNotifier<Map<String, dynamic>> loopPlaybackProgress =
+      ValueNotifier({'remainingMs': 0});
   bool loopPreparing = false;
   bool loopReady = false;
   int loopPreparedTracks = 0;
@@ -161,7 +168,7 @@ class LearningController extends ChangeNotifier {
   String? _pendingPracticeSentenceId;
   String? _pendingPracticeSignal;
   List<LearnSentence> recentGeneratedSentences = <LearnSentence>[];
-  Timer? _timer;
+  Timer? _pollTimer;
   Timer? _syncTimer;
   Timer? _companionTimer;
   Timer? _localInputTimer;
@@ -213,6 +220,8 @@ class LearningController extends ChangeNotifier {
         'ready',
       }.contains(loopPlayback['state']);
   bool get hasSession => gateway.userId != null && !gateway.isAnonymous;
+  @visibleForTesting
+  DateTime? get lastActivityAtForTest => _lastActivityAt;
   bool get isAnonymous => gateway.isAnonymous;
 
   bool get isRegistered => hasSession;
@@ -1099,6 +1108,12 @@ class LearningController extends ChangeNotifier {
   @override
   void notifyListeners() {
     if (_disposed) return;
+    if (!_sameShallowMap(playbackProgress.value, playback)) {
+      playbackProgress.value = Map<String, dynamic>.from(playback);
+    }
+    if (!_sameShallowMap(loopPlaybackProgress.value, loopPlayback)) {
+      loopPlaybackProgress.value = Map<String, dynamic>.from(loopPlayback);
+    }
     if (hasSession) _markActive();
     final enabled = hasUnsavedChanges;
     if (_unloadProtected != enabled) {
@@ -1161,11 +1176,18 @@ class LearningController extends ChangeNotifier {
         'eventType': event.type,
         'metadata': event.metadata,
       });
-      await _change((next) => next.events.add(event));
     } catch (_) {
       _activitySlotStart = null;
     }
   }
+
+  bool _sameShallowMap(Map<String, dynamic> a, Map<String, dynamic> b) {
+    if (a.length != b.length) return false;
+    return a.entries.every((entry) => b[entry.key] == entry.value);
+  }
+
+  @visibleForTesting
+  Future<void> recordActivityHeartbeatForTest() => _recordActivityHeartbeat();
 
   Future<void> ensureRegisteredAccount() async {
     if (!configured) {
@@ -1222,10 +1244,7 @@ class LearningController extends ChangeNotifier {
       }
       platformInfo = objectMap(await platform.invoke('platformInfo'));
       if (polling) {
-        _timer ??= Timer.periodic(
-          const Duration(milliseconds: 450),
-          (_) => unawaited(_poll()),
-        );
+        _schedulePoll();
         _activityTimer ??= Timer.periodic(
           const Duration(seconds: 30),
           (_) => unawaited(_recordActivityHeartbeat()),
@@ -1237,6 +1256,22 @@ class LearningController extends ChangeNotifier {
       error = _message(e, fallback: '无法读取本机学习记录，请检查浏览器存储权限后重试。');
     }
     notifyListeners();
+  }
+
+  void _schedulePoll() {
+    if (!polling || _disposed) return;
+    _pollTimer?.cancel();
+    final active =
+        recording ||
+        playback['state'] == 'playing' ||
+        playback['state'] == 'loading' ||
+        loopActive ||
+        loopPreparing ||
+        _loopSessionId != null;
+    _pollTimer = Timer(
+      active ? const Duration(milliseconds: 450) : const Duration(seconds: 5),
+      () => unawaited(_poll()),
+    );
   }
 
   Future<void> _switchAccount(String id, {bool force = false}) {
@@ -1306,6 +1341,8 @@ class LearningController extends ChangeNotifier {
       'order': state.preferences.loopOptions.order.name,
       'stopReason': 'accountChanged',
     };
+    playbackProgress.value = Map<String, dynamic>.from(playback);
+    loopPlaybackProgress.value = Map<String, dynamic>.from(loopPlayback);
     if (previousLoopSession != null) {
       unawaited(
         platform
@@ -1631,14 +1668,14 @@ class LearningController extends ChangeNotifier {
 
   void _copyLiveInputs(
     LearningSnapshot next, {
-    required LearningSnapshot before,
+    required PreparationDraft? beforePreparation,
   }) {
     next.todayInput = state.todayInput;
     next.segmentInputs
       ..clear()
       ..addAll(state.segmentInputs);
     next.preparationDraft = _mergeLivePreparation(
-      before.preparationDraft,
+      beforePreparation,
       next.preparationDraft,
       state.preparationDraft,
     );
@@ -1992,11 +2029,16 @@ class LearningController extends ChangeNotifier {
     Future<void> work() async {
       _ensureCurrent(expectedGeneration);
       if (!initialized) throw const LearningFailure('账户资料尚未读取完成，请稍后重试。');
-      final before = state.copy();
+      final beforePreparation = state.preparationDraft == null
+          ? null
+          : _copyPreparationDraft(state.preparationDraft!);
+      final before = state;
       final next = state.copy();
       final inputVersion = _inputVersion;
       change(next);
-      LearningEngine.unlock(next, DateTime.now());
+      if (_markSnapshotChangesPending(before, next)) {
+        LearningEngine.unlock(next, DateTime.now());
+      }
       try {
         await store.save(account, next);
       } catch (_) {
@@ -2005,7 +2047,7 @@ class LearningController extends ChangeNotifier {
       }
       _ensureCurrent(expectedGeneration);
       if (inputVersion != _inputVersion) {
-        _copyLiveInputs(next, before: before);
+        _copyLiveInputs(next, beforePreparation: beforePreparation);
       } else {
         _inputDirty = false;
         _departingInputs.remove(account);
@@ -2047,6 +2089,51 @@ class LearningController extends ChangeNotifier {
       },
     );
     return done;
+  }
+
+  bool _markSnapshotChangesPending(
+    LearningSnapshot before,
+    LearningSnapshot next,
+  ) {
+    var refreshMemories =
+        before.events.length != next.events.length ||
+        before.sentences.length != next.sentences.length ||
+        before.preferences.onboarded != next.preferences.onboarded;
+    final previousSentences = {
+      for (final sentence in before.sentences) sentence.id: sentence,
+    };
+    for (final sentence in next.sentences) {
+      final previous = previousSentences[sentence.id];
+      if (previous == null ||
+          previous.seedId != sentence.seedId ||
+          previous.origin != sentence.origin ||
+          previous.reviewState != sentence.reviewState) {
+        refreshMemories = true;
+      }
+      if (previous == null ||
+          jsonEncode(previous.toJson()) != jsonEncode(sentence.toJson())) {
+        next.markPendingSentence(sentence);
+      }
+      final previousVocabulary = {
+        for (final word in previous?.vocabulary ?? const <VocabularyEntry>[])
+          word.id: word,
+      };
+      for (final word in sentence.vocabulary) {
+        final prior = previousVocabulary[word.id];
+        if (prior == null ||
+            jsonEncode(prior.toJson()) != jsonEncode(word.toJson())) {
+          next.markPendingVocabulary(word);
+        }
+      }
+    }
+    final previousEvents = {for (final event in before.events) event.id};
+    for (final event in next.events) {
+      if (!previousEvents.contains(event.id)) {
+        next.markPendingEvent(event);
+        refreshMemories = true;
+      }
+    }
+    return refreshMemories;
   }
 
   Future<void> _change(
@@ -2876,12 +2963,42 @@ class LearningController extends ChangeNotifier {
     final generation = _accountGeneration;
     _polling = true;
     try {
-      final wasOnline = platformInfo['online'];
-      platformInfo = objectMap(await platform.invoke('platformInfo'));
-      if (wasOnline == false && platformInfo['online'] == true) _scheduleSync();
+      var changed = false;
+      var progressChanged = false;
+      var loopProgressChanged = false;
+      final previousPlatform = platformInfo;
+      final nextPlatform = objectMap(await platform.invoke('platformInfo'));
+      const observedPlatformFields = [
+        'online',
+        'hidden',
+        'visibilityState',
+        'canRecord',
+        'canNotify',
+        'canPush',
+        'installed',
+        'canInstall',
+        'updateAvailable',
+        'storagePersisted',
+        'installKind',
+        'buildId',
+        'appVersion',
+      ];
+      final platformChanged = observedPlatformFields.any(
+        (key) => previousPlatform[key] != nextPlatform[key],
+      );
+      if (platformChanged) {
+        platformInfo = nextPlatform;
+        changed = true;
+      }
+      if (previousPlatform['online'] == false &&
+          nextPlatform['online'] == true) {
+        _scheduleSync();
+      }
       await _maybeAutoApplyUpdate(generation);
       final value = objectMap(await platform.invoke('audioStatus'));
+      final previousPlayback = playback;
       if (_loopSessionId != null) {
+        final previousLoopPlayback = loopPlayback;
         loopPlayback = objectMap(
           await platform.invoke('audioLoopStatus', {
             'accountId': _accountId,
@@ -2891,16 +3008,53 @@ class LearningController extends ChangeNotifier {
         if (loopPlayback['state'] == 'ended') {
           _loopSessionId = null;
         }
+        const loopFields = [
+          'state',
+          'phase',
+          'sentenceId',
+          'sentenceIndex',
+          'sentenceCount',
+          'order',
+          'stopReason',
+        ];
+        if (loopFields.any(
+          (key) => previousLoopPlayback[key] != loopPlayback[key],
+        )) {
+          changed = true;
+        }
+        loopProgressChanged =
+            previousLoopPlayback['remainingMs'] != loopPlayback['remainingMs'];
       }
       _ensureCurrent(generation);
       if (_previewKey != null && value['key'] == _previewKey) {
         playback = value;
+        progressChanged =
+            previousPlayback['positionMs'] != value['positionMs'] ||
+            previousPlayback['durationMs'] != value['durationMs'];
+        if ([
+          'state',
+          'key',
+          'error',
+        ].any((key) => previousPlayback[key] != value[key])) {
+          changed = true;
+        }
         if (value['state'] == 'ended' || value['state'] == 'error') {
           _previewKey = null;
         }
       }
       if (_playSession != null && value['key'] == _playKey) {
         playback = value;
+        progressChanged =
+            progressChanged ||
+            previousPlayback['positionMs'] != value['positionMs'] ||
+            previousPlayback['durationMs'] != value['durationMs'];
+        if ([
+          'state',
+          'key',
+          'error',
+        ].any((key) => previousPlayback[key] != value[key])) {
+          changed = true;
+        }
         if (value['state'] == 'ended') {
           final eventId = _playSession!;
           final sentenceId = _playSentenceId;
@@ -2948,7 +3102,13 @@ class LearningController extends ChangeNotifier {
           'body': '留一点时间，给今天想说的话。',
         });
       }
-      notifyListeners();
+      if (changed) notifyListeners();
+      if (progressChanged) {
+        playbackProgress.value = Map<String, dynamic>.from(playback);
+      }
+      if (loopProgressChanged) {
+        loopPlaybackProgress.value = Map<String, dynamic>.from(loopPlayback);
+      }
     } catch (e) {
       if (_current(generation)) {
         errorCode = e is LearningFailure ? e.code : null;
@@ -2957,6 +3117,7 @@ class LearningController extends ChangeNotifier {
       }
     } finally {
       _polling = false;
+      _schedulePoll();
     }
   }
 
@@ -3251,6 +3412,18 @@ class LearningController extends ChangeNotifier {
           next.events
             ..clear()
             ..addAll(merged.events);
+          next.pendingSentenceIds
+            ..clear()
+            ..addAll(merged.pendingSentenceIds);
+          next.pendingVocabularyIds
+            ..clear()
+            ..addAll(merged.pendingVocabularyIds);
+          next.pendingEventIds
+            ..clear()
+            ..addAll(merged.pendingEventIds);
+          next.sentenceSyncCursor = merged.sentenceSyncCursor;
+          next.vocabularySyncCursor = merged.vocabularySyncCursor;
+          next.eventSyncCursor = merged.eventSyncCursor;
           next.memories
             ..clear()
             ..addAll(merged.memories);
@@ -3283,6 +3456,51 @@ class LearningController extends ChangeNotifier {
     LearningSnapshot result,
   ) {
     final merged = current.merge(result);
+    merged.pendingSentenceIds
+      ..addAll(current.pendingSentenceIds)
+      ..removeAll(submitted.pendingSentenceIds)
+      ..addAll(result.pendingSentenceIds);
+    merged.pendingVocabularyIds
+      ..addAll(current.pendingVocabularyIds)
+      ..removeAll(submitted.pendingVocabularyIds)
+      ..addAll(result.pendingVocabularyIds);
+    merged.pendingEventIds
+      ..addAll(current.pendingEventIds)
+      ..removeAll(submitted.pendingEventIds)
+      ..addAll(result.pendingEventIds);
+    final submittedById = {
+      for (final sentence in submitted.sentences) sentence.id: sentence,
+    };
+    for (final sentence in current.sentences) {
+      final original = submittedById[sentence.id];
+      if (original == null ||
+          jsonEncode(original.toJson()) != jsonEncode(sentence.toJson())) {
+        merged.pendingSentenceIds.add(sentence.id);
+      }
+      final submittedVocabulary = {
+        for (final vocabulary
+            in original?.vocabulary ?? const <VocabularyEntry>[])
+          vocabulary.id: vocabulary,
+      };
+      for (final vocabulary in sentence.vocabulary) {
+        final previous = submittedVocabulary[vocabulary.id];
+        if (previous == null ||
+            jsonEncode(previous.toJson()) != jsonEncode(vocabulary.toJson())) {
+          merged.pendingVocabularyIds.add(vocabulary.id);
+        }
+      }
+    }
+    final submittedEvents = {
+      for (final event in submitted.events) event.id: event,
+    };
+    for (final event in current.events) {
+      final original = submittedEvents[event.id];
+      if (event.type != 'activity_heartbeat' &&
+          (original == null ||
+              jsonEncode(original.toJson()) != jsonEncode(event.toJson()))) {
+        merged.pendingEventIds.add(event.id);
+      }
+    }
     // A successful write acknowledges the server version even when a device's
     // clock is ahead. Only edits made since submission retain their local time.
     final before = {
@@ -3658,12 +3876,14 @@ class LearningController extends ChangeNotifier {
     _disposed = true;
     _loopContentHashScope += 1;
     _loopContentHashCache.clear();
-    _timer?.cancel();
+    _pollTimer?.cancel();
     unawaited(stopLoop(reason: 'disposed'));
     _activityTimer?.cancel();
     _syncTimer?.cancel();
     _companionTimer?.cancel();
     _auth?.cancel();
+    playbackProgress.dispose();
+    loopPlaybackProgress.dispose();
     membership.dispose();
     researchProfile.dispose();
     feedbackSurvey.dispose();

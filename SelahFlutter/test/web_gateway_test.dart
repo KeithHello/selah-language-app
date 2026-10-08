@@ -16,7 +16,7 @@ class _CapturedRequest {
   _CapturedRequest(this.method, this.url, this.body);
   final String method;
   final Uri url;
-  final Map<String, dynamic>? body;
+  final Object? body;
 }
 
 class _SyncHttpClient extends http.BaseClient {
@@ -66,6 +66,8 @@ class _SyncHttpClient extends http.BaseClient {
   final Map<String, dynamic> profile;
   final Map<String, dynamic> companion;
   final companionRows = <String, Map<String, dynamic>>{};
+  final sentenceRows = <String, Map<String, dynamic>>{};
+  final vocabRows = <String, Map<String, dynamic>>{};
   final memoryRows = <String, Map<String, dynamic>>{};
   final requests = <_CapturedRequest>[];
   final events = [
@@ -86,7 +88,7 @@ class _SyncHttpClient extends http.BaseClient {
       _CapturedRequest(
         request.method,
         request.url,
-        body is Map ? Map<String, dynamic>.from(body) : null,
+        body is Map ? Map<String, dynamic>.from(body) : body,
       ),
     );
     final path = request.url.path;
@@ -120,9 +122,37 @@ class _SyncHttpClient extends http.BaseClient {
           : null;
     }
 
+    bool matchesIdFilter(Map<String, dynamic> row) {
+      final value = request.url.queryParameters['id'];
+      if (value == null) return true;
+      if (value.startsWith('eq.')) return row['id'] == value.substring(3);
+      if (value.startsWith('in.(') && value.endsWith(')')) {
+        return value
+            .substring(4, value.length - 1)
+            .split(',')
+            .contains(row['id']);
+      }
+      return true;
+    }
+
     if (request.method == 'GET') {
       final rows = switch (table) {
-        'sentences' || 'vocab_items' => <Map<String, dynamic>>[],
+        'sentences' =>
+          sentenceRows.values
+              .where(
+                (row) =>
+                    queryEq('user_id') == row['user_id'] &&
+                    matchesIdFilter(row),
+              )
+              .toList(),
+        'vocab_items' =>
+          vocabRows.values
+              .where(
+                (row) =>
+                    queryEq('user_id') == row['user_id'] &&
+                    matchesIdFilter(row),
+              )
+              .toList(),
         'sprite_memories' => memoryRows.values.where((row) {
           return queryEq('companion_id') == row['companion_id'] &&
               (queryEq('unlocked') == null ||
@@ -143,10 +173,41 @@ class _SyncHttpClient extends http.BaseClient {
               : <Map<String, dynamic>>[],
         _ => <Map<String, dynamic>>[],
       };
+      final minimumUpdatedAt = request.url.queryParameters['updated_at'];
+      final minimumHappenedAt = request.url.queryParameters['happened_at'];
+      final filteredRows = rows.where((row) {
+        if (minimumUpdatedAt != null &&
+            row['updated_at'] is String &&
+            (row['updated_at'] as String).compareTo(
+                  minimumUpdatedAt.substring(4),
+                ) <
+                0) {
+          return false;
+        }
+        if (minimumHappenedAt != null &&
+            row['happened_at'] is String &&
+            (row['happened_at'] as String).compareTo(
+                  minimumHappenedAt.substring(4),
+                ) <
+                0) {
+          return false;
+        }
+        final eventType = request.url.queryParameters['event_type'];
+        if (eventType == 'neq.activity_heartbeat' &&
+            row['event_type'] == 'activity_heartbeat') {
+          return false;
+        }
+        return true;
+      }).toList();
       final single = request.headers.values.any(
         (value) => value.contains('application/vnd.pgrst.object'),
       );
-      return _json(request, single ? (rows.isEmpty ? null : rows.first) : rows);
+      return _json(
+        request,
+        single
+            ? (filteredRows.isEmpty ? null : filteredRows.first)
+            : filteredRows,
+      );
     }
     if (request.method == 'PATCH' &&
         (table == 'companions' || table == 'user_profiles')) {
@@ -177,6 +238,39 @@ class _SyncHttpClient extends http.BaseClient {
       return _json(request, [row]);
     }
     if (request.method == 'POST') {
+      if (table == 'sentences' && body is List) {
+        final inserted = <Map<String, dynamic>>[];
+        for (final value in body) {
+          final row = Map<String, dynamic>.from(value as Map)
+            ..['updated_at'] = '2026-09-05T00:00:00+00:00';
+          if (!sentenceRows.containsKey(row['id'])) {
+            sentenceRows[row['id'] as String] = row;
+            inserted.add(row);
+          }
+        }
+        return _json(request, inserted);
+      }
+      if (table == 'vocab_items' && body is List) {
+        final inserted = <Map<String, dynamic>>[];
+        for (final value in body) {
+          final row = Map<String, dynamic>.from(value as Map)
+            ..['updated_at'] = '2026-09-05T00:00:00+00:00';
+          if (!vocabRows.containsKey(row['id'])) {
+            vocabRows[row['id'] as String] = row;
+            inserted.add(row);
+          }
+        }
+        return _json(request, inserted);
+      }
+      if (table == 'learning_events' && body is List) {
+        for (final value in body) {
+          final row = Map<String, dynamic>.from(value as Map);
+          if (!events.any((event) => event['id'] == row['id'])) {
+            events.add(row);
+          }
+        }
+        return _json(request, []);
+      }
       if (table == 'companions' && body is List && body.isNotEmpty) {
         final row = Map<String, dynamic>.from(body.first as Map);
         row['updated_at'] = '2026-09-05T00:00:00+00:00';
@@ -429,6 +523,10 @@ void main() {
         ..name = '本地名字'
         ..voice = 'clear-slow'
         ..updatedAt = DateTime.parse('2026-09-02T00:00:00Z');
+      local.sentences.addAll([
+        LearnSentence(id: newId(), source: '第一句', target: 'First sentence.'),
+        LearnSentence(id: newId(), source: '第二句', target: 'Second sentence.'),
+      ]);
 
       final result = await gateway.synchronize(local);
       expect(result.preferences.name, '本地名字');
@@ -440,6 +538,16 @@ void main() {
       expect(result.events, hasLength(1));
       expect(httpClient.companion['display_name'], '本地名字');
       expect(httpClient.profile['voice_profile'], 'clear-slow');
+      final sentenceUploads = httpClient.requests.where(
+        (request) =>
+            request.method == 'POST' && request.url.path.endsWith('/sentences'),
+      );
+      expect(sentenceUploads, hasLength(1));
+      expect((sentenceUploads.single.body as List), hasLength(2));
+      expect(
+        result.sentences.map((sentence) => sentence.updatedAt.toUtc()),
+        everyElement(DateTime.parse('2026-09-05T00:00:00Z')),
+      );
       final patches = httpClient.requests.where(
         (request) => request.method == 'PATCH',
       );
@@ -449,8 +557,64 @@ void main() {
           patch.url.queryParameters['updated_at'],
           startsWith('eq.2026-09-01'),
         );
-        expect(patch.body?.containsKey('updated_at'), isFalse);
+        expect((patch.body as Map?)?.containsKey('updated_at'), isFalse);
       }
+      await client.dispose();
+    },
+  );
+
+  test(
+    'incremental sync filters heartbeats and queues only pending events',
+    () async {
+      final userId = newId();
+      final companionId = newId();
+      final httpClient = _SyncHttpClient(
+        userId: userId,
+        companionId: companionId,
+      );
+      final client = SupabaseClient(
+        'https://sync.example.test',
+        'anon',
+        httpClient: httpClient,
+      );
+      final gateway = SupabaseLearningGateway(
+        client,
+        userIdProvider: () => userId,
+      );
+      final local = LearningSnapshot.empty()..accountScope = userId;
+      final pending = LearnEvent(id: newId(), type: 'preview_completed');
+      local
+        ..eventSyncCursor = DateTime.utc(2026, 9, 1)
+        ..events.add(pending)
+        ..pendingEventIds.add(pending.id);
+      httpClient.events.add({
+        'id': newId(),
+        'event_type': 'activity_heartbeat',
+        'sentence_id': null,
+        'metadata': <String, dynamic>{},
+        'happened_at': '2026-09-01T02:00:00+00:00',
+      });
+      final result = await gateway.synchronize(local);
+      final eventRead = httpClient.requests.firstWhere(
+        (request) =>
+            request.method == 'GET' &&
+            request.url.path.endsWith('/learning_events'),
+      );
+      expect(
+        eventRead.url.queryParameters['event_type'],
+        'neq.activity_heartbeat',
+      );
+      expect(
+        result.events.any((event) => event.type == 'activity_heartbeat'),
+        isFalse,
+      );
+      final eventUpload = httpClient.requests.firstWhere(
+        (request) =>
+            request.method == 'POST' &&
+            request.url.path.endsWith('/learning_events'),
+      );
+      expect((eventUpload.body as List).map((row) => row['id']), [pending.id]);
+      expect(result.pendingEventIds, isEmpty);
       await client.dispose();
     },
   );

@@ -201,6 +201,14 @@ String _choice(Object? value, Iterable<String> allowed, String fallback) {
   return value;
 }
 
+Set<String> _validIdSet(Object? value) {
+  if (value == null) return <String>{};
+  if (value is! List || value.length > 50000) {
+    throw const FormatException('同步队列格式无效。');
+  }
+  return value.map((item) => validId(item)).toSet();
+}
+
 class VocabularyEntry {
   VocabularyEntry({
     required this.id,
@@ -901,9 +909,18 @@ class LearningSnapshot {
     this.preparationDraft,
     List<String>? pinnedSentenceIds,
     this.lastSyncAt,
+    this.sentenceSyncCursor,
+    this.vocabularySyncCursor,
+    this.eventSyncCursor,
+    Set<String>? pendingSentenceIds,
+    Set<String>? pendingVocabularyIds,
+    Set<String>? pendingEventIds,
     this.accountScope = 'guest',
   }) : segmentInputs = segmentInputs ?? <String>[],
-       pinnedSentenceIds = pinnedSentenceIds ?? <String>[];
+       pinnedSentenceIds = pinnedSentenceIds ?? <String>[],
+       pendingSentenceIds = pendingSentenceIds ?? <String>{},
+       pendingVocabularyIds = pendingVocabularyIds ?? <String>{},
+       pendingEventIds = pendingEventIds ?? <String>{};
   String accountScope;
   LearnPreferences preferences;
   final List<LearnSentence> sentences;
@@ -916,6 +933,12 @@ class LearningSnapshot {
   PreparationDraft? preparationDraft;
   final List<String> pinnedSentenceIds;
   DateTime? lastSyncAt;
+  DateTime? sentenceSyncCursor;
+  DateTime? vocabularySyncCursor;
+  DateTime? eventSyncCursor;
+  final Set<String> pendingSentenceIds;
+  final Set<String> pendingVocabularyIds;
+  final Set<String> pendingEventIds;
   factory LearningSnapshot.empty() => LearningSnapshot(
     preferences: LearnPreferences(),
     sentences: [],
@@ -942,11 +965,24 @@ class LearningSnapshot {
     'pinnedSentenceIds': pinnedSentenceIds,
     'lastSyncAt': lastSyncAt?.toUtc().toIso8601String(),
   };
+
+  Map<String, Object?> toStorage() => {
+    ...toBackup(),
+    'sentenceSyncCursor': sentenceSyncCursor?.toUtc().toIso8601String(),
+    'vocabularySyncCursor': vocabularySyncCursor?.toUtc().toIso8601String(),
+    'eventSyncCursor': eventSyncCursor?.toUtc().toIso8601String(),
+    'pendingSentenceIds': pendingSentenceIds.toList(),
+    'pendingVocabularyIds': pendingVocabularyIds.toList(),
+    'pendingEventIds': pendingEventIds.toList(),
+  };
   factory LearningSnapshot.importBackup(String raw) {
     if (utf8.encode(raw).length > 10 * 1024 * 1024) {
       throw const FormatException('备份不能超过 10 MB。');
     }
-    final j = objectMap(jsonDecode(raw));
+    return LearningSnapshot.importData(objectMap(jsonDecode(raw)));
+  }
+
+  factory LearningSnapshot.importData(Map<String, dynamic> j) {
     if (j['format'] != 'selah-web' || j['version'] != 1) {
       throw const FormatException('不支持此备份格式或版本。');
     }
@@ -1005,10 +1041,38 @@ class LearningSnapshot {
           : PreparationDraft.fromJson(objectMap(j['preparationDraft'])),
       pinnedSentenceIds: boundedTextList(j['pinnedSentenceIds'], max: 1000),
       lastSyncAt: j['lastSyncAt'] == null ? null : dateValue(j['lastSyncAt']),
+      sentenceSyncCursor: j['sentenceSyncCursor'] == null
+          ? null
+          : dateValue(j['sentenceSyncCursor']),
+      vocabularySyncCursor: j['vocabularySyncCursor'] == null
+          ? null
+          : dateValue(j['vocabularySyncCursor']),
+      eventSyncCursor: j['eventSyncCursor'] == null
+          ? null
+          : dateValue(j['eventSyncCursor']),
+      pendingSentenceIds: _validIdSet(j['pendingSentenceIds']),
+      pendingVocabularyIds: _validIdSet(j['pendingVocabularyIds']),
+      pendingEventIds: _validIdSet(j['pendingEventIds']),
     );
   }
   LearningSnapshot copy() =>
-      LearningSnapshot.importBackup(jsonEncode(toBackup()));
+      LearningSnapshot.importData(Map<String, dynamic>.from(toStorage()));
+
+  void markPendingSentence(LearnSentence sentence) {
+    pendingSentenceIds.add(sentence.id);
+    for (final vocabulary in sentence.vocabulary) {
+      pendingVocabularyIds.add(vocabulary.id);
+    }
+  }
+
+  void markPendingVocabulary(VocabularyEntry vocabulary) {
+    pendingVocabularyIds.add(vocabulary.id);
+  }
+
+  void markPendingEvent(LearnEvent event) {
+    if (event.type != 'activity_heartbeat') pendingEventIds.add(event.id);
+  }
+
   LearningSnapshot forAccount(String account) {
     if (account == accountScope) return copy();
     // This is an ID namespace transform, not encryption or an authentication boundary.
@@ -1040,6 +1104,12 @@ class LearningSnapshot {
     json['accountScope'] = account;
     json['audio'] = {};
     json['lastSyncAt'] = null;
+    json['sentenceSyncCursor'] = null;
+    json['vocabularySyncCursor'] = null;
+    json['eventSyncCursor'] = null;
+    json['pendingSentenceIds'] = <String>[];
+    json['pendingVocabularyIds'] = <String>[];
+    json['pendingEventIds'] = <String>[];
     json['sentences'] = sentences
         .map(
           (s) => {
@@ -1093,6 +1163,12 @@ class LearningSnapshot {
 
   LearningSnapshot merge(LearningSnapshot other) {
     final result = copy();
+    result
+      ..sentenceSyncCursor =
+          other.sentenceSyncCursor ?? result.sentenceSyncCursor
+      ..vocabularySyncCursor =
+          other.vocabularySyncCursor ?? result.vocabularySyncCursor
+      ..eventSyncCursor = other.eventSyncCursor ?? result.eventSyncCursor;
     // The unified native-language choice is device-local in this phase.  A
     // cloud or imported snapshot may carry an older schema or a newer general
     // preference timestamp, but it must never erase the local choice.
@@ -1161,6 +1237,9 @@ class LearningSnapshot {
     result.preferences.companionRailVisible = localCompanionRailVisible;
     result.preferences.motionEnabled = localMotionEnabled;
     result.preferences.nativeVoice = localNativeVoice;
+    result.pendingSentenceIds.addAll(other.pendingSentenceIds);
+    result.pendingVocabularyIds.addAll(other.pendingVocabularyIds);
+    result.pendingEventIds.addAll(other.pendingEventIds);
     for (final entry in other.memories.entries) {
       result.memories.update(
         entry.key,

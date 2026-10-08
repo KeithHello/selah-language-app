@@ -912,6 +912,8 @@ void main() {
     await _openTodayComposer(tester);
     await tester.enterText(find.byType(TextField), '今天想练习一句英文。');
     await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
 
@@ -1694,6 +1696,8 @@ void main() {
     await tester.tap(cancel);
     await tester.pumpAndSettle();
     expect(controller.preparationDraft, isNull);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
   });
 
   testWidgets(
@@ -1864,6 +1868,8 @@ void main() {
     await tester.tap(selectedUnpin);
     await tester.pumpAndSettle();
     expect(find.text('已置顶'), findsNothing);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
   });
 
   testWidgets('switching sentences does not reuse another audio progress', (

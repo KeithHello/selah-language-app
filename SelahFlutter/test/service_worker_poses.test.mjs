@@ -37,16 +37,20 @@ const seedAudio = Object.fromEntries(activeSeedIds.flatMap((number) => {
 const posePaths = [];
 for (let stage = 1; stage <= 5; stage += 1) {
   for (let action = 1; action <= 10; action += 1) {
-    posePaths.push('assets/sprites/PlushV4S' + stage + 'A' + String(action).padStart(2, '0') + '.png');
+    posePaths.push('assets/sprites/PlushV4S' + stage + 'A' + String(action).padStart(2, '0') + '.webp');
   }
 }
 
-function worker({ manifests = true } = {}) {
+function worker({ manifests = true, buildId = 'poses-test', userAgent = '', previousStores = new Map(), changedHash = false } = {}) {
   const base = 'https://app.example/';
   const handlers = {};
-  const stores = new Map();
+  const stores = new Map(previousStores);
   const requests = [];
   const state = { offline: false, corruptSeed: false };
+  const poseHashes = Object.fromEntries(posePaths.map((path) => [
+    'assets/' + path,
+    changedHash && path.endsWith('PlushV4S1A01.webp') ? '0'.repeat(64) : seedHash,
+  ]));
   const key = (request) => new URL(typeof request === 'string' ? request : request.url, base).href;
   const caches = {
     async open(name) {
@@ -77,7 +81,7 @@ function worker({ manifests = true } = {}) {
         if (url.endsWith('/seed-audio.json')) return seedAudio;
         if (url.endsWith('/FontManifest.json')) return [{ fonts: [{ asset: 'assets/fonts/test.ttf' }] }];
         if (url.endsWith('/AssetManifest.json')) return Object.fromEntries(posePaths.map((p) => [p, [p]]));
-        if (url.endsWith('/selah-precache.json')) return { assets: posePaths.map((p) => 'assets/' + p) };
+        if (url.endsWith('/selah-precache.json')) return { assets: posePaths.map((p) => 'assets/' + p), hashes: poseHashes };
         return {};
       },
     };
@@ -85,7 +89,8 @@ function worker({ manifests = true } = {}) {
   vm.runInNewContext(source, {
     URL, Request, Promise, console, caches, fetch, crypto: webcrypto,
     self: {
-      location: new URL(base + 'selah_service_worker.js?v=poses-test'),
+      location: new URL(base + 'selah_service_worker.js?v=' + buildId),
+      navigator: { userAgent },
       addEventListener: (name, handler) => { handlers[name] = handler; },
       clients: {}, registration: {}, skipWaiting() {},
     },
@@ -116,9 +121,9 @@ test('installation caches first-stage actions and each stage idle, without all f
   const poses = new Set(poseRequests);
   assert.equal(poses.size, 14);
   assert.equal(poseRequests.length, 14, 'each initial pose is fetched only once');
-  assert.ok([...poses].some((url) => url.endsWith('PlushV4S1A10.png')));
-  assert.ok([...poses].some((url) => url.endsWith('PlushV4S5A01.png')));
-  assert.ok(![...poses].some((url) => url.endsWith('PlushV4S5A09.png')));
+  assert.ok([...poses].some((url) => url.endsWith('PlushV4S1A10.webp')));
+  assert.ok([...poses].some((url) => url.endsWith('PlushV4S5A01.webp')));
+  assert.ok(![...poses].some((url) => url.endsWith('PlushV4S5A09.webp')));
   assert.ok(app.requests.some((url) => url.endsWith('/assets/assets/fonts/test.ttf')));
 });
 
@@ -129,31 +134,52 @@ test('minimum offline pose set remains available when optional manifests are abs
   assert.equal(poses.size, 14);
 });
 
-test('installation keeps both supported CanvasKit variants without downloading inactive renderers', async () => {
-  const app = worker();
+test('installation caches only the matching CanvasKit variant', async () => {
+  const app = worker({ userAgent: 'Chrome/140' });
   await app.install();
   const renderers = app.requests.filter((url) => url.includes('/canvaskit/'));
   assert.deepEqual(renderers.map((url) => new URL(url).pathname).sort(), [
-    '/canvaskit/canvaskit.js',
-    '/canvaskit/canvaskit.wasm',
     '/canvaskit/chromium/canvaskit.js',
     '/canvaskit/chromium/canvaskit.wasm',
   ]);
   app.state.offline = true;
-  for (const url of renderers) {
-    assert.equal((await app.image(new URL(url).pathname.slice(1))).ok, true);
-  }
+  assert.equal((await app.image('canvaskit/chromium/canvaskit.wasm')).ok, true);
+});
+
+test('new worker reuses unchanged cached assets but fetches versioned shell resources', async () => {
+  const app = worker();
+  await app.install();
+  const previousStores = new Map(
+    [...app.stores].map(([name, entries]) => [name, new Map(entries)]),
+  );
+  const updated = worker({ buildId: 'poses-test-next', previousStores });
+  await updated.install();
+  assert.equal(updated.requests.some((url) => url.endsWith('PlushV4S1A01.webp')), false);
+  assert.equal(updated.requests.some((url) => url.endsWith('/main.dart.js')), true);
+  updated.state.offline = true;
+  assert.equal((await updated.image('assets/assets/sprites/PlushV4S1A01.webp')).ok, true);
+});
+
+test('new worker fetches an asset when its build hash changes', async () => {
+  const app = worker();
+  await app.install();
+  const previousStores = new Map(
+    [...app.stores].map(([name, entries]) => [name, new Map(entries)]),
+  );
+  const updated = worker({ buildId: 'poses-test-next', previousStores, changedHash: true });
+  await updated.install();
+  assert.equal(updated.requests.some((url) => url.endsWith('PlushV4S1A01.webp')), true);
 });
 
 test('future-stage poses are cached when requested and remain readable offline', async () => {
   const app = worker();
-  const path = 'assets/assets/sprites/PlushV4S5A09.png';
+  const path = 'assets/assets/sprites/PlushV4S5A09.webp';
   const online = await app.image(path);
   assert.equal(online.ok, true);
   app.state.offline = true;
   const offline = await app.image(path);
   assert.equal(offline.ok, true);
-  assert.equal(app.requests.filter((url) => url.endsWith('PlushV4S5A09.png')).length, 1);
+  assert.equal(app.requests.filter((url) => url.endsWith('PlushV4S5A09.webp')).length, 1);
 });
 
 test('all 60 active starter audios are installed and readable offline', async () => {

@@ -569,14 +569,24 @@ class SupabaseLearningGateway implements LearningGateway {
     String table,
     String user, {
     String key = 'user_id',
+    String? updatedAtSince,
+    String? happenedAtSince,
+    bool excludeHeartbeats = false,
   }) async {
     final result = <Map<String, dynamic>>[];
     for (var page = 0; page < 100; page++) {
       final rows = await _syncCall(() async {
-        final value = await client
-            .from(table)
-            .select()
-            .eq(key, user)
+        var query = client.from(table).select().eq(key, user);
+        if (updatedAtSince != null) {
+          query = query.gte('updated_at', updatedAtSince);
+        }
+        if (happenedAtSince != null) {
+          query = query.gte('happened_at', happenedAtSince);
+        }
+        if (excludeHeartbeats) {
+          query = query.neq('event_type', 'activity_heartbeat');
+        }
+        final value = await query
             .order('id')
             .range(page * 500, page * 500 + 499);
         return _maps(value);
@@ -585,6 +595,29 @@ class SupabaseLearningGateway implements LearningGateway {
       if (rows.length < 500) return result;
     }
     throw const LearningFailure('云端记录数量超出本次同步范围，已保留本地数据。', code: 'sync_limit');
+  }
+
+  Future<List<Map<String, dynamic>>> _rowsByIds(
+    String table,
+    String user,
+    Set<String> ids,
+  ) async {
+    if (ids.isEmpty) return <Map<String, dynamic>>[];
+    final result = <Map<String, dynamic>>[];
+    final values = ids.toList(growable: false);
+    for (var start = 0; start < values.length; start += 100) {
+      final end = (start + 100).clamp(0, values.length);
+      final rows = await _syncCall(() async {
+        final data = await client
+            .from(table)
+            .select()
+            .eq('user_id', user)
+            .inFilter('id', values.sublist(start, end));
+        return _maps(data);
+      });
+      result.addAll(rows);
+    }
+    return result;
   }
 
   Future<Map<String, dynamic>?> _findById(
@@ -689,6 +722,57 @@ class SupabaseLearningGateway implements LearningGateway {
     }
     if (failure != null) throw failure;
     throw _syncUnavailable;
+  }
+
+  Future<List<Map<String, dynamic>>> _upsertNewRowsAndConfirm({
+    required String table,
+    required List<Map<String, dynamic>> values,
+    required String user,
+    required Iterable<String> fields,
+  }) async {
+    final confirmed = <Map<String, dynamic>>[];
+    for (var start = 0; start < values.length; start += 100) {
+      final end = (start + 100).clamp(0, values.length);
+      final chunk = values.sublist(start, end);
+      List<Map<String, dynamic>> inserted = [];
+      LearningFailure? failure;
+      try {
+        inserted = await _accountWrite(
+          user,
+          () => _syncCall(() async {
+            final rows = await client
+                .from(table)
+                .upsert(chunk, onConflict: 'id', ignoreDuplicates: true)
+                .select();
+            return _maps(rows);
+          }),
+        );
+      } catch (error) {
+        failure = _syncFailure(error);
+      }
+      final byId = {for (final row in inserted) row['id'] as String: row};
+      final missingIds = {
+        for (final row in chunk)
+          if (!byId.containsKey(row['id'])) row['id'] as String,
+      };
+      if (missingIds.isNotEmpty) {
+        final current = await _accountWrite(
+          user,
+          () => _rowsByIds(table, user, missingIds),
+        );
+        byId.addAll({for (final row in current) row['id'] as String: row});
+      }
+      for (final row in chunk) {
+        final current = byId[row['id']];
+        if (current == null) {
+          if (failure != null) throw failure;
+          throw _syncUnavailable;
+        }
+        if (!fieldsMatch(current, row, fields)) throw _syncConflict;
+        confirmed.add(current);
+      }
+    }
+    return confirmed;
   }
 
   Future<Map<String, dynamic>> _conditionalUpdateById({
@@ -918,8 +1002,37 @@ class SupabaseLearningGateway implements LearningGateway {
     try {
       final user = _requireUser();
       final cloud = LearningSnapshot.empty()..accountScope = user;
-      final sentenceRows = await _rows('sentences', user);
-      final vocabRows = await _rows('vocab_items', user);
+      final sentenceRows = await _rows(
+        'sentences',
+        user,
+        updatedAtSince: local.sentenceSyncCursor
+            ?.subtract(const Duration(seconds: 2))
+            .toUtc()
+            .toIso8601String(),
+      );
+      final vocabRows = await _rows(
+        'vocab_items',
+        user,
+        updatedAtSince: local.vocabularySyncCursor
+            ?.subtract(const Duration(seconds: 2))
+            .toUtc()
+            .toIso8601String(),
+      );
+      if (local.sentenceSyncCursor != null) {
+        sentenceRows.addAll(
+          await _rowsByIds('sentences', user, local.pendingSentenceIds),
+        );
+      }
+      if (local.vocabularySyncCursor != null) {
+        vocabRows.addAll(
+          await _rowsByIds('vocab_items', user, local.pendingVocabularyIds),
+        );
+      }
+      Map<String, Map<String, dynamic>> uniqueRows(
+        List<Map<String, dynamic>> rows,
+      ) => {for (final row in rows) row['id'] as String: row};
+      final allSentenceRows = uniqueRows(sentenceRows).values.toList();
+      final allVocabRows = uniqueRows(vocabRows).values.toList();
       final profile = await _findById('user_profiles', user);
       final preferred = _validUuidOrNull(preferredCompanionId(profile));
       Map<String, dynamic>? companion;
@@ -933,11 +1046,11 @@ class SupabaseLearningGateway implements LearningGateway {
         final rows = await _activeCompanionRows(user);
         companion = rows.isEmpty ? null : rows.first;
       }
-      for (final row in sentenceRows) {
+      for (final row in allSentenceRows) {
         cloud.sentences.add(
           sentenceFromCloud(
             row,
-            vocabRows.where((v) => v['sentence_id'] == row['id']).toList(),
+            allVocabRows.where((v) => v['sentence_id'] == row['id']).toList(),
           ),
         );
       }
@@ -965,8 +1078,19 @@ class SupabaseLearningGateway implements LearningGateway {
           max: 24,
         );
       }
-      final eventRows = await _rows('learning_events', user);
-      final ids = cloud.sentences.map((s) => s.id).toSet();
+      final eventRows = await _rows(
+        'learning_events',
+        user,
+        happenedAtSince: local.eventSyncCursor
+            ?.subtract(const Duration(seconds: 2))
+            .toUtc()
+            .toIso8601String(),
+        excludeHeartbeats: true,
+      );
+      final ids = {
+        ...local.sentences.map((sentence) => sentence.id),
+        ...cloud.sentences.map((sentence) => sentence.id),
+      };
       for (final row in eventRows) {
         if (![
           'sentence_created',
@@ -974,7 +1098,6 @@ class SupabaseLearningGateway implements LearningGateway {
           'practice_rated',
           'preview_completed',
           'memory_unlocked',
-          'activity_heartbeat',
           'feedback_invite_shown',
           'feedback_invite_dismissed',
           'feedback_submitted',
@@ -1016,21 +1139,17 @@ class SupabaseLearningGateway implements LearningGateway {
       if (userId != user) throw _accountChanged;
       final merged = local.merge(cloud);
       final existing = {
-        for (final row in sentenceRows) row['id'] as String: row,
+        for (final row in allSentenceRows) row['id'] as String: row,
       };
+      final sentencesToInsert = <LearnSentence>[];
       for (final sentence in merged.sentences) {
         final previous = existing[sentence.id];
         if (previous == null) {
-          final persisted = await _upsertAndConfirm(
-            table: 'sentences',
-            values: _sentenceInsertValues(sentence, user),
-            conflict: 'id',
-            user: user,
-            fetch: () => _findById('sentences', sentence.id, user: user),
-            fields: _sentenceFields,
-          );
-          final serverAt = serverUpdatedAt(persisted);
-          if (serverAt != null) sentence.updatedAt = serverAt;
+          if (local.sentenceSyncCursor != null &&
+              !local.pendingSentenceIds.contains(sentence.id)) {
+            continue;
+          }
+          sentencesToInsert.add(sentence);
         } else {
           final observedAt = _requiredUpdatedAt(previous);
           if (sentence.updatedAt.isAfter(observedAt)) {
@@ -1048,10 +1167,35 @@ class SupabaseLearningGateway implements LearningGateway {
           }
         }
       }
-      final vocabById = {for (final row in vocabRows) row['id'] as String: row};
+      final insertedSentences = await _upsertNewRowsAndConfirm(
+        table: 'sentences',
+        values: sentencesToInsert
+            .map((sentence) => _sentenceInsertValues(sentence, user))
+            .toList(),
+        user: user,
+        fields: _sentenceFields,
+      );
+      final sentenceById = {
+        for (final sentence in sentencesToInsert) sentence.id: sentence,
+      };
+      for (final row in insertedSentences) {
+        final serverAt = serverUpdatedAt(row);
+        final sentence = sentenceById[row['id']];
+        if (serverAt != null && sentence != null) sentence.updatedAt = serverAt;
+      }
+      final vocabById = {
+        for (final row in allVocabRows) row['id'] as String: row,
+      };
+      final vocabularyToInsert = <Map<String, dynamic>>[];
+      final vocabularyById = <String, VocabularyEntry>{};
       for (final sentence in merged.sentences) {
         for (final vocab in sentence.vocabulary) {
           final prior = vocabById[vocab.id];
+          if (local.vocabularySyncCursor != null &&
+              !local.pendingVocabularyIds.contains(vocab.id) &&
+              prior == null) {
+            continue;
+          }
           final values = <String, dynamic>{
             'id': vocab.id,
             'user_id': user,
@@ -1061,16 +1205,8 @@ class SupabaseLearningGateway implements LearningGateway {
             'help_state': vocab.state,
           };
           if (prior == null) {
-            final persisted = await _upsertAndConfirm(
-              table: 'vocab_items',
-              values: values,
-              conflict: 'id',
-              user: user,
-              fetch: () => _findById('vocab_items', vocab.id, user: user),
-              fields: _vocabFields,
-            );
-            final serverAt = serverUpdatedAt(persisted);
-            if (serverAt != null) vocab.updatedAt = serverAt;
+            vocabularyToInsert.add(values);
+            vocabularyById[vocab.id] = vocab;
           } else {
             final observedAt = _requiredUpdatedAt(prior);
             if (vocab.updatedAt.isAfter(observedAt)) {
@@ -1088,6 +1224,17 @@ class SupabaseLearningGateway implements LearningGateway {
             }
           }
         }
+      }
+      final insertedVocabulary = await _upsertNewRowsAndConfirm(
+        table: 'vocab_items',
+        values: vocabularyToInsert,
+        user: user,
+        fields: _vocabFields,
+      );
+      for (final row in insertedVocabulary) {
+        final serverAt = serverUpdatedAt(row);
+        final vocab = vocabularyById[row['id']];
+        if (serverAt != null && vocab != null) vocab.updatedAt = serverAt;
       }
       final pref = merged.preferences;
       final preferredId = _validUuidOrNull(preferred);
@@ -1171,9 +1318,17 @@ class SupabaseLearningGateway implements LearningGateway {
           memoryByKey[entry.key],
         );
       }
+      final pendingEvents = local.events
+          .where(
+            (event) =>
+                local.eventSyncCursor == null ||
+                local.pendingEventIds.contains(event.id),
+          )
+          .where((event) => event.type != 'activity_heartbeat')
+          .toList();
       await _upsert(
         'learning_events',
-        merged.events
+        pendingEvents
             .map(
               (event) => <String, dynamic>{
                 'id': event.id,
@@ -1189,6 +1344,24 @@ class SupabaseLearningGateway implements LearningGateway {
         ignoreDuplicates: true,
       );
       if (userId != user) throw _accountChanged;
+      merged.pendingSentenceIds.removeAll(local.pendingSentenceIds);
+      merged.pendingVocabularyIds.removeAll(local.pendingVocabularyIds);
+      merged.pendingEventIds.removeAll(local.pendingEventIds);
+      merged.sentenceSyncCursor = _maxRowTimestamp(
+        sentenceRows,
+        'updated_at',
+        local.sentenceSyncCursor,
+      );
+      merged.vocabularySyncCursor = _maxRowTimestamp(
+        vocabRows,
+        'updated_at',
+        local.vocabularySyncCursor,
+      );
+      merged.eventSyncCursor = _maxRowTimestamp(
+        eventRows,
+        'happened_at',
+        local.eventSyncCursor,
+      );
       final timestamps = [
         serverUpdatedAt(persistedCompanion),
         serverUpdatedAt(persistedProfile),
@@ -1204,6 +1377,23 @@ class SupabaseLearningGateway implements LearningGateway {
       if (error is LearningFailure) rethrow;
       throw _syncFailure(error);
     }
+  }
+
+  static DateTime? _maxRowTimestamp(
+    List<Map<String, dynamic>> rows,
+    String field,
+    DateTime? previous,
+  ) {
+    var latest = previous;
+    for (final row in rows) {
+      final value = row[field];
+      if (value is! String) continue;
+      final parsed = DateTime.tryParse(value)?.toUtc();
+      if (parsed != null && (latest == null || parsed.isAfter(latest))) {
+        latest = parsed;
+      }
+    }
+    return latest;
   }
 
   static Map<String, dynamic> sentenceToCloud(LearnSentence s, String user) => {

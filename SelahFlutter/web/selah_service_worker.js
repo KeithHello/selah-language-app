@@ -2,13 +2,19 @@
 // Bump the build id when publishing a new Web bundle.  The registration also
 // passes this value as a query string, so a new worker gets a new cache name
 // while the old worker can finish any active recording before replacement.
-const BUILD_ID = new URL(self.location.href).searchParams.get('v') || '2026-09-15-fixed-pose-gifs-v1';
+const BUILD_ID = new URL(self.location.href).searchParams.get('v') || '2026-10-09-animated-webp-v1';
 const SHELL_CACHE = `selah-shell-${BUILD_ID}`;
 const STATIC_CACHE = `selah-static-${BUILD_ID}`;
+const RETAINED_CACHES = caches.keys().then((names) =>
+  names.filter((name) =>
+    (name.startsWith('selah-shell-') || name.startsWith('selah-static-')) &&
+    name !== SHELL_CACHE && name !== STATIC_CACHE));
+let bundleHashes = {};
+let retainedCacheInfo = [];
 const INITIAL_POSES = [
   ...Array.from({ length: 10 }, (_, index) =>
-    `./assets/assets/sprites/PlushV4S1A${String(index + 1).padStart(2, '0')}.png`),
-  ...[2, 3, 4, 5].map((stage) => `./assets/assets/sprites/PlushV4S${stage}A01.png`),
+    `./assets/assets/sprites/PlushV4S1A${String(index + 1).padStart(2, '0')}.webp`),
+  ...[2, 3, 4, 5].map((stage) => `./assets/assets/sprites/PlushV4S${stage}A01.webp`),
 ];
 const SHELL = [
   './',
@@ -43,10 +49,9 @@ const SHELL = [
   // The release bootstrap uses dart2js + CanvasKit. Keep its default and
   // Chromium variants offline; revisit this list if the build enables Wasm
   // or experimental WebParagraph rendering.
-  './canvaskit/canvaskit.js',
-  './canvaskit/canvaskit.wasm',
-  './canvaskit/chromium/canvaskit.js',
-  './canvaskit/chromium/canvaskit.wasm',
+  ...((self.navigator?.userAgent || '').includes('Chrome')
+    ? ['./canvaskit/chromium/canvaskit.js', './canvaskit/chromium/canvaskit.wasm']
+    : ['./canvaskit/canvaskit.js', './canvaskit/canvaskit.wasm']),
   './assets/shaders/ink_sparkle.frag',
   './assets/shaders/stretch_effect.frag',
   './version.json',
@@ -88,8 +93,49 @@ async function validSeedAudio(request, response) {
 
 function shouldPrecacheAsset(asset) {
   const path = new URL(asset, self.location.href).pathname;
-  const pose = /\/PlushV4S([1-5])A(0[1-9]|10)\.(png|gif)$/i.exec(path);
+  const pose = /\/PlushV4S([1-5])A(0[1-9]|10)\.(png|gif|webp)$/i.exec(path);
   return !pose || pose[1] === '1' || pose[2] === '01';
+}
+
+function bundleAssetKey(asset) {
+  const rootPath = new URL('./', self.location.href).pathname;
+  const url = new URL(asset, self.location.href);
+  if (url.origin !== self.location.origin || !url.pathname.startsWith(rootPath)) return null;
+  return url.pathname.slice(rootPath.length);
+}
+
+async function loadRetainedCacheInfo() {
+  const retained = [];
+  for (const name of await RETAINED_CACHES) {
+    const cache = await caches.open(name);
+    const response = await cache.match('./selah-precache.json');
+    if (!response) continue;
+    try {
+      const manifest = await response.clone().json();
+      if (manifest && manifest.hashes && typeof manifest.hashes === 'object') {
+        retained.push({ cache, hashes: manifest.hashes });
+      }
+    } catch (_) { /* Legacy cache manifests do not contain reusable hashes. */ }
+  }
+  return retained;
+}
+
+async function loadBundleHashes(cache) {
+  try {
+    const path = './selah-precache.json';
+    const response = await fetch(path, { cache: 'no-cache' });
+    if (!response || !response.ok) return;
+    const manifest = await response.clone().json();
+    if (!manifest || !manifest.hashes || typeof manifest.hashes !== 'object') return;
+    bundleHashes = manifest.hashes;
+    await cache.put(path, response);
+  } catch (_) { /* The explicit shell list remains available without the manifest. */ }
+}
+
+function bundleHash(asset) {
+  const key = bundleAssetKey(asset);
+  const hash = key && bundleHashes[key];
+  return typeof hash === 'string' && /^[a-f0-9]{64}$/i.test(hash) ? hash : null;
 }
 
 function isApiRequest(url) {
@@ -132,11 +178,22 @@ async function cacheNetworkResponse(cacheName, request) {
   return response;
 }
 
-async function precache(cache, asset) {
+async function precache(cache, asset, expectedHash = bundleHash(asset)) {
   try {
     const cached = await cache.match(asset);
     if (cached && await validSeedAudio(asset, cached)) return cached;
     if (cached) await cache.delete(asset);
+    const key = bundleAssetKey(asset);
+    if (key && expectedHash) {
+      for (const previous of retainedCacheInfo) {
+        if (previous.hashes[key] !== expectedHash) continue;
+        const response = await previous.cache.match(asset);
+        if (response && await validSeedAudio(asset, response)) {
+          await cache.put(asset, response.clone());
+          return response;
+        }
+      }
+    }
     const response = await fetch(asset, { cache: 'no-cache' });
     if (response && response.ok && response.type !== 'opaque' && await validSeedAudio(asset, response)) {
       await cache.put(asset, response);
@@ -179,10 +236,12 @@ async function currentCacheMatch(request) {
 }
 
 self.addEventListener('install', (event) => {
-  // Do not call skipWaiting here.  Applying an update is an explicit action
+    // Do not call skipWaiting here.  Applying an update is an explicit action
   // from the app so an in-progress recording or edit is never interrupted.
   event.waitUntil(
     caches.open(SHELL_CACHE).then(async (cache) => {
+      retainedCacheInfo = await loadRetainedCacheInfo();
+      await loadBundleHashes(cache);
       for (const asset of SHELL) {
         await precache(cache, asset);
       }

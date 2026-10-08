@@ -11,7 +11,7 @@ import '../../domain/selah_enums.dart';
 String plushPoseAsset(DecorationStage stage, SpriteActionId action) {
   final stageNumber = stage.index + 1;
   final actionNumber = (action.index + 1).toString().padLeft(2, '0');
-  return 'assets/sprites/PlushV4S${stageNumber}A$actionNumber.png';
+  return 'assets/sprites/PlushV4S${stageNumber}A$actionNumber.webp';
 }
 
 /// Optional image-provider seam used by widget tests and local previews.
@@ -28,8 +28,8 @@ class PlushPosePrecache {
   static final _inFlight = <String, Future<void>>{};
 
   static int _resolveCacheWidth(BuildContext context, double displayWidth) {
-    var cacheWidth =
-        (displayWidth * MediaQuery.of(context).devicePixelRatio).round();
+    var cacheWidth = (displayWidth * MediaQuery.of(context).devicePixelRatio)
+        .round();
     if (cacheWidth < 256) cacheWidth = 256;
     if (cacheWidth > 768) cacheWidth = 768;
     return cacheWidth;

@@ -9,6 +9,7 @@ import 'package:selah/web/platform/learning_platform.dart';
 
 class MemoryPlatform implements LearningPlatform {
   final snapshots = <String, Object?>{};
+  int saveCount = 0;
   bool failSave = false;
   Map<String, dynamic> audio = {
     'state': 'idle',
@@ -25,6 +26,7 @@ class MemoryPlatform implements LearningPlatform {
         return snapshots[payload['accountId']];
       case 'save':
         if (failSave) throw StateError('storage unavailable');
+        saveCount++;
         snapshots[payload['accountId'] as String] = jsonDecode(
           jsonEncode(payload['snapshot']),
         );
@@ -108,6 +110,30 @@ class FakeGateway extends UnconfiguredGateway {
   @override
   Future<LearningSnapshot> synchronize(LearningSnapshot local) async =>
       local..lastSyncAt = DateTime.now();
+}
+
+class _HeartbeatGateway extends FakeGateway {
+  int heartbeatCalls = 0;
+  int syncCount = 0;
+
+  @override
+  Future<Map<String, dynamic>> invoke(
+    String function,
+    Map<String, dynamic> body, {
+    bool get = false,
+  }) async {
+    if (function == 'events' && body['eventType'] == 'activity_heartbeat') {
+      heartbeatCalls++;
+      return {};
+    }
+    return super.invoke(function, body, get: get);
+  }
+
+  @override
+  Future<LearningSnapshot> synchronize(LearningSnapshot local) async {
+    syncCount++;
+    return local;
+  }
 }
 
 class AuthRedirectGateway extends FakeGateway {
@@ -1523,6 +1549,56 @@ void main() {
       expect(c.state.sentences.first.reviewState, 'learning');
     },
   );
+
+  test(
+    'unchanged idle polling does not notify or mark the user active',
+    () async {
+      final gateway = FakeGateway();
+      final platform = MemoryPlatform();
+      final c = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      var notifications = 0;
+      c.addListener(() => notifications++);
+      await c.poll();
+      final firstPollNotifications = notifications;
+      final lastActivityAfterFirstPoll = c.lastActivityAtForTest;
+      await c.poll();
+      expect(notifications, firstPollNotifications);
+      expect(c.lastActivityAtForTest, lastActivityAfterFirstPoll);
+    },
+  );
+
+  test(
+    'activity heartbeat is sent remotely without saving or syncing locally',
+    () async {
+      final gateway = _HeartbeatGateway();
+      final platform = MemoryPlatform();
+      final c = LearningController(
+        gateway: gateway,
+        platform: platform,
+        seeds: seeds(),
+        polling: false,
+      );
+      addTearDown(c.dispose);
+      await c.initialize();
+      await c.onboard('小豆', c.seeds.map((s) => s.id).toList());
+      await c.flushPendingLocalWritesForTest();
+      final eventCount = c.state.events.length;
+      final saveCount = platform.saveCount;
+      gateway.syncCount = 0;
+      await c.recordActivityHeartbeatForTest();
+      expect(gateway.heartbeatCalls, 1);
+      expect(c.state.events, hasLength(eventCount));
+      expect(platform.saveCount, saveCount);
+      expect(gateway.syncCount, 0);
+    },
+  );
   test('onboard generates user-owned ids and is seed-idempotent', () async {
     final c = LearningController(
       gateway: UnconfiguredGateway(),
@@ -1710,6 +1786,30 @@ void main() {
       expect(c.state.lastSyncAt, serverTime);
     },
   );
+
+  test('sync keeps a sentence edit made in flight pending', () async {
+    final gateway = SwitchingGateway()
+      ..current = newId()
+      ..syncStarted = Completer<LearningSnapshot>()
+      ..syncResponse = Completer<LearningSnapshot>();
+    final c = LearningController(
+      gateway: gateway,
+      platform: MemoryPlatform(),
+      seeds: seeds(),
+      polling: false,
+    );
+    addTearDown(c.dispose);
+    addTearDown(gateway.changes.close);
+    await c.initialize();
+    await c.onboard('小豆', c.seeds.map((s) => s.id).toList());
+    final sentenceId = c.state.sentences.first.id;
+    final syncing = c.sync();
+    final submitted = await gateway.syncStarted!.future;
+    await c.rate(c.state.sentences.first, 'clear');
+    gateway.syncResponse!.complete(submitted);
+    await syncing;
+    expect(c.state.pendingSentenceIds, contains(sentenceId));
+  });
 
   test(
     'native voice preference is saved independently of English voice',

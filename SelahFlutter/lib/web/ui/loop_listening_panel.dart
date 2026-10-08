@@ -166,7 +166,15 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
-    if (!widget.settingsOnly) return _status(strings);
+    if (!widget.settingsOnly) {
+      return ListenableBuilder(
+        listenable: c,
+        builder: (context, _) => ValueListenableBuilder<Map<String, dynamic>>(
+          valueListenable: c.loopPlaybackProgress,
+          builder: (context, progress, _) => _status(strings, progress),
+        ),
+      );
+    }
 
     final sentences = c.listenSentences;
     if (sentences.isEmpty) return Text(strings.text('loop.empty'));
@@ -258,7 +266,7 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
     );
   }
 
-  Widget _status(SelahStrings strings) {
+  Widget _status(SelahStrings strings, Map<String, dynamic> progress) {
     final status = c.loopPlayback;
     final state = status['state'];
     if (!c.loopSessionVisible) {
@@ -308,7 +316,11 @@ class _LoopListeningPanelState extends State<LoopListeningPanel> {
       }),
       _ => strings.text('loop.startHint'),
     };
-    final remaining = ((status['remainingMs'] as num?) ?? 0).toInt();
+    final remaining =
+        ((progress['remainingMs'] as num?) ??
+                status['remainingMs'] as num? ??
+                0)
+            .toInt();
     return Container(
       key: const ValueKey('loop-status'),
       width: double.infinity,
@@ -494,6 +506,16 @@ class LoopListeningMiniPlayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(controller.uiLocale);
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => ValueListenableBuilder<Map<String, dynamic>>(
+        valueListenable: controller.loopPlaybackProgress,
+        builder: (context, progress, _) => _buildPlayer(strings, progress),
+      ),
+    );
+  }
+
+  Widget _buildPlayer(SelahStrings strings, Map<String, dynamic> progress) {
     final status = controller.loopPlayback;
     if (status['state'] != 'ready' &&
         status['state'] != 'playing' &&
@@ -501,7 +523,7 @@ class LoopListeningMiniPlayer extends StatelessWidget {
         status['state'] != 'paused') {
       return const SizedBox.shrink();
     }
-    final remaining = ((status['remainingMs'] as num?) ?? 0).toInt();
+    final remaining = ((progress['remainingMs'] as num?) ?? 0).toInt();
     final index = ((status['sentenceIndex'] as num?) ?? 0).toInt() + 1;
     final count = ((status['sentenceCount'] as num?) ?? 0).toInt();
     return Material(
