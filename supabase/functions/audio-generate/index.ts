@@ -10,6 +10,7 @@ import {
 import {
   AUDIO_BUCKET,
   AUDIO_FORMAT,
+  AUDIO_NORMALIZER_REVISION,
   estimatedDurationMs,
   sha256,
   SIGNED_URL_TTL_SECONDS,
@@ -19,15 +20,17 @@ import {
 } from "../_shared/audio.ts";
 import {
   AudioGenerationInput,
-  buildTTSRequest,
   validateAudioGenerationInput,
 } from "../_shared/audio_contract.ts";
+import { audioCacheKey, type AudioRoute } from "../_shared/audio_routing.ts";
 import {
-  audioCacheKey,
-  type AudioRoute,
-  resolveAudioFallbackRoute,
-} from "../_shared/audio_routing.ts";
-import { buildAzureSpeechRequest } from "../_shared/azure_speech.ts";
+  azureBillableCharacterCount,
+  buildAzureSpeechRequest,
+} from "../_shared/azure_speech.ts";
+import {
+  isAudioNormalizerConfigured,
+  normalizeAudioBuffer,
+} from "../_shared/audio_normalizer.ts";
 import {
   AUDIO_GENERATION_TTL_MS,
   AUDIO_PROVIDER_MAX_ATTEMPTS,
@@ -103,6 +106,7 @@ interface AudioStorageFileApi {
     path: string,
     ttl: number,
   ): Promise<MutationResult<{ signedUrl: string }>>;
+  remove(paths: string[]): Promise<{ error: unknown }>;
 }
 
 export interface AudioSupabaseClient {
@@ -151,6 +155,9 @@ function responseFromManifest(
 ): Record<string, unknown> {
   const provider = audioProviderForModel(manifest.tts_model);
   const modelVoice = manifest.tts_model.split("/").at(-1) ?? null;
+  const hasCurrentNormalizerRevision = manifest.content_hash.includes(
+    `:${AUDIO_NORMALIZER_REVISION}:`,
+  );
   return {
     status: manifest.generation_status,
     voiceProfile: manifest.voice_profile,
@@ -167,7 +174,10 @@ function responseFromManifest(
       ? route.providerVoice
       : modelVoice,
     accent: route?.accent ?? null,
-    cacheKeyVersion: "v2",
+    normalizerRevision: hasCurrentNormalizerRevision
+      ? AUDIO_NORMALIZER_REVISION
+      : null,
+    cacheKeyVersion: hasCurrentNormalizerRevision ? "v3" : "legacy",
   };
 }
 
@@ -186,32 +196,56 @@ function readPositiveInt(value: string | undefined, fallback: number): number {
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
 }
 
-function readBoolean(value: string | undefined, fallback: boolean): boolean {
-  switch (value?.trim().toLowerCase()) {
-    case "1":
-    case "true":
-    case "yes":
-    case "on":
-      return true;
-    case "0":
-    case "false":
-    case "no":
-    case "off":
-      return false;
-    default:
-      return fallback;
+interface AzureCostConfiguration {
+  nanoUsdPerBillableCharacter: number;
+  normalizerReserveNanoUsd: number;
+  priceVersion: string;
+}
+
+function readPositiveSafeInteger(value: string | undefined): number | null {
+  if (!value || !/^\d+$/.test(value.trim())) return null;
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
+}
+
+function readAzureCostConfiguration(
+  env: Pick<typeof Deno.env, "get">,
+): AzureCostConfiguration | null {
+  const nanoUsdPerBillableCharacter = readPositiveSafeInteger(
+    env.get("AZURE_TTS_NANO_USD_PER_BILLABLE_CHARACTER"),
+  );
+  const normalizerReserveNanoUsd = readPositiveSafeInteger(
+    env.get("AUDIO_NORMALIZER_NANO_USD_PER_REQUEST"),
+  );
+  const priceVersion = env.get("AZURE_TTS_PRICE_VERSION")?.trim() ?? "";
+  if (
+    nanoUsdPerBillableCharacter === null ||
+    normalizerReserveNanoUsd === null ||
+    !/^[a-zA-Z0-9._-]{1,80}$/.test(priceVersion)
+  ) {
+    return null;
   }
+  return {
+    nanoUsdPerBillableCharacter,
+    normalizerReserveNanoUsd,
+    priceVersion,
+  };
+}
+
+function sourceAudioStoragePath(finalPath: string): string {
+  return finalPath.replace(/\.mp3$/, ".source.mp3");
 }
 
 function providerConfigured(
   route: AudioRoute,
-  openAIKey: string,
   azureKey: string,
   azureRegion: string,
+  normalizerUrl: string,
+  normalizerToken: string,
 ): boolean {
-  return route.provider === "azure"
-    ? Boolean(azureKey && azureRegion)
-    : Boolean(openAIKey);
+  return route.provider === "azure" &&
+    Boolean(azureKey && azureRegion) &&
+    isAudioNormalizerConfigured(normalizerUrl, normalizerToken);
 }
 
 function isPostgrestNoRow(error: unknown): boolean {
@@ -318,42 +352,59 @@ export function createAudioGenerateHandler(
       clientRequestId,
     } = validation;
 
-    const openAIKey = env.get("OPENAI_API_KEY") ?? "";
     const azureKey = env.get("AZURE_SPEECH_KEY") ?? "";
     const azureRegion = env.get("AZURE_SPEECH_REGION") ?? "";
-    const fallbackRoute = readBoolean(
-        env.get("AUDIO_FALLBACK_ENABLED"),
-        true,
+    const normalizerUrl = env.get("AUDIO_NORMALIZER_URL") ?? "";
+    const normalizerToken = env.get("AUDIO_NORMALIZER_TOKEN") ?? "";
+    const azureCostConfiguration = readAzureCostConfiguration(env);
+    const pricing = azureCostConfiguration;
+    const providerRoutes = [route].filter((candidate) =>
+      providerConfigured(
+        candidate,
+        azureKey,
+        azureRegion,
+        normalizerUrl,
+        normalizerToken,
       )
-      ? resolveAudioFallbackRoute(route)
-      : null;
-    const providerRoutes = [route, ...(fallbackRoute ? [fallbackRoute] : [])]
-      .filter((candidate) =>
-        providerConfigured(candidate, openAIKey, azureKey, azureRegion)
-      );
+    );
     const isManifestProviderAllowed = (manifest: AudioManifest) =>
-      providerRoutes.some((candidate) =>
-        candidate.provider === audioProviderForModel(manifest.tts_model)
-      );
-    if (providerRoutes.length === 0) {
-      return errorResponse(
-        route.provider === "azure"
-          ? "Azure audio service is not configured"
-          : "OpenAI audio service is not configured",
-        503,
-        "audio_provider_unavailable",
-      );
-    }
+      route.provider === "azure" &&
+      manifest.tts_model === route.providerModel;
+
+    const generationConfigurationError = (): Response | null => {
+      if (!pricing) {
+        return errorResponse(
+          "Azure TTS pricing configuration is unavailable",
+          503,
+          "audio_pricing_unavailable",
+        );
+      }
+      if (providerRoutes.length === 0) {
+        return errorResponse(
+          "Azure speech and audio normalization services are not configured",
+          503,
+          "audio_provider_unavailable",
+        );
+      }
+      return null;
+    };
 
     const supabase = makeSupabase(supabaseURL, serviceRoleKey);
     const { userId } = earlyIdentity;
-    const textHash = await textContentHash(text, route.language, AUDIO_FORMAT);
+    const textHash = await textContentHash(
+      text,
+      route.language,
+      AUDIO_FORMAT,
+      AUDIO_NORMALIZER_REVISION,
+    );
     const hash = audioCacheKey({
       provider: route.provider,
       providerVoice: route.providerVoice,
       speed: route.speed,
       textHash,
+      normalizerRevision: AUDIO_NORMALIZER_REVISION,
     });
+    const azureBillableCharacters = azureBillableCharacterCount(text, route);
     const scopeKey = userScope(userId);
     const storagePath = userStoragePathV2(
       userId,
@@ -439,20 +490,238 @@ export function createAudioGenerateHandler(
       return result.error ? null : result.data;
     }
 
+    async function uploadAudioObject(
+      path: string,
+      audio: ArrayBuffer,
+    ): Promise<unknown> {
+      let uploadError: unknown = null;
+      for (
+        let attempt = 1;
+        attempt <= AUDIO_UPLOAD_MAX_ATTEMPTS;
+        attempt += 1
+      ) {
+        const result = await supabase.storage.from(AUDIO_BUCKET)
+          .upload(path, new Uint8Array(audio), {
+            contentType: "audio/mpeg",
+            upsert: true,
+          });
+        if (!result.error) return null;
+        uploadError = result.error;
+        if (attempt < AUDIO_UPLOAD_MAX_ATTEMPTS) {
+          await sleep(AUDIO_UPLOAD_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
+        }
+      }
+      return uploadError;
+    }
+
+    async function removeSourceAudio(path: string): Promise<void> {
+      try {
+        const result = await supabase.storage.from(AUDIO_BUCKET).remove([path]);
+        if (result.error) {
+          console.warn("Temporary source audio cleanup failed");
+        }
+      } catch {
+        console.warn("Temporary source audio cleanup failed");
+      }
+    }
+
     async function recoverStoredAudio(
       manifest: AudioManifest,
     ): Promise<Response | null> {
       if (!manifest.storage_path) return null;
+      const storage = supabase.storage.from(AUDIO_BUCKET);
+      const finalDownload = await storage.download(manifest.storage_path);
+      let audioBuffer: ArrayBuffer | null = finalDownload.error ||
+          !finalDownload.data
+        ? null
+        : await finalDownload.data.arrayBuffer();
+      let digest: string | null = null;
+      let durationMs = manifest.duration_ms;
+      let recoveryAdmission:
+        | Awaited<
+          ReturnType<typeof requestGenerationAdmission>
+        >
+        | null = null;
+      const sourcePath = sourceAudioStoragePath(manifest.storage_path);
 
-      const downloaded = await supabase.storage.from(AUDIO_BUCKET)
-        .download(manifest.storage_path);
-      if (downloaded.error || !downloaded.data) return null;
+      if (!audioBuffer) {
+        const sourceDownload = await storage.download(sourcePath);
+        if (sourceDownload.error || !sourceDownload.data) return null;
+        const sourceAudio = await sourceDownload.data.arrayBuffer();
+        if (!isLikelyMp3Audio(sourceAudio)) {
+          return errorResponse(
+            "Stored source audio is invalid",
+            502,
+            "audio_source_invalid",
+          );
+        }
+        if (!pricing) {
+          return errorResponse(
+            "Azure TTS pricing configuration is unavailable",
+            503,
+            "audio_pricing_unavailable",
+          );
+        }
+        if (!isAudioNormalizerConfigured(normalizerUrl, normalizerToken)) {
+          return errorResponse(
+            "Audio normalization service is not configured",
+            503,
+            "audio_provider_unavailable",
+          );
+        }
 
-      const audioBuffer = await downloaded.data.arrayBuffer();
-      if (!isLikelyMp3Audio(audioBuffer)) return null;
+        const staleCutoff = new Date(
+          Date.now() - AUDIO_GENERATION_TTL_MS,
+        ).toISOString();
+        let recoveryQuery = supabase.from("audio_manifests")
+          .update({
+            generation_status: "generating",
+            error_code: "normalization_recovery_in_progress",
+          })
+          .eq("id", manifest.id);
+        recoveryQuery = manifest.generation_status === "failed"
+          ? recoveryQuery.eq("generation_status", "failed")
+          : recoveryQuery.in("generation_status", ["queued", "generating"])
+            .lt("updated_at", staleCutoff);
+        const recoveryClaim = await recoveryQuery.select("*").single();
+        if (recoveryClaim.error || !recoveryClaim.data) {
+          if (isPostgrestNoRow(recoveryClaim.error)) {
+            const current = await lookupManifest();
+            if (current instanceof Response) return current;
+            if (current?.generation_status === "ready") {
+              return signAndRespond(current, true);
+            }
+            return json(responseFromManifest(manifest, null, true, route), 202);
+          }
+          return errorResponse(
+            "Audio recovery state unavailable",
+            503,
+            "manifest_claim_failed",
+          );
+        }
+
+        const controls = await readServiceControls(
+          supabase as unknown as Parameters<typeof readServiceControls>[0],
+          environmentFallback(env),
+        );
+        if (!controls.generationEnabled) {
+          await updateManifest(manifest.id, {
+            generation_status: "failed",
+            error_code: "service_paused",
+          });
+          return errorResponse(
+            "Generation is temporarily paused",
+            503,
+            "service_paused",
+          );
+        }
+        const identity = authorize(req);
+        if (identity instanceof Response) return identity;
+        const recoveryRequestId = crypto.randomUUID();
+        recoveryAdmission = await requestGenerationAdmission(
+          supabase as unknown as Parameters<
+            typeof requestGenerationAdmission
+          >[0],
+          {
+            userId,
+            clientRequestId: recoveryRequestId,
+            feature: "tts",
+            units: {
+              characters: 1,
+              provider: "audio-normalizer",
+              normalizerReserveNanoUsd: pricing.normalizerReserveNanoUsd,
+              azurePriceVersion: pricing.priceVersion,
+            },
+            payloadHash: manifest.content_hash,
+            enforcementEnabled: false,
+          },
+        );
+        if (!recoveryAdmission.allowed) {
+          await updateManifest(manifest.id, {
+            generation_status: "failed",
+            error_code: "normalizer_budget_unavailable",
+          });
+          return errorResponse(
+            admissionPublicMessage(recoveryAdmission),
+            admissionHttpStatus(recoveryAdmission),
+            admissionPublicCode(recoveryAdmission),
+            admissionErrorDetails(recoveryAdmission, {
+              feature: "tts",
+              clientRequestId: recoveryRequestId,
+            }),
+          );
+        }
+
+        try {
+          const normalized = await normalizeAudioBuffer(sourceAudio, {
+            endpoint: normalizerUrl,
+            token: normalizerToken,
+            fetch: providerFetch,
+          });
+          audioBuffer = normalized.audio;
+          digest = normalized.sha256;
+          durationMs = normalized.durationMs;
+          const uploadError = await uploadAudioObject(
+            manifest.storage_path,
+            audioBuffer,
+          );
+          if (uploadError) {
+            if (recoveryAdmission.reservationId) {
+              await settleGenerationAdmission(
+                supabase as unknown as Parameters<
+                  typeof settleGenerationAdmission
+                >[0],
+                recoveryAdmission.reservationId,
+                "unknown",
+                undefined,
+                recoveryAdmission.reservationScope ?? "membership",
+              );
+            }
+            await updateManifest(manifest.id, {
+              generation_status: "failed",
+              error_code: "normalization_recovery_upload_failed",
+            });
+            return errorResponse(
+              "Normalized audio storage failed",
+              503,
+              "storage_upload_failed",
+            );
+          }
+          console.info("Audio normalization completed", {
+            revision: normalized.revision,
+            integratedLufs: normalized.integratedLufs,
+            truePeakDbtp: normalized.truePeakDbtp,
+            mode: normalized.mode,
+          });
+        } catch {
+          if (recoveryAdmission.reservationId) {
+            await settleGenerationAdmission(
+              supabase as unknown as Parameters<
+                typeof settleGenerationAdmission
+              >[0],
+              recoveryAdmission.reservationId,
+              "unknown",
+              undefined,
+              recoveryAdmission.reservationScope ?? "membership",
+            );
+          }
+          await updateManifest(manifest.id, {
+            generation_status: "failed",
+            error_code: "normalization_recovery_failed",
+          });
+          return errorResponse(
+            "Audio calibration is temporarily unavailable",
+            503,
+            "audio_normalization_failed",
+          );
+        }
+      }
+
+      if (!audioBuffer || !isLikelyMp3Audio(audioBuffer)) return null;
+      digest ??= await sha256(audioBuffer);
       if (
         manifest.sha256 &&
-        (manifest.sha256 !== await sha256(audioBuffer) ||
+        (manifest.sha256 !== digest ||
           (manifest.byte_size &&
             manifest.byte_size !== audioBuffer.byteLength))
       ) {
@@ -464,8 +733,8 @@ export function createAudioGenerateHandler(
         error_code: null,
         storage_path: manifest.storage_path,
         byte_size: audioBuffer.byteLength,
-        duration_ms: estimatedDurationMs(text),
-        sha256: await sha256(audioBuffer),
+        duration_ms: durationMs || estimatedDurationMs(text),
+        sha256: digest,
         last_accessed_at: nowIso(),
       });
       if (!recovered) {
@@ -477,6 +746,18 @@ export function createAudioGenerateHandler(
         return json(responseFromManifest(manifest, null, true, route), 202);
       }
 
+      if (recoveryAdmission?.reservationId) {
+        await settleGenerationAdmission(
+          supabase as unknown as Parameters<
+            typeof settleGenerationAdmission
+          >[0],
+          recoveryAdmission.reservationId,
+          "settled",
+          undefined,
+          recoveryAdmission.reservationScope ?? "membership",
+        );
+      }
+      await removeSourceAudio(sourcePath);
       return signAndRespond(recovered, true);
     }
 
@@ -490,11 +771,6 @@ export function createAudioGenerateHandler(
       return signAndRespond(existing, true);
     }
 
-    if (existing && isRecoverableAudioStatus(existing.generation_status)) {
-      const recovered = await recoverStoredAudio(existing);
-      if (recovered) return recovered;
-    }
-
     if (
       shouldReuseInFlightGeneration(
         existing?.generation_status ?? null,
@@ -503,6 +779,22 @@ export function createAudioGenerateHandler(
     ) {
       return json(responseFromManifest(existing!, null, true, route), 202);
     }
+
+    if (existing && isRecoverableAudioStatus(existing.generation_status)) {
+      const recovered = await recoverStoredAudio(existing);
+      if (recovered) return recovered;
+    }
+
+    const configurationError = generationConfigurationError();
+    if (configurationError) return configurationError;
+    if (!pricing) {
+      return errorResponse(
+        "Azure TTS pricing configuration is unavailable",
+        503,
+        "audio_pricing_unavailable",
+      );
+    }
+    const configuredPricing = pricing;
 
     const controls = await readServiceControls(
       supabase as unknown as Parameters<typeof readServiceControls>[0],
@@ -567,7 +859,15 @@ export function createAudioGenerateHandler(
         userId,
         clientRequestId,
         feature: "tts",
-        units: { characters: [...text].length },
+        units: {
+          characters: [...text].length,
+          provider: "azure",
+          azureBillableCharacters,
+          azureNanoUsdPerBillableCharacter:
+            configuredPricing.nanoUsdPerBillableCharacter,
+          normalizerReserveNanoUsd: configuredPricing.normalizerReserveNanoUsd,
+          azurePriceVersion: configuredPricing.priceVersion,
+        },
         payloadHash: hash,
         enforcementEnabled: controls.membershipEnforcementEnabled,
       },
@@ -772,42 +1072,26 @@ export function createAudioGenerateHandler(
             clientRequestId,
             feature: "tts",
             model: candidateRoute.providerModel,
-            inputCharacters: [...text].length,
-            usageSource: candidateRoute.provider === "azure"
-              ? "unknown"
-              : "request_estimate",
+            inputCharacters: azureBillableCharacters,
+            usageSource: "request_estimate",
+            azureNanoUsdPerBillableCharacter:
+              configuredPricing.nanoUsdPerBillableCharacter,
+            azurePriceVersion: configuredPricing.priceVersion,
           });
 
           let response: Response;
           try {
             providerWasAttempted = true;
-            if (candidateRoute.provider === "azure") {
-              const request = buildAzureSpeechRequest(
-                text,
-                candidateRoute,
-                azureKey,
-                azureRegion,
-              );
-              response = await providerFetch(request.url, {
-                ...request.init,
-                signal: AbortSignal.timeout(AUDIO_TTS_TIMEOUT_MS),
-              });
-            } else {
-              response = await providerFetch(
-                "https://api.openai.com/v1/audio/speech",
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${openAIKey}`,
-                  },
-                  body: JSON.stringify(
-                    buildTTSRequest(text, candidateRoute.providerVoice),
-                  ),
-                  signal: AbortSignal.timeout(AUDIO_TTS_TIMEOUT_MS),
-                },
-              );
-            }
+            const request = buildAzureSpeechRequest(
+              text,
+              candidateRoute,
+              azureKey,
+              azureRegion,
+            );
+            response = await providerFetch(request.url, {
+              ...request.init,
+              signal: AbortSignal.timeout(AUDIO_TTS_TIMEOUT_MS),
+            });
           } catch {
             lastProviderStatus = null;
             lastProviderFailure = "timeout";
@@ -859,6 +1143,10 @@ export function createAudioGenerateHandler(
               errorCode: "provider_response_failed",
               providerRequestId,
             });
+            if (attempt < AUDIO_PROVIDER_MAX_ATTEMPTS) {
+              await sleep(AUDIO_PROVIDER_RETRY_BASE_DELAY_MS * attempt);
+              continue;
+            }
             break;
           }
           if (!isLikelyMp3Audio(candidateAudio)) {
@@ -920,52 +1208,74 @@ export function createAudioGenerateHandler(
         );
       }
 
-      const audioDigest = await sha256(audioBuffer);
-      let uploadError: unknown = null;
-      for (
-        let attempt = 1;
-        attempt <= AUDIO_UPLOAD_MAX_ATTEMPTS;
-        attempt += 1
-      ) {
-        const uploadResult = await supabase.storage.from(AUDIO_BUCKET)
-          .upload(storagePath, new Uint8Array(audioBuffer), {
-            contentType: "audio/mpeg",
-            upsert: true,
-          });
-        if (!uploadResult.error) {
-          uploadError = null;
-          break;
-        }
-        uploadError = uploadResult.error;
-        if (attempt < AUDIO_UPLOAD_MAX_ATTEMPTS) {
-          await sleep(AUDIO_UPLOAD_RETRY_BASE_DELAY_MS * 2 ** (attempt - 1));
-        }
+      const rawAudio = audioBuffer;
+      const sourcePath = sourceAudioStoragePath(storagePath);
+      const sourceUploadError = await uploadAudioObject(sourcePath, rawAudio);
+      if (sourceUploadError) {
+        console.error("Source audio storage failed after bounded retries");
+        await usageRecorder.succeed({
+          deliveryStatus: "failed",
+          httpStatus: 200,
+          errorCode: "storage_source_upload_failed",
+          providerRequestId,
+        });
+        usageRecorder = null;
+        return await failRequest(
+          "Audio storage failed",
+          503,
+          "storage_upload_failed",
+          "generating",
+          "unknown",
+        );
       }
 
+      let normalized: Awaited<ReturnType<typeof normalizeAudioBuffer>>;
+      try {
+        normalized = await normalizeAudioBuffer(rawAudio, {
+          endpoint: normalizerUrl,
+          token: normalizerToken,
+          fetch: providerFetch,
+        });
+      } catch {
+        await usageRecorder.succeed({
+          deliveryStatus: "failed",
+          httpStatus: 200,
+          errorCode: "audio_normalization_failed",
+          providerRequestId,
+        });
+        usageRecorder = null;
+        return await failRequest(
+          "Audio calibration is temporarily unavailable",
+          503,
+          "audio_normalization_failed",
+          "failed",
+          "unknown",
+        );
+      }
+
+      audioBuffer = normalized.audio;
+      console.info("Audio normalization completed", {
+        revision: normalized.revision,
+        integratedLufs: normalized.integratedLufs,
+        truePeakDbtp: normalized.truePeakDbtp,
+        mode: normalized.mode,
+      });
+      const uploadError = await uploadAudioObject(storagePath, audioBuffer);
       if (uploadError) {
-        console.error("Storage upload failed after bounded retries");
+        console.error("Normalized audio storage failed after bounded retries");
         await usageRecorder.succeed({
           deliveryStatus: "failed",
           httpStatus: 200,
           errorCode: "storage_upload_failed",
           providerRequestId,
         });
-        await supabase.from("audio_manifests")
-          .update({
-            generation_status: "generating",
-            error_code: "storage_upload_unknown",
-          })
-          .eq("id", activeManifest.id);
-        await supabase.rpc("fail_generation_request", {
-          p_user_id: userId,
-          p_operation_type: OPERATION_TYPE,
-          p_client_request_id: clientRequestId,
-        });
-        await settleAdmission("unknown");
-        return errorResponse(
+        usageRecorder = null;
+        return await failRequest(
           "Audio storage failed",
           503,
           "storage_upload_failed",
+          "failed",
+          "unknown",
         );
       }
 
@@ -976,8 +1286,8 @@ export function createAudioGenerateHandler(
           error_code: null,
           tts_model: generatedRoute.providerModel,
           byte_size: audioBuffer.byteLength,
-          duration_ms: estimatedDurationMs(text),
-          sha256: audioDigest,
+          duration_ms: normalized.durationMs,
+          sha256: normalized.sha256,
           last_accessed_at: new Date().toISOString(),
         })
         .eq("id", activeManifest.id)
@@ -989,6 +1299,14 @@ export function createAudioGenerateHandler(
         const current = await lookupManifest();
         if (current instanceof Response) return current;
         if (current?.generation_status === "ready" && current.storage_path) {
+          await usageRecorder.succeed({
+            deliveryStatus: "succeeded",
+            httpStatus: 200,
+            providerRequestId,
+          });
+          usageRecorder = null;
+          await removeSourceAudio(sourcePath);
+          await settleAdmission("settled");
           return signAndRespond(current, true);
         }
       }
@@ -1014,6 +1332,7 @@ export function createAudioGenerateHandler(
         );
       }
       const ready = readyRaw as AudioManifest;
+      await removeSourceAudio(sourcePath);
 
       const signed = await supabase.storage
         .from(AUDIO_BUCKET)

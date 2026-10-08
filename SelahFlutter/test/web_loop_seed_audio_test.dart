@@ -69,10 +69,12 @@ void main() {
           'seed-001:gentle-natural': {
             'path': 'assets/audio/seed-001-gentle-natural.mp3',
             'sha256': 'b' * 64,
+            'normalizerRevision': 'lufs-v1',
           },
-          'seed-001:source': {
-            'path': 'assets/audio/seed-001-source.mp3',
+          'seed-001:source:zh-Hant:native-gentle': {
+            'path': 'assets/audio/seed-001-source-zh-Hant.mp3',
             'sha256': 'c' * 64,
+            'normalizerRevision': 'lufs-v1',
           },
         },
       );
@@ -113,10 +115,12 @@ void main() {
         'seed-006:gentle-natural': {
           'path': 'assets/audio/seed-006-gentle-natural.mp3',
           'sha256': 'b' * 64,
+          'normalizerRevision': 'lufs-v1',
         },
-        'seed-006:source:ja': {
+        'seed-006:source:ja:native-gentle': {
           'path': 'assets/audio/seed-006-source-ja.mp3',
           'sha256': 'c' * 64,
+          'normalizerRevision': 'lufs-v1',
         },
       },
     );

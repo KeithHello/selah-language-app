@@ -12,6 +12,18 @@ spec.loader.exec_module(packager)
 
 
 VOICES = ('gentle-natural', 'clear-slow', 'daily-bright', 'elegant-british')
+VOICE_MODELS = {
+    'gentle-natural': 'azure-speech/en-US-JennyNeural',
+    'clear-slow': 'azure-speech/en-US-JennyNeural',
+    'daily-bright': 'azure-speech/en-US-GuyNeural',
+    'elegant-british': 'azure-speech/en-GB-SoniaNeural',
+}
+VOICE_SPEEDS = {
+    'gentle-natural': 1,
+    'clear-slow': 0.9,
+    'daily-bright': 1.05,
+    'elegant-british': 1,
+}
 
 
 class SeedAudioPackagingTest(unittest.TestCase):
@@ -33,11 +45,15 @@ class SeedAudioPackagingTest(unittest.TestCase):
     def row(self, seed, voice='gentle-natural'):
         body = self.bodies[(seed['id'], voice)]
         canonical = ' '.join(seed['en_translation'].strip().split()).lower()
-        content_hash = hashlib.sha256(
-            f'{canonical}|{voice}|tts-1|0.85|mp3'.encode()).hexdigest()
+        model = VOICE_MODELS[voice]
+        text_hash = hashlib.sha256(
+            f'en|mp3|lufs-v1|{canonical}'.encode()).hexdigest()
+        provider_voice = f'{model.split("/", 1)[1]}@{voice}'
+        content_hash = f'azure:{provider_voice}:{VOICE_SPEEDS[voice]}:lufs-v1:{text_hash}'
         return {'seed_sentence_id': seed['id'], 'voice_profile': voice,
-                'storage_path': f"seed/{seed['id']}/{voice}/{content_hash}.mp3",
-                'content_hash': content_hash, 'tts_model': 'tts-1', 'speed': 0.85,
+                'storage_path': f"seed/{seed['id']}/{voice}/{text_hash}.mp3",
+                'content_hash': content_hash, 'tts_model': VOICE_MODELS[voice],
+                'speed': VOICE_SPEEDS[voice],
                 'audio_format': 'mp3', 'byte_size': len(body),
                 'sha256': hashlib.sha256(body).hexdigest()}
 
@@ -60,6 +76,7 @@ class SeedAudioPackagingTest(unittest.TestCase):
         entries = self.package()
         self.assertEqual(len(entries), 8)
         self.assertEqual(len(self.requests), 4)
+        self.assertEqual(entries['seed-001:gentle-natural']['normalizerRevision'], 'lufs-v1')
         self.assertTrue(all('/seed/seed-002/' in path for path in self.requests))
         self.assertTrue(all(path.startswith('/storage/v1/object/authenticated/audio-assets/seed/')
                             for path in self.requests))
@@ -96,6 +113,22 @@ class SeedAudioPackagingTest(unittest.TestCase):
             'assets/audio/seed-001-source-ja.mp3')
         self.assertEqual(entries['seed-001:source:zh-Hant']['byteSize'], len(zh_body))
         self.assertEqual(entries['seed-001:source:ja']['byteSize'], len(ja_body))
+        self.assertEqual(
+            entries['seed-001:source:zh-Hant:native-gentle']['path'],
+            'assets/audio/seed-001-source-zh-Hant.mp3')
+
+    def test_packages_a_native_profile_variant_without_aliasing_other_profiles(self):
+        seeds = [{'id': 'seed-001'}]
+        clear_body = b'ID3native-clear'
+        (self.audio_dir / 'seed-001-source-ja-native-clear.mp3').write_bytes(clear_body)
+
+        entries, missing = packager.package_local_native_audio(
+            seeds, self.audio_dir, {})
+
+        self.assertEqual(entries['seed-001:source:ja:native-clear']['sha256'],
+                         hashlib.sha256(clear_body).hexdigest())
+        self.assertNotIn('seed-001:source:ja:native-gentle', entries)
+        self.assertEqual(len(missing), 2)
 
     def test_missing_duplicate_and_wrong_content_are_rejected_before_download(self):
         invalid_content = [dict(row) for row in self.rows]

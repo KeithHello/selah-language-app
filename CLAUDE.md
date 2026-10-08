@@ -1,5 +1,14 @@
 # Selah 项目规范
 
+## 2026-10-09 Azure 三语 TTS 与响度统一（实施授权）
+
+- 主人已明确要求基于已确认的方案完整开发：中文（台湾普通话）、日语母语、美国英语与英国英语的音频生成统一迁移到 Azure Speech 标准神经语音；保持现有声线 profile 的产品身份，并在 SSML 中按 profile 配置 locale、rate 与 pitch。
+- 每一条新增或重制音轨都必须经过版本化响度处理：目标 `-22 LUFS ±1 LU`、真峰值不高于 `-1 dBTP`；采用 FFmpeg EBU R128 双遍 loudnorm，在满足峰值限制时优先线性增益，记录最终实测值和处理器版本。输出统一为 24 kHz、单声道、160 kbit/s MP3。Azure SSML `volume` 不替代后处理校准。
+- Supabase Edge Function 不运行 FFmpeg；通过受认证的独立音频处理服务校准。服务不可用或音频校验不合格时，不得把原始音频标为 ready 或交给客户端播放。中间源音频采用确定性 Storage 路径以支持失败恢复，成功后清理中间对象；缓存及 Storage 身份包含 Azure 声线、语言、语速／音高 profile 和 normalizer revision。
+- 用户会员额度仍按现有文本码点规则计量；平台供应商成本按 Azure SSML 的计费字符规则单独预留，Han 字符计 2 个单位。Azure 单价与校准计算单价必须由经核实的 Azure 订阅／资源价格和处理器运行配置提供，不得用 OpenAI 费率冒充 Azure 实际费用；缺少有效费率时对新 Azure TTS fail closed。Azure 供应商实耗记录在无法从 provider 取得用量时继续标为估算／未知，不记作真实 usage。
+- 本轮授权范围包括本地代码、独立处理器容器定义、测试、种子音频生成与打包工具、设计／开发文档、路线图和本地验证。不授权调用真实 Azure 付费合成、读取或更改 `.env`／密钥、提交或应用数据库 migration、设置远端 secrets、部署 Supabase Edge Function／Azure 服务、Cloudflare 操作、合并／推送或公开发布；这些逐项另行确认。不要用旧 OpenAI TTS 作为隐式回退。
+- 设计与实施记录分别见 `docs/superpowers/specs/2026-10-09-azure-tts-unification-design.md` 和 `docs/superpowers/plans/2026-10-09-azure-tts-unification-plan.md`。完成前运行受影响的 Deno、Flutter、Python 与 Node 检查；只有通过本地检查的项目才标记为已完成。Azure 实际声音试听、三语种子资产重生成和云端部署仍按上述独立边界处理。
+
 ## 目标
 
 Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。核心闭环是：用户用中文表达真实想法，系统生成自然英文与音频，用户完成聆听、理解、复习和开口练习。

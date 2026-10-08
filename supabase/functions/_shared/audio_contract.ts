@@ -1,4 +1,3 @@
-import { AUDIO_FORMAT, TTS_MODEL, TTS_SPEED } from "./audio.ts";
 import { type AudioRoute, resolveAudioRoute } from "./audio_routing.ts";
 
 export interface AudioGenerationInput {
@@ -22,7 +21,7 @@ export type AudioInputValidation =
     text: string;
     targetText: string;
     voiceProfile: string;
-    openaiVoice: string;
+    providerVoice: string;
     audioRole: "source" | "target";
     sourceLanguage: string | null;
     targetLanguage: string;
@@ -88,9 +87,7 @@ export function validateAudioGenerationInput(
     text,
     targetText: text,
     voiceProfile: route.route.voiceProfile,
-    openaiVoice: route.route.provider === "openai"
-      ? route.route.providerVoice
-      : "",
+    providerVoice: route.route.providerVoice,
     audioRole: route.route.audioRole,
     sourceLanguage: body.sourceLanguage?.trim() || null,
     targetLanguage: body.targetLanguage?.trim() || "en",
@@ -103,17 +100,4 @@ export function validateAudioGenerationInput(
 function isUUID(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
     .test(value);
-}
-
-export function buildTTSRequest(
-  targetText: string,
-  openaiVoice: string,
-): Record<string, unknown> {
-  return {
-    model: TTS_MODEL,
-    input: targetText,
-    voice: openaiVoice,
-    response_format: AUDIO_FORMAT,
-    speed: TTS_SPEED,
-  };
 }

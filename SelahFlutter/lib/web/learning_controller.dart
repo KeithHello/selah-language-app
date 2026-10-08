@@ -437,15 +437,19 @@ class LearningController extends ChangeNotifier {
     if (seedId == null) return null;
     final key = role == LoopTrackRole.target
         ? '$seedId:$voice'
-        : '$seedId:source:$language';
-    final entry = bundledAudio[key];
+        : '$seedId:source:$language:$voice';
+    var entry = bundledAudio[key];
     if (role == LoopTrackRole.source &&
         entry == null &&
+        voice == 'native-gentle' &&
         language == currentSourceLanguage) {
-      final legacy = bundledAudio['$seedId:source'];
-      return legacy is Map ? Map<String, dynamic>.from(legacy) : null;
+      entry =
+          bundledAudio['$seedId:source:$language'] ??
+          bundledAudio['$seedId:source'];
     }
-    return entry is Map ? Map<String, dynamic>.from(entry) : null;
+    return entry is Map && isNormalizedAudioEntry(entry)
+        ? Map<String, dynamic>.from(entry)
+        : null;
   }
 
   Future<bool> _ensureBundledLoopAudio(
@@ -681,6 +685,7 @@ class LearningController extends ChangeNotifier {
   }
 
   String _loopPreparationFingerprint() => jsonEncode({
+    'audioCacheVersion': audioCacheKeyVersion,
     'voice': state.preferences.voice,
     'nativeVoice': state.preferences.nativeVoice,
     'sentences': state.sentences
@@ -2610,7 +2615,8 @@ class LearningController extends ChangeNotifier {
 
   bool isPlaybackFor(LearnSentence sentence) =>
       _playSentenceId == sentence.id &&
-      (_playKey?.startsWith('audio:v2:sentence:${sentence.id}:') ?? false);
+      (_playKey?.startsWith('$audioCacheKeyVersion:sentence:${sentence.id}:') ??
+          false);
 
   LearnSentence? get playingSentence {
     final id = _playSentenceId;
@@ -2639,6 +2645,7 @@ class LearningController extends ChangeNotifier {
       if (sample == null ||
           !voices.containsKey(selectedVoice) ||
           bundled is! Map ||
+          !isNormalizedAudioEntry(bundled) ||
           bundled['path'] is! String ||
           !(bundled['path'] as String).startsWith('assets/audio/') ||
           (bundled['path'] as String).contains('..') ||
@@ -2730,7 +2737,7 @@ class LearningController extends ChangeNotifier {
     var cached = await isAudioCached(selected);
     ensurePlayback();
     final bundled = bundledAudio['${selected.seedId}:$voice'];
-    if (!cached && bundled is Map) {
+    if (!cached && bundled is Map && isNormalizedAudioEntry(bundled)) {
       final relative = bundled['path'];
       if (relative is String &&
           relative.startsWith('assets/audio/') &&

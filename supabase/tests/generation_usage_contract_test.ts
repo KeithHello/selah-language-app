@@ -67,7 +67,7 @@ Deno.test("unknown usage is never priced as zero", () => {
   );
 });
 
-Deno.test("Azure TTS remains unpriced until the subscription rate is verified", () => {
+Deno.test("Azure TTS remains unpriced until its resource rate is configured", () => {
   const result = estimateGenerationCost({
     feature: "tts",
     model: "azure-speech/zh-TW-HsiaoChenNeural",
@@ -77,6 +77,54 @@ Deno.test("Azure TTS remains unpriced until the subscription rate is verified", 
   assertEquals(result.basis, "tts_characters");
   assertEquals(result.estimatedCostUsd, null);
   assertEquals(result.priceVersion, null);
+});
+
+Deno.test("Azure TTS estimates billable characters at the configured resource rate", () => {
+  const result = estimateGenerationCost({
+    feature: "tts",
+    model: "azure-speech/en-US-JennyNeural",
+    usageSource: "request_estimate",
+    inputCharacters: 205,
+    azureNanoUsdPerBillableCharacter: 20_000,
+    azurePriceVersion: "azure-neural-resource-2026-10-v1",
+  });
+  assertEquals(result.basis, "tts_characters");
+  assertEquals(result.usageSource, "request_estimate");
+  assertEquals(result.priceVersion, "azure-neural-resource-2026-10-v1");
+  assertEquals(result.estimatedCostUsd, "0.0041000000");
+});
+
+Deno.test("Azure recorder stores estimated provider usage separately from unknown actual usage", async () => {
+  const inserted: Array<Record<string, unknown>> = [];
+  const updated: Array<Record<string, unknown>> = [];
+  const table: GenerationUsageTable = {
+    insert: (values) => {
+      inserted.push(values);
+      return Promise.resolve({
+        data: { id: "azure-priced-attempt" },
+        error: null,
+      });
+    },
+    update: (_id, values) => {
+      updated.push(values);
+      return Promise.resolve({ error: null });
+    },
+  };
+  const recorder = await recordGenerationAttempt(table, {
+    userId: "5a9b8d4c-6e2f-4c7a-9b1d-2e3f4a5b6c7d",
+    clientRequestId: "8d42c8e5-4f0e-4a37-b63d-51c4ab25d1f0",
+    feature: "tts",
+    model: "azure-speech/ja-JP-NanamiNeural",
+    inputCharacters: 205,
+    usageSource: "request_estimate",
+    azureNanoUsdPerBillableCharacter: 20_000,
+    azurePriceVersion: "azure-neural-resource-2026-10-v1",
+  });
+  await recorder.succeed({ deliveryStatus: "succeeded" });
+  assertEquals(inserted[0].price_version, "azure-neural-resource-2026-10-v1");
+  assertEquals(inserted[0].estimated_cost_usd, "0.0041000000");
+  assertEquals(updated[0].usage_source, "request_estimate");
+  assertEquals(updated[0].estimated_cost_usd, "0.0041000000");
 });
 
 Deno.test("Azure recorder preserves unknown pricing after a successful delivery", async () => {

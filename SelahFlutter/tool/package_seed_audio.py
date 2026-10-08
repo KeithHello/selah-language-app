@@ -18,6 +18,14 @@ DEFAULT_VOICE = 'gentle-natural'
 VOICES = ('gentle-natural', 'clear-slow', 'daily-bright', 'elegant-british')
 SOURCE_VOICE = 'source'
 NATIVE_LANGUAGES = ('zh-Hant', 'ja')
+NORMALIZER_REVISION = 'lufs-v1'
+VOICE_IDENTITIES = {
+    'gentle-natural': ('azure-speech/en-US-JennyNeural', 1),
+    'clear-slow': ('azure-speech/en-US-JennyNeural', 0.9),
+    'daily-bright': ('azure-speech/en-US-GuyNeural', 1.05),
+    'elegant-british': ('azure-speech/en-GB-SoniaNeural', 1),
+}
+NATIVE_PROFILES = ('native-gentle', 'native-clear', 'native-bright', 'native-calm')
 
 
 def valid_audio(body, checksum, byte_size):
@@ -35,11 +43,15 @@ def package_default_audio(rows, seeds, audio_dir, read, existing):
         if seed not in allowed or voice not in VOICES or (seed, voice) in by_key:
             raise RuntimeError('Unexpected or duplicate default seed manifest.')
         canonical = ' '.join(allowed[seed].strip().split()).lower()
-        content_hash = hashlib.sha256(
-            f'{canonical}|{voice}|tts-1|0.85|mp3'.encode()).hexdigest()
-        if (row.get('content_hash') != content_hash or row.get('tts_model') != 'tts-1'
-                or row.get('speed') != 0.85 or row.get('audio_format') != 'mp3'
-                or row['storage_path'] != f'seed/{seed}/{voice}/{content_hash}.mp3'):
+        model, speed = VOICE_IDENTITIES[voice]
+        text_hash = hashlib.sha256(
+            f'en|mp3|{NORMALIZER_REVISION}|{canonical}'.encode()).hexdigest()
+        provider_voice = f'{model.split("/", 1)[1]}@{voice}'
+        content_hash = (
+            f'azure:{provider_voice}:{speed}:{NORMALIZER_REVISION}:{text_hash}')
+        if (row.get('content_hash') != content_hash or row.get('tts_model') != model
+                or row.get('speed') != speed or row.get('audio_format') != 'mp3'
+                or row['storage_path'] != f'seed/{seed}/{voice}/{text_hash}.mp3'):
             raise RuntimeError(f'Seed content identity mismatch: {seed}')
         by_key[(seed, voice)] = row
     expected = {(seed, voice) for seed in allowed for voice in VOICES}
@@ -73,7 +85,8 @@ def package_default_audio(rows, seeds, audio_dir, read, existing):
         if not target.exists() or target.read_bytes() != body:
             target.write_bytes(body)
         entries[f"{row['seed_sentence_id']}:{row['voice_profile']}"] = {
-            'path': f'assets/audio/{filename}', 'sha256': row['sha256'], 'byteSize': len(body)}
+            'path': f'assets/audio/{filename}', 'sha256': row['sha256'],
+            'byteSize': len(body), 'normalizerRevision': NORMALIZER_REVISION}
     return dict(sorted(entries.items()))
 
 
@@ -81,22 +94,43 @@ def package_local_native_audio(seeds, audio_dir, existing):
     """Package optional local native MP3s for offline seed loop listening."""
     entries = dict(existing)
     missing = []
+    index_path = audio_dir / 'audio-index.json'
+    audio_index = json.loads(index_path.read_text(encoding='utf-8')) if index_path.exists() else {}
     for seed in seeds:
         seed_id = seed['id']
         for language in NATIVE_LANGUAGES:
-            filename = f'{seed_id}-{SOURCE_VOICE}-{language}.mp3'
-            target = audio_dir / filename
-            if not target.exists():
-                missing.append(filename)
-                continue
-            body = target.read_bytes()
-            if not (body.startswith(b'ID3') or body[:1] == b'\xff'):
-                raise RuntimeError(f'Invalid native MP3: {filename}')
-            entries[f'{seed_id}:{SOURCE_VOICE}:{language}'] = {
-                'path': f'assets/audio/{filename}',
-                'sha256': hashlib.sha256(body).hexdigest(),
-                'byteSize': len(body),
-            }
+            for profile in NATIVE_PROFILES:
+                suffix = '' if profile == 'native-gentle' else f'-{profile}'
+                filename = f'{seed_id}-{SOURCE_VOICE}-{language}{suffix}.mp3'
+                target = audio_dir / filename
+                if not target.exists():
+                    if profile == 'native-gentle':
+                        missing.append(f'{seed_id}-{SOURCE_VOICE}-{language}.mp3')
+                    continue
+                body = target.read_bytes()
+                if not (body.startswith(b'ID3') or body[:1] == b'\xff'):
+                    raise RuntimeError(f'Invalid native MP3: {filename}')
+                entry = {
+                    'path': f'assets/audio/{filename}',
+                    'sha256': hashlib.sha256(body).hexdigest(),
+                    'byteSize': len(body),
+                }
+                indexed = audio_index.get(
+                    f'{seed_id}:{SOURCE_VOICE}:{language}:{profile}')
+                if indexed is not None:
+                    if (indexed.get('path') != filename
+                            or indexed.get('sha256') != entry['sha256']
+                            or indexed.get('byteSize') != entry['byteSize']
+                            or indexed.get('normalizerRevision') != NORMALIZER_REVISION
+                            or not isinstance(indexed.get('integratedLufs'), (int, float))
+                            or abs(indexed['integratedLufs'] + 22.0) > 1.0
+                            or not isinstance(indexed.get('truePeakDbtp'), (int, float))
+                            or indexed['truePeakDbtp'] > -1.0):
+                        raise RuntimeError(f'Native audio normalization proof mismatch: {filename}')
+                    entry['normalizerRevision'] = NORMALIZER_REVISION
+                entries[f'{seed_id}:{SOURCE_VOICE}:{language}:{profile}'] = entry
+                if profile == 'native-gentle':
+                    entries[f'{seed_id}:{SOURCE_VOICE}:{language}'] = entry
     return dict(sorted(entries.items())), missing
 
 

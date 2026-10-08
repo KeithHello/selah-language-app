@@ -1,24 +1,54 @@
 enum AudioTrackRole { target, source }
 
-const audioCacheKeyVersion = 'audio:v2';
+const audioCacheKeyVersion = 'audio:v3';
+const audioNormalizerRevision = 'lufs-v1';
 const audioCacheKeyPrefix = '$audioCacheKeyVersion:loop:';
 
-String audioProviderForLanguage(String language) => language.startsWith('zh')
-    ? 'azure'
-    : 'openai';
+bool isNormalizedAudioEntry(Object? entry) =>
+    entry is Map && entry['normalizerRevision'] == audioNormalizerRevision;
 
-String audioProviderVoice({
-  required String voice,
-  required String language,
-}) {
-  final provider = audioProviderForLanguage(language);
-  return provider == 'azure' ? 'zh-TW-HsiaoChenNeural@$voice' : voice;
+String audioProviderForLanguage(String language) => 'azure';
+
+String audioProviderVoice({required String voice, required String language}) {
+  final azureVoice = language.startsWith('zh')
+      ? 'zh-TW-HsiaoChenNeural'
+      : language.startsWith('ja')
+      ? 'ja-JP-NanamiNeural'
+      : switch (voice) {
+          'elegant-british' => 'en-GB-SoniaNeural',
+          'daily-bright' => 'en-US-GuyNeural',
+          _ => 'en-US-JennyNeural',
+        };
+  return '$azureVoice@$voice';
 }
 
-String audioAccentFor({
+String audioProviderModel({required String voice, required String language}) {
+  final providerVoice = audioProviderVoice(voice: voice, language: language);
+  return 'azure-speech/${providerVoice.split('@').first}';
+}
+
+double audioSpeedForProfile(String voice) => switch (voice) {
+  'clear-slow' => 0.9,
+  'native-clear' => 0.95,
+  'daily-bright' || 'native-bright' => 1.05,
+  'native-calm' => 0.92,
+  _ => 1,
+};
+
+String _audioSpeedText(double speed) => speed == speed.roundToDouble()
+    ? speed.toInt().toString()
+    : speed.toString();
+
+String audioManifestCachePattern({
   required String voice,
   required String language,
 }) {
+  final providerVoice = audioProviderVoice(voice: voice, language: language);
+  final speed = audioSpeedForProfile(voice);
+  return 'azure:$providerVoice:${_audioSpeedText(speed)}:$audioNormalizerRevision:%';
+}
+
+String audioAccentFor({required String voice, required String language}) {
   if (language.startsWith('zh')) return 'zh-TW';
   if (language.startsWith('ja')) return 'ja-JP';
   return voice == 'elegant-british' ? 'en-GB' : 'en-US';
@@ -32,7 +62,8 @@ String audioTrackKey({
 }) {
   final provider = audioProviderForLanguage(language);
   final providerVoice = audioProviderVoice(voice: voice, language: language);
-  return '$audioCacheKeyPrefix$provider:$providerVoice:1:$voice:${role.name}:$language:$contentHash';
+  final speed = audioSpeedForProfile(voice);
+  return '$audioCacheKeyPrefix$provider:$providerVoice:${_audioSpeedText(speed)}:$audioNormalizerRevision:$voice:${role.name}:$language:$contentHash';
 }
 
 String singleAudioTrackKey({
@@ -43,7 +74,8 @@ String singleAudioTrackKey({
 }) {
   final provider = audioProviderForLanguage(language);
   final providerVoice = audioProviderVoice(voice: voice, language: language);
-  return '$audioCacheKeyVersion:sentence:$sentenceId:$provider:$providerVoice:1:$voice:target:$language:$contentHash';
+  final speed = audioSpeedForProfile(voice);
+  return '$audioCacheKeyVersion:sentence:$sentenceId:$provider:$providerVoice:${_audioSpeedText(speed)}:$audioNormalizerRevision:$voice:target:$language:$contentHash';
 }
 
 class AudioTrackRef {

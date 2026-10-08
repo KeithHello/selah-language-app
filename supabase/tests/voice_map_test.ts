@@ -3,57 +3,59 @@
 
 import { assertEquals } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import { VOICE_MAP } from "../functions/_shared/audio.ts";
+const BOOTSTRAP_SOURCE = await Deno.readTextFile(
+  "supabase/functions/config-bootstrap/index.ts",
+);
 
 // ============================================================
 // Voice Profile Mapping
-// Maps v8 user-facing voice labels to OpenAI TTS voice IDs.
+// Maps user-facing voice labels to the default Azure neural voices.
 // This mirrors the VOICE_MAP in audio-generate/index.ts.
 // ============================================================
 
-Deno.test("gentle-natural maps to nova", () => {
-  assertEquals(VOICE_MAP["gentle-natural"], "nova");
+Deno.test("gentle-natural maps to Azure Jenny", () => {
+  assertEquals(VOICE_MAP["gentle-natural"], "en-US-JennyNeural");
 });
 
-Deno.test("clear-slow maps to sage", () => {
-  assertEquals(VOICE_MAP["clear-slow"], "sage");
+Deno.test("clear-slow maps to Azure Jenny", () => {
+  assertEquals(VOICE_MAP["clear-slow"], "en-US-JennyNeural");
 });
 
-Deno.test("daily-bright maps to ash", () => {
-  assertEquals(VOICE_MAP["daily-bright"], "ash");
+Deno.test("daily-bright maps to Azure Guy", () => {
+  assertEquals(VOICE_MAP["daily-bright"], "en-US-GuyNeural");
 });
 
-Deno.test("elegant-british maps to shimmer", () => {
-  assertEquals(VOICE_MAP["elegant-british"], "shimmer");
+Deno.test("elegant-british maps to Azure Sonia", () => {
+  assertEquals(VOICE_MAP["elegant-british"], "en-GB-SoniaNeural");
 });
 
-Deno.test("unknown voice defaults to nova", () => {
-  assertEquals(VOICE_MAP["unknown"] ?? "nova", "nova");
+Deno.test("unknown voice has no provider default", () => {
+  assertEquals(VOICE_MAP["unknown"], undefined);
 });
 
-Deno.test("native-gentle maps to alloy", () => {
-  assertEquals(VOICE_MAP["native-gentle"], "alloy");
+Deno.test("native-gentle maps to Azure Taiwan Mandarin", () => {
+  assertEquals(VOICE_MAP["native-gentle"], "zh-TW-HsiaoChenNeural");
 });
 
-Deno.test("native-clear maps to echo", () => {
-  assertEquals(VOICE_MAP["native-clear"], "echo");
+Deno.test("native-clear maps to Azure Taiwan Mandarin", () => {
+  assertEquals(VOICE_MAP["native-clear"], "zh-TW-HsiaoChenNeural");
 });
 
-Deno.test("native-bright maps to onyx", () => {
-  assertEquals(VOICE_MAP["native-bright"], "onyx");
+Deno.test("native-bright maps to Azure Taiwan Mandarin", () => {
+  assertEquals(VOICE_MAP["native-bright"], "zh-TW-HsiaoChenNeural");
 });
 
-Deno.test("native-calm maps to fable", () => {
-  assertEquals(VOICE_MAP["native-calm"], "fable");
+Deno.test("native-calm maps to Azure Taiwan Mandarin", () => {
+  assertEquals(VOICE_MAP["native-calm"], "zh-TW-HsiaoChenNeural");
 });
 
 Deno.test("all 8 voice profiles are mapped", () => {
   assertEquals(Object.keys(VOICE_MAP).length, 8);
 });
 
-Deno.test("all OpenAI voices are unique", () => {
-  const voices = Object.values(VOICE_MAP);
-  const unique = new Set(voices);
-  assertEquals(unique.size, voices.length);
+Deno.test("profiles can share provider voices while preserving profile identity", () => {
+  assertEquals(VOICE_MAP["gentle-natural"], VOICE_MAP["clear-slow"]);
+  assertEquals(VOICE_MAP["native-gentle"], VOICE_MAP["native-calm"]);
 });
 
 // ============================================================
@@ -65,9 +67,13 @@ const EXPECTED_BOOTSTRAP = {
   targetLanguages: ["en"],
   defaultVoiceProfile: "gentle-natural",
   voiceProfiles: [
-    { id: "gentle-natural", label: "溫柔自然", openaiVoice: "nova" },
-    { id: "clear-slow", label: "清晰慢速", openaiVoice: "sage" },
-    { id: "daily-bright", label: "日常輕快", openaiVoice: "ash" },
+    {
+      id: "gentle-natural",
+      label: "溫柔自然",
+      azureVoice: "en-US-JennyNeural",
+    },
+    { id: "clear-slow", label: "清晰慢速", azureVoice: "en-US-JennyNeural" },
+    { id: "daily-bright", label: "日常輕快", azureVoice: "en-US-GuyNeural" },
   ],
   featureFlags: {
     enable_japanese: false,
@@ -79,6 +85,22 @@ const EXPECTED_BOOTSTRAP = {
 
 Deno.test("bootstrap has 3 voice profiles", () => {
   assertEquals(EXPECTED_BOOTSTRAP.voiceProfiles.length, 3);
+});
+
+Deno.test("bootstrap exposes Azure voice IDs instead of OpenAI TTS IDs", () => {
+  assertEquals(BOOTSTRAP_SOURCE.includes("openaiVoice"), false);
+  assertEquals(
+    BOOTSTRAP_SOURCE.includes('azureVoice: "en-US-JennyNeural"'),
+    true,
+  );
+  assertEquals(
+    BOOTSTRAP_SOURCE.includes('azureVoice: "en-US-GuyNeural"'),
+    true,
+  );
+  assertEquals(
+    BOOTSTRAP_SOURCE.includes('azureVoice: "en-GB-SoniaNeural"'),
+    true,
+  );
 });
 
 Deno.test("bootstrap default voice is gentle-natural", () => {

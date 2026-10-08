@@ -1,18 +1,19 @@
 export const AUDIO_BUCKET = "audio-assets";
-export const TTS_MODEL = "tts-1";
+export const TTS_MODEL = "azure-speech";
 export const TTS_SPEED = 1;
 export const AUDIO_FORMAT = "mp3";
+export const AUDIO_NORMALIZER_REVISION = "lufs-v1";
 export const SIGNED_URL_TTL_SECONDS = 60 * 10;
 
 export const VOICE_MAP: Record<string, string> = {
-  "gentle-natural": "nova",
-  "clear-slow": "sage",
-  "daily-bright": "ash",
-  "elegant-british": "shimmer",
-  "native-gentle": "alloy",
-  "native-clear": "echo",
-  "native-bright": "onyx",
-  "native-calm": "fable",
+  "gentle-natural": "en-US-JennyNeural",
+  "clear-slow": "en-US-JennyNeural",
+  "daily-bright": "en-US-GuyNeural",
+  "elegant-british": "en-GB-SoniaNeural",
+  "native-gentle": "zh-TW-HsiaoChenNeural",
+  "native-clear": "zh-TW-HsiaoChenNeural",
+  "native-bright": "zh-TW-HsiaoChenNeural",
+  "native-calm": "zh-TW-HsiaoChenNeural",
 };
 
 export const VOICE_ACCENTS: Record<
@@ -46,6 +47,7 @@ export async function contentHash(
     model,
     speed,
     format,
+    AUDIO_NORMALIZER_REVISION,
   ].join("|");
   const bytes = new TextEncoder().encode(canonical);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -63,10 +65,12 @@ export async function textContentHash(
   text: string,
   spokenLanguage: string,
   format = AUDIO_FORMAT,
+  normalizerRevision = AUDIO_NORMALIZER_REVISION,
 ): Promise<string> {
   const canonical = [
     spokenLanguage.trim().toLowerCase(),
     format,
+    normalizerRevision,
     normalizeText(text),
   ]
     .join("|");

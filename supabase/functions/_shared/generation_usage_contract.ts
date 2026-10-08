@@ -8,6 +8,7 @@ const TEXT_INPUT_USD_PER_TOKEN = 0.15 / 1_000_000;
 const TEXT_OUTPUT_USD_PER_TOKEN = 0.60 / 1_000_000;
 const TTS_USD_PER_CHARACTER = 15 / 1_000_000;
 const TRANSCRIPTION_USD_PER_MINUTE = 0.003;
+const NANO_USD_PER_USD = 1_000_000_000n;
 
 export type GenerationFeature =
   | "transcription"
@@ -39,6 +40,8 @@ export interface GenerationUsageInput {
   inputCharacters?: number;
   durationMs?: number;
   usageSource?: UsageSource;
+  azureNanoUsdPerBillableCharacter?: number;
+  azurePriceVersion?: string;
 }
 
 export interface ProviderUsage {
@@ -145,6 +148,8 @@ export function estimateGenerationCost(input: {
   textInputTokens?: bigint;
   inputCharacters?: number;
   durationMs?: number;
+  azureNanoUsdPerBillableCharacter?: number;
+  azurePriceVersion?: string;
 }): CostEstimate {
   const usageSource = input.usageSource ?? "unknown";
   const base = {
@@ -189,11 +194,25 @@ export function estimateGenerationCost(input: {
     );
     if (characters === undefined) return { ...base, basis: "unknown" };
     if (input.model?.startsWith("azure-speech/")) {
+      const rate = input.azureNanoUsdPerBillableCharacter;
+      const priceVersion = input.azurePriceVersion;
+      if (
+        !Number.isSafeInteger(rate) || rate === undefined || rate < 1 ||
+        !priceVersion || !/^[a-zA-Z0-9._-]{1,80}$/.test(priceVersion)
+      ) {
+        return {
+          basis: "tts_characters",
+          usageSource,
+          priceVersion: null,
+          estimatedCostUsd: null,
+        };
+      }
+      const nanoUsd = BigInt(characters) * BigInt(rate);
       return {
         basis: "tts_characters",
-        usageSource,
-        priceVersion: null,
-        estimatedCostUsd: null,
+        usageSource: "request_estimate",
+        priceVersion,
+        estimatedCostUsd: formatNanoUsd(nanoUsd),
       };
     }
     return {
@@ -215,6 +234,12 @@ export function estimateGenerationCost(input: {
     estimatedCostUsd: (durationMs / 60_000 * TRANSCRIPTION_USD_PER_MINUTE)
       .toFixed(10),
   };
+}
+
+function formatNanoUsd(value: bigint): string {
+  const whole = value / NANO_USD_PER_USD;
+  const fraction = (value % NANO_USD_PER_USD).toString().padStart(9, "0");
+  return `${whole}.${fraction}0`;
 }
 
 export function extractChatUsage(data: unknown): ProviderUsage {
@@ -271,6 +296,8 @@ function validateStart(input: GenerationUsageInput): Record<string, unknown> {
     textInputTokens: input.textInputTokens,
     inputCharacters,
     durationMs,
+    azureNanoUsdPerBillableCharacter: input.azureNanoUsdPerBillableCharacter,
+    azurePriceVersion: input.azurePriceVersion,
   });
   return {
     user_id: input.userId,
@@ -330,6 +357,8 @@ export async function recordGenerationAttempt(
       inputCharacters: completion.usage?.inputCharacters ??
         input.inputCharacters,
       durationMs: completion.usage?.durationMs ?? input.durationMs,
+      azureNanoUsdPerBillableCharacter: input.azureNanoUsdPerBillableCharacter,
+      azurePriceVersion: input.azurePriceVersion,
     };
     const estimate = estimateGenerationCost(usageInput);
     const update = await table.update(id, {

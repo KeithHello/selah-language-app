@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../domain/audio_preparation.dart';
 import '../domain/learning_models.dart';
 import '../domain/learning_engine.dart';
 import 'learning_gateway.dart';
@@ -432,11 +433,19 @@ class SupabaseLearningGateway implements LearningGateway {
   @override
   Future<Map<String, dynamic>?> seedAudio(String seedId, String voice) async {
     _requireUser();
+    const language = 'en';
     final row = await client
         .from('audio_manifests')
         .select('id')
         .eq('seed_sentence_id', seedId)
         .eq('voice_profile', voice)
+        .eq('tts_model', audioProviderModel(voice: voice, language: language))
+        .eq('speed', audioSpeedForProfile(voice))
+        .eq('audio_format', 'mp3')
+        .like(
+          'content_hash',
+          audioManifestCachePattern(voice: voice, language: language),
+        )
         .eq('generation_status', 'ready')
         .maybeSingle();
     if (row == null) return null;
