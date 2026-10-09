@@ -37,6 +37,7 @@ import 'loop_listening_panel.dart';
 import 'listen_focus_controls.dart';
 import 'speed_selector.dart';
 import 'plush_companion.dart';
+import '../web_performance_marks.dart';
 import 'web_start_action.dart';
 import '../domain/companion_names.dart';
 import 'companion_dice_button.dart';
@@ -102,6 +103,7 @@ class WebLearningApp extends StatefulWidget {
 
 class _WebLearningAppState extends State<WebLearningApp> {
   bool _initializing = false;
+  late ({String locale, bool motionEnabled}) _rootConfiguration;
   late final ThemeData _theme = SelahTheme.light().copyWith(
     textTheme: SelahTheme.light().textTheme.apply(
       fontFamily: 'Plus Jakarta Sans',
@@ -116,62 +118,82 @@ class _WebLearningAppState extends State<WebLearningApp> {
   @override
   void initState() {
     super.initState();
+    _rootConfiguration = _readRootConfiguration();
+    widget.controller.addListener(_onControllerChanged);
     if (isAdminConsoleUri(Uri.base)) return;
     if (!widget.controller.initialized) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _initialize());
     }
   }
 
+  @override
+  void didUpdateWidget(covariant WebLearningApp oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+    oldWidget.controller.removeListener(_onControllerChanged);
+    widget.controller.addListener(_onControllerChanged);
+    _rootConfiguration = _readRootConfiguration();
+  }
+
+  ({String locale, bool motionEnabled}) _readRootConfiguration() => (
+    locale: widget.controller.uiLocale,
+    motionEnabled: widget.controller.state.preferences.motionEnabled,
+  );
+
+  void _onControllerChanged() {
+    final next = _readRootConfiguration();
+    if (next == _rootConfiguration) return;
+    setState(() => _rootConfiguration = next);
+  }
+
   Future<void> _initialize() async {
     if (_initializing || widget.controller.initialized) return;
     _initializing = true;
+    markSelahPerformance('selah.initialize.start');
     try {
       await widget.controller.initialize();
     } finally {
+      markSelahPerformance('selah.initialize.end');
       _initializing = false;
     }
   }
 
   @override
+  void dispose() {
+    widget.controller.removeListener(_onControllerChanged);
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: widget.controller,
-      builder: (context, _) {
-        final strings = widget.controller.strings;
-        final locale = _materialLocale(widget.controller.uiLocale);
-        // Keep the app-level motion gate above MaterialApp so Navigator
-        // push routes (dialogs, sheets, menus) inherit the motion
-        // preference instead of falling back to the system setting.
-        return MotionScope(
-          motionEnabled: widget.controller.state.preferences.motionEnabled,
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            title: 'Selah',
-            locale: locale,
-            localizationsDelegates: const [
-              _SelahMaterialLocalizationsDelegate(),
-              _SelahCupertinoLocalizationsDelegate(),
-            ],
-            supportedLocales: const [
-              Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
-              Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
-              Locale('ja'),
-            ],
-            localeListResolutionCallback: (_, _) => locale,
-            themeAnimationDuration: Duration.zero,
-            theme: _theme,
-            home: isAdminConsoleUri(Uri.base)
-                ? AdminConsolePage(
-                    controller: widget.controller.admin,
-                    uiLocale: widget.controller.uiLocale,
-                  )
-                : _WebRoot(
-                    controller: widget.controller,
-                    strings: strings,
-                  ),
-          ),
-        );
-      },
+    final locale = _materialLocale(_rootConfiguration.locale);
+    // Keep the app-level motion gate above MaterialApp so Navigator push
+    // routes inherit the user's motion preference.
+    return MotionScope(
+      motionEnabled: _rootConfiguration.motionEnabled,
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Selah',
+        locale: locale,
+        localizationsDelegates: const [
+          _SelahMaterialLocalizationsDelegate(),
+          _SelahCupertinoLocalizationsDelegate(),
+        ],
+        supportedLocales: const [
+          Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hant'),
+          Locale.fromSubtags(languageCode: 'zh', scriptCode: 'Hans'),
+          Locale('ja'),
+        ],
+        localeListResolutionCallback: (_, _) => locale,
+        themeAnimationDuration: Duration.zero,
+        theme: _theme,
+        home: isAdminConsoleUri(Uri.base)
+            ? AdminConsolePage(
+                controller: widget.controller.admin,
+                uiLocale: _rootConfiguration.locale,
+              )
+            : _WebRoot(controller: widget.controller),
+      ),
     );
   }
 
@@ -185,79 +207,105 @@ class _WebLearningAppState extends State<WebLearningApp> {
   };
 }
 
-class _WebRoot extends StatelessWidget {
-  const _WebRoot({required this.controller, required this.strings});
+class _WebRoot extends StatefulWidget {
+  const _WebRoot({required this.controller});
 
   final LearningController controller;
-  final SelahStrings strings;
+
+  @override
+  State<_WebRoot> createState() => _WebRootState();
+}
+
+class _WebRootState extends State<_WebRoot> {
+  bool _todayFrameScheduled = false;
+  bool _todayFrameMarked = false;
 
   @override
   Widget build(BuildContext context) {
-    final Widget page;
-    if (!controller.initialized) {
-      page = _LoadingView(error: controller.error, strings: strings);
-    } else if (!controller.state.preferences.onboarded) {
-      page = _OnboardingPage(controller: controller);
-    } else {
-      page = _WebShell(controller: controller);
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final desktop = constraints.maxWidth >= 900;
-        final companionVisible =
-            constraints.maxWidth >= 1180 &&
-            controller.state.preferences.companionRailVisible &&
-            controller.tab != 0;
-        final right = desktop ? (companionVisible ? 280.0 : 24.0) : 16.0;
-        final top =
-            MediaQuery.paddingOf(context).top +
-            (controller.state.preferences.onboarded
-                ? (desktop ? 76.0 : 68.0)
-                : 16.0);
-        final toastWidth = (constraints.maxWidth - right - 16)
-            .clamp(0.0, 420.0)
-            .toDouble();
-        final notice = controller.notice;
-        return Stack(
-          fit: StackFit.expand,
-          children: [
-            page,
-            Positioned(
-              top: top,
-              right: right,
-              width: toastWidth,
-              child: AnimatedSwitcher(
-                duration: SelahMotion.toastOut,
-                switchInCurve: SelahMotion.standardCurve,
-                switchOutCurve: SelahMotion.exitCurve,
-                transitionBuilder: (child, animation) => FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0, -0.4),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
+    final controller = widget.controller;
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) {
+        final strings = controller.strings;
+        final Widget page;
+        if (!controller.initialized) {
+          page = _LoadingView(error: controller.error, strings: strings);
+        } else if (!controller.state.preferences.onboarded) {
+          page = _OnboardingPage(controller: controller);
+        } else {
+          page = _WebShell(controller: controller);
+        }
+        if (!_todayFrameMarked &&
+            !_todayFrameScheduled &&
+            controller.initialized &&
+            controller.state.preferences.onboarded &&
+            controller.tab == 0) {
+          _todayFrameScheduled = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted || _todayFrameMarked) return;
+            _todayFrameMarked = true;
+            markSelahPerformance('selah.today.first-frame');
+          });
+        }
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            final desktop = constraints.maxWidth >= 900;
+            final companionVisible =
+                constraints.maxWidth >= 1180 &&
+                controller.state.preferences.companionRailVisible &&
+                controller.tab != 0;
+            final right = desktop ? (companionVisible ? 280.0 : 24.0) : 16.0;
+            final top =
+                MediaQuery.paddingOf(context).top +
+                (controller.state.preferences.onboarded
+                    ? (desktop ? 76.0 : 68.0)
+                    : 16.0);
+            final toastWidth = (constraints.maxWidth - right - 16)
+                .clamp(0.0, 420.0)
+                .toDouble();
+            final notice = controller.notice;
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                page,
+                Positioned(
+                  top: top,
+                  right: right,
+                  width: toastWidth,
+                  child: AnimatedSwitcher(
+                    duration: SelahMotion.toastOut,
+                    switchInCurve: SelahMotion.standardCurve,
+                    switchOutCurve: SelahMotion.exitCurve,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0, -0.4),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child:
+                        (notice == null ||
+                            controller.noticeRequiresInlineDisplay ||
+                            controller.error != null)
+                        ? const SizedBox.shrink(key: ValueKey('toast-empty'))
+                        : _WebToast(
+                            key: ValueKey(notice),
+                            message: notice,
+                            onDismiss: controller.dismissNotice,
+                          ),
                   ),
                 ),
-                child:
-                    (notice == null ||
-                        controller.noticeRequiresInlineDisplay ||
-                        controller.error != null)
-                    ? const SizedBox.shrink(key: ValueKey('toast-empty'))
-                    : _WebToast(
-                        key: ValueKey(notice),
-                        message: notice,
-                        onDismiss: controller.dismissNotice,
-                      ),
-              ),
-            ),
-            if (controller.passwordResetRequired)
-              Positioned.fill(
-                key: const ValueKey('password-recovery-overlay'),
-                child: _PasswordRecoveryOverlay(controller: controller),
-              ),
-          ],
+                if (controller.passwordResetRequired)
+                  Positioned.fill(
+                    key: const ValueKey('password-recovery-overlay'),
+                    child: _PasswordRecoveryOverlay(controller: controller),
+                  ),
+              ],
+            );
+          },
         );
       },
     );
@@ -981,6 +1029,7 @@ class _ContentState extends State<_Content> {
         Expanded(
           child: _TabEntrance(
             tab: controller.tab,
+            firstEntry: _currentTabFirstEntry,
             child: SelahLazyIndexedStack(
               index: controller.tab,
               children: [
@@ -1027,15 +1076,17 @@ class _ContentState extends State<_Content> {
   }
 }
 
-/// Plays a gentle fade-and-rise each time the shell switches tabs.
-///
-/// The tree shape is stable whether or not motion is enabled: the
-/// transitions always exist and rest fully visible while the in-app
-/// 「動畫效果」 switch is off, so page state is never remounted.
+/// Plays a short fade on a tab's first visit without moving or scaling its
+/// full content area on later switches.
 class _TabEntrance extends StatefulWidget {
-  const _TabEntrance({required this.tab, required this.child});
+  const _TabEntrance({
+    required this.tab,
+    required this.firstEntry,
+    required this.child,
+  });
 
   final int tab;
+  final bool firstEntry;
   final Widget child;
 
   @override
@@ -1046,7 +1097,7 @@ class _TabEntranceState extends State<_TabEntrance>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller = AnimationController(
     vsync: this,
-    duration: SelahMotion.transition,
+    duration: const Duration(milliseconds: 100),
     value: 1,
   );
 
@@ -1055,20 +1106,12 @@ class _TabEntranceState extends State<_TabEntrance>
     curve: SelahMotion.standardCurve,
   );
 
-  late final Animation<Offset> _rise = Tween<Offset>(
-    begin: const Offset(0, 0.05),
-    end: Offset.zero,
-  ).animate(_fade);
-
-  late final Animation<double> _scale = Tween<double>(
-    begin: 0.985,
-    end: 1,
-  ).animate(_fade);
-
   @override
   void didUpdateWidget(covariant _TabEntrance oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.tab != oldWidget.tab && MotionScope.of(context)) {
+    if (widget.tab != oldWidget.tab &&
+        widget.firstEntry &&
+        MotionScope.of(context)) {
       _controller.forward(from: 0);
     }
   }
@@ -1088,13 +1131,7 @@ class _TabEntranceState extends State<_TabEntrance>
         ..stop()
         ..value = 1;
     }
-    return FadeTransition(
-      opacity: _fade,
-      child: SlideTransition(
-        position: _rise,
-        child: ScaleTransition(scale: _scale, child: widget.child),
-      ),
-    );
+    return FadeTransition(opacity: _fade, child: widget.child);
   }
 }
 
@@ -5183,6 +5220,7 @@ class _NotesPageState extends State<_NotesPage> {
   String _category = 'all';
   final Set<String> _expandedIds = <String>{};
   String? _activeVocabularyId;
+  final Map<String, _VocabularySpanCacheEntry> _vocabularySpanCache = {};
   late String _sessionAccountId;
 
   LearningController get c => widget.controller;
@@ -5198,6 +5236,7 @@ class _NotesPageState extends State<_NotesPage> {
     if (!mounted || c.accountId == _sessionAccountId) return;
     _sessionAccountId = c.accountId;
     _search.clear();
+    _vocabularySpanCache.clear();
     setState(() {
       _category = 'all';
       _expandedIds.clear();
@@ -5212,6 +5251,17 @@ class _NotesPageState extends State<_NotesPage> {
     super.dispose();
   }
 
+  List<VocabularySpan> _vocabularySpansFor(LearnSentence sentence) {
+    final cached = _vocabularySpanCache[sentence.id];
+    if (cached?.updatedAt == sentence.updatedAt) return cached!.spans;
+    final spans = vocabularySpans(sentence.target, sentence.vocabulary);
+    _vocabularySpanCache[sentence.id] = _VocabularySpanCacheEntry(
+      sentence.updatedAt,
+      spans,
+    );
+    return spans;
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = SelahStrings.of(c.uiLocale);
@@ -5224,85 +5274,98 @@ class _NotesPageState extends State<_NotesPage> {
         query,
       );
     }).toList();
-    return _PageFrame(
-      maxWidth: 980,
-      child: SelahStaggerEntrance(
-        animate: widget.entrance,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            strings.translateLegacy('把学过的留下来'),
-            style: SelahTypography.displayMedium(),
+    final header = SelahStaggerEntrance(
+      animate: widget.entrance,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          strings.translateLegacy('把学过的留下来'),
+          style: SelahTypography.displayMedium(),
+        ),
+        const SizedBox(height: 7),
+        Text(
+          strings.text('notes.subtitle'),
+          style: SelahTypography.bodyMedium(),
+        ),
+        const SizedBox(height: 18),
+        TextField(
+          controller: _search,
+          onChanged: (_) => setState(() {}),
+          textInputAction: TextInputAction.search,
+          decoration: InputDecoration(
+            prefixIcon: Icon(Icons.search_rounded),
+            hintText: strings.translateLegacy('搜索中文或英文'),
+            suffixIcon: Icon(Icons.tune_rounded),
           ),
-          const SizedBox(height: 7),
-          Text(
-            strings.text('notes.subtitle'),
-            style: SelahTypography.bodyMedium(),
-          ),
-          const SizedBox(height: 18),
-          TextField(
-            controller: _search,
-            onChanged: (_) => setState(() {}),
-            textInputAction: TextInputAction.search,
-            decoration: InputDecoration(
-              prefixIcon: Icon(Icons.search_rounded),
-              hintText: strings.translateLegacy('搜索中文或英文'),
-              suffixIcon: Icon(Icons.tune_rounded),
-            ),
-          ),
-          const SizedBox(height: 11),
-          SizedBox(
-            height: 38,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: [
-                _FilterChip(
-                  label: strings.translateLegacy('全部'),
-                  selected: _category == 'all',
-                  onTap: () => setState(() => _category = 'all'),
+        ),
+        const SizedBox(height: 11),
+        SizedBox(
+          height: 38,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            children: [
+              _FilterChip(
+                label: strings.translateLegacy('全部'),
+                selected: _category == 'all',
+                onTap: () => setState(() => _category = 'all'),
+              ),
+              ...categories.entries.map(
+                (entry) => _FilterChip(
+                  label: strings.categoryLabel(entry.key),
+                  selected: _category == entry.key,
+                  onTap: () => setState(() => _category = entry.key),
                 ),
-                ...categories.entries.map(
-                  (entry) => _FilterChip(
-                    label: strings.categoryLabel(entry.key),
-                    selected: _category == entry.key,
-                    onTap: () => setState(() => _category = entry.key),
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
-          const SizedBox(height: 16),
-          if (sentences.isEmpty)
-            _EmptyState(
-              icon: Icons.menu_book_outlined,
-              title: query.isEmpty
-                  ? strings.translateLegacy('还没有笔记')
-                  : strings.translateLegacy('没有匹配的句子'),
-              message: query.isEmpty
-                  ? strings.translateLegacy('完成一次生成或导入备份，句子会在这里安静地保存。')
-                  : strings.translateLegacy('试试换个词，或清除分类筛选。'),
-              actionLabel: query.isEmpty
-                  ? strings.translateLegacy('去 Today 写一句')
-                  : strings.translateLegacy('显示全部'),
-              onAction: query.isEmpty
-                  ? () => c.navigate(0)
-                  : () => setState(() {
-                      _search.clear();
-                      _category = 'all';
-                    }),
+        ),
+        const SizedBox(height: 16),
+        if (sentences.isEmpty)
+          _EmptyState(
+            icon: Icons.menu_book_outlined,
+            title: query.isEmpty
+                ? strings.translateLegacy('还没有笔记')
+                : strings.translateLegacy('没有匹配的句子'),
+            message: query.isEmpty
+                ? strings.translateLegacy('完成一次生成或导入备份，句子会在这里安静地保存。')
+                : strings.translateLegacy('试试换个词，或清除分类筛选。'),
+            actionLabel: query.isEmpty
+                ? strings.translateLegacy('去 Today 写一句')
+                : strings.translateLegacy('显示全部'),
+            onAction: query.isEmpty
+                ? () => c.navigate(0)
+                : () => setState(() {
+                    _search.clear();
+                    _category = 'all';
+                  }),
+          ),
+      ],
+    );
+    return Center(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 980),
+        child: CustomScrollView(
+          slivers: [
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(20, 24, 20, 0),
+              sliver: SliverToBoxAdapter(child: header),
             ),
-          if (sentences.isNotEmpty)
-            Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 760),
-                child: Column(
-                  children: sentences
-                      .map(
-                        (sentence) => Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
+            if (sentences.isNotEmpty)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final sentence = sentences[index];
+                    return Padding(
+                      key: ValueKey(sentence.id),
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 760),
                           child: _NotesCard(
                             controller: c,
                             sentence: sentence,
+                            vocabularyMatches: _vocabularySpansFor(sentence),
                             expanded: _expandedIds.contains(sentence.id),
                             activeVocabularyId: _activeVocabularyId,
                             onToggleExpanded: () => setState(() {
@@ -5322,19 +5385,29 @@ class _NotesPageState extends State<_NotesPage> {
                                 setState(() => _activeVocabularyId = null),
                           ),
                         ),
-                      )
-                      .toList(),
+                      ),
+                    );
+                  }, childCount: sentences.length),
                 ),
               ),
-            ),
-          if (_growthMemoriesUiEnabled) ...[
-            const SizedBox(height: 26),
-            _MemoriesCard(controller: c),
+            if (_growthMemoriesUiEnabled)
+              SliverPadding(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                sliver: SliverToBoxAdapter(child: _MemoriesCard(controller: c)),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: 40)),
           ],
-        ],
+        ),
       ),
     );
   }
+}
+
+class _VocabularySpanCacheEntry {
+  const _VocabularySpanCacheEntry(this.updatedAt, this.spans);
+
+  final DateTime updatedAt;
+  final List<VocabularySpan> spans;
 }
 
 String _vocabularyKey(LearnSentence sentence, VocabularyEntry entry) =>
@@ -5391,6 +5464,7 @@ class _NotesCard extends StatelessWidget {
   const _NotesCard({
     required this.controller,
     required this.sentence,
+    required this.vocabularyMatches,
     required this.expanded,
     required this.activeVocabularyId,
     required this.onToggleExpanded,
@@ -5400,6 +5474,7 @@ class _NotesCard extends StatelessWidget {
 
   final LearningController controller;
   final LearnSentence sentence;
+  final List<VocabularySpan> vocabularyMatches;
   final bool expanded;
   final String? activeVocabularyId;
   final VoidCallback onToggleExpanded;
@@ -5437,7 +5512,7 @@ class _NotesCard extends StatelessWidget {
             const SizedBox(height: 8),
             _VocabularyTargetText(
               target: sentence.target,
-              vocabulary: sentence.vocabulary,
+              matches: vocabularyMatches,
               style: targetStyle,
               onVocabularyTap: onVocabularyTap,
             ),
@@ -5604,19 +5679,18 @@ class _NotesCard extends StatelessWidget {
 class _VocabularyTargetText extends StatelessWidget {
   const _VocabularyTargetText({
     required this.target,
-    required this.vocabulary,
+    required this.matches,
     required this.style,
     required this.onVocabularyTap,
   });
 
   final String target;
-  final List<VocabularyEntry> vocabulary;
+  final List<VocabularySpan> matches;
   final TextStyle style;
   final ValueChanged<VocabularyEntry> onVocabularyTap;
 
   @override
   Widget build(BuildContext context) {
-    final matches = vocabularySpans(target, vocabulary);
     if (matches.isEmpty) return Text(target, style: style);
     final children = <InlineSpan>[];
     var cursor = 0;

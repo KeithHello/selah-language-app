@@ -9,6 +9,7 @@ import 'domain/audio_preparation.dart';
 import 'domain/loop_listening.dart';
 import 'domain/research_profile.dart';
 import 'domain/web_status.dart';
+import 'web_performance_marks.dart';
 import 'l10n/selah_strings.dart';
 import 'data/learning_gateway.dart';
 import 'data/audio_preparation_service.dart';
@@ -177,6 +178,7 @@ class LearningController extends ChangeNotifier {
   int companionRevision = 0;
   StreamSubscription<String?>? _auth;
   bool _disposed = false;
+  bool _firstSyncPerformanceMarked = false;
   bool _polling = false;
   int _accountGeneration = 0;
   bool _listenNavigationInProgress = false;
@@ -1399,7 +1401,9 @@ class LearningController extends ChangeNotifier {
       await platform.invoke('recordCancel');
       await _writes;
       if (!_current(generation)) return;
+      markSelahPerformance('selah.local-snapshot.start');
       final loaded = await store.load(id);
+      markSelahPerformance('selah.local-snapshot.end');
       if (!_current(generation)) return;
       state = loaded;
       final unsaved = _departingInputs[id];
@@ -3399,6 +3403,8 @@ class LearningController extends ChangeNotifier {
       return;
     }
     _syncTimer?.cancel();
+    final markFirstSync = !_firstSyncPerformanceMarked;
+    if (markFirstSync) markSelahPerformance('selah.first-sync.start');
     syncing = true;
     syncFailed = false;
     notifyListeners();
@@ -3450,6 +3456,10 @@ class LearningController extends ChangeNotifier {
         error = _message(e, fallback: '同步未完成，本机内容已保留，联网后可以重试。');
       }
     } finally {
+      if (markFirstSync) {
+        _firstSyncPerformanceMarked = true;
+        markSelahPerformance('selah.first-sync.end');
+      }
       if (_current(generation)) {
         syncing = false;
         notifyListeners();

@@ -5,7 +5,9 @@
 {{flutter_build_config}}
 _flutter.loader.load({
   onEntrypointLoaded: async function (engineInitializer) {
+    window.performance.mark('selah.main.dart.js.loaded');
     const appRunner = await engineInitializer.initializeEngine();
+    window.performance.mark('selah.engine.ready');
     await appRunner.runApp();
   }
 });

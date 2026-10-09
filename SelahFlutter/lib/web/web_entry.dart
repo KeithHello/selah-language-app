@@ -12,8 +12,10 @@ import 'admin/admin_console_route.dart';
 import 'ui/admin_console_page.dart';
 import 'platform/browser_platform.dart';
 import 'ui/web_learning_app.dart';
+import 'web_performance_marks.dart';
 
 Future<void> launch() async {
+  markSelahPerformance('selah.dart.main');
   WidgetsFlutterBinding.ensureInitialized();
   try {
     final passwordRecovery = _passwordRecoveryRequested();
@@ -26,9 +28,12 @@ Future<void> launch() async {
       if (uri == null || uri.scheme != 'https' || !_publicKey(key)) {
         throw const FormatException('在线服务配置无效，请使用 HTTPS 和公开的 Supabase 客户端密钥。');
       }
+      markSelahPerformance('selah.supabase.initialize.start');
       await Supabase.initialize(url: url, publishableKey: key);
+      markSelahPerformance('selah.supabase.initialize.end');
       gateway = SupabaseLearningGateway(Supabase.instance.client);
     }
+    markSelahPerformance('selah.seed-assets.start');
     final seedJson = objectMap(
       jsonDecode(
         await rootBundle.loadString('assets/content/seed-sentences.json'),
@@ -41,6 +46,7 @@ Future<void> launch() async {
     final audio = objectMap(
       jsonDecode(await rootBundle.loadString('assets/content/seed-audio.json')),
     );
+    markSelahPerformance('selah.seed-assets.end');
     final controller = LearningController(
       gateway: gateway,
       platform: BrowserLearningPlatform(),
@@ -52,6 +58,7 @@ Future<void> launch() async {
     );
     if (isAdminConsoleUri(Uri.base)) {
       final adminController = AdminController(gateway: gateway);
+      markSelahPerformance('selah.run-app');
       runApp(
         MaterialApp(
           debugShowCheckedModeBanner: false,
@@ -62,7 +69,7 @@ Future<void> launch() async {
       );
       return;
     }
-    await controller.initialize();
+    markSelahPerformance('selah.run-app');
     runApp(WebLearningApp(controller: controller));
   } catch (_) {
     runApp(

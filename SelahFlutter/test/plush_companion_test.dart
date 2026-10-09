@@ -176,11 +176,13 @@ void main() {
       SpriteActionId pose() => tester
           .widget<PlushPoseImage>(find.byType(PlushPoseImage).last)
           .action;
-      await tester.pump(const Duration(milliseconds: 7300));
+      await tester.pump(const Duration(milliseconds: 14401));
+      expect(pose(), SpriteActionId.gentleFloat);
+      await tester.pump(const Duration(seconds: 25));
       expect(pose(), SpriteActionId.blink);
       await tester.pump(const Duration(milliseconds: 500));
       expect(pose(), SpriteActionId.gentleFloat);
-      await tester.pump(const Duration(milliseconds: 10300));
+      await tester.pump(const Duration(seconds: 25));
       expect(pose(), SpriteActionId.leafSway);
       await tester.pump(const Duration(milliseconds: 1500));
       expect(pose(), SpriteActionId.gentleFloat);
@@ -380,6 +382,30 @@ void main() {
       expect(state.isAnimating, true);
     },
   );
+
+  testWidgets('gentle float rests and resumes with a brief idle gesture', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host());
+    final state = tester.state<PlushCompanionState>(
+      find.byType(PlushCompanion),
+    );
+    expect(state.isAnimating, true);
+
+    await tester.pump(const Duration(milliseconds: 14401));
+    expect(state.isAnimating, false);
+    final poseTicker = tester.widget<TickerMode>(
+      find.descendant(
+        of: find.byType(PlushPoseImage),
+        matching: find.byType(TickerMode),
+      ),
+    );
+    expect(poseTicker.enabled, false);
+
+    await tester.pump(const Duration(seconds: 25));
+    expect(state.isAnimating, true);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 
   testWidgets('feedback plays once and only a new event restarts it', (
     tester,

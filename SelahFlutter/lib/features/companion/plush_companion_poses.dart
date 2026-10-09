@@ -113,6 +113,7 @@ class PlushPoseImage extends StatelessWidget {
     super.key,
     required this.stage,
     required this.action,
+    this.animated = true,
     this.width,
     this.height,
     this.imageProvider,
@@ -120,6 +121,7 @@ class PlushPoseImage extends StatelessWidget {
 
   final DecorationStage stage;
   final SpriteActionId action;
+  final bool animated;
   final double? width;
   final double? height;
   final PlushPoseImageProvider? imageProvider;
@@ -132,7 +134,7 @@ class PlushPoseImage extends StatelessWidget {
         ? ResizeImage(baseImage, width: _cacheWidth(context))
         : baseImage;
     return TickerMode(
-      enabled: MotionScope.of(context),
+      enabled: animated && MotionScope.of(context),
       child: Image(
         image: image,
         width: width,

@@ -1777,8 +1777,20 @@ void main() {
                   'empty promises',
                 ) ==
                 'My boss is making empty promises again.',
-          ),
+      ),
       isTrue,
+    );
+    final notesScrollable = find
+        .byWidgetPredicate(
+          (widget) =>
+              widget is Scrollable &&
+              widget.axisDirection == AxisDirection.down,
+        )
+        .first;
+    await tester.scrollUntilVisible(
+      find.text('I have to work late again today.'),
+      500,
+      scrollable: notesScrollable,
     );
     expect(find.text('I have to work late again today.'), findsOneWidget);
     expect(find.text('选一句查看详情'), findsNothing);
