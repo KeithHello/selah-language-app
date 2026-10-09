@@ -28,7 +28,7 @@
 - [x] 提交 `99e6890` 已推送至 GitHub 分支 `codex/fix-loop-audio-mute`。Actions run `37745090867` 的 Swift、iOS、Deno、数据库 migration／pgTAP／并发、Flutter Analyze／测试与 Web 构建均通过；Cloudflare Pages 预览部署步骤成功。
 - [x] Cloudflare Pages 预览别名 `https://codex-fix-loop-audio-mute.selah-language-app.pages.dev` 返回版本 `1.8.1`、Build ID `815e5e0638e822eb`；首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
 - [x] 合并提交 `4348318` 已推送至 GitHub `main`。Actions run `37747244102` 全部通过；Cloudflare Pages 正式站 `https://selah-language-app.pages.dev` 已更新至版本 `1.8.1`、Build ID `815e5e0638e822eb`。首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
-- [x] 修复 `.github/workflows/build.yml` 的预览别名计算，将分支名中的 `/` 转成 `-`，使最终 Build ID 校验 URL 与 Wrangler 实际别名一致；Bash 分支名替换与 diff 检查通过。修复目前只在本地分支，尚未 push，也未重跑会触发 Cloudflare Pages 预览部署的 workflow。
+- [ ] Actions run `37891694261` 已验证斜杠替换生效，但 Wrangler 将长分支别名截短为 `codex-fix-preview-pages-alia`，导致 CI 仍访问错误 URL；实际别名首页及静态资源 HTTP 200，版本 `1.9.0`、Build ID `d1de370743546f1e` 匹配。workflow 已改为读取 Wrangler 返回的 alias URL 并用于校验与摘要；本地脚本验证通过，待重新推送和 CI 预览验证。
 
 ### 2026-10-05 平台日预算用户提示与管理员监控（已完成；生产 v1.8.0 已发布）
 
