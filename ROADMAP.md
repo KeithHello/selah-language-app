@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-10 Azure 音量 v2 开发（V0—V5 与本机 main 集成已完成；远端发布待逐步确认）
+### 2026-10-10 Azure 音量 v2 开发（本机开发、main 集成与后端发布已完成；Pages 发布及账户验收待完成）
 
 - [x] 主人确认试听 B 并授权 V0—V5。五个 Azure 声线统一提高约 0.5 dB，目标 `-20.4 LUFS`；SSML 音量为 Jenny `+6%`、Guy `-8%`、Sonia `-15%`、HsiaoChen `-14%`、Nanami `-31%`。设置页选项保持不变，按所属声线应用音量。
 - [x] V0：更新 `CLAUDE.md`、Azure 设计规格、v1 方案取代说明和响度实测记录；更新本方案实施状态。
@@ -17,8 +17,9 @@
 - [x] V5 设置复测：Azure 60 次合成、5,351 个计费字符（按 S1 公价约 US$0.080，账单未核验）。12 组均值为 `-20.478` 至 `-19.902 LUFS`，均在 `-20.4 ±0.5 LUFS` 内；最高真峰值 `-1.82 dBTP`。中英、日英交替试听文件在 `output/azure-voice-loudness-2026-10-09T15-31-55-819Z/listening-pairs/`（Git 忽略）。
 - [x] Azure 种子合成约 5,809 个计费字符、约 US$0.087；与设置复测合计估算约 US$0.167，实际账单未核验。只读取 `.env` 的 `AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`。
 - [x] 本地验证：整合最新主线后 Deno 383 项、lint 95 个文件、Edge Function 类型检查 20 个；Python 25 项、Supabase Node 68 项、浏览器 Node 47 项、Flutter 446 项通过；`flutter analyze --no-pub` 无问题。Web Release 构建版本 `1.10.0+18`、Build ID `82f83a47987402b5`。本次 TypeScript 文件定向格式检查通过；全目录 `deno fmt --check` 仍报告 27 个未改文件的既有 Windows 行尾差异。
-- [x] V6 本机集成：合入最新 `origin/main`（`db53993`），解决路线图与版本字段冲突并保留性能优化；本机 `main` 已快进至 `9c4002b`，当前比 `origin/main` ahead 14、behind 0。发布前只读核验生产站仍为版本 `1.9.2`、Build ID `2fe159c2cd6f340f`；Supabase `audio-generate` 为 ACTIVE v18。
-- [ ] V6 远端步骤待逐项确认：Supabase 当前未配置 `AZURE_TTS_NANO_USD_PER_BILLABLE_CHARACTER` 与 `AZURE_TTS_PRICE_VERSION`；仍需设置这两项、部署 `audio-generate`、完成生产账户三语验收，再 push `main`。push `main` 会自动触发 GitHub Actions 和 Cloudflare Pages 生产发布；本轮尚未写远端 secrets、部署 Supabase 函数或发布网站。
+- [x] V6 本机集成：合入最新 `origin/main`（`db53993`），解决路线图与版本字段冲突并保留性能优化；本机 `main` 已包含 Azure v2 与最新主线代码。
+- [x] V6 后端发布：在 Supabase 项目 `ijonabyyppmgvoufgamt` 配置 Azure 计费费率与版本；单独部署 `audio-generate` 后状态为 ACTIVE v20，函数 OPTIONS 健康响应 HTTP 200；没有改数据库 schema 或其他 secrets。
+- [ ] V6 待完成：生产测试账户三语音频与额度账本验收；push `main` 后由 GitHub Actions 发布 Cloudflare Pages 正式站，并核对线上版本与 Build ID。推送前本机 `main` 比 `origin/main` ahead 15、behind 0；发布前生产站版本 `1.9.2`、Build ID `2fe159c2cd6f340f`。
 - [ ] `supabase/audio-normalizer/` 保留；目录删除属于单独确认范围，本轮没有删除。
 
 ### 2026-10-09 Azure 声线响度实测与 SSML 音量方案（历史方案；音量目标由 v2 取代；远端发布待确认）
