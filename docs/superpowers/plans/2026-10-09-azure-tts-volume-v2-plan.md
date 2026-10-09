@@ -1,6 +1,6 @@
 # Azure 语音整体音量 +0.5 dB 开发方案（azure-vol-v2）
 
-日期：2026-10-09；实施记录更新：2026-10-10。状态：主人已授权并完成 V0—V5；V6 远端发布尚未执行。
+日期：2026-10-09；实施记录更新：2026-10-10。状态：V0—V5 与本机 `main` 集成已完成；V6 远端发布尚未执行。
 
 依据：本机试听对比测量 `output/azure-volume-ab-2026-10-09/measurements.json`（Git 忽略）、[Azure 语音响度校准实测](../../2026-10-09-azure-tts-loudness-calibration.md) 、[Azure 语音 SSML 声线音量开发方案](2026-10-09-azure-tts-ssml-volume-plan.md) （下称 v1 方案）。本方案获批后，取代 v1 方案中的音量表、-20.9 LUFS 目标和随包种子离线校准规定；v1 方案的 SSML 写法、线上单段生成流程和计费规则不变，其 T9 未完成的远端发布步骤并入本方案 V6。
 
@@ -138,6 +138,7 @@ Jenny 由「不写」改为 `+6%`，每次请求多 32 个计费字符（`<proso
 ## 7．授权与确认点
 
 - 主人于 2026-10-10 授权 V0—V5 与约 US$0.17 的 Azure 合成；已完成，费用按公开单价估算且账单未核验。
+- 主人随后要求把代码合入 Git `main`、push 并部署。本机 `main` 已纳入最新 `origin/main` 与 Azure v2；Supabase secrets、`audio-generate` 部署及 Cloudflare Pages 生产发布仍须按全局 `AGENTS.md` 与本计划逐项说明并取得当步确认。
 - `supabase/audio-normalizer/` 未删除，继续保留。
 - V6 第 2、3、5 步仍需各自当步确认；本轮未执行任何远端发布步骤。
 
