@@ -59,6 +59,25 @@ LearnSentence _note({
   vocabulary: vocabulary,
 );
 
+Future<void> _scrollNotesTo(WidgetTester tester, Finder target) async {
+  final scrollable = find
+      .byWidgetPredicate(
+        (widget) =>
+            widget is Scrollable && widget.axisDirection == AxisDirection.down,
+      )
+      .first;
+  await tester.scrollUntilVisible(
+    target,
+    500,
+    scrollable: scrollable,
+    maxScrolls: 100,
+  );
+}
+
+Finder _richTextContaining(String value) => find.byWidgetPredicate(
+  (widget) => widget is RichText && widget.text.toPlainText().contains(value),
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -143,10 +162,66 @@ void main() {
           ),
       isTrue,
     );
+    await _scrollNotesTo(tester, find.text('I have to work late again today.'));
     expect(find.text('I have to work late again today.'), findsOneWidget);
     expect(find.text('选一句查看详情'), findsNothing);
     expect(find.text('Boss is making empty promises again. ...'), findsNothing);
   });
+
+  testWidgets('notes build sentence cards only as they enter the viewport', (
+    tester,
+  ) async {
+    controller.state.sentences
+      ..clear()
+      ..addAll(
+        List.generate(
+          200,
+          (index) => _note(
+            id: 'sentence-$index',
+            source: 'Source $index',
+            target: 'Target sentence $index.',
+          ),
+        ),
+      );
+    controller.navigate(3);
+    await tester.pumpWidget(WebLearningApp(controller: controller));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Source 0'), findsOneWidget);
+    expect(find.text('Source 199'), findsNothing);
+
+    await _scrollNotesTo(tester, find.text('Source 199'));
+    expect(find.text('Source 199'), findsOneWidget);
+  });
+
+  testWidgets(
+    'routine controller updates leave MaterialApp configuration alone',
+    (tester) async {
+      controller.navigate(3);
+      await tester.pumpWidget(WebLearningApp(controller: controller));
+      await tester.pumpAndSettle();
+      final before = tester.widget<MaterialApp>(find.byType(MaterialApp).first);
+
+      controller.notifyListeners();
+      await tester.pump();
+
+      expect(
+        identical(
+          tester.widget<MaterialApp>(find.byType(MaterialApp).first),
+          before,
+        ),
+        isTrue,
+      );
+
+      controller.state.preferences.uiLocale = 'ja';
+      controller.notifyListeners();
+      await tester.pump();
+      expect(
+        tester.widget<MaterialApp>(find.byType(MaterialApp).first).locale,
+        const Locale('ja'),
+      );
+    },
+  );
 
   testWidgets('notes expand breakdown in place and allow multiple cards open', (
     tester,
@@ -170,12 +245,14 @@ void main() {
       ),
       findsOneWidget,
     );
+    await _scrollNotesTo(tester, find.text('I have to work late again today.'));
     expect(find.text('I have to work late again today.'), findsOneWidget);
 
     final remainingExpandButtons = find.ancestor(
       of: find.text('展开拆解'),
       matching: find.byType(OutlinedButton),
     );
+    await _scrollNotesTo(tester, find.text('我会把这件事记下来。'));
     await tester.ensureVisible(remainingExpandButtons.first);
     await tester.tap(remainingExpandButtons.first);
     await tester.pumpAndSettle();
@@ -187,7 +264,10 @@ void main() {
       ),
       findsOneWidget,
     );
-    expect(find.widgetWithText(OutlinedButton, '收起拆解'), findsNWidgets(2));
+    await _scrollNotesTo(tester, find.text('老板又在开空头支票。'));
+    expect(_richTextContaining('承诺不会兑现的事情。'), findsOneWidget);
+    await _scrollNotesTo(tester, find.text('我会把这件事记下来。'));
+    expect(_richTextContaining('记住并在之后留意。'), findsOneWidget);
   });
 
   testWidgets('notes open a vocabulary panel without navigating away', (
@@ -232,6 +312,7 @@ void main() {
       of: find.text('I have to work late again today.'),
       matching: find.byType(Card),
     );
+    await _scrollNotesTo(tester, find.text('I have to work late again today.'));
     expect(
       find.descendant(of: secondCard, matching: find.text('重点表达')),
       findsNothing,
@@ -254,15 +335,25 @@ void main() {
     await tester.ensureVisible(expand);
     await tester.tap(expand);
     await tester.pumpAndSettle();
+    expect(_richTextContaining('承诺不会兑现的事情。'), findsOneWidget);
+    final notesStateFinder = find.byWidgetPredicate(
+      (widget) => widget.runtimeType.toString() == '_NotesPage',
+    );
+    final notesStateBeforeSwitch = tester.state(notesStateFinder);
 
     controller.navigate(0);
     await tester.pumpAndSettle();
     controller.navigate(3);
     await tester.pumpAndSettle();
+    expect(tester.state(notesStateFinder), same(notesStateBeforeSwitch));
 
     expect(find.text('My boss is making empty promises again.'), findsNothing);
     expect(find.text('老板又在开空头支票。'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, '收起拆解'), findsOneWidget);
+    expect(
+      tester.widget<TextField>(find.byType(TextField).first).controller!.text,
+      '老板',
+    );
+    expect(_richTextContaining('承诺不会兑现的事情。'), findsOneWidget);
   });
 
   testWidgets('notes show the matching empty state and can clear the query', (

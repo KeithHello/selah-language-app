@@ -98,14 +98,12 @@ class PlushCompanionState extends State<PlushCompanion>
   bool _allowed = false;
   bool _foreground = true;
   bool _finished = false;
+  Timer? _idleGestureTimer;
+  SpriteActionId? _idleGesture;
+  var _idleGestureCount = 0;
 
   @visibleForTesting
   bool get isAnimating => _motion.isAnimating;
-
-  bool get _looping => switch (widget.action) {
-    SpriteActionId.gentleFloat || SpriteActionId.listenPlaying => true,
-    _ => false,
-  };
 
   bool get _reduce => widget.reduceMotion || !MotionScope.of(context);
 
@@ -118,7 +116,13 @@ class PlushCompanionState extends State<PlushCompanion>
         WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed;
     _motion = AnimationController(vsync: this)
       ..addStatusListener((status) {
-        if (status == AnimationStatus.completed && !_looping) _finished = true;
+        if (status != AnimationStatus.completed) return;
+        _finished = true;
+        if (_idleGesture != null) {
+          _idleGesture = null;
+          if (mounted) setState(() {});
+        }
+        _scheduleIdleGesture();
       });
   }
 
@@ -137,6 +141,9 @@ class PlushCompanionState extends State<PlushCompanion>
         oldWidget.revision != widget.revision ||
         oldWidget.decorationStage != widget.decorationStage;
     if (newCue) {
+      _idleGestureTimer?.cancel();
+      _idleGestureTimer = null;
+      _idleGesture = null;
       _finished = false;
       _motion.reset();
     }
@@ -161,25 +168,52 @@ class PlushCompanionState extends State<PlushCompanion>
     final changed = allowed != _allowed;
     _allowed = allowed;
     if (!allowed) {
+      _idleGestureTimer?.cancel();
+      _idleGestureTimer = null;
       _motion.stop();
       return;
     }
     if (!restart && !changed) return;
-    _motion.duration = Duration(
-      milliseconds: switch (widget.action) {
-        SpriteActionId.gentleFloat => 21600,
-        SpriteActionId.listenPlaying => 3600,
-        SpriteActionId.blink => 280,
-        SpriteActionId.leafSway => 1400,
-        SpriteActionId.recRecording => 550,
-        _ => 1000,
-      },
-    );
-    if (_looping) {
-      _motion.repeat();
-    } else if (!_finished) {
-      _motion.forward();
+    if (_finished && !restart) {
+      _scheduleIdleGesture();
+      return;
     }
+    _motion.duration = _durationFor(_idleGesture ?? widget.action);
+    _motion.forward();
+  }
+
+  Duration _durationFor(SpriteActionId action) => switch (action) {
+    SpriteActionId.gentleFloat => const Duration(milliseconds: 14400),
+    SpriteActionId.listenPlaying => const Duration(milliseconds: 3600),
+    SpriteActionId.blink => const Duration(milliseconds: 280),
+    SpriteActionId.leafSway => const Duration(milliseconds: 1400),
+    SpriteActionId.recRecording => const Duration(milliseconds: 550),
+    _ => const Duration(seconds: 1),
+  };
+
+  void _scheduleIdleGesture() {
+    if (!_allowed ||
+        widget.action != SpriteActionId.gentleFloat ||
+        !_finished ||
+        _idleGestureTimer != null) {
+      return;
+    }
+    _idleGestureTimer = Timer(const Duration(seconds: 25), () {
+      _idleGestureTimer = null;
+      if (!mounted ||
+          !_allowed ||
+          widget.action != SpriteActionId.gentleFloat ||
+          !_finished) {
+        return;
+      }
+      _idleGesture = _idleGestureCount++ % 2 == 0
+          ? SpriteActionId.blink
+          : SpriteActionId.leafSway;
+      _finished = false;
+      _motion
+        ..duration = _durationFor(_idleGesture!)
+        ..forward(from: 0);
+    });
   }
 
   void _scheduleStagePrefetch() {
@@ -192,20 +226,21 @@ class PlushCompanionState extends State<PlushCompanion>
       // The visible pose wins immediately; remaining actions of the stage
       // trickle in one-by-one afterwards so first interaction never waits
       // behind a 10-pose burst.
-      final backgroundWarmup = PlushPosePrecache.ensurePose(
-        context,
-        stage,
-        currentAction,
-        displayWidth: currentAssetWidth,
-      ).then((_) {
-        if (!mounted) return null;
-        return PlushPosePrecache.warmRemaining(
-          context,
-          stage,
-          displayWidth: currentAssetWidth,
-          skip: currentAction,
-        );
-      });
+      final backgroundWarmup =
+          PlushPosePrecache.ensurePose(
+            context,
+            stage,
+            currentAction,
+            displayWidth: currentAssetWidth,
+          ).then((_) {
+            if (!mounted) return null;
+            return PlushPosePrecache.warmRemaining(
+              context,
+              stage,
+              displayWidth: currentAssetWidth,
+              skip: currentAction,
+            );
+          });
       unawaited(backgroundWarmup);
     });
   }
@@ -213,6 +248,7 @@ class PlushCompanionState extends State<PlushCompanion>
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _idleGestureTimer?.cancel();
     _motion.dispose();
     super.dispose();
   }
@@ -229,19 +265,9 @@ class PlushCompanionState extends State<PlushCompanion>
           animation: _motion,
           builder: (context, _) {
             var t = _allowed ? _motion.value : 0.0;
-            var action = widget.action;
+            final action = _idleGesture ?? widget.action;
             if (_allowed && action == SpriteActionId.gentleFloat) {
-              final elapsed = t * 21600;
-              // Two brief idle gestures; learning cues always take priority.
-              if (elapsed >= 7200 && elapsed < 7480) {
-                action = SpriteActionId.blink;
-                t = (elapsed - 7200) / 280;
-              } else if (elapsed >= 18000 && elapsed < 19400) {
-                action = SpriteActionId.leafSway;
-                t = (elapsed - 18000) / 1400;
-              } else {
-                t = (t * 3) % 1;
-              }
+              t = (t * 2) % 1;
             }
             final pulse = math.sin(math.pi * t);
             var lift = 0.0;
@@ -309,6 +335,7 @@ class PlushCompanionState extends State<PlushCompanion>
                         key: ValueKey('$asset:${widget.revision}'),
                         stage: widget.decorationStage,
                         action: action,
+                        animated: _allowed && _motion.isAnimating,
                         width: widget.size,
                         height: widget.size * 1.2,
                         imageProvider: widget.imageProvider,

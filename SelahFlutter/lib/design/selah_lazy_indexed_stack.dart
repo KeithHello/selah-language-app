@@ -23,27 +23,55 @@ class SelahLazyIndexedStack extends StatefulWidget {
 }
 
 class _SelahLazyIndexedStackState extends State<SelahLazyIndexedStack> {
-  late final Set<int> _visited = {
-    widget.index.clamp(0, widget.children.length - 1),
-  };
+  late final Set<int> _visited;
+  late final List<Widget?> _cachedChildren;
+
+  int get _activeIndex => widget.index.clamp(0, widget.children.length - 1);
+
+  @override
+  void initState() {
+    super.initState();
+    _visited = {_activeIndex};
+    _cachedChildren = [
+      for (var i = 0; i < widget.children.length; i++)
+        if (i == _activeIndex) widget.children[i] else null,
+    ];
+  }
 
   @override
   void didUpdateWidget(covariant SelahLazyIndexedStack oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _visited.add(widget.index.clamp(0, widget.children.length - 1));
+    if (_cachedChildren.length > widget.children.length) {
+      _cachedChildren.removeRange(
+        widget.children.length,
+        _cachedChildren.length,
+      );
+      _visited.removeWhere((index) => index >= widget.children.length);
+    } else {
+      _cachedChildren.addAll(
+        List<Widget?>.filled(
+          widget.children.length - _cachedChildren.length,
+          null,
+        ),
+      );
+    }
+    _visited.add(_activeIndex);
+    _cachedChildren[_activeIndex] = widget.children[_activeIndex];
   }
 
   @override
   Widget build(BuildContext context) {
     return IndexedStack(
-      index: widget.index,
+      index: _activeIndex,
       children: [
         for (var i = 0; i < widget.children.length; i++)
           _visited.contains(i)
               ? TickerMode(
-                enabled: i == widget.index,
-                child: widget.children[i],
-              )
+                  enabled: i == _activeIndex,
+                  child: i == _activeIndex
+                      ? widget.children[i]
+                      : _cachedChildren[i] ?? const SizedBox.shrink(),
+                )
               : const SizedBox.shrink(),
       ],
     );
