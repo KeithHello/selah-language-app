@@ -1,17 +1,9 @@
-# Selah audio normalizer
+# 本地种子音频响度工具
 
-This directory is the standalone, dependency-free HTTP worker used by the Supabase audio-generate Edge Function. server.py validates a private MP3 upload, runs FFmpeg EBU R128 loudness normalization, and returns the normalized MP3 with measured metadata headers. The Docker image provides FFmpeg and runs as an unprivileged user.
+`server.py` 保留 FFmpeg EBU R128 双遍 loudnorm 函数，供本地种子音频脚本校准 MP3。线上 `audio-generate` 使用 Azure SSML 声线音量表，不调用本目录的 HTTP 服务。
 
-The worker listens on port 8080. GET /healthz is an unauthenticated readiness probe. POST /v1/normalize requires an Authorization Bearer token, Content-Type audio/mpeg, the lufs-v1 revision header, and the SHA-256 of the exact request body. It does not fetch URLs or log request contents.
+种子资产统一为 24 kHz、单声道、160 kbit/s MP3，目标成品实测约 `-20.9 LUFS`，真峰值不高于 `-1 dBTP`。处理后须重新测量，并把 revision 与校验和写入 seed manifest。
 
-Required runtime configuration is AUDIO_NORMALIZER_TOKEN, a random value of at least 32 characters. Optional bounds are AUDIO_NORMALIZER_MAX_BODY_BYTES (512 bytes–10 MiB), AUDIO_NORMALIZER_PROCESS_TIMEOUT_SECONDS (1–120), and AUDIO_NORMALIZER_MAX_CONCURRENT_JOBS (1–8). Do not commit a real token or place one in the image.
-
-Run local tests with Python:
+需要本机安装 FFmpeg；无需 Docker、HTTP 服务、认证 token 或云端容器。测试运行方式：
 
     python -m unittest discover -s supabase/audio-normalizer/tests -v
-
-Build the container from the repository root:
-
-    docker build -f supabase/audio-normalizer/Dockerfile -t selah-audio-normalizer .
-
-The image build and local tests do not deploy or configure an Azure resource. Before any cloud deployment, set a secret token in both the worker and the Edge Function configuration, restrict ingress to HTTPS, configure scale-to-zero HTTP scaling, and validate actual processing latency and per-request infrastructure cost.

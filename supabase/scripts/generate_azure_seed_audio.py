@@ -38,6 +38,13 @@ NATIVE_PROFILES = {
     "native-bright": ("+5%", "+1st", 1.05),
     "native-calm": ("-8%", "-1st", 0.92),
 }
+VOICE_VOLUME = {
+    "en-US-JennyNeural": None,
+    "en-US-GuyNeural": "-13%",
+    "en-GB-SoniaNeural": "-20%",
+    "zh-TW-HsiaoChenNeural": "-19%",
+    "ja-JP-NanamiNeural": "-35%",
+}
 ENGLISH_PROFILES = {
     "gentle-natural": ("en-US", "en-US-JennyNeural", "0%", "0%", 1),
     "clear-slow": ("en-US", "en-US-JennyNeural", "-10%", "0%", 0.9),
@@ -64,7 +71,9 @@ def load_local_env(path: Path) -> dict[str, str]:
         if not line or line.startswith("#") or "=" not in line:
             continue
         name, value = line.split("=", 1)
-        values[name.strip()] = value.strip().strip('"').strip("'")
+        normalized_name = name.strip()
+        if normalized_name in {"AZURE_SPEECH_KEY", "AZURE_SPEECH_REGION"}:
+            values[normalized_name] = value.strip().strip('"').strip("'")
     return values
 
 
@@ -81,11 +90,24 @@ def build_ssml(
         rate, pitch, _speed = NATIVE_PROFILES[voice_profile]
     safe_text = escape(text, {"'": "&apos;", '"': "&quot;"})
     safe_voice = escape(voice, {"'": "&apos;", '"': "&quot;"})
+    attributes = []
+    if rate != "0%":
+        attributes.append(f'rate="{rate}"')
+    if pitch != "0%":
+        attributes.append(f'pitch="{pitch}"')
+    volume = VOICE_VOLUME[voice]
+    if volume is not None:
+        attributes.append(f'volume="{volume}"')
+    content = (
+        f'<prosody {" ".join(attributes)}>{safe_text}</prosody>'
+        if attributes
+        else safe_text
+    )
     return (
         '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
         f'xml:lang="{locale}">'
         f'<voice name="{safe_voice}" xml:lang="{locale}">'
-        f'<prosody rate="{rate}" pitch="{pitch}">{safe_text}</prosody>'
+        f'{content}'
         '</voice>'
         "</speak>"
     )
@@ -164,6 +186,7 @@ def generate_seed_audio(
     execute: bool = False,
     dry_run: bool = False,
     overwrite: bool = False,
+    raw_audio_dir: Path | None = None,
 ) -> int:
     if language == "en":
         profiles = ENGLISH_PROFILES
@@ -190,7 +213,9 @@ def generate_seed_audio(
             seed_id, audio_dir, language, voice_profile
         )))
 
-    if dry_run or not execute:
+    if raw_audio_dir is not None and execute:
+        raise ValueError("--raw-audio-dir cannot be combined with --execute")
+    if dry_run or (not execute and raw_audio_dir is None):
         for seed_id, _text, output in work_items:
             print(f"PLAN {seed_id} {language} {voice_profile} -> {output}")
         return len(work_items)
@@ -203,21 +228,27 @@ def generate_seed_audio(
                 "or explicitly pass --overwrite"
             )
 
-    local_config = load_local_env(env_path)
-    key = os.environ.get("AZURE_SPEECH_KEY", local_config.get("AZURE_SPEECH_KEY", ""))
-    region = os.environ.get("AZURE_SPEECH_REGION", local_config.get("AZURE_SPEECH_REGION", ""))
-    if not key or not region or not all(
-        character.isalnum() or character == "-" for character in region
-    ):
-        raise AzureConfigurationError(
-            "AZURE_SPEECH_KEY and a valid AZURE_SPEECH_REGION are required "
-            "only when --execute is used"
+    key = ""
+    region = ""
+    if execute:
+        local_config = load_local_env(env_path)
+        key = os.environ.get(
+            "AZURE_SPEECH_KEY", local_config.get("AZURE_SPEECH_KEY", "")
         )
+        region = os.environ.get(
+            "AZURE_SPEECH_REGION", local_config.get("AZURE_SPEECH_REGION", "")
+        )
+        if not key or not region or not all(
+            character.isalnum() or character == "-" for character in region
+        ):
+            raise AzureConfigurationError(
+                "AZURE_SPEECH_KEY and a valid AZURE_SPEECH_REGION are required "
+                "only when --execute is used"
+            )
 
     ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
     ffprobe = shutil.which("ffprobe") or "ffprobe"
     normalizer_config = NormalizerConfig(
-        token="local-seed-audio-normalization",
         ffmpeg=ffmpeg,
         ffprobe=ffprobe,
     )
@@ -229,11 +260,19 @@ def generate_seed_audio(
     else:
         index = {}
     for seed_id, text, output in work_items:
-        raw_audio = _azure_speech_request(
-            region,
-            key,
-            build_ssml(text, language, voice_profile),
-        )
+        if raw_audio_dir is not None:
+            raw_path = raw_audio_dir / (
+                f"baseline__{language}__{voice_profile}__{seed_id}__default.mp3"
+            )
+            raw_audio = raw_path.read_bytes()
+            if not is_valid_mp3(raw_audio):
+                raise RuntimeError(f"Invalid calibration source MP3: {raw_path}")
+        else:
+            raw_audio = _azure_speech_request(
+                region,
+                key,
+                build_ssml(text, language, voice_profile),
+            )
         normalized_audio, metadata = normalize_mp3(raw_audio, normalizer_config)
         _atomic_write(output, normalized_audio)
         index_key = (
@@ -285,6 +324,11 @@ def main() -> int:
         action="store_true",
         help="Allow replacing files in the selected output directory",
     )
+    parser.add_argument(
+        "--raw-audio-dir",
+        type=Path,
+        help="Reuse matching default-volume calibration MP3s and normalize offline",
+    )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
     try:
@@ -297,11 +341,16 @@ def main() -> int:
             execute=args.execute,
             dry_run=args.dry_run,
             overwrite=args.overwrite,
+            raw_audio_dir=args.raw_audio_dir,
         )
     except (AzureConfigurationError, OSError, RuntimeError, ValueError) as error:
         print(f"Azure seed audio generation failed: {error}")
         return 1
-    mode = "generated" if args.execute and not args.dry_run else "planned"
+    mode = (
+        "generated" if args.execute and not args.dry_run
+        else "normalized from calibration audio" if args.raw_audio_dir and not args.dry_run
+        else "planned"
+    )
     print(f"Azure seed audio {mode}: {count} files")
     return 0
 

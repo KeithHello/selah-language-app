@@ -1,49 +1,38 @@
 #!/usr/bin/env python3
-"""Private HTTP service for validating and normalizing MP3 audio."""
+"""Offline FFmpeg processing for bundled Azure seed audio."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 import hashlib
-import hmac
 import json
 import math
-import os
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import re
-import shutil
 import subprocess
 import tempfile
-import threading
 from pathlib import Path
 from typing import Any
 
 
-NORMALIZER_REVISION = "lufs-v1"
-TARGET_LUFS = -22.0
+SEED_AUDIO_REVISION = "lufs-v2"
+TARGET_LUFS = -20.9
 FILTER_TRUE_PEAK_DBTP = -1.5
 MAX_FINAL_TRUE_PEAK_DBTP = -1.0
 LOUDNESS_TOLERANCE_LU = 1.0
-MAX_BODY_BYTES_DEFAULT = 10 * 1024 * 1024
 MAX_DURATION_SECONDS = 600.0
-MAX_CONCURRENT_JOBS_DEFAULT = 2
 PROCESS_TIMEOUT_SECONDS_DEFAULT = 45
 MP3_SIGNATURES = (b"ID3", b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
 
 
-class NormalizerError(Exception):
-    def __init__(self, code: str, status: int = 422) -> None:
+class NormalizerError(RuntimeError):
+    def __init__(self, code: str) -> None:
         super().__init__(code)
         self.code = code
-        self.status = status
 
 
 @dataclass(frozen=True)
 class NormalizerConfig:
-    token: str
-    max_body_bytes: int = MAX_BODY_BYTES_DEFAULT
     process_timeout_seconds: int = PROCESS_TIMEOUT_SECONDS_DEFAULT
-    max_concurrent_jobs: int = MAX_CONCURRENT_JOBS_DEFAULT
     ffmpeg: str = "ffmpeg"
     ffprobe: str = "ffprobe"
 
@@ -67,9 +56,9 @@ def _run(
             check=False,
         )
     except subprocess.TimeoutExpired as error:
-        raise NormalizerError("normalization_timeout", 504) from error
+        raise NormalizerError("normalization_timeout") from error
     except OSError as error:
-        raise NormalizerError("audio_processor_unavailable", 503) from error
+        raise NormalizerError("audio_processor_unavailable") from error
     if result.returncode != 0:
         raise NormalizerError("audio_processing_failed")
     return result
@@ -114,7 +103,7 @@ def _measure(
             "-map",
             "0:a:0",
             "-af",
-            "loudnorm=I=-22:TP=-1.5:LRA=11:print_format=json",
+            f"loudnorm=I={TARGET_LUFS}:TP={FILTER_TRUE_PEAK_DBTP}:LRA=11:print_format=json",
             "-f",
             "null",
             "-",
@@ -217,7 +206,7 @@ def normalize_mp3(
     config: NormalizerConfig,
 ) -> tuple[bytes, dict[str, Any]]:
     if not is_likely_mp3(source):
-        raise NormalizerError("audio_input_invalid", 415)
+        raise NormalizerError("audio_input_invalid")
     with tempfile.TemporaryDirectory(prefix="selah-normalize-") as directory:
         root = Path(directory)
         source_path = root / "source.mp3"
@@ -280,7 +269,7 @@ def normalize_mp3(
 
         duration_seconds, sample_rate = _probe(output_path, config)
         metadata = {
-            "revision": NORMALIZER_REVISION,
+            "revision": SEED_AUDIO_REVISION,
             "integratedLufs": integrated_lufs,
             "truePeakDbtp": true_peak_dbtp,
             "durationMs": round(duration_seconds * 1000),
@@ -290,168 +279,3 @@ def normalize_mp3(
             "sha256": hashlib.sha256(output).hexdigest(),
         }
         return output, metadata
-
-
-class NormalizerHTTPServer(ThreadingHTTPServer):
-    daemon_threads = True
-    request_queue_size = 16
-
-    def __init__(self, address: tuple[str, int], config: NormalizerConfig) -> None:
-        super().__init__(address, NormalizerHandler)
-        self.config = config
-        self.jobs = threading.BoundedSemaphore(config.max_concurrent_jobs)
-
-
-class NormalizerHandler(BaseHTTPRequestHandler):
-    server: NormalizerHTTPServer
-
-    def log_message(self, format: str, *args: Any) -> None:
-        return
-
-    def _json(self, status: int, code: str) -> None:
-        body = json.dumps({"error": code}, separators=(",", ":")).encode("utf-8")
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
-
-    def do_GET(self) -> None:
-        if self.path != "/healthz":
-            self._json(404, "not_found")
-            return
-        body = json.dumps(
-            {"status": "ok", "revision": NORMALIZER_REVISION},
-            separators=(",", ":"),
-        ).encode("utf-8")
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(body)))
-        self.send_header("Cache-Control", "no-store")
-        self.end_headers()
-        self.wfile.write(body)
-
-    def do_POST(self) -> None:
-        if self.path != "/v1/normalize":
-            self._json(404, "not_found")
-            return
-        expected_authorization = f"Bearer {self.server.config.token}"
-        actual_authorization = self.headers.get("Authorization", "")
-        if not hmac.compare_digest(actual_authorization, expected_authorization):
-            self._json(401, "unauthorized")
-            return
-        if self.headers.get("Content-Type", "").split(";", 1)[0].strip().lower() != "audio/mpeg":
-            self._json(415, "unsupported_media_type")
-            return
-        if self.headers.get("Transfer-Encoding"):
-            self._json(400, "transfer_encoding_unsupported")
-            return
-        revision = self.headers.get("X-Audio-Normalizer-Revision", "")
-        if revision != NORMALIZER_REVISION:
-            self._json(409, "normalizer_revision_mismatch")
-            return
-        expected_sha = self.headers.get("X-Audio-SHA256", "").lower()
-        if not re.fullmatch(r"[a-f0-9]{64}", expected_sha):
-            self._json(400, "invalid_audio_digest")
-            return
-        try:
-            content_length = int(self.headers.get("Content-Length", ""))
-        except ValueError:
-            self._json(411, "content_length_required")
-            return
-        if content_length < 512 or content_length > self.server.config.max_body_bytes:
-            self._json(413, "audio_size_out_of_range")
-            return
-        if not self.server.jobs.acquire(blocking=False):
-            self._json(503, "normalizer_busy")
-            return
-        try:
-            source = self.rfile.read(content_length)
-            if len(source) != content_length:
-                self._json(400, "audio_body_incomplete")
-                return
-            if hashlib.sha256(source).hexdigest() != expected_sha:
-                self._json(400, "audio_digest_mismatch")
-                return
-            try:
-                output, metadata = normalize_mp3(source, self.server.config)
-            except NormalizerError as error:
-                self._json(error.status, error.code)
-                return
-            self.send_response(200)
-            self.send_header("Content-Type", "audio/mpeg")
-            self.send_header("Content-Length", str(len(output)))
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Audio-Normalizer-Revision", metadata["revision"])
-            self.send_header("X-Audio-SHA256", metadata["sha256"])
-            self.send_header(
-                "X-Audio-Integrated-Lufs",
-                f'{metadata["integratedLufs"]:.2f}',
-            )
-            self.send_header(
-                "X-Audio-True-Peak-Dbtp",
-                f'{metadata["truePeakDbtp"]:.2f}',
-            )
-            self.send_header("X-Audio-Duration-Ms", str(metadata["durationMs"]))
-            self.send_header("X-Audio-Sample-Rate", str(metadata["sampleRate"]))
-            self.send_header("X-Audio-Channels", str(metadata["channels"]))
-            self.send_header("X-Audio-Normalization-Mode", metadata["mode"])
-            self.end_headers()
-            self.wfile.write(output)
-        except (BrokenPipeError, ConnectionResetError):
-            return
-        except Exception:
-            self._json(500, "normalizer_internal_error")
-        finally:
-            self.server.jobs.release()
-
-
-def config_from_env() -> NormalizerConfig:
-    token = os.environ.get("AUDIO_NORMALIZER_TOKEN", "")
-    if len(token) < 32:
-        raise RuntimeError("AUDIO_NORMALIZER_TOKEN must contain at least 32 characters")
-    max_body_bytes = int(
-        os.environ.get("AUDIO_NORMALIZER_MAX_BODY_BYTES", MAX_BODY_BYTES_DEFAULT)
-    )
-    process_timeout = int(
-        os.environ.get(
-            "AUDIO_NORMALIZER_PROCESS_TIMEOUT_SECONDS",
-            PROCESS_TIMEOUT_SECONDS_DEFAULT,
-        )
-    )
-    max_jobs = int(
-        os.environ.get(
-            "AUDIO_NORMALIZER_MAX_CONCURRENT_JOBS",
-            MAX_CONCURRENT_JOBS_DEFAULT,
-        )
-    )
-    if not 512 <= max_body_bytes <= MAX_BODY_BYTES_DEFAULT:
-        raise RuntimeError("AUDIO_NORMALIZER_MAX_BODY_BYTES is out of range")
-    if not 1 <= process_timeout <= 120:
-        raise RuntimeError("AUDIO_NORMALIZER_PROCESS_TIMEOUT_SECONDS is out of range")
-    if not 1 <= max_jobs <= 8:
-        raise RuntimeError("AUDIO_NORMALIZER_MAX_CONCURRENT_JOBS is out of range")
-    if not shutil.which("ffmpeg") or not shutil.which("ffprobe"):
-        raise RuntimeError("ffmpeg and ffprobe are required")
-    return NormalizerConfig(
-        token=token,
-        max_body_bytes=max_body_bytes,
-        process_timeout_seconds=process_timeout,
-        max_concurrent_jobs=max_jobs,
-    )
-
-
-def main() -> None:
-    config = config_from_env()
-    host = os.environ.get("AUDIO_NORMALIZER_BIND", "0.0.0.0")
-    port = int(os.environ.get("AUDIO_NORMALIZER_PORT", "8080"))
-    server = NormalizerHTTPServer((host, port), config)
-    try:
-        server.serve_forever(poll_interval=0.5)
-    finally:
-        server.server_close()
-
-
-if __name__ == "__main__":
-    main()

@@ -6,8 +6,8 @@ import {
 import {
   AUDIO_BUCKET,
   contentHash,
-  estimatedDurationMs,
   isAudioManifestAccessible,
+  mp3DurationMs,
   normalizeText,
   seedScope,
   seedStoragePath,
@@ -88,9 +88,7 @@ Deno.test("all user-facing English profiles map to Azure neural voices", () => {
   assertEquals(VOICE_MAP["elegant-british"], "en-GB-SoniaNeural");
 });
 
-Deno.test("estimated duration remains positive", () => {
-  assertEquals(estimatedDurationMs("hello"), 500);
-  assert(
-    estimatedDurationMs("this is a longer English sentence for playback") > 500,
-  );
+Deno.test("duration uses the fixed 160 kbit/s MP3 byte rate", () => {
+  assertEquals(mp3DurationMs(20_000), 1_000);
+  assertEquals(mp3DurationMs(80_000), 4_000);
 });

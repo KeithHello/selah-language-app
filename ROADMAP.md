@@ -8,14 +8,21 @@
 
 ## 当前阶段
 
-### 2026-10-09 Azure 声线响度实测与 SSML 音量方案（实测完成；方案待确认）
+### 2026-10-09 Azure 声线响度实测与 SSML 音量方案（T0—T8 完成；远端发布待逐步确认）
 
 - [x] 主人授权一次付费校准测量：153 次 Azure 请求全部成功，按项目规则约 13,599 个计费字符（按 S1 Neural 公开零售价约 US$0.20，账单未核验）。只从 `.env` 读取 Azure key 与 region，未访问 Supabase，未改代码、规范、配置或随包音频；原始音频与逐条数据在 `output/azure-loudness-calibration-2026-10-09/`（Git 忽略）。
 - [x] 实测结论：五个 Azure 声线的原始平均响度从 Nanami -17.15 到 Jenny -20.86 LUFS，相差约 3.7 LU；同一句日语母语比 Jenny 英语平均响 3.75 LU。各声线句间标准差 0.27～0.76 LU，profile 影响不超过 0.24 LU；SSML `volume` 为精确的线性增益，误差不超过 0.02 dB。按声线固定音量模拟，120 句中 117 句落在 ±1 LU 内，最大偏差 1.59 LU。
 - [x] 费用复核：现行 SSML 每次请求另计约 40 个标记字符；计入后，月会员额度用满的 TTS 成本约为仅英语 US$0.71、英语＋繁中 US$0.95，此前按正文的估算偏低。
 - [x] 整理 [校准实测记录](docs/2026-10-09-azure-tts-loudness-calibration.md) 与 [SSML 声线音量开发方案](docs/superpowers/plans/2026-10-09-azure-tts-ssml-volume-plan.md) ：建议线上改为 SSML 按声线衰减到 -20.9 LUFS，不部署 Azure Container Apps；按新规则，上述两个场景分别降至约 US$0.45 与 US$0.71。
-- [ ] 待主人确认方案与开发授权、删除处理服务相关的 3 个文件、实施阶段约 US$0.16 的付费合成，以及 push `main` 触发的 Cloudflare 生产发布。确认前，`CLAUDE.md` 中的 FFmpeg 处理服务规则仍然有效。
-- [ ] 本机 `main` 与 `origin/main` 已分叉（领先 5、落后 4），发布前须先整合。
+- [x] 主人已授权方案 T0—T8、响度目标 `-20.9 LUFS`、60 条种子重制、T7 列出的 3 个文件清理及约 US$0.07 的 Azure 付费复测；执行边界已更新到 `CLAUDE.md`。
+- [x] T0—T3：更新项目规范、设计规格、`.env.example` 与离线校准说明；按 Azure 声线写 SSML `volume`，在线合成后直接校验、计算 SHA／时长并上传；移除在线标准化预留成本。线上缓存修订为 `azure-vol-v1`，随包种子修订为 `lufs-v2`。
+- [x] T4—T5：客户端缓存与种子版本拆分完成。60 条随包种子复用已有原始 Azure 音频离线重做，没有重复合成；成品 `-21.36` 至 `-21.33 LUFS`、最高真峰值 `-2.05 dBTP`。manifest 60 项、唯一文件 60 个，SHA-256、字节数和 revision 全部匹配。
+- [x] T6—T7：新增默认 dry-run、计费字符上限、五声线 10 句测量与音量建议工具；移除已授权的 Dockerfile、在线标准化调用模块及其测试，保留 FFmpeg 离线种子处理器。
+- [x] T8：50 条 Azure 校准全部通过，4,359 计费字符，按公开 S1 单价估算约 US$0.0654（实际账单未核验）。声线均值：Jenny `-20.886`、Guy `-20.928`、Sonia `-20.894`、HsiaoChen `-20.874`、Nanami `-20.875 LUFS`；均在 `-20.9 ±0.5 LU` 内，最高真峰值均低于 `-1 dBTP`。已生成中文／英语和日语／英语各 10 组交替试听样本。
+- [x] 本地验证：Deno 383 项、lint 95 个文件、Edge Function 类型检查 20 个；Python 24 项、Node 11 项、Flutter 441 项；`flutter analyze --no-pub` 无问题；Deno 格式检查通过（规范化临时副本行尾）；Web Release 构建版本 `1.9.0`、Build ID `af01bc05037f3b98`。
+- [ ] T9 远端 secrets／Edge Function 部署与 Cloudflare 生产发布按各自授权边界处理；Cloudflare push `main` 前须取得当步确认。
+- [ ] T9 尚未执行：远端 Azure 价格 secrets、`audio-generate` 部署、生产账号三语动态音频核验、`origin/main` 集成与 GitHub push／Cloudflare Pages 生产发布，均按具体步骤另行确认。
+- [ ] 本机 `main` 与 `origin/main` 最后一次核对为本地领先 6、落后 4；T9 集成前需重新 fetch 并核对远端提交。
 
 ### 2026-10-09 网站性能 P0/P1 优化（本地实现与验证完成；未部署）
 
@@ -28,7 +35,7 @@
 - [ ] IndexedDB 拆分存储及版本化数据迁移暂缓：尚未获得针对该本地数据库结构／数据迁移的明确授权；本轮未改 IndexedDB schema、Supabase 数据库或云端配置。
 - [ ] 未部署预览或生产环境。后续需在获准发布后采集真实用户 Core Web Vitals，与生产基线对比。
 
-### 2026-10-09 Azure 三语 TTS 与响度校准统一（本地实现、种子音轨与验证完成；云端配置与发布待确认）
+### 2026-10-09 Azure 三语 TTS 与响度校准统一初版（已由本节 SSML 声线音量方案取代）
 
 - [x] 主人已授权按已确认方案完整开发；项目规范、设计规格和实施计划已更新。
 - [x] 中文、日语母语及美式／英式英语统一到 Azure Speech 标准神经语音，SSML 按 locale 与现有 profile 设置语速／音高；新 TTS 不再回退到 OpenAI。

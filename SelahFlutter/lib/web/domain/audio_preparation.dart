@@ -1,11 +1,12 @@
 enum AudioTrackRole { target, source }
 
 const audioCacheKeyVersion = 'audio:v3';
-const audioNormalizerRevision = 'lufs-v1';
+const audioLevelRevision = 'azure-vol-v1';
+const seedAudioRevision = 'lufs-v2';
 const audioCacheKeyPrefix = '$audioCacheKeyVersion:loop:';
 
 bool isNormalizedAudioEntry(Object? entry) =>
-    entry is Map && entry['normalizerRevision'] == audioNormalizerRevision;
+    entry is Map && entry['normalizerRevision'] == seedAudioRevision;
 
 String audioProviderForLanguage(String language) => 'azure';
 
@@ -45,7 +46,7 @@ String audioManifestCachePattern({
 }) {
   final providerVoice = audioProviderVoice(voice: voice, language: language);
   final speed = audioSpeedForProfile(voice);
-  return 'azure:$providerVoice:${_audioSpeedText(speed)}:$audioNormalizerRevision:%';
+  return 'azure:$providerVoice:${_audioSpeedText(speed)}:$audioLevelRevision:%';
 }
 
 String audioAccentFor({required String voice, required String language}) {
@@ -63,7 +64,7 @@ String audioTrackKey({
   final provider = audioProviderForLanguage(language);
   final providerVoice = audioProviderVoice(voice: voice, language: language);
   final speed = audioSpeedForProfile(voice);
-  return '$audioCacheKeyPrefix$provider:$providerVoice:${_audioSpeedText(speed)}:$audioNormalizerRevision:$voice:${role.name}:$language:$contentHash';
+  return '$audioCacheKeyPrefix$provider:$providerVoice:${_audioSpeedText(speed)}:$audioLevelRevision:$voice:${role.name}:$language:$contentHash';
 }
 
 String singleAudioTrackKey({
@@ -75,7 +76,7 @@ String singleAudioTrackKey({
   final provider = audioProviderForLanguage(language);
   final providerVoice = audioProviderVoice(voice: voice, language: language);
   final speed = audioSpeedForProfile(voice);
-  return '$audioCacheKeyVersion:sentence:$sentenceId:$provider:$providerVoice:${_audioSpeedText(speed)}:$audioNormalizerRevision:$voice:target:$language:$contentHash';
+  return '$audioCacheKeyVersion:sentence:$sentenceId:$provider:$providerVoice:${_audioSpeedText(speed)}:$audioLevelRevision:$voice:target:$language:$contentHash';
 }
 
 class AudioTrackRef {

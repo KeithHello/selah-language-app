@@ -9,6 +9,7 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 
 import {
+  calculateAzureTtsMaxCost,
   calculateBatchMaxCost,
   calculateFullPackageCost,
   calculateOperationMaxCost,
@@ -60,6 +61,12 @@ Deno.test("TTS cost calculation respects character rates", () => {
   assertEquals(calculateTtsMaxCost(1000), 15_000_000n);
   assertThrows(() => calculateTtsMaxCost(0));
   assertThrows(() => calculateTtsMaxCost(-5));
+});
+
+Deno.test("Azure TTS cost reservation excludes audio processing services", () => {
+  assertEquals(calculateAzureTtsMaxCost(202, 1000), 202_000n);
+  assertThrows(() => calculateAzureTtsMaxCost(0, 1000));
+  assertThrows(() => calculateAzureTtsMaxCost(202, 0));
 });
 
 Deno.test("transcription cost calculation respects ms rates and ceiling", () => {

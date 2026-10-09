@@ -2,7 +2,8 @@ export const AUDIO_BUCKET = "audio-assets";
 export const TTS_MODEL = "azure-speech";
 export const TTS_SPEED = 1;
 export const AUDIO_FORMAT = "mp3";
-export const AUDIO_NORMALIZER_REVISION = "lufs-v1";
+export const AUDIO_LEVEL_REVISION = "azure-vol-v1";
+export const SEED_AUDIO_REVISION = "lufs-v2";
 export const SIGNED_URL_TTL_SECONDS = 60 * 10;
 
 export const VOICE_MAP: Record<string, string> = {
@@ -47,7 +48,7 @@ export async function contentHash(
     model,
     speed,
     format,
-    AUDIO_NORMALIZER_REVISION,
+    AUDIO_LEVEL_REVISION,
   ].join("|");
   const bytes = new TextEncoder().encode(canonical);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -65,12 +66,12 @@ export async function textContentHash(
   text: string,
   spokenLanguage: string,
   format = AUDIO_FORMAT,
-  normalizerRevision = AUDIO_NORMALIZER_REVISION,
+  levelRevision = AUDIO_LEVEL_REVISION,
 ): Promise<string> {
   const canonical = [
     spokenLanguage.trim().toLowerCase(),
     format,
-    normalizerRevision,
+    levelRevision,
     normalizeText(text),
   ]
     .join("|");
@@ -127,9 +128,11 @@ export function seedStoragePath(
   return `seed/${seedSentenceId}/${voiceProfile}/${hash}.mp3`;
 }
 
-export function estimatedDurationMs(targetText: string): number {
-  const words = targetText.trim().split(/\s+/).filter(Boolean).length;
-  return Math.max(500, Math.ceil((words / 2.5) * 1000));
+export function mp3DurationMs(byteLength: number): number {
+  if (!Number.isSafeInteger(byteLength) || byteLength < 0) {
+    throw new RangeError("byteLength must be a non-negative safe integer");
+  }
+  return Math.round(byteLength / 20);
 }
 
 export function isAudioManifestAccessible(

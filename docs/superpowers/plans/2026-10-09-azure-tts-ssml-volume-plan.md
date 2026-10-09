@@ -1,6 +1,6 @@
 # Azure 语音 SSML 声线音量开发方案
 
-日期：2026-10-09。状态：待主人确认；尚未修改代码、规范、配置、密钥或随包音频。
+日期：2026-10-09。状态：T0—T8 已完成并通过本地验收。T9 的远端密钥与 Edge Function 发布、`main` 推送及 Cloudflare Pages 生产部署，按各自边界暂缓。
 
 依据：[Azure 语音响度校准实测](../../2026-10-09-azure-tts-loudness-calibration.md) 、[Azure 三语 TTS 与响度统一设计](../specs/2026-10-09-azure-tts-unification-design.md) ，以及项目 `CLAUDE.md` 的 2026-10-09 Azure 段落。本方案获批后，取代其中「每条音轨经独立 FFmpeg 处理服务校准」的规定。
 
@@ -145,13 +145,11 @@ T0～T8 在功能分支 `codex/azure-ssml-volume` 上完成（从本机 `main` �
 6. 按 `CLAUDE.md` 的合并规则合入 `main` 并 push，由 CI 部署 Cloudflare Pages 生产；核对版本、Build ID 和静态资源。
 7. 更新 `ROADMAP.md`，关闭 Container Apps 相关待办，以及 OpenAI `tts-1` 将于 2027-01-06 退役的风险项。
 
-## 5．需要主人确认
+## 5．授权与发布边界
 
-1. 本方案与 T0～T8 的开发授权，包括目标改为 -20.9 LUFS，以及 T5 覆盖 60 条随包种子音频。
-2. T7 删除 3 个文件。
-3. 实施阶段的 Azure 付费合成：种子重做约 US$0.09，T8 验证约 US$0.07，合计约 US$0.16。
-4. T9 第 3、4 步写入 Azure 单价 secrets 并部署 `audio-generate`：属于 `CLAUDE.md` 记录的 2026-10-09 后端 rollout 授权范围，执行前先列出变更内容。
-5. T9 第 6 步 push `main` 会触发 Cloudflare Pages 生产部署，按全局 `AGENTS.md` 逐步说明并取得当步确认。
+1. 主人已明确授权执行 T0—T8，包括将线上目标改为约 -20.9 LUFS、覆盖 60 条随包种子、T7 列出的 3 个文件清理，以及 Azure 付费响度复测。现存的 60 个原始校准音频与种子句子、profile 一一对应；离线标准化可省去重复合成约 US$0.09，最终响度和峰值仍按相同标准验证。T8 预计约 US$0.07 的付费复测在授权范围内。
+2. 本轮开发和本地验证不授权写入 Supabase secrets 或部署 Edge Function。T9 第 3、4 步执行前，将列明具体配置值、目标项目、函数版本、健康检查与旧前端兼容验证，并按届时适用的项目规则取得当步确认。
+3. T9 第 6 步 push `main` 会触发 Cloudflare Pages 生产部署。执行前将单独说明目标项目、配置变化、风险、观察项和对其他项目的影响，并取得该步确认；本地合并不等于生产发布授权。
 
 ## 6．风险与回退
 
@@ -165,4 +163,12 @@ T0～T8 在功能分支 `codex/azure-ssml-volume` 上完成（从本机 `main` �
 - 线上生成不再依赖处理服务；缺少 Azure 配置或单价时 fail closed。
 - T8 付费验证中 5 个声线均达标，并经主人试听确认；60 条种子为 -20.9 LUFS，并与 manifest 一致。
 - 本地检查全部通过，`ROADMAP.md` 记录真实验证结果。
-- 生产 `audio-generate` 为 ACTIVE，真实账户三语生成与循环听播放正常；前端版本与 Build ID 核验通过。
+- 生产 `audio-generate` 为 ACTIVE，真实账户三语生成与循环听播放正常；前端版本与 Build ID 核验通过。以上远端条件须在取得对应逐步授权后验收。
+
+## 8．本轮执行结果
+
+- 60 条随包种子使用已保存的原始校准音频离线重做，没有重复调用 Azure；成品为 24 kHz、单声道、160 kbit/s MP3，响度 `-21.36` 至 `-21.33 LUFS`，最高真峰值 `-2.05 dBTP`。manifest 60 项、60 个唯一文件，SHA-256、字节数与 `lufs-v2` 全部匹配。
+- Azure 复测实际合成 50 条，计费字符估算 4,359，按 US$15／百万字符估算约 US$0.0654；实际账单未从 Azure 门户核验。五个声线的 10 句平均值分别为 Jenny `-20.886`、Guy `-20.928`、Sonia `-20.894`、HsiaoChen `-20.874`、Nanami `-20.875 LUFS`，均在目标 `-20.9 ±0.5 LU` 内；各自最高真峰值均低于 `-1 dBTP`。
+- 已导出 10 组「繁中母语／Jenny 英语」及 10 组「日语母语／Jenny 英语」交替试听清单，保存在本机 `output/azure-voice-loudness-2026-10-09T09-51-18-313Z/listening-pairs/`。
+- 验证通过：Deno 383 项、95 个文件 lint、20 个 Edge Function 类型检查；Python 24 项、Node 11 项；Flutter 441 项与静态分析；Web Release 构建版本 `1.9.0`、Build ID `af01bc05037f3b98`。Deno 全目录格式检查通过（临时副本统一换行后检查）。
+- T9 未执行远端 secrets 写入、Edge Function 部署、GitHub push 或 Cloudflare 操作；需在具体操作前按项目规则说明并取得对应确认。

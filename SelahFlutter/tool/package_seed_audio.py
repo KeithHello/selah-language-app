@@ -18,7 +18,7 @@ DEFAULT_VOICE = 'gentle-natural'
 VOICES = ('gentle-natural', 'clear-slow', 'daily-bright', 'elegant-british')
 SOURCE_VOICE = 'source'
 NATIVE_LANGUAGES = ('zh-Hant', 'ja')
-NORMALIZER_REVISION = 'lufs-v1'
+NORMALIZER_REVISION = 'lufs-v2'
 DEFAULT_LOCAL_AUDIO_DIR = ROOT / 'preview-output' / 'azure-seed-audio'
 VOICE_IDENTITIES = {
     'gentle-natural': ('azure-speech/en-US-JennyNeural', 1),
@@ -129,7 +129,7 @@ def package_local_native_audio(seeds, audio_dir, existing, source_audio_dir=None
                             or indexed.get('byteSize') != entry['byteSize']
                             or indexed.get('normalizerRevision') != NORMALIZER_REVISION
                             or not isinstance(indexed.get('integratedLufs'), (int, float))
-                            or abs(indexed['integratedLufs'] + 22.0) > 1.0
+                            or abs(indexed['integratedLufs'] + 20.9) > 1.0
                             or not isinstance(indexed.get('truePeakDbtp'), (int, float))
                             or indexed['truePeakDbtp'] > -1.0):
                         raise RuntimeError(f'Native audio normalization proof mismatch: {filename}')
@@ -162,7 +162,7 @@ def package_local_default_audio(seeds, audio_dir, existing, source_audio_dir):
                 or not valid_audio(body, indexed.get('sha256'), indexed.get('byteSize'))
                 or indexed.get('normalizerRevision') != NORMALIZER_REVISION
                 or not isinstance(indexed.get('integratedLufs'), (int, float))
-                or abs(indexed['integratedLufs'] + 22.0) > 1.0
+                or abs(indexed['integratedLufs'] + 20.9) > 1.0
                 or not isinstance(indexed.get('truePeakDbtp'), (int, float))
                 or indexed['truePeakDbtp'] > -1.0
             ):

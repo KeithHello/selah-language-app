@@ -15,6 +15,7 @@ export function buildAzureSpeechRequest(
   route: AudioRoute,
   key: string,
   region: string,
+  options: { applyVolume?: boolean } = {},
 ): { url: string; init: RequestInit } {
   return {
     url: azureSpeechEndpoint(region),
@@ -26,7 +27,7 @@ export function buildAzureSpeechRequest(
         "X-Microsoft-OutputFormat": AZURE_OUTPUT_FORMAT,
         "User-Agent": "selah-audio-generate",
       },
-      body: buildAzureSsml(text, route),
+      body: buildAzureSsml(text, route, options),
     },
   };
 }
@@ -34,8 +35,9 @@ export function buildAzureSpeechRequest(
 export function azureBillableCharacterCount(
   text: string,
   route: AudioRoute,
+  options: { applyVolume?: boolean } = {},
 ): number {
-  const ssml = buildAzureSsml(text, route);
+  const ssml = buildAzureSsml(text, route, options);
   const voiceContent = ssml.match(/<voice\b[^>]*>([\s\S]*)<\/voice>/)?.[1];
   if (voiceContent === undefined) {
     throw new Error("invalid_azure_ssml_voice_content");

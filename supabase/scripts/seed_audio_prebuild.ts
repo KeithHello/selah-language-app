@@ -11,10 +11,7 @@
  *   SUPABASE_SERVICE_ROLE_KEY
  *   AZURE_SPEECH_KEY
  *   AZURE_SPEECH_REGION
- *   AUDIO_NORMALIZER_URL
- *   AUDIO_NORMALIZER_TOKEN
  *   AZURE_TTS_NANO_USD_PER_BILLABLE_CHARACTER
- *   AUDIO_NORMALIZER_NANO_USD_PER_REQUEST
  *   AZURE_TTS_PRICE_VERSION
  *
  * Usage:
@@ -26,10 +23,11 @@
 import {
   AUDIO_BUCKET,
   AUDIO_FORMAT,
-  AUDIO_NORMALIZER_REVISION,
-  estimatedDurationMs,
+  AUDIO_LEVEL_REVISION,
+  mp3DurationMs,
   seedScope,
   seedStoragePath,
+  sha256,
   textContentHash,
 } from "../functions/_shared/audio.ts";
 import {
@@ -41,10 +39,6 @@ import {
   azureBillableCharacterCount,
   buildAzureSpeechRequest,
 } from "../functions/_shared/azure_speech.ts";
-import {
-  isAudioNormalizerConfigured,
-  normalizeAudioBuffer,
-} from "../functions/_shared/audio_normalizer.ts";
 import { isLikelyMp3Audio } from "../functions/_shared/audio_generation_policy.ts";
 
 const execute = Deno.args.includes("--execute");
@@ -97,7 +91,7 @@ const totalBillableCharacters = workItems.reduce(
   0,
 );
 console.log(
-  `Format: ${AUDIO_FORMAT}; normalizer: ${AUDIO_NORMALIZER_REVISION}.`,
+  `Format: ${AUDIO_FORMAT}; level revision: ${AUDIO_LEVEL_REVISION}.`,
 );
 console.log(`Estimated Azure billable characters: ${totalBillableCharacters}.`);
 
@@ -110,7 +104,7 @@ async function seedIdentity(item: {
     item.targetText,
     item.route.language,
     AUDIO_FORMAT,
-    AUDIO_NORMALIZER_REVISION,
+    AUDIO_LEVEL_REVISION,
   );
   return {
     textHash,
@@ -119,7 +113,7 @@ async function seedIdentity(item: {
       providerVoice: item.route.providerVoice,
       speed: item.route.speed,
       textHash,
-      normalizerRevision: AUDIO_NORMALIZER_REVISION,
+      levelRevision: AUDIO_LEVEL_REVISION,
     }),
   };
 }
@@ -154,32 +148,23 @@ const supabaseURL = Deno.env.get("SUPABASE_URL");
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const azureKey = Deno.env.get("AZURE_SPEECH_KEY");
 const azureRegion = Deno.env.get("AZURE_SPEECH_REGION");
-const normalizerUrl = Deno.env.get("AUDIO_NORMALIZER_URL") ?? "";
-const normalizerToken = Deno.env.get("AUDIO_NORMALIZER_TOKEN") ?? "";
 const azureRate = Number(
   Deno.env.get("AZURE_TTS_NANO_USD_PER_BILLABLE_CHARACTER"),
-);
-const normalizerReserve = Number(
-  Deno.env.get("AUDIO_NORMALIZER_NANO_USD_PER_REQUEST"),
 );
 const priceVersion = Deno.env.get("AZURE_TTS_PRICE_VERSION") ?? "";
 if (
   !supabaseURL || !serviceRoleKey || !azureKey || !azureRegion ||
   !/^\d+$/.test(String(azureRate)) || !Number.isSafeInteger(azureRate) ||
   azureRate < 1 ||
-  !/^\d+$/.test(String(normalizerReserve)) ||
-  !Number.isSafeInteger(normalizerReserve) || normalizerReserve < 1 ||
-  !/^[a-zA-Z0-9._-]{1,80}$/.test(priceVersion) ||
-  !isAudioNormalizerConfigured(normalizerUrl, normalizerToken)
+  !/^[a-zA-Z0-9._-]{1,80}$/.test(priceVersion)
 ) {
   console.error(
-    "ERROR: --execute requires valid Azure, normalizer, Supabase, and versioned price configuration.",
+    "ERROR: --execute requires valid Azure, Supabase, and versioned price configuration.",
   );
   Deno.exit(1);
 }
 
-const estimateNanoUsd = BigInt(totalBillableCharacters) * BigInt(azureRate) +
-  BigInt(workItems.length) * BigInt(normalizerReserve);
+const estimateNanoUsd = BigInt(totalBillableCharacters) * BigInt(azureRate);
 console.log(
   `Configured conservative estimate: ${estimateNanoUsd} nano-USD (${priceVersion}).`,
 );
@@ -227,12 +212,8 @@ for (const item of workItems) {
     if (!isLikelyMp3Audio(sourceAudio)) {
       throw new Error("Azure returned invalid MP3");
     }
-    const normalized = await normalizeAudioBuffer(sourceAudio, {
-      endpoint: normalizerUrl,
-      token: normalizerToken,
-    });
-    const buffer = normalized.audio;
-    const checksum = normalized.sha256;
+    const buffer = sourceAudio;
+    const checksum = await sha256(buffer);
     const { error: uploadError } = await supabase.storage.from(AUDIO_BUCKET)
       .upload(path, new Uint8Array(buffer), {
         contentType: "audio/mpeg",
@@ -253,8 +234,7 @@ for (const item of workItems) {
         speed: item.route.speed,
         audio_format: AUDIO_FORMAT,
         byte_size: buffer.byteLength,
-        duration_ms: normalized.durationMs ||
-          estimatedDurationMs(item.targetText),
+        duration_ms: mp3DurationMs(buffer.byteLength),
         sha256: checksum,
         generation_status: "ready",
         error_code: null,

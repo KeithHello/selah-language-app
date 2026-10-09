@@ -73,7 +73,7 @@ void main() {
         'seed-001:gentle-natural': {
           'path': 'assets/audio/sample.mp3',
           'sha256': 'a' * 64,
-          'normalizerRevision': 'lufs-v1',
+          'normalizerRevision': 'lufs-v2',
         },
       },
     );

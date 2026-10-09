@@ -20,6 +20,7 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
         self.assertIn('name="zh-TW-HsiaoChenNeural"', ssml)
         self.assertIn("A&amp;B &lt;今天&gt;", ssml)
         self.assertIn('xml:lang="zh-TW"', ssml)
+        self.assertIn('volume="-19%"', ssml)
 
     def test_build_ssml_routes_japanese_and_applies_native_profile(self):
         ssml = MODULE.build_ssml("今日は晴れです。", "ja", "native-calm")
@@ -27,13 +28,20 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
         self.assertIn('xml:lang="ja-JP"', ssml)
         self.assertIn('rate="-8%"', ssml)
         self.assertIn('pitch="-1st"', ssml)
+        self.assertIn('volume="-35%"', ssml)
 
     def test_build_ssml_routes_english_to_profile_voice_and_prosody(self):
         ssml = MODULE.build_ssml("A quiet day.", "en", "clear-slow")
         self.assertIn('name="en-US-JennyNeural"', ssml)
         self.assertIn('xml:lang="en-US"', ssml)
         self.assertIn('rate="-10%"', ssml)
-        self.assertIn('pitch="0%"', ssml)
+        self.assertNotIn('pitch=', ssml)
+        self.assertNotIn('volume=', ssml)
+
+    def test_default_jenny_ssml_omits_default_prosody(self):
+        ssml = MODULE.build_ssml("A quiet day.", "en", "gentle-natural")
+        self.assertIn('<voice name="en-US-JennyNeural"', ssml)
+        self.assertNotIn('<prosody', ssml)
 
     def test_voice_output_path_uses_source_zh_hant_filename(self):
         path = MODULE.voice_output_path("seed-001", Path("audio"))
@@ -56,6 +64,7 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
             values = MODULE.load_local_env(env_path)
         self.assertEqual(values["AZURE_SPEECH_KEY"], "secret")
         self.assertEqual(values["AZURE_SPEECH_REGION"], "eastasia")
+        self.assertNotIn("OTHER", values)
         self.assertNotIn("# comment", values)
 
     def test_dry_run_plans_all_seed_sentences_without_writing(self):
@@ -118,7 +127,7 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
                 encoding="utf-8",
             )
             normalized = b"ID3" + b"normalized" * 50
-            metadata = {"integratedLufs": -22.0, "truePeakDbtp": -1.2, "revision": "lufs-v1"}
+            metadata = {"integratedLufs": -20.9, "truePeakDbtp": -1.2, "revision": "lufs-v2"}
             with mock.patch.dict(MODULE.os.environ, {"AZURE_SPEECH_KEY": "test-key", "AZURE_SPEECH_REGION": "japaneast"}), \
                  mock.patch.object(MODULE, "_azure_speech_request", return_value=b"ID3" + b"raw" * 50) as request, \
                  mock.patch.object(MODULE, "normalize_mp3", return_value=(normalized, metadata)) as normalize:
@@ -136,7 +145,7 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
             index = json.loads((root / "audio" / "audio-index.json").read_text(encoding="utf-8"))
             self.assertEqual(
                 index["seed-001:source:ja:native-gentle"]["normalizerRevision"],
-                "lufs-v1",
+                "lufs-v2",
             )
             self.assertEqual(
                 index["seed-001:source:ja:native-gentle"]["sha256"],
@@ -145,6 +154,36 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
             request.assert_called_once()
             self.assertIn(b"NanamiNeural", request.call_args.args[2].encode())
             normalize.assert_called_once()
+
+    def test_reuses_calibration_mp3_without_env_access_or_azure_call(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            seed_path = root / "seed.json"
+            seed_path.write_text(
+                json.dumps({"sentences": [{"id": "seed-001", "ja_text": "こんにちは。"}]}, ensure_ascii=False),
+                encoding="utf-8",
+            )
+            raw_dir = root / "raw"
+            raw_dir.mkdir()
+            raw = b"ID3" + b"calibration-source" * 30
+            (raw_dir / "baseline__ja__native-gentle__seed-001__default.mp3").write_bytes(raw)
+            normalized = b"ID3" + b"normalized" * 50
+            metadata = {"integratedLufs": -20.9, "truePeakDbtp": -1.2, "revision": "lufs-v2"}
+            with mock.patch.object(MODULE, "load_local_env", side_effect=AssertionError("offline reuse must not read env")), \
+                 mock.patch.object(MODULE, "_azure_speech_request", side_effect=AssertionError("offline reuse must not call Azure")) as request, \
+                 mock.patch.object(MODULE, "normalize_mp3", return_value=(normalized, metadata)) as normalize:
+                count = MODULE.generate_seed_audio(
+                    seed_path=seed_path,
+                    audio_dir=root / "audio",
+                    env_path=root / ".env",
+                    language="ja",
+                    voice_profile="native-gentle",
+                    raw_audio_dir=raw_dir,
+                )
+            self.assertEqual(count, 1)
+            self.assertEqual((root / "audio" / "seed-001-source-ja.mp3").read_bytes(), normalized)
+            request.assert_not_called()
+            normalize.assert_called_once_with(raw, mock.ANY)
 
     def test_generates_english_target_audio_with_manifest_identity(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -158,9 +197,9 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
             )
             normalized = b"ID3" + b"normalized" * 50
             metadata = {
-                "integratedLufs": -22.0,
+                "integratedLufs": -20.9,
                 "truePeakDbtp": -1.2,
-                "revision": "lufs-v1",
+                "revision": "lufs-v2",
             }
             with mock.patch.dict(
                 MODULE.os.environ,
@@ -184,7 +223,7 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
             self.assertEqual(output.read_bytes(), normalized)
             index = json.loads((root / "audio" / "audio-index.json").read_text())
             self.assertEqual(
-                index["seed-001:clear-slow"]["normalizerRevision"], "lufs-v1"
+                index["seed-001:clear-slow"]["normalizerRevision"], "lufs-v2"
             )
             self.assertEqual(
                 index["seed-001:clear-slow"]["sha256"],

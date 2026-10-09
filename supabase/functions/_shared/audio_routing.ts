@@ -1,6 +1,6 @@
 import {
   AUDIO_FORMAT,
-  AUDIO_NORMALIZER_REVISION,
+  AUDIO_LEVEL_REVISION,
   TTS_SPEED,
   VOICE_ACCENTS,
   VOICE_MAP,
@@ -44,6 +44,14 @@ const PROFILE_PROSODY: Record<
   "native-clear": { rate: "-5%", pitch: "0%", speed: 0.95 },
   "native-bright": { rate: "+5%", pitch: "+1st", speed: 1.05 },
   "native-calm": { rate: "-8%", pitch: "-1st", speed: 0.92 },
+};
+
+export const AZURE_VOICE_VOLUME: Readonly<Record<string, string | null>> = {
+  "en-US-JennyNeural": null,
+  "en-US-GuyNeural": "-13%",
+  "en-GB-SoniaNeural": "-20%",
+  "zh-TW-HsiaoChenNeural": "-19%",
+  "ja-JP-NanamiNeural": "-35%",
 };
 
 function canonicalLanguage(value: unknown): "zh-Hant" | "ja" | "en" | null {
@@ -215,17 +223,26 @@ export function audioCacheKey(input: {
   providerVoice: string;
   speed: number;
   textHash: string;
-  normalizerRevision?: string;
+  levelRevision?: string;
 }): string {
   return `${input.provider}:${input.providerVoice}:${input.speed}:${
-    input.normalizerRevision ?? AUDIO_NORMALIZER_REVISION
+    input.levelRevision ?? AUDIO_LEVEL_REVISION
   }:${input.textHash}`;
 }
 
-export function buildAzureSsml(text: string, route: AudioRoute): string {
+export function buildAzureSsml(
+  text: string,
+  route: AudioRoute,
+  options: { applyVolume?: boolean } = {},
+): string {
   const baseVoice = route.providerVoice.split("@", 1)[0];
   const profile = PROFILE_PROSODY[route.voiceProfile];
   if (!profile) throw new Error("unsupported_voice_profile");
+  const configuredVolume = AZURE_VOICE_VOLUME[baseVoice];
+  if (configuredVolume === undefined) {
+    throw new Error("unsupported_azure_voice");
+  }
+  const volume = options.applyVolume === false ? null : configuredVolume;
   const escaped = text.replace(
     /[&<>"']/g,
     (value) => ({
@@ -236,5 +253,13 @@ export function buildAzureSsml(text: string, route: AudioRoute): string {
       "'": "&apos;",
     }[value] ?? value),
   );
-  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${route.accent}"><voice name="${baseVoice}" xml:lang="${route.accent}"><prosody rate="${profile.rate}" pitch="${profile.pitch}">${escaped}</prosody></voice></speak>`;
+  const attributes = [
+    profile.rate === "0%" ? null : `rate="${profile.rate}"`,
+    profile.pitch === "0%" ? null : `pitch="${profile.pitch}"`,
+    volume === null ? null : `volume="${volume}"`,
+  ].filter((attribute): attribute is string => attribute !== null);
+  const content = attributes.length === 0
+    ? escaped
+    : `<prosody ${attributes.join(" ")}>${escaped}</prosody>`;
+  return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${route.accent}"><voice name="${baseVoice}" xml:lang="${route.accent}">${content}</voice></speak>`;
 }

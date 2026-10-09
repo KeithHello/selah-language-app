@@ -2,14 +2,15 @@
 
 ## 2026-10-09 Azure 三语 TTS 与响度统一（实施授权）
 
-- 主人已明确要求基于已确认的方案完整开发：中文（台湾普通话）、日语母语、美国英语与英国英语的音频生成统一迁移到 Azure Speech 标准神经语音；保持现有声线 profile 的产品身份，并在 SSML 中按 profile 配置 locale、rate 与 pitch。
-- 每一条新增或重制音轨都必须经过版本化响度处理：目标 `-22 LUFS ±1 LU`、真峰值不高于 `-1 dBTP`；采用 FFmpeg EBU R128 双遍 loudnorm，在满足峰值限制时优先线性增益，记录最终实测值和处理器版本。输出统一为 24 kHz、单声道、160 kbit/s MP3。Azure SSML `volume` 不替代后处理校准。
-- Supabase Edge Function 不运行 FFmpeg；通过受认证的独立音频处理服务校准。服务不可用或音频校验不合格时，不得把原始音频标为 ready 或交给客户端播放。中间源音频采用确定性 Storage 路径以支持失败恢复，成功后清理中间对象；缓存及 Storage 身份包含 Azure 声线、语言、语速／音高 profile 和 normalizer revision。
-- 用户会员额度仍按现有文本码点规则计量；平台供应商成本按 Azure SSML 的计费字符规则单独预留，Han 字符计 2 个单位。Azure 单价与校准计算单价必须由经核实的 Azure 订阅／资源价格和处理器运行配置提供，不得用 OpenAI 费率冒充 Azure 实际费用；缺少有效费率时对新 Azure TTS fail closed。Azure 供应商实耗记录在无法从 provider 取得用量时继续标为估算／未知，不记作真实 usage。
-- 初始实施授权包括本地代码、独立处理器容器定义、测试、种子音频工具、设计／开发文档、路线图和本地验证；真实 Azure 付费合成、`.env`／密钥、远端数据库／Storage、部署和公开发布当时均需另行授权。2026-10-09 主人另行明确授权一次性 Azure 付费重建当前 60 条本地 starter 种子音轨，并仅从 `.env` 读取 `AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`；不授权读取其他 `.env` 字段、写入远端 Supabase、改密钥或部署服务。主人另行要求合并 main 并部署；Cloudflare 操作仍须遵循全局 AGENTS.md 的逐步说明与确认。不要用旧 OpenAI TTS 作为隐式回退。
-- 设计与实施记录分别见 `docs/superpowers/specs/2026-10-09-azure-tts-unification-design.md` 和 `docs/superpowers/plans/2026-10-09-azure-tts-unification-plan.md`。完成前运行受影响的 Deno、Flutter、Python 与 Node 检查；只有通过本地检查的项目才标记为已完成。Azure 实际声音试听、三语种子资产重生成和云端部署仍按上述独立边界处理。
+- 主人已授权按 `docs/superpowers/plans/2026-10-09-azure-tts-ssml-volume-plan.md` 完整开发 Azure 三语 TTS 响度方案：中文（台湾普通话）、日语、美国英语与英国英语统一使用 Azure Speech 标准神经语音；现有 voice profile 与语言路由保持不变，SSML 按 profile 输出非默认的 locale、rate、pitch 和 volume。
+- 线上音频由 Azure SSML 声线音量表校准，目标声线平均响度约 `-20.9 LUFS`，实测校准验收为每声线 10 句平均偏差不超过 `±0.5 LU`，真峰值不高于 `-1 dBTP`。声线值、SSML 或模型变化须更新 `azure-vol-v1` 并运行响度复测工具。默认属性不写入 SSML。
+- 60 条随包种子音轨离线使用 FFmpeg EBU R128 双遍 loudnorm 校准至成品实测 `-20.9 LUFS`、真峰值不高于 `-1 dBTP`；输出统一为 24 kHz、单声道、160 kbit/s MP3，种子 revision 为 `lufs-v2`。线上 TTS 不调用 FFmpeg，不依赖独立标准化服务或 Azure Container Apps。
+- 线上流程为 Azure 合成、MP3 校验、计算 SHA-256 与时长（固定 160 kbit/s 下按字节数除以 20 得到毫秒）、上传成品并标记 ready。不得保存源音频中间对象或在校验失败时标记 ready。缓存身份包含 Azure voice、语言、profile、文本 hash 与 `azure-vol-v1`。
+- 用户会员额度仍按现有文本码点规则计量；平台供应商成本按 Azure SSML 计费字符规则单独预留，Han 字符计 2 个单位。费率与 price version 来自经核实的 Azure 价格；缺少有效费率时对新 Azure TTS fail closed。Azure 供应商实耗在无法从 provider 取得用量时继续标为估算／未知，不记作真实 usage。不得用旧 OpenAI TTS 作为隐式回退。
+- 2026-10-09 主人明确授权本方案 T0—T8 本地开发与验证，并授权一次性重建当前 60 条本地 starter 种子及 T8 声线校准的 Azure 付费合成；`.env` 只读取 `AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`，不读取其他字段。该授权不包含写入远端 Supabase secrets、部署 Edge Function 或 Cloudflare Pages 生产发布；远端密钥／服务变更与 Cloudflare 操作仍须遵循各自逐项授权边界。主人此前要求合并 main 并部署，Cloudflare 操作仍须按全局 AGENTS.md 逐步说明与确认。
+- 设计与实施记录分别见 `docs/superpowers/specs/2026-10-09-azure-tts-unification-design.md`、`docs/superpowers/plans/2026-10-09-azure-tts-ssml-volume-plan.md`。完成前运行受影响的 Deno、Flutter、Python 与 Node 检查；只有通过本地检查的项目才标记为已完成。
 
-- 2026-10-09 后续授权：主人明确授权读取／使用当前 rollout 所需的 Supabase 与音频标准化服务配置，并部署相应后端服务；授权仅限此 Azure TTS rollout，不包含数据库 schema／migration 或无关 .env 项。此授权不取消全局 AGENTS.md 与下方部署规范中的 Cloudflare 逐步告知、逐步确认要求。
+- 2026-10-09 后续授权：主人明确授权读取／使用当前 rollout 所需的 Supabase 与音频标准化服务配置，并部署相应后端服务；授权仅限此 Azure TTS rollout，不包含数据库 schema／migration 或无关 `.env` 项。后续若需新增／修改 Supabase secrets，先列出具体键和值及影响并取得当步确认。此授权不取消全局 AGENTS.md 与下方部署规范中的 Cloudflare 逐步告知、逐步确认要求。
 
 ## 目标
 

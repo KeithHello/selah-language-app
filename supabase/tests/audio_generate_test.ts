@@ -2,14 +2,15 @@
 // Run: deno test supabase/tests/audio_generate_test.ts
 
 import {
-  assert,
   assertEquals,
   assertStringIncludes,
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   AUDIO_BUCKET,
   AUDIO_FORMAT,
+  AUDIO_LEVEL_REVISION,
   contentHash,
+  mp3DurationMs,
   sha256,
   TTS_MODEL,
   TTS_SPEED,
@@ -25,7 +26,6 @@ import {
   type AudioSupabaseClient,
   createAudioGenerateHandler,
 } from "../functions/audio-generate/index.ts";
-import { AUDIO_NORMALIZER_REVISION } from "../functions/_shared/audio.ts";
 
 const FUNCTION_SOURCE = await Deno.readTextFile(
   "supabase/functions/audio-generate/index.ts",
@@ -114,13 +114,10 @@ function mp3Bytes(fill = 0): Uint8Array<ArrayBuffer> {
 function fakeAudioDependencies(
   options: {
     manifest?: FakeManifest | null;
-    storedAudio?: Uint8Array;
-    storedSourceAudio?: Uint8Array;
     uploadFailures?: number;
     signedError?: boolean;
     providerResponse?: Response | Promise<Response>;
     providerResponses?: Array<Response | Promise<Response>>;
-    normalizerResponses?: Response[];
     providerError?: Error;
     envOverrides?: Record<string, string>;
     onProviderCall?: () => void;
@@ -133,8 +130,6 @@ function fakeAudioDependencies(
     fetch: Request[];
     usageModels: string[];
     upload: Array<{ path: string; byteLength: number }>;
-    download: string[];
-    remove: string[][];
     signed: Array<{ path: string; ttl: number }>;
   };
   getManifest: () => FakeManifest | null;
@@ -144,27 +139,14 @@ function fakeAudioDependencies(
     fetch: [] as Request[],
     usageModels: [] as string[],
     upload: [] as Array<{ path: string; byteLength: number }>,
-    download: [] as string[],
-    remove: [] as string[][],
     signed: [] as Array<{ path: string; ttl: number }>,
   };
   let manifest = options.manifest === undefined
     ? null
     : structuredClone(options.manifest);
-  const storedObjects = new Map<string, Uint8Array>();
-  if (manifest?.storage_path && options.storedAudio) {
-    storedObjects.set(manifest.storage_path, options.storedAudio);
-  }
-  if (manifest?.storage_path && options.storedSourceAudio) {
-    storedObjects.set(
-      manifest.storage_path.replace(/\.mp3$/, ".source.mp3"),
-      options.storedSourceAudio,
-    );
-  }
   let uploadAttempt = 0;
   let claimAttempt = 0;
   let providerAttempt = 0;
-  let normalizerAttempt = 0;
 
   const queryBuilderFor = (tableName: string) => {
     const filters: Array<
@@ -350,14 +332,6 @@ function fakeAudioDependencies(
       from: (bucket: string) => {
         assertEquals(bucket, AUDIO_BUCKET);
         return {
-          download: (path: string) =>
-            Promise.resolve().then(() => {
-              calls.download.push(path);
-              const data = storedObjects.get(path);
-              return data
-                ? { data: new Blob([new Uint8Array(data)]), error: null }
-                : { data: null, error: { message: "not found" } };
-            }),
           upload: (path: string, body: Uint8Array) =>
             Promise.resolve().then(() => {
               uploadAttempt += 1;
@@ -365,7 +339,6 @@ function fakeAudioDependencies(
               if (uploadAttempt <= (options.uploadFailures ?? 0)) {
                 return { error: { message: "upload failed" } };
               }
-              storedObjects.set(path, body);
               return { error: null };
             }),
           createSignedUrl: (path: string, ttl: number) =>
@@ -374,12 +347,6 @@ function fakeAudioDependencies(
               return options.signedError
                 ? { data: null, error: { message: "sign failed" } }
                 : { data: { signedUrl: SIGNED_URL }, error: null };
-            }),
-          remove: (paths: string[]) =>
-            Promise.resolve().then(() => {
-              calls.remove.push(paths);
-              for (const path of paths) storedObjects.delete(path);
-              return { error: null };
             }),
         };
       },
@@ -394,10 +361,7 @@ function fakeAudioDependencies(
           SUPABASE_SERVICE_ROLE_KEY: "test-service-role-key",
           AZURE_SPEECH_KEY: "test-azure-key",
           AZURE_SPEECH_REGION: "japaneast",
-          AUDIO_NORMALIZER_URL: "https://normalizer.example.test",
-          AUDIO_NORMALIZER_TOKEN: "normalizer-test-token-that-is-long-enough",
           AZURE_TTS_NANO_USD_PER_BILLABLE_CHARACTER: "15000",
-          AUDIO_NORMALIZER_NANO_USD_PER_REQUEST: "5000",
           AZURE_TTS_PRICE_VERSION: "azure-test-resource-v1",
           ...options.envOverrides,
         }[name];
@@ -405,30 +369,11 @@ function fakeAudioDependencies(
     },
     requireAuth: () => USER_ID,
     createSupabase: () => supabase as unknown as AudioSupabaseClient,
-    fetch: async (input: Request | URL | string, init?: RequestInit) => {
+    fetch: (input: Request | URL | string, init?: RequestInit) => {
       const request = input instanceof Request
         ? input
         : new Request(input, init);
       calls.fetch.push(request);
-      if (new URL(request.url).hostname === "normalizer.example.test") {
-        const response = options.normalizerResponses?.[normalizerAttempt];
-        normalizerAttempt += 1;
-        if (response) return response;
-        const normalized = mp3Bytes(2);
-        return new Response(normalized, {
-          headers: {
-            "Content-Type": "audio/mpeg",
-            "X-Audio-Normalizer-Revision": "lufs-v1",
-            "X-Audio-SHA256": await sha256(normalized.buffer),
-            "X-Audio-Integrated-Lufs": "-22.0",
-            "X-Audio-True-Peak-Dbtp": "-1.2",
-            "X-Audio-Duration-Ms": "1200",
-            "X-Audio-Sample-Rate": "24000",
-            "X-Audio-Channels": "1",
-            "X-Audio-Normalization-Mode": "linear",
-          },
-        });
-      }
       options.onProviderCall?.();
       const currentAttempt = providerAttempt++;
       const response = options.providerResponses?.[currentAttempt] ??
@@ -436,7 +381,7 @@ function fakeAudioDependencies(
       if (options.providerError && currentAttempt === 0) {
         throw options.providerError;
       }
-      return response ?? new Response(mp3Bytes());
+      return Promise.resolve(response ?? new Response(mp3Bytes()));
     },
     sleep: async () => {},
   };
@@ -453,12 +398,6 @@ async function responseBody(
 function azureRequests(calls: { fetch: Request[] }): Request[] {
   return calls.fetch.filter((request) =>
     new URL(request.url).hostname.endsWith("tts.speech.microsoft.com")
-  );
-}
-
-function normalizerRequests(calls: { fetch: Request[] }): Request[] {
-  return calls.fetch.filter((request) =>
-    new URL(request.url).hostname === "normalizer.example.test"
   );
 }
 
@@ -480,7 +419,7 @@ Deno.test("uses Azure speech model and MP3 output", () => {
   assertEquals(TTS_SPEED, 1);
 });
 
-Deno.test("routes Chinese source audio through Azure then normalization", async () => {
+Deno.test("routes Chinese source audio through Azure and stores the MP3 directly", async () => {
   const setup = fakeAudioDependencies();
   const response = await createAudioGenerateHandler(setup.deps)(
     makeRequest(REQUEST_ID, {
@@ -497,7 +436,6 @@ Deno.test("routes Chinese source audio through Azure then normalization", async 
   const azure = azureRequests(setup.calls);
   assertEquals(response.status, 200);
   assertEquals(azure.length, 1);
-  assertEquals(normalizerRequests(setup.calls).length, 1);
   assertStringIncludes(
     azure[0].url,
     "https://japaneast.tts.speech.microsoft.com/cognitiveservices/v1",
@@ -511,13 +449,17 @@ Deno.test("routes Chinese source audio through Azure then normalization", async 
     setup.getManifest()?.tts_model,
     "azure-speech/zh-TW-HsiaoChenNeural",
   );
-  assertEquals(setup.calls.upload.length, 2);
-  assertEquals(setup.calls.upload[0].path.endsWith(".source.mp3"), true);
-  assertEquals(setup.calls.remove.length, 1);
+  assertEquals(setup.calls.upload.length, 1);
+  assertEquals(setup.calls.upload[0].path, setup.getManifest()?.storage_path);
   const body = await responseBody(response);
   assertEquals(body.provider, "azure");
-  assertEquals(body.normalizerRevision, AUDIO_NORMALIZER_REVISION);
+  assertEquals(body.levelRevision, AUDIO_LEVEL_REVISION);
   assertEquals(body.cacheKeyVersion, "v3");
+  assertEquals(
+    body.durationMs,
+    mp3DurationMs(setup.calls.upload[0].byteLength),
+  );
+  assertEquals(body.sha256, await sha256(mp3Bytes().buffer));
 });
 
 Deno.test("uses Azure voices and locales for Japanese and English tracks", async () => {
@@ -556,7 +498,6 @@ Deno.test("uses Azure voices and locales for Japanese and English tracks", async
     const azure = azureRequests(setup.calls);
     assertEquals(response.status, 200);
     assertEquals(azure.length, 1);
-    assertEquals(normalizerRequests(setup.calls).length, 1);
     const ssml = await azure[0].text();
     assertStringIncludes(ssml, item.voice);
     assertStringIncludes(ssml, `xml:lang="${item.locale}"`);
@@ -564,14 +505,13 @@ Deno.test("uses Azure voices and locales for Japanese and English tracks", async
   }
 });
 
-Deno.test("retries a provider timeout once and then normalizes the successful audio", async () => {
+Deno.test("retries a provider timeout once and stores the successful audio directly", async () => {
   const setup = fakeAudioDependencies({
     providerError: new Error("network timeout"),
   });
   const response = await createAudioGenerateHandler(setup.deps)(makeRequest());
   assertEquals(response.status, 200);
   assertEquals(azureRequests(setup.calls).length, 2);
-  assertEquals(normalizerRequests(setup.calls).length, 1);
 });
 
 Deno.test("does not fall back to OpenAI after an Azure authorization failure", async () => {
@@ -581,7 +521,6 @@ Deno.test("does not fall back to OpenAI after an Azure authorization failure", a
   const response = await createAudioGenerateHandler(setup.deps)(makeRequest());
   assertEquals(response.status, 502);
   assertEquals(azureRequests(setup.calls).length, 1);
-  assertEquals(normalizerRequests(setup.calls).length, 0);
   assertEquals(
     setup.calls.fetch.some((request) =>
       new URL(request.url).hostname === "api.openai.com"
@@ -590,19 +529,17 @@ Deno.test("does not fall back to OpenAI after an Azure authorization failure", a
   );
 });
 
-Deno.test("replaces legacy OpenAI cache entries with normalized Azure audio", async () => {
+Deno.test("replaces legacy OpenAI cache entries with Azure audio", async () => {
   const setup = fakeAudioDependencies({
     manifest: makeManifest({
       generation_status: "ready",
       tts_model: "openai/tts-1/alloy",
       byte_size: mp3Bytes().byteLength,
     }),
-    storedAudio: mp3Bytes(),
   });
   const response = await createAudioGenerateHandler(setup.deps)(makeRequest());
   assertEquals(response.status, 200);
   assertEquals(azureRequests(setup.calls).length, 1);
-  assertEquals(normalizerRequests(setup.calls).length, 1);
   assertEquals(
     setup.getManifest()?.tts_model,
     "azure-speech/en-US-JennyNeural",
@@ -635,7 +572,6 @@ Deno.test("retries an unreadable Azure response body without changing providers"
   const response = await createAudioGenerateHandler(setup.deps)(makeRequest());
   assertEquals(response.status, 200);
   assertEquals(azureRequests(setup.calls).length, 2);
-  assertEquals(normalizerRequests(setup.calls).length, 1);
   assertEquals((await responseBody(response)).provider, "azure");
 });
 
@@ -669,7 +605,6 @@ Deno.test("serves a validated Azure cache hit when provider pricing is unavailab
       generation_status: "ready",
       byte_size: mp3Bytes().byteLength,
     }),
-    storedAudio: mp3Bytes(),
     envOverrides: {
       AZURE_SPEECH_KEY: "",
       AZURE_SPEECH_REGION: "",
@@ -753,7 +688,16 @@ Deno.test("validates input into an Azure route with the current cache revision",
   assertEquals(result.route.provider, "azure");
   assertEquals(result.route.providerVoice, "en-US-JennyNeural@gentle-natural");
   assertEquals(result.route.providerModel, "azure-speech/en-US-JennyNeural");
-  assertEquals(AUDIO_NORMALIZER_REVISION, "lufs-v1");
+  assertEquals(AUDIO_LEVEL_REVISION, "azure-vol-v1");
+  assertEquals(mp3DurationMs(1024), 51);
+  assertEquals(mp3DurationMs(1000), 50);
+  let durationError = false;
+  try {
+    mp3DurationMs(-1);
+  } catch {
+    durationError = true;
+  }
+  assertEquals(durationError, true);
 });
 
 Deno.test(
@@ -792,79 +736,6 @@ Deno.test("reuses a fresh generating manifest without claiming capacity or calli
   assertEquals(calls.rpc.length, 0);
 });
 
-Deno.test("recovers an expired generating manifest from Storage without calling TTS", async () => {
-  const staleAt = new Date(Date.now() - AUDIO_GENERATION_TTL_MS - 60_000)
-    .toISOString();
-  const { deps, calls, getManifest } = fakeAudioDependencies({
-    manifest: makeManifest({
-      generation_status: "generating",
-      updated_at: staleAt,
-      error_code: "previous_attempt_unknown",
-    }),
-    storedAudio: mp3Bytes(),
-  });
-
-  const response = await createAudioGenerateHandler(deps)(makeRequest());
-
-  assertEquals(response.status, 200);
-  const body = await responseBody(response);
-  assertEquals(body.status, "ready");
-  assertEquals(body.downloadUrl, SIGNED_URL);
-  assertEquals(body.cacheHit, true);
-  assertEquals(calls.fetch.length, 0);
-  assertEquals(calls.download.length, 1);
-  assertEquals(calls.upload.length, 0);
-  assertEquals(getManifest()?.generation_status, "ready");
-  assert(typeof getManifest()?.sha256 === "string");
-});
-
-Deno.test("normalizes a retained source object during stale generation recovery", async () => {
-  const staleAt = new Date(Date.now() - AUDIO_GENERATION_TTL_MS - 60_000)
-    .toISOString();
-  const setup = fakeAudioDependencies({
-    manifest: makeManifest({
-      generation_status: "generating",
-      updated_at: staleAt,
-      error_code: "audio_normalization_failed",
-    }),
-    storedSourceAudio: mp3Bytes(),
-  });
-
-  const response = await createAudioGenerateHandler(setup.deps)(makeRequest());
-
-  assertEquals(response.status, 200);
-  assertEquals(azureRequests(setup.calls).length, 0);
-  assertEquals(normalizerRequests(setup.calls).length, 1);
-  assertEquals(setup.calls.upload.length, 1);
-  assertEquals(setup.getManifest()?.generation_status, "ready");
-  assertEquals(setup.calls.remove.length, 1);
-});
-
-Deno.test("retries a failed normalization recovery immediately from retained source", async () => {
-  const staleAt = new Date(Date.now() - AUDIO_GENERATION_TTL_MS - 60_000)
-    .toISOString();
-  const setup = fakeAudioDependencies({
-    manifest: makeManifest({
-      generation_status: "generating",
-      updated_at: staleAt,
-      error_code: "audio_normalization_failed",
-    }),
-    storedSourceAudio: mp3Bytes(),
-    normalizerResponses: [new Response("Unavailable", { status: 503 })],
-  });
-  const handler = createAudioGenerateHandler(setup.deps);
-
-  const first = await handler(makeRequest(REQUEST_ID));
-  assertEquals(first.status, 503);
-  assertEquals(setup.getManifest()?.generation_status, "failed");
-  const second = await handler(makeRequest(SECOND_REQUEST_ID));
-
-  assertEquals(second.status, 200);
-  assertEquals(azureRequests(setup.calls).length, 0);
-  assertEquals(normalizerRequests(setup.calls).length, 2);
-  assertEquals(setup.getManifest()?.generation_status, "ready");
-});
-
 Deno.test("retries Storage upload a bounded number of times without another TTS call", async () => {
   const { deps, calls, getManifest } = fakeAudioDependencies({
     uploadFailures: 2,
@@ -874,12 +745,25 @@ Deno.test("retries Storage upload a bounded number of times without another TTS 
 
   assertEquals(response.status, 200);
   assertEquals(azureRequests(calls).length, 1);
-  assertEquals(normalizerRequests(calls).length, 1);
-  assertEquals(calls.upload.length, 4);
+  assertEquals(calls.upload.length, 3);
   assertEquals(getManifest()?.generation_status, "ready");
 });
 
-Deno.test("does not recover stored audio with a mismatched known checksum", async () => {
+Deno.test("does not mark audio ready when all final-object uploads fail", async () => {
+  const setup = fakeAudioDependencies({ uploadFailures: 10 });
+
+  const response = await createAudioGenerateHandler(setup.deps)(makeRequest());
+
+  assertEquals(response.status, 503);
+  assertEquals(setup.calls.upload.length, 3);
+  assertEquals(setup.getManifest()?.generation_status === "ready", false);
+  assertEquals(
+    setup.getManifest()?.storage_path?.endsWith(".source.mp3"),
+    false,
+  );
+});
+
+Deno.test("re-synthesizes a stale generation instead of using the old recovery path", async () => {
   const setup = fakeAudioDependencies({
     manifest: makeManifest({
       generation_status: "generating",
@@ -888,13 +772,11 @@ Deno.test("does not recover stored audio with a mismatched known checksum", asyn
       sha256: "0".repeat(64),
       byte_size: 1024,
     }),
-    storedAudio: mp3Bytes(),
   });
   const response = await createAudioGenerateHandler(setup.deps)(makeRequest());
   assertEquals(response.status, 200);
   assertEquals(azureRequests(setup.calls).length, 1);
-  assertEquals(normalizerRequests(setup.calls).length, 1);
-  assertEquals(setup.calls.download.length, 1);
+  assertEquals(setup.calls.upload.length, 1);
   assertEquals((await responseBody(response)).cacheHit, false);
 });
 
@@ -913,7 +795,6 @@ Deno.test("does not synthesize again when signed URL delivery fails after audio 
   const first = await createAudioGenerateHandler(setup.deps)(makeRequest());
   assertEquals(first.status, 503);
   assertEquals(azureRequests(setup.calls).length, 1);
-  assertEquals(normalizerRequests(setup.calls).length, 1);
   assertEquals(setup.getManifest()?.generation_status, "ready");
 
   const second = await createAudioGenerateHandler(setup.deps)(
@@ -924,7 +805,7 @@ Deno.test("does not synthesize again when signed URL delivery fails after audio 
   const body = await responseBody(second);
   assertEquals(body.error, "signed_url_failed");
   assertEquals(azureRequests(setup.calls).length, 1);
-  assertEquals(setup.calls.upload.length, 2);
+  assertEquals(setup.calls.upload.length, 1);
 });
 
 Deno.test("allows only one concurrent content claim to call TTS", async () => {
@@ -948,7 +829,6 @@ Deno.test("allows only one concurrent content claim to call TTS", async () => {
   assertEquals(firstResponse.status, 200);
   assertEquals(secondResponse.status, 202);
   assertEquals(azureRequests(setup.calls).length, 1);
-  assertEquals(normalizerRequests(setup.calls).length, 1);
   assertEquals(setup.getManifest()?.generation_status, "ready");
 });
 

@@ -50,10 +50,9 @@ export interface CostUnits {
   itemCount?: number;
   characters?: number;
   durationMs?: number;
-  provider?: "azure" | "openai" | "audio-normalizer";
+  provider?: "azure" | "openai";
   azureBillableCharacters?: number;
   azureNanoUsdPerBillableCharacter?: number;
-  normalizerReserveNanoUsd?: number;
   azurePriceVersion?: string;
 }
 
@@ -97,13 +96,11 @@ export function calculateTtsMaxCost(characters: number): bigint {
 export function calculateAzureTtsMaxCost(
   billableCharacters: number,
   nanoUsdPerBillableCharacter: number,
-  normalizerReserveNanoUsd: number,
 ): bigint {
   for (
     const [value, name] of [
       [billableCharacters, "billableCharacters"],
       [nanoUsdPerBillableCharacter, "nanoUsdPerBillableCharacter"],
-      [normalizerReserveNanoUsd, "normalizerReserveNanoUsd"],
     ] as const
   ) {
     if (!Number.isSafeInteger(value) || value < 0) {
@@ -114,8 +111,7 @@ export function calculateAzureTtsMaxCost(
     throw new RangeError("Azure TTS characters and rate must be positive");
   }
   return BigInt(billableCharacters) *
-      BigInt(nanoUsdPerBillableCharacter) +
-    BigInt(normalizerReserveNanoUsd);
+    BigInt(nanoUsdPerBillableCharacter);
 }
 
 export function calculateTranscriptionMaxCost(durationMs: number): bigint {
@@ -137,20 +133,10 @@ export function calculateOperationMaxCost(
     case "batch":
       return calculateBatchMaxCost(units.itemCount ?? 1);
     case "tts":
-      if (units.provider === "audio-normalizer") {
-        const reserve = units.normalizerReserveNanoUsd ?? 0;
-        if (!Number.isSafeInteger(reserve) || reserve < 1) {
-          throw new RangeError(
-            "normalizerReserveNanoUsd must be a positive safe integer",
-          );
-        }
-        return BigInt(reserve);
-      }
       if (units.provider === "azure") {
         return calculateAzureTtsMaxCost(
           units.azureBillableCharacters ?? 0,
           units.azureNanoUsdPerBillableCharacter ?? 0,
-          units.normalizerReserveNanoUsd ?? 0,
         );
       }
       return calculateTtsMaxCost(units.characters ?? 1);
@@ -174,7 +160,7 @@ function expectedPriceVersion(
 ): string {
   if (
     feature === "tts" &&
-    (units.provider === "azure" || units.provider === "audio-normalizer")
+    units.provider === "azure"
   ) {
     const value = units.azurePriceVersion;
     if (!value || !/^[a-zA-Z0-9._-]{1,80}$/.test(value)) {
@@ -202,7 +188,7 @@ export function createCostQuote(
     fxGuardVersion: FX_GUARD_VERSION,
     validUntil,
     evidenceVersion: feature === "tts" &&
-        (units.provider === "azure" || units.provider === "audio-normalizer")
+        units.provider === "azure"
       ? `azure-resource-price:${priceVersion}`
       : "2026-09-11-v1",
   };

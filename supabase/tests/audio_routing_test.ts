@@ -4,6 +4,7 @@ import {
 } from "https://deno.land/std@0.224.0/assert/mod.ts";
 import {
   audioCacheKey,
+  AZURE_VOICE_VOLUME,
   buildAzureSsml,
   resolveAudioRoute,
 } from "../functions/_shared/audio_routing.ts";
@@ -128,22 +129,91 @@ Deno.test("cache key includes provider, provider voice, speed and text hash", ()
       speed: 1,
       textHash: "a".repeat(64),
     }),
-    `azure:zh-TW-HsiaoChenNeural@native-gentle:1:lufs-v1:${"a".repeat(64)}`,
+    `azure:zh-TW-HsiaoChenNeural@native-gentle:1:azure-vol-v1:${
+      "a".repeat(64)
+    }`,
   );
 });
 
-Deno.test("Azure SSML escapes text and carries the native prosody profile", () => {
-  const result = resolveAudioRoute(BASE);
-  assertEquals(result.ok, true);
-  if (!result.ok) return;
-  const ssml = buildAzureSsml("你好 <朋友>", result.route);
-  assertStringIncludes(ssml, "zh-TW-HsiaoChenNeural");
-  assertStringIncludes(ssml, 'xml:lang="zh-TW"');
-  assertStringIncludes(ssml, "你好 &lt;朋友&gt;");
-  assertStringIncludes(ssml, "prosody");
+Deno.test("Azure SSML applies the complete calibrated volume table by voice", () => {
+  const cases = [
+    {
+      input: {
+        audioRole: "target" as const,
+        targetLanguage: "en",
+        voiceProfile: "gentle-natural",
+      },
+      expected:
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural" xml:lang="en-US">Hello &amp; welcome</voice></speak>',
+    },
+    {
+      input: {
+        audioRole: "target" as const,
+        targetLanguage: "en",
+        voiceProfile: "clear-slow",
+      },
+      expected:
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural" xml:lang="en-US"><prosody rate="-10%">Hello &amp; welcome</prosody></voice></speak>',
+    },
+    {
+      input: {
+        audioRole: "target" as const,
+        targetLanguage: "en",
+        voiceProfile: "daily-bright",
+      },
+      expected:
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-GuyNeural" xml:lang="en-US"><prosody rate="+5%" pitch="+1st" volume="-13%">Hello &amp; welcome</prosody></voice></speak>',
+    },
+    {
+      input: {
+        audioRole: "target" as const,
+        targetLanguage: "en",
+        accent: "en-GB",
+        voiceProfile: "elegant-british",
+      },
+      expected:
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-GB"><voice name="en-GB-SoniaNeural" xml:lang="en-GB"><prosody volume="-20%">Hello &amp; welcome</prosody></voice></speak>',
+    },
+  ];
+  for (const { input, expected } of cases) {
+    const result = resolveAudioRoute(input);
+    assertEquals(result.ok, true);
+    if (result.ok) {
+      assertEquals(buildAzureSsml("Hello & welcome", result.route), expected);
+    }
+  }
+
+  for (
+    const [language, locale, voice, volume] of [
+      ["zh-Hant", "zh-TW", "zh-TW-HsiaoChenNeural", "-19%"],
+      ["ja", "ja-JP", "ja-JP-NanamiNeural", "-35%"],
+    ] as const
+  ) {
+    for (
+      const [profile, prosody] of [
+        ["native-gentle", `volume="${volume}"`],
+        ["native-clear", `rate="-5%" volume="${volume}"`],
+        ["native-bright", `rate="+5%" pitch="+1st" volume="${volume}"`],
+        ["native-calm", `rate="-8%" pitch="-1st" volume="${volume}"`],
+      ] as const
+    ) {
+      const result = resolveAudioRoute({
+        audioRole: "source",
+        sourceLanguage: language,
+        targetLanguage: "en",
+        voiceProfile: profile,
+      });
+      assertEquals(result.ok, true);
+      if (!result.ok) continue;
+      assertEquals(
+        buildAzureSsml("早安", result.route),
+        `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="${locale}"><voice name="${voice}" xml:lang="${locale}"><prosody ${prosody}>早安</prosody></voice></speak>`,
+      );
+    }
+  }
 });
 
-Deno.test("builds English and Japanese SSML with their matching locale", () => {
+Deno.test("Azure SSML escapes text and billing follows the canonical markup", () => {
   const japanese = resolveAudioRoute({
     audioRole: "source",
     sourceLanguage: "ja",
@@ -158,24 +228,17 @@ Deno.test("builds English and Japanese SSML with their matching locale", () => {
   assertEquals(japanese.ok, true);
   assertEquals(english.ok, true);
   if (!japanese.ok || !english.ok) return;
-  assertStringIncludes(
-    buildAzureSsml("おはよう", japanese.route),
-    'xml:lang="ja-JP"',
-  );
-  assertStringIncludes(
-    buildAzureSsml("Good morning", english.route),
-    'xml:lang="en-US"',
-  );
-});
-
-Deno.test("Azure billable character count doubles Han and includes prosody markup", () => {
-  const result = resolveAudioRoute(BASE);
-  assertEquals(result.ok, true);
-  if (!result.ok) return;
-  const oneHan = azureBillableCharacterCount("漢", result.route);
-  const oneLatin = azureBillableCharacterCount("a", result.route);
-  assertEquals(oneHan - oneLatin, 1);
-  assertEquals(azureBillableCharacterCount("", result.route) > 0, true);
+  const japaneseSsml = buildAzureSsml("おはよう <友達>", japanese.route);
+  assertStringIncludes(japaneseSsml, 'xml:lang="ja-JP"');
+  assertStringIncludes(japaneseSsml, "おはよう &lt;友達&gt;");
+  const englishCharacters = azureBillableCharacterCount("hello", english.route);
+  assertEquals(englishCharacters, 5);
+  assertEquals(azureBillableCharacterCount("漢", japanese.route) > 2, true);
+  const rawSsml = buildAzureSsml("おはよう", japanese.route, {
+    applyVolume: false,
+  });
+  assertEquals(rawSsml.includes('volume="-35%"'), false);
+  assertEquals(AZURE_VOICE_VOLUME["ja-JP-NanamiNeural"], "-35%");
 });
 
 Deno.test("provider retry policy retries timeouts, throttling and server errors only", () => {

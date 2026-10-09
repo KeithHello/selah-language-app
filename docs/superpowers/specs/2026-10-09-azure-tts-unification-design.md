@@ -17,25 +17,25 @@ profile 到 voice 的映射仅用于这一版 Azure 标准神经 voice；真实�
 
 ## 响度处理
 
-- 全部语言和 profile 的交付音轨目标为 `-22 LUFS ±1 LU`，真峰值 `≤ -1 dBTP`；不能依靠浏览器播放器 `volume` 或 SSML `volume` 替代文件响度校准。
-- FFmpeg `loudnorm` 使用 EBU R128 两遍测量和应用，目标 `I=-22`、`TP=-1.5`、`LRA=11`；在峰值／动态范围允许时使用线性增益，否则接受 FFmpeg 动态回退。编码后重新测量，若综合响度超差、真峰值越界、时长／声道／采样率不符或结果异常则拒绝交付。
-- 规范化处理器 revision 是 `lufs-v1`。成品统一为 24 kHz、单声道、160 kbit/s MP3。供应商输出格式使用 Azure REST 支持的 `audio-24khz-160kbitrate-mono-mp3`，处理器仍负责转码和响度标准化。
-- Supabase Edge Function 通过 HTTPS 调用独立处理器；请求含原始音频 SHA-256 和服务端 bearer token。处理器限制输入大小、验证哈希、只在临时目录处理、限制并发和处理超时，不记录原始音频或认证头。响应给出成品 MP3、SHA-256、实测 Integrated LUFS、true peak、duration、normalizer revision 和实际线性／动态模式。
-- 原始 TTS 音频在私有 Storage 用确定性临时对象名保存，以便处理器失败后恢复处理而不重新计费调用 Azure；清单只有在规范化结果上传且哈希、实测指标通过后才置为 `ready`。成功后删除临时源对象。Storage bucket 与数据库 schema 不变。
+- 线上 Azure 音轨使用校准过的 SSML `volume` 按声线衰减，目标声线平均响度约为 `-20.9 LUFS`。校准验收使用每声线 10 句：平均值与目标相差不超过 `0.5 LU`，每句真峰值 `≤ -1 dBTP`。这是一种基于声线的固定增益，不承诺每一句都逐条达到同一 LUFS；极短句允许更大偏差。
+- 响度表 v1：Jenny 不写 `volume`（0 dB）；Guy `-13%`（约 -1.21 dB）；Sonia `-20%`（约 -1.94 dB）；HsiaoChen `-19%`（约 -1.83 dB）；Nanami `-35%`（约 -3.74 dB）。同一 voice 的所有 profile 共用该值。任何声线数值、SSML 生成规则或 Azure 模型变化都须升级 `azure-vol-v1` 并复测。
+- SSML 仅写非默认的 `rate`、`pitch` 和 `volume`；全为默认值时省略 `prosody`。计费字符由同一个 canonical SSML builder 计算，因此省略默认标签会同步减少平台成本预留，会员文本额度口径不变。
+- 线上成品输出使用 Azure REST 格式 `audio-24khz-160kbitrate-mono-mp3`。生成流程为合成、校验 MP3、计算 SHA-256 与时长、上传成品并标记 `ready`；固定 160 kbit/s 下时长按字节数除以 20 计算毫秒。Edge Function 不运行 FFmpeg，也不调用独立标准化服务，不存放源音频中间对象。
+- 随包 60 条种子音轨离线使用 FFmpeg EBU R128 双遍 `loudnorm` 校准；目标成品实测 `-20.9 LUFS ±1 LU`、真峰值 `≤ -1 dBTP`，输出为 24 kHz、单声道、160 kbit/s MP3，revision 为 `lufs-v2`。FFmpeg 仅保留为本地种子资产处理工具。
 
 ## 计费、额度和缓存
 
 - 会员 `tts` 额度维持当前 `[...text].length` Unicode 码点口径，避免会员套餐无声改变。
 - Azure 平台成本独立计算 `billableCharacters`：SSML voice 内文本和会计费的 prosody markup 按 Unicode code point 计数；Han 字符（覆盖汉字与日文 Kanji）每个按 2 个单位预留。计数函数与 SSML builder 共用同一 canonical SSML，防止文本路由与价格单位漂移。
-- Azure 每百万计费字符价格、Azure 订阅优惠／免费额度，以及 normalizer 的云上实际资源费用均取决于真实资源和结算配置。官方公开页面当前未给出此订阅的可用数值；费率和 price version 由显式服务端配置提供，校验失败则阻止新付费 TTS。usage 记录中的 Azure 实际供应商成本保持 unknown／null，除非供应商响应或账单导入能提供可核对的实耗。预算预留采用配置费率，不把预留当成账单实耗。
-- 请求缓存身份包括语言、provider、voice、profile、speed、文本 hash 和 `lufs-v1`。Flutter 浏览器本地音轨从 `audio:v2` 升到 `audio:v3`，旧数据保留但不再命中。预制种子 manifest 同样纳入模型／voice／speed／revision/hash 并校验成品 checksum。
+- Azure 每百万计费字符价格、Azure 订阅优惠／免费额度取决于真实资源和结算配置；费率和 price version 由显式服务端配置提供，校验失败则阻止新付费 TTS。usage 记录中的 Azure 实际供应商成本保持 unknown／null，除非供应商响应或账单导入能提供可核对的实耗。预算预留采用配置费率，不把预留当成账单实耗。线上 SSML 音量不产生独立处理器运行成本。
+- 请求缓存身份包括语言、provider、voice、profile、speed、文本 hash 和 `azure-vol-v1`。Flutter 浏览器本地音轨的 `audio:v3` 前缀保持不变，并将新生成缓存的响度 revision 更新为 `azure-vol-v1`；旧缓存不再命中。随包种子使用独立的 `lufs-v2` revision，并校验 manifest 与成品 checksum。
 - 生成服务 API 保持现有 membership、idempotency、signed URL 和 `audio/mpeg` 响应契约。迁移后不为 Azure 失败调用 OpenAI TTS；失败音轨不可标记 ready。缓存的 OpenAI 成品不会被归为新 Azure 音频。
 
 ## 实施边界
 
-本地实现包含 provider route、SSML、计费单位、normalizer container、Edge Function 的生成／恢复链路、客户端 cache revision、seed 工具、测试和文档。不要创建或应用数据库 migration，不读取或修改 `.env`／密钥，不配置或部署任何云资源，不调用 Azure 真实 TTS，不覆盖现有随包音频，不修改 CI/CD 或公开发布。
+本地实现包含 provider route、SSML 与声线音量表、计费单位、Edge Function 直传成品链路、客户端 cache revision、离线 seed 工具、测试和文档。不要创建或应用数据库 migration，不修改 `.env`／密钥，不写远端配置或部署云服务。
 
-服务端启动真实 Azure 请求还需主人后续确认并提供：Azure Speech key／region、实际 SKU 费率和 price version、normalizer endpoint／认证 token、normalizer 每请求成本预留以及云端容器配置。完成本地验收后，生产 rollout 需先部署并验证处理器，再配置服务端值、部署 Edge Function，最后小样试听并分批重制随包资产。
+本方案实施授权记录在 `CLAUDE.md`。Azure 付费声线校准与种子重建仅使用 `.env` 中的 `AZURE_SPEECH_KEY` 和 `AZURE_SPEECH_REGION`；任何远端 secrets、Edge Function 部署、生产发布和 Cloudflare 操作仍遵循项目及全局授权规则。
 
 ## 官方依据
 
