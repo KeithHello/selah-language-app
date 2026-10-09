@@ -11,6 +11,7 @@
 - 设计与实施记录分别见 `docs/superpowers/specs/2026-10-09-azure-tts-unification-design.md`、`docs/superpowers/plans/2026-10-09-azure-tts-ssml-volume-plan.md`。完成前运行受影响的 Deno、Flutter、Python 与 Node 检查；只有通过本地检查的项目才标记为已完成。
 
 - 2026-10-09 后续授权：主人明确授权读取／使用当前 rollout 所需的 Supabase 与音频标准化服务配置，并部署相应后端服务；授权仅限此 Azure TTS rollout，不包含数据库 schema／migration 或无关 `.env` 项。后续若需新增／修改 Supabase secrets，先列出具体键和值及影响并取得当步确认。此授权不取消全局 AGENTS.md 与下方部署规范中的 Cloudflare 逐步告知、逐步确认要求。
+- 2026-10-09 试听授权：主人要求按「全部声线统一约 +0.5 dB」方案生成对比音频试听。授权一次 Azure 付费试听合成（5 个声线 × 10 句，约 4,700 计费字符、约 US$0.07），只读取 `.env` 的 `AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`，结果只写入 Git 忽略的 `output/`；不修改代码、声线音量表、随包种子或远端服务。是否采用新音量待主人试听后另行确认。
 
 ## 目标
 

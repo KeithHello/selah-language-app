@@ -22,6 +22,9 @@
 - [x] 本地验证：Deno 383 项、lint 95 个文件、Edge Function 类型检查 20 个；Python 24 项、Node 11 项、Flutter 441 项；`flutter analyze --no-pub` 无问题；Deno 格式检查通过（规范化临时副本行尾）；Web Release `1.10.0+17`、Build ID `3abd7a0aa020dfa7`，构建包内 60 条种子均通过 SHA-256、字节数与 revision 核验。
 - [x] T9 本地集成：已将最新 `origin/main` 合入功能分支（`45726f0`），版本升至 `1.10.0+17`，并将本地 `main` 快进至 `0920996`；含本路线图记录提交后，本地 `main` 比 `origin/main` ahead 10、behind 0。
 - [ ] T9 远端仍待执行：Azure 价格 secrets、`audio-generate` Edge Function 部署、生产账号三语动态音频核验、GitHub push 与 Cloudflare Pages 生产发布。密钥和部署操作须先取得对应确认；push `main` 前须按 Cloudflare 规则逐步说明并取得当步确认。
+- [x] 试听反馈：主人确认各语言之间已基本一致，但整体偏小。按「全部声线统一约 +0.5 dB」生成对比样本：B 版由 Azure SSML 合成 50 条（Jenny `+6%`、Guy `-8%`、Sonia `-15%`、曉臻 `-14%`、Nanami `-31%`；4,669 计费字符，约 US$0.07，账单未核验），每句比现行版大 `+0.47`～`+0.53 dB`，声线均值 `-20.35`～`-20.44 LUFS`，最高真峰值 Guy `-1.48 dBTP`。C 版把现行音频离线做 FFmpeg 标准化作参考（目标 `-18`，实测 `-18.44`～`-19.21 LUFS`），Jenny／Guy 20 条中 15 条须动态压缩才能变响，说明 SSML 线性增益只够约 +0.9 dB。试听文件在 `output/azure-volume-ab-2026-10-09/listening/`（Git 忽略）。
+- [x] 发现：60 条随包种子实测 `-21.36`～`-21.33 LUFS`，比线上目标 `-20.9 LUFS` 低约 0.45 dB；原因是 FFmpeg loudnorm 线性模式成品落点略低于设定目标（C 版同样偏低约 0.45 dB）。
+- [ ] 待主人试听决定：采用 +0.5 dB 只需改 SSML 声线音量表、升级 `azure-vol-v1` 并离线重做种子（种子须补偿上述偏差）；若要更响，须加入峰值控制（在线处理服务或客户端播放增益），另行评估。
 
 ### 2026-10-09 网站性能 P0/P1 优化（已合入 main 并生产部署；真实用户性能复测待补）
 
