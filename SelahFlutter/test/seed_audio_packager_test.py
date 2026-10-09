@@ -1,6 +1,7 @@
 """Seed packaging must recover existing default audio without synthesizing it."""
 import hashlib
 import importlib.util
+import json
 from pathlib import Path
 import tempfile
 import unittest
@@ -111,11 +112,54 @@ class SeedAudioPackagingTest(unittest.TestCase):
         self.assertEqual(
             entries['seed-001:source:ja']['path'],
             'assets/audio/seed-001-source-ja.mp3')
+        self.assertNotIn('seed-001:source:zh-Hant:native-gentle', entries)
+        self.assertNotIn('seed-001:source:ja:native-gentle', entries)
         self.assertEqual(entries['seed-001:source:zh-Hant']['byteSize'], len(zh_body))
         self.assertEqual(entries['seed-001:source:ja']['byteSize'], len(ja_body))
+
+    def test_packages_complete_verified_local_english_seed_audio(self):
+        seeds = [{'id': 'seed-001'}, {'id': 'seed-002'}]
+        source_dir = self.audio_dir / 'staged'
+        source_dir.mkdir()
+        index = {}
+        for seed in seeds:
+            for voice in VOICES:
+                filename = f"{seed['id']}-{voice}.mp3"
+                body = self.bodies[(seed['id'], voice)]
+                (source_dir / filename).write_bytes(body)
+                index[f"{seed['id']}:{voice}"] = {
+                    'path': filename,
+                    'sha256': hashlib.sha256(body).hexdigest(),
+                    'byteSize': len(body),
+                    'normalizerRevision': 'lufs-v1',
+                    'integratedLufs': -22.0,
+                    'truePeakDbtp': -1.2,
+                }
+        (source_dir / 'audio-index.json').write_text(
+            json.dumps(index), encoding='utf-8')
+
+        entries = packager.package_local_default_audio(
+            seeds, self.audio_dir, {}, source_dir)
+
+        self.assertEqual(len(entries), 8)
         self.assertEqual(
-            entries['seed-001:source:zh-Hant:native-gentle']['path'],
-            'assets/audio/seed-001-source-zh-Hant.mp3')
+            entries['seed-001:gentle-natural']['normalizerRevision'], 'lufs-v1')
+        self.assertEqual(
+            (self.audio_dir / 'seed-002-elegant-british.mp3').read_bytes(),
+            self.bodies[('seed-002', 'elegant-british')])
+
+    def test_rejects_unverified_or_incomplete_local_english_seed_audio(self):
+        seeds = [{'id': 'seed-001'}]
+        source_dir = self.audio_dir / 'staged'
+        source_dir.mkdir()
+        filename = 'seed-001-gentle-natural.mp3'
+        body = self.bodies[('seed-001', 'gentle-natural')]
+        (source_dir / filename).write_bytes(body)
+        (source_dir / 'audio-index.json').write_text('{}', encoding='utf-8')
+
+        with self.assertRaises(RuntimeError):
+            packager.package_local_default_audio(seeds, self.audio_dir, {}, source_dir)
+        self.assertFalse(any(self.audio_dir.glob('seed-*.mp3')))
 
     def test_packages_a_native_profile_variant_without_aliasing_other_profiles(self):
         seeds = [{'id': 'seed-001'}]

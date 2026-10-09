@@ -19,6 +19,7 @@ VOICES = ('gentle-natural', 'clear-slow', 'daily-bright', 'elegant-british')
 SOURCE_VOICE = 'source'
 NATIVE_LANGUAGES = ('zh-Hant', 'ja')
 NORMALIZER_REVISION = 'lufs-v1'
+DEFAULT_LOCAL_AUDIO_DIR = ROOT / 'preview-output' / 'azure-seed-audio'
 VOICE_IDENTITIES = {
     'gentle-natural': ('azure-speech/en-US-JennyNeural', 1),
     'clear-slow': ('azure-speech/en-US-JennyNeural', 0.9),
@@ -90,24 +91,29 @@ def package_default_audio(rows, seeds, audio_dir, read, existing):
     return dict(sorted(entries.items()))
 
 
-def package_local_native_audio(seeds, audio_dir, existing):
+def package_local_native_audio(seeds, audio_dir, existing, source_audio_dir=None):
     """Package optional local native MP3s for offline seed loop listening."""
     entries = dict(existing)
     missing = []
-    index_path = audio_dir / 'audio-index.json'
+    source_audio_dir = source_audio_dir or audio_dir
+    index_path = source_audio_dir / 'audio-index.json'
     audio_index = json.loads(index_path.read_text(encoding='utf-8')) if index_path.exists() else {}
+    for seed in seeds:
+        for language in NATIVE_LANGUAGES:
+            entries.pop(f"{seed['id']}:{SOURCE_VOICE}:{language}:native-gentle", None)
     for seed in seeds:
         seed_id = seed['id']
         for language in NATIVE_LANGUAGES:
             for profile in NATIVE_PROFILES:
                 suffix = '' if profile == 'native-gentle' else f'-{profile}'
                 filename = f'{seed_id}-{SOURCE_VOICE}-{language}{suffix}.mp3'
+                source = source_audio_dir / filename
                 target = audio_dir / filename
-                if not target.exists():
+                if not source.exists():
                     if profile == 'native-gentle':
                         missing.append(f'{seed_id}-{SOURCE_VOICE}-{language}.mp3')
                     continue
-                body = target.read_bytes()
+                body = source.read_bytes()
                 if not (body.startswith(b'ID3') or body[:1] == b'\xff'):
                     raise RuntimeError(f'Invalid native MP3: {filename}')
                 entry = {
@@ -128,10 +134,54 @@ def package_local_native_audio(seeds, audio_dir, existing):
                             or indexed['truePeakDbtp'] > -1.0):
                         raise RuntimeError(f'Native audio normalization proof mismatch: {filename}')
                     entry['normalizerRevision'] = NORMALIZER_REVISION
-                entries[f'{seed_id}:{SOURCE_VOICE}:{language}:{profile}'] = entry
+                if not target.exists() or target.read_bytes() != body:
+                    target.write_bytes(body)
+                if profile != 'native-gentle':
+                    entries[f'{seed_id}:{SOURCE_VOICE}:{language}:{profile}'] = entry
                 if profile == 'native-gentle':
                     entries[f'{seed_id}:{SOURCE_VOICE}:{language}'] = entry
     return dict(sorted(entries.items())), missing
+
+
+def package_local_default_audio(seeds, audio_dir, existing, source_audio_dir):
+    """Package the complete local English seed set with verified LUFS proof."""
+    index_path = source_audio_dir / 'audio-index.json'
+    if not index_path.exists():
+        raise RuntimeError('Missing local English audio normalization index.')
+    audio_index = json.loads(index_path.read_text(encoding='utf-8'))
+    verified = []
+    for seed in seeds:
+        seed_id = seed['id']
+        for voice in VOICES:
+            filename = f'{seed_id}-{voice}.mp3'
+            body = (source_audio_dir / filename).read_bytes()
+            indexed = audio_index.get(f'{seed_id}:{voice}')
+            if (
+                indexed is None
+                or indexed.get('path') != filename
+                or not valid_audio(body, indexed.get('sha256'), indexed.get('byteSize'))
+                or indexed.get('normalizerRevision') != NORMALIZER_REVISION
+                or not isinstance(indexed.get('integratedLufs'), (int, float))
+                or abs(indexed['integratedLufs'] + 22.0) > 1.0
+                or not isinstance(indexed.get('truePeakDbtp'), (int, float))
+                or indexed['truePeakDbtp'] > -1.0
+            ):
+                raise RuntimeError(f'Local English audio normalization proof mismatch: {filename}')
+            verified.append((seed_id, voice, filename, body, indexed))
+
+    audio_dir.mkdir(parents=True, exist_ok=True)
+    entries = dict(existing)
+    for seed_id, voice, filename, body, indexed in verified:
+        target = audio_dir / filename
+        if not target.exists() or target.read_bytes() != body:
+            target.write_bytes(body)
+        entries[f'{seed_id}:{voice}'] = {
+            'path': f'assets/audio/{filename}',
+            'sha256': indexed['sha256'],
+            'byteSize': len(body),
+            'normalizerRevision': NORMALIZER_REVISION,
+        }
+    return dict(sorted(entries.items()))
 
 
 def configuration():
@@ -148,32 +198,30 @@ def configuration():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--local', action='store_true', help='Package existing local preview MP3s, without any network request.')
+    parser.add_argument('--local-audio-dir', type=Path, default=DEFAULT_LOCAL_AUDIO_DIR)
     args = parser.parse_args()
     if args.local:
-        source = ROOT / 'preview-output' / 'selah-default-voice'
+        source = args.local_audio_dir
         audio_dir = ASSETS / 'audio'
-        audio_dir.mkdir(parents=True, exist_ok=True)
         manifest_path = ASSETS / 'content' / 'seed-audio.json'
         entries = json.loads(manifest_path.read_text(encoding='utf-8')) if manifest_path.exists() else {}
         seed_path = ROOT / 'SeedContent' / 'seed-sentences.json'
         if not seed_path.exists():
             seed_path = ROOT / 'SelahFlutter' / 'assets' / 'content' / 'seed-sentences.json'
         seeds = json.loads(seed_path.read_text(encoding='utf-8'))['sentences']
-        entries, missing_native = package_local_native_audio(seeds, audio_dir, entries)
-        for item in sorted(source.glob('seed-*.mp3')):
-            body = item.read_bytes()
-            if not (body.startswith(b'ID3') or body[:1] == b'\xff'):
-                raise RuntimeError(f'Invalid local MP3: {item.name}')
-            seed, voice = item.stem[:8], item.stem[9:]
-            (audio_dir / item.name).write_bytes(body)
-            entries[f'{seed}:{voice}'] = {'path': f'assets/audio/{item.name}',
-                'sha256': hashlib.sha256(body).hexdigest(), 'byteSize': len(body)}
+        entries = package_local_default_audio(seeds, audio_dir, entries, source)
+        entries, missing_native = package_local_native_audio(
+            seeds, audio_dir, entries, source)
+        if missing_native:
+            raise RuntimeError('Missing required native seed audio: ' + ', '.join(missing_native))
         if not entries:
             raise RuntimeError('No existing local seed MP3 files found.')
         (ASSETS / 'content' / 'seed-audio.json').write_text(json.dumps(entries, indent=2), encoding='utf-8')
+        unique_paths = {entry.get('path') for entry in entries.values() if entry.get('path')}
         print(
-            f'Packaged {len(entries)} existing local seed MP3s with content hashes; '
-            f'remote manifest comparison not performed. Missing native MP3s: {len(missing_native)}'
+            f'Packaged {len(unique_paths)} unique local seed MP3 files across '
+            f'{len(entries)} manifest entries; remote manifest comparison not performed. '
+            f'Missing native MP3s: {len(missing_native)}'
         )
         if missing_native:
             print('Missing native files: ' + ', '.join(missing_native))

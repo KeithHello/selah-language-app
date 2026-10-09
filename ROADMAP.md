@@ -19,16 +19,19 @@
 - [ ] IndexedDB 拆分存储及版本化数据迁移暂缓：尚未获得针对该本地数据库结构／数据迁移的明确授权；本轮未改 IndexedDB schema、Supabase 数据库或云端配置。
 - [ ] 未部署预览或生产环境。后续需在获准发布后采集真实用户 Core Web Vitals，与生产基线对比。
 
-### 2026-10-09 Azure 三语 TTS 与响度校准统一（本地实现与验证完成；外部资源配置待确认）
+### 2026-10-09 Azure 三语 TTS 与响度校准统一（本地实现、种子音轨与验证完成；云端配置与发布待确认）
 
 - [x] 主人已授权按已确认方案完整开发；项目规范、设计规格和实施计划已更新。
 - [x] 中文、日语母语及美式／英式英语统一到 Azure Speech 标准神经语音，SSML 按 locale 与现有 profile 设置语速／音高；新 TTS 不再回退到 OpenAI。
 - [x] 新生成音频经独立 FFmpeg 处理器双遍 loudnorm 校准，验收目标为 `-22 LUFS ±1 LU`、`≤ -1 dBTP`；Edge 只把校准成品标记为 ready，恢复流程复用保存的 Azure 源音频；客户端升至 `audio:v3` 并以 normalizer revision 区分旧缓存。
 - [x] 平台成本使用独立 Azure 计费字符、显式 Azure 资源单价版本与 normalizer 预留成本；会员字数权益保持原规则，缺少费率时阻止新付费 TTS。
 - [x] 更新 Azure 种子生成、inventory、清单完整性与本地打包流程；dry-run 未读取 `.env`、未联网调用 Azure、未写入或覆盖现有音频资产。
-- [x] 本地验证通过：Deno 386 项、Flutter 435 项、Python 19 项、Node 成本策略 12 项；`flutter analyze --no-pub` 无问题；Deno 格式／脚本检查通过；Flutter Web Release 构建成功。
-- [ ] 当前静态种子音频及 manifest 尚无可验证的 `lufs-v1`／Azure 身份，会被新版 `audio:v3` 客户端有意拒绝；上线前需经 Azure 付费合成、响度校准并重新打包，以保留访客离线循环听。
-- [ ] 部署处理器、写入 Azure 与处理器密钥／费率、部署 Supabase Edge Function、真实 Azure 试听与重制种子音频均待后续逐项确认；不改数据库 schema 或 migration。
+- [x] Azure 实现分支验证通过：Deno 386 项、Flutter 435 项、Python 19 项、Node 成本策略 12 项；`flutter analyze --no-pub` 无问题；Deno 格式／脚本检查通过；功能分支 Web Release 版本 `1.8.1+14`、Build ID `e9ed47f02251d65d`。
+- [x] 2026-10-09 后续授权并重建静态 starter 音轨：英语四声线 40 条、繁体中文 10 条、日语 10 条，共 60 个 MP3；按现有 Azure SSML profile 计算约 5,979 个计费字符。只使用 `.env` 的 Azure key／region，生成仅写本地暂存与静态资产，未访问 Supabase；80 个旧的未引用 MP3 保留未动。
+- [x] 60 条音轨全部通过 SHA-256、24 kHz／单声道／160 kbit/s MP3、`lufs-v1`、`-22.46` 至 `-22.43 LUFS` 与真峰值不高于 `-3.14 dBTP` 核验；Flutter manifest 为 60 个键且与构建包内 60 个文件一致。
+- [x] 合入本地 `main` 后重新验证：Flutter 全量 441 项通过，`flutter analyze --no-pub` 无问题；Azure 生成脚本 11 项、打包器 9 项、响度处理器 4 项通过；直接 Flutter Release 编译成功，构建包中 60 个音频及哈希全部通过。未重跑自定义 `tool/web.ps1` 打包，因为它会读取本轮未获准访问的 `SUPABASE_URL` 与 `SUPABASE_PUBLISHABLE_KEY`；主分支自定义 Build ID／预缓存产物尚待授权配置后的正式构建。实际 Azure 账单未从订阅门户核验。
+- [ ] 远端 normalizer／Azure 及 Supabase 服务密钥与费率配置、Edge Function 部署、真实动态 TTS 流程和线上试听待单独完成；未改数据库 schema 或 migration。
+- [ ] 生产 Cloudflare Pages 发布待最终逐步授权，并须先解决生产端 Azure／normalizer 配置与后端部署依赖。
 
 ### 2026-10-08 循环听音档静音（已合入 main 并生产部署；分支预览校验缺陷待修）
 
