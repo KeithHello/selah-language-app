@@ -1,8 +1,8 @@
 enum AudioTrackRole { target, source }
 
 const audioCacheKeyVersion = 'audio:v3';
-const audioLevelRevision = 'azure-vol-v1';
-const seedAudioRevision = 'lufs-v2';
+const audioLevelRevision = 'azure-vol-v2';
+const seedAudioRevision = 'azure-vol-v2';
 const audioCacheKeyPrefix = '$audioCacheKeyVersion:loop:';
 
 bool isNormalizedAudioEntry(Object? entry) =>

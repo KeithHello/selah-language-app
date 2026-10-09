@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan or generate normalized English, Chinese, and Japanese seed audio.
+"""Plan or generate English, Chinese, and Japanese Azure seed audio.
 
 The default mode is a dry-run. ``--execute`` is required for paid Azure calls;
 it writes to a preview directory and refuses to replace existing audio unless
@@ -11,9 +11,11 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import os
+import re
 import shutil
-import sys
+import subprocess
 import tempfile
 import urllib.error
 import urllib.request
@@ -28,6 +30,8 @@ DEFAULT_ENV_PATH = ROOT / ".env"
 DEFAULT_LANGUAGE = "zh-Hant"
 DEFAULT_VOICE_PROFILE = "native-gentle"
 OUTPUT_FORMAT = "audio-24khz-160kbitrate-mono-mp3"
+SEED_AUDIO_REVISION = "azure-vol-v2"
+TARGET_LUFS = -20.4
 LANGUAGES = {
     "zh-Hant": ("zh-TW", "zh-TW-HsiaoChenNeural", "zh_text"),
     "ja": ("ja-JP", "ja-JP-NanamiNeural", "ja_text"),
@@ -39,11 +43,11 @@ NATIVE_PROFILES = {
     "native-calm": ("-8%", "-1st", 0.92),
 }
 VOICE_VOLUME = {
-    "en-US-JennyNeural": None,
-    "en-US-GuyNeural": "-13%",
-    "en-GB-SoniaNeural": "-20%",
-    "zh-TW-HsiaoChenNeural": "-19%",
-    "ja-JP-NanamiNeural": "-35%",
+    "en-US-JennyNeural": "+6%",
+    "en-US-GuyNeural": "-8%",
+    "en-GB-SoniaNeural": "-15%",
+    "zh-TW-HsiaoChenNeural": "-14%",
+    "ja-JP-NanamiNeural": "-31%",
 }
 ENGLISH_PROFILES = {
     "gentle-natural": ("en-US", "en-US-JennyNeural", "0%", "0%", 1),
@@ -51,10 +55,6 @@ ENGLISH_PROFILES = {
     "daily-bright": ("en-US", "en-US-GuyNeural", "+5%", "+1st", 1.05),
     "elegant-british": ("en-GB", "en-GB-SoniaNeural", "0%", "0%", 1),
 }
-
-sys.path.insert(0, str(ROOT / "supabase" / "audio-normalizer"))
-from server import NormalizerConfig, normalize_mp3
-
 
 class AzureConfigurationError(RuntimeError):
     """Raised when the local Azure configuration is incomplete."""
@@ -129,6 +129,44 @@ def is_valid_mp3(body: bytes) -> bool:
     return body.startswith(b"ID3") or body[:2] in (b"\xff\xfb", b"\xff\xf3", b"\xff\xf2")
 
 
+def measure_mp3(body: bytes, ffmpeg: str = "ffmpeg") -> tuple[float, float]:
+    """Measure the Azure MP3 as received without writing or re-encoding it."""
+
+    result = subprocess.run(
+        [
+            ffmpeg,
+            "-hide_banner",
+            "-nostats",
+            "-i",
+            "pipe:0",
+            "-map",
+            "0:a:0",
+            "-af",
+            f"loudnorm=I={TARGET_LUFS}:TP=-1:LRA=11:print_format=json",
+            "-f",
+            "null",
+            "-",
+        ],
+        input=body,
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise RuntimeError("FFmpeg failed while measuring Azure audio")
+    stderr = result.stderr.decode("utf-8", errors="replace")
+    for match in reversed(re.findall(r"\{[^{}]*\}", stderr, flags=re.DOTALL)):
+        try:
+            metadata = json.loads(match)
+            integrated_lufs = float(metadata["input_i"])
+            true_peak_dbtp = float(metadata["input_tp"])
+        except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+            continue
+        if not math.isfinite(integrated_lufs) or not math.isfinite(true_peak_dbtp):
+            continue
+        return integrated_lufs, true_peak_dbtp
+    raise RuntimeError("FFmpeg did not return valid loudness measurements")
+
+
 def _azure_speech_request(region: str, key: str, ssml: str) -> bytes:
     endpoint = f"https://{region}.tts.speech.microsoft.com/cognitiveservices/v1"
     request = urllib.request.Request(
@@ -186,7 +224,6 @@ def generate_seed_audio(
     execute: bool = False,
     dry_run: bool = False,
     overwrite: bool = False,
-    raw_audio_dir: Path | None = None,
 ) -> int:
     if language == "en":
         profiles = ENGLISH_PROFILES
@@ -213,9 +250,7 @@ def generate_seed_audio(
             seed_id, audio_dir, language, voice_profile
         )))
 
-    if raw_audio_dir is not None and execute:
-        raise ValueError("--raw-audio-dir cannot be combined with --execute")
-    if dry_run or (not execute and raw_audio_dir is None):
+    if dry_run or not execute:
         for seed_id, _text, output in work_items:
             print(f"PLAN {seed_id} {language} {voice_profile} -> {output}")
         return len(work_items)
@@ -247,11 +282,6 @@ def generate_seed_audio(
             )
 
     ffmpeg = shutil.which("ffmpeg") or "ffmpeg"
-    ffprobe = shutil.which("ffprobe") or "ffprobe"
-    normalizer_config = NormalizerConfig(
-        ffmpeg=ffmpeg,
-        ffprobe=ffprobe,
-    )
     index_path = audio_dir / "audio-index.json"
     if index_path.exists():
         index = json.loads(index_path.read_text(encoding="utf-8"))
@@ -260,21 +290,13 @@ def generate_seed_audio(
     else:
         index = {}
     for seed_id, text, output in work_items:
-        if raw_audio_dir is not None:
-            raw_path = raw_audio_dir / (
-                f"baseline__{language}__{voice_profile}__{seed_id}__default.mp3"
-            )
-            raw_audio = raw_path.read_bytes()
-            if not is_valid_mp3(raw_audio):
-                raise RuntimeError(f"Invalid calibration source MP3: {raw_path}")
-        else:
-            raw_audio = _azure_speech_request(
-                region,
-                key,
-                build_ssml(text, language, voice_profile),
-            )
-        normalized_audio, metadata = normalize_mp3(raw_audio, normalizer_config)
-        _atomic_write(output, normalized_audio)
+        raw_audio = _azure_speech_request(
+            region,
+            key,
+            build_ssml(text, language, voice_profile),
+        )
+        integrated_lufs, true_peak_dbtp = measure_mp3(raw_audio, ffmpeg)
+        _atomic_write(output, raw_audio)
         index_key = (
             f"{seed_id}:{voice_profile}"
             if language == "en"
@@ -282,17 +304,17 @@ def generate_seed_audio(
         )
         index[index_key] = {
             "path": output.name,
-            "sha256": hashlib.sha256(normalized_audio).hexdigest(),
-            "byteSize": len(normalized_audio),
-            "normalizerRevision": metadata["revision"],
-            "integratedLufs": metadata["integratedLufs"],
-            "truePeakDbtp": metadata["truePeakDbtp"],
+            "sha256": hashlib.sha256(raw_audio).hexdigest(),
+            "byteSize": len(raw_audio),
+            "normalizerRevision": SEED_AUDIO_REVISION,
+            "integratedLufs": integrated_lufs,
+            "truePeakDbtp": true_peak_dbtp,
         }
         print(
             f"READY {seed_id} {language} {voice_profile} "
-            f"({len(normalized_audio)} bytes, "
-            f"{metadata['integratedLufs']:.2f} LUFS, "
-            f"{metadata['truePeakDbtp']:.2f} dBTP)"
+            f"({len(raw_audio)} bytes, "
+            f"{integrated_lufs:.2f} LUFS, "
+            f"{true_peak_dbtp:.2f} dBTP)"
         )
     _atomic_write(
         index_path,
@@ -317,17 +339,12 @@ def main() -> int:
     parser.add_argument(
         "--execute",
         action="store_true",
-        help="Make paid Azure Speech calls and normalize audio locally",
+        help="Make paid Azure Speech calls and save the returned MP3 directly",
     )
     parser.add_argument(
         "--overwrite",
         action="store_true",
         help="Allow replacing files in the selected output directory",
-    )
-    parser.add_argument(
-        "--raw-audio-dir",
-        type=Path,
-        help="Reuse matching default-volume calibration MP3s and normalize offline",
     )
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
@@ -341,16 +358,11 @@ def main() -> int:
             execute=args.execute,
             dry_run=args.dry_run,
             overwrite=args.overwrite,
-            raw_audio_dir=args.raw_audio_dir,
         )
     except (AzureConfigurationError, OSError, RuntimeError, ValueError) as error:
         print(f"Azure seed audio generation failed: {error}")
         return 1
-    mode = (
-        "generated" if args.execute and not args.dry_run
-        else "normalized from calibration audio" if args.raw_audio_dir and not args.dry_run
-        else "planned"
-    )
+    mode = "generated" if args.execute and not args.dry_run else "planned"
     print(f"Azure seed audio {mode}: {count} files")
     return 0
 

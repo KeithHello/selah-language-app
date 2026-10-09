@@ -1,5 +1,7 @@
 # Azure 语音 SSML 声线音量开发方案
 
+> 后续校准已由 [azure-vol-v2 方案](2026-10-09-azure-tts-volume-v2-plan.md) 更新。该方案取代本文的 `-20.9 LUFS` 目标、v1 音量表、`azure-vol-v1`／`lufs-v2` 版本及种子 FFmpeg 重新编码步骤；本文其余 Azure 路由、在线生成、计费与 API 契约仍作背景记录。
+
 日期：2026-10-09。状态：T0—T8 实施、资产与客观验收完成，试听待主人确认。T9 已完成远端主线集成、本地版本升级与 `main` 快进；远端密钥、Edge Function 和 Cloudflare Pages 生产发布仍待逐步确认。
 
 依据：[Azure 语音响度校准实测](../../2026-10-09-azure-tts-loudness-calibration.md) 、[Azure 三语 TTS 与响度统一设计](../specs/2026-10-09-azure-tts-unification-design.md) ，以及项目 `CLAUDE.md` 的 2026-10-09 Azure 段落。本方案获批后，取代其中「每条音轨经独立 FFmpeg 处理服务校准」的规定。

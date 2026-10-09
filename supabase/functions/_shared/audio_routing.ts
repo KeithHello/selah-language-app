@@ -47,11 +47,11 @@ const PROFILE_PROSODY: Record<
 };
 
 export const AZURE_VOICE_VOLUME: Readonly<Record<string, string | null>> = {
-  "en-US-JennyNeural": null,
-  "en-US-GuyNeural": "-13%",
-  "en-GB-SoniaNeural": "-20%",
-  "zh-TW-HsiaoChenNeural": "-19%",
-  "ja-JP-NanamiNeural": "-35%",
+  "en-US-JennyNeural": "+6%",
+  "en-US-GuyNeural": "-8%",
+  "en-GB-SoniaNeural": "-15%",
+  "zh-TW-HsiaoChenNeural": "-14%",
+  "ja-JP-NanamiNeural": "-31%",
 };
 
 function canonicalLanguage(value: unknown): "zh-Hant" | "ja" | "en" | null {

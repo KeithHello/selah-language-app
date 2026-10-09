@@ -12,7 +12,7 @@ void main() {
           language: 'en',
           contentHash: 'a' * 64,
         ),
-        'audio:v3:loop:azure:en-US-JennyNeural@gentle-natural:1:azure-vol-v1:gentle-natural:target:en:${'a' * 64}',
+        'audio:v3:loop:azure:en-US-JennyNeural@gentle-natural:1:azure-vol-v2:gentle-natural:target:en:${'a' * 64}',
       );
     },
   );
@@ -33,14 +33,14 @@ void main() {
     );
     expect(
       audioManifestCachePattern(voice: 'gentle-natural', language: 'en'),
-      'azure:en-US-JennyNeural@gentle-natural:1:azure-vol-v1:%',
+      'azure:en-US-JennyNeural@gentle-natural:1:azure-vol-v2:%',
     );
   });
 
   test(
     'bundled audio is reusable only when its seed revision matches',
     () {
-      expect(isNormalizedAudioEntry({'normalizerRevision': 'lufs-v2'}), isTrue);
+      expect(isNormalizedAudioEntry({'normalizerRevision': 'azure-vol-v2'}), isTrue);
       expect(
         isNormalizedAudioEntry({'normalizerRevision': 'lufs-v1'}),
         isFalse,

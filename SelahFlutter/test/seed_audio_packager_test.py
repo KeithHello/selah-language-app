@@ -48,9 +48,9 @@ class SeedAudioPackagingTest(unittest.TestCase):
         canonical = ' '.join(seed['en_translation'].strip().split()).lower()
         model = VOICE_MODELS[voice]
         text_hash = hashlib.sha256(
-            f'en|mp3|lufs-v2|{canonical}'.encode()).hexdigest()
+            f'en|mp3|azure-vol-v2|{canonical}'.encode()).hexdigest()
         provider_voice = f'{model.split("/", 1)[1]}@{voice}'
-        content_hash = f'azure:{provider_voice}:{VOICE_SPEEDS[voice]}:lufs-v2:{text_hash}'
+        content_hash = f'azure:{provider_voice}:{VOICE_SPEEDS[voice]}:azure-vol-v2:{text_hash}'
         return {'seed_sentence_id': seed['id'], 'voice_profile': voice,
                 'storage_path': f"seed/{seed['id']}/{voice}/{text_hash}.mp3",
                 'content_hash': content_hash, 'tts_model': VOICE_MODELS[voice],
@@ -77,7 +77,7 @@ class SeedAudioPackagingTest(unittest.TestCase):
         entries = self.package()
         self.assertEqual(len(entries), 8)
         self.assertEqual(len(self.requests), 4)
-        self.assertEqual(entries['seed-001:gentle-natural']['normalizerRevision'], 'lufs-v2')
+        self.assertEqual(entries['seed-001:gentle-natural']['normalizerRevision'], 'azure-vol-v2')
         self.assertTrue(all('/seed/seed-002/' in path for path in self.requests))
         self.assertTrue(all(path.startswith('/storage/v1/object/authenticated/audio-assets/seed/')
                             for path in self.requests))
@@ -131,8 +131,8 @@ class SeedAudioPackagingTest(unittest.TestCase):
                     'path': filename,
                     'sha256': hashlib.sha256(body).hexdigest(),
                     'byteSize': len(body),
-                    'normalizerRevision': 'lufs-v2',
-                    'integratedLufs': -20.9,
+                    'normalizerRevision': 'azure-vol-v2',
+                    'integratedLufs': -20.4,
                     'truePeakDbtp': -1.2,
                 }
         (source_dir / 'audio-index.json').write_text(
@@ -143,7 +143,7 @@ class SeedAudioPackagingTest(unittest.TestCase):
 
         self.assertEqual(len(entries), 8)
         self.assertEqual(
-            entries['seed-001:gentle-natural']['normalizerRevision'], 'lufs-v2')
+            entries['seed-001:gentle-natural']['normalizerRevision'], 'azure-vol-v2')
         self.assertEqual(
             (self.audio_dir / 'seed-002-elegant-british.mp3').read_bytes(),
             self.bodies[('seed-002', 'elegant-british')])
@@ -159,6 +159,58 @@ class SeedAudioPackagingTest(unittest.TestCase):
 
         with self.assertRaises(RuntimeError):
             packager.package_local_default_audio(seeds, self.audio_dir, {}, source_dir)
+        self.assertFalse(any(self.audio_dir.glob('seed-*.mp3')))
+
+    def test_rejects_english_group_mean_outside_half_lu_before_copying(self):
+        seeds = [{'id': 'seed-001'}, {'id': 'seed-002'}]
+        source_dir = self.audio_dir / 'staged'
+        source_dir.mkdir()
+        index = {}
+        for seed in seeds:
+            for voice in VOICES:
+                filename = f"{seed['id']}-{voice}.mp3"
+                body = self.bodies[(seed['id'], voice)]
+                (source_dir / filename).write_bytes(body)
+                index[f"{seed['id']}:{voice}"] = {
+                    'path': filename,
+                    'sha256': hashlib.sha256(body).hexdigest(),
+                    'byteSize': len(body),
+                    'normalizerRevision': 'azure-vol-v2',
+                    'integratedLufs': -18.5,
+                    'truePeakDbtp': -1.2,
+                }
+        (source_dir / 'audio-index.json').write_text(
+            json.dumps(index), encoding='utf-8')
+
+        with self.assertRaisesRegex(RuntimeError, 'loudness acceptance failed'):
+            packager.package_local_default_audio(
+                seeds, self.audio_dir, {}, source_dir)
+        self.assertFalse(any(self.audio_dir.glob('seed-*.mp3')))
+
+    def test_rejects_native_group_mean_outside_half_lu_before_copying(self):
+        seeds = [{'id': 'seed-001'}, {'id': 'seed-002'}]
+        source_dir = self.audio_dir / 'native-staged'
+        source_dir.mkdir()
+        index = {}
+        for seed in seeds:
+            for language in ('zh-Hant', 'ja'):
+                filename = f"{seed['id']}-source-{language}.mp3"
+                body = b'ID3' + seed['id'].encode() + language.encode()
+                (source_dir / filename).write_bytes(body)
+                index[f"{seed['id']}:source:{language}:native-gentle"] = {
+                    'path': filename,
+                    'sha256': hashlib.sha256(body).hexdigest(),
+                    'byteSize': len(body),
+                    'normalizerRevision': 'azure-vol-v2',
+                    'integratedLufs': -18.5,
+                    'truePeakDbtp': -1.2,
+                }
+        (source_dir / 'audio-index.json').write_text(
+            json.dumps(index), encoding='utf-8')
+
+        with self.assertRaisesRegex(RuntimeError, 'loudness acceptance failed'):
+            packager.package_local_native_audio(
+                seeds, self.audio_dir, {}, source_dir)
         self.assertFalse(any(self.audio_dir.glob('seed-*.mp3')))
 
     def test_packages_a_native_profile_variant_without_aliasing_other_profiles(self):

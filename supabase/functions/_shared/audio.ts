@@ -2,8 +2,8 @@ export const AUDIO_BUCKET = "audio-assets";
 export const TTS_MODEL = "azure-speech";
 export const TTS_SPEED = 1;
 export const AUDIO_FORMAT = "mp3";
-export const AUDIO_LEVEL_REVISION = "azure-vol-v1";
-export const SEED_AUDIO_REVISION = "lufs-v2";
+export const AUDIO_LEVEL_REVISION = "azure-vol-v2";
+export const SEED_AUDIO_REVISION = "azure-vol-v2";
 export const SIGNED_URL_TTL_SECONDS = 60 * 10;
 
 export const VOICE_MAP: Record<string, string> = {

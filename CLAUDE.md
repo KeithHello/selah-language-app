@@ -1,5 +1,12 @@
 # Selah 项目规范
 
+## 2026-10-10 Azure 响度 v2（本地开发授权）
+
+- 主人已选择试听 B：五个 Azure 声线统一比 v1 提高约 0.5 dB，平均目标为 `-20.4 LUFS`，每个声线 5 句平均误差不超过 `±0.5 LU`，所有真峰值不高于 `-1 dBTP`。在线服务、种子生成器与测量工具必须共用同一音量表：Jenny `+6%`、Guy `-8%`、Sonia `-15%`、HsiaoChen `-14%`、Nanami `-31%`；所有 profile 按声线套用。
+- 在线音频与随包种子统一使用 `azure-vol-v2`。种子由 Azure 直接返回 MP3，原样保存；FFmpeg 仅测量 LUFS 与真峰值，不重新编码。manifest 为兼容客户端仍使用字段名 `normalizerRevision`，其值记录 `azure-vol-v2`。
+- 2026-10-10 主人已授权 V0—V5 本地开发、验证、重建 60 条 starter 种子及 12 种设置组合试听检查，预算约 US$0.17；`.env` 只读取 `AZURE_SPEECH_KEY`、`AZURE_SPEECH_REGION`。本轮不删 `supabase/audio-normalizer/`，不写 Supabase secrets、不部署、不 push。远端发布与 Cloudflare 操作仍按各自逐步授权边界执行。
+- 方案与任务清单见 `docs/superpowers/plans/2026-10-09-azure-tts-volume-v2-plan.md`。只有通过 V5 本地检查及音频指标的部分才在 `ROADMAP.md` 标为完成。
+
 ## 2026-10-09 Azure 三语 TTS 与响度统一（实施授权）
 
 - 主人已授权按 `docs/superpowers/plans/2026-10-09-azure-tts-ssml-volume-plan.md` 完整开发 Azure 三语 TTS 响度方案：中文（台湾普通话）、日语、美国英语与英国英语统一使用 Azure Speech 标准神经语音；现有 voice profile 与语言路由保持不变，SSML 按 profile 输出非默认的 locale、rate、pitch 和 volume。

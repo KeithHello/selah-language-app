@@ -1,6 +1,7 @@
 import importlib.util
 import hashlib
 import json
+import re
 import tempfile
 import unittest
 from unittest import mock
@@ -20,7 +21,7 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
         self.assertIn('name="zh-TW-HsiaoChenNeural"', ssml)
         self.assertIn("A&amp;B &lt;今天&gt;", ssml)
         self.assertIn('xml:lang="zh-TW"', ssml)
-        self.assertIn('volume="-19%"', ssml)
+        self.assertIn('volume="-14%"', ssml)
 
     def test_build_ssml_routes_japanese_and_applies_native_profile(self):
         ssml = MODULE.build_ssml("今日は晴れです。", "ja", "native-calm")
@@ -28,7 +29,7 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
         self.assertIn('xml:lang="ja-JP"', ssml)
         self.assertIn('rate="-8%"', ssml)
         self.assertIn('pitch="-1st"', ssml)
-        self.assertIn('volume="-35%"', ssml)
+        self.assertIn('volume="-31%"', ssml)
 
     def test_build_ssml_routes_english_to_profile_voice_and_prosody(self):
         ssml = MODULE.build_ssml("A quiet day.", "en", "clear-slow")
@@ -36,12 +37,29 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
         self.assertIn('xml:lang="en-US"', ssml)
         self.assertIn('rate="-10%"', ssml)
         self.assertNotIn('pitch=', ssml)
-        self.assertNotIn('volume=', ssml)
+        self.assertIn('volume="+6%"', ssml)
 
-    def test_default_jenny_ssml_omits_default_prosody(self):
+    def test_default_jenny_ssml_applies_calibrated_volume(self):
         ssml = MODULE.build_ssml("A quiet day.", "en", "gentle-natural")
         self.assertIn('<voice name="en-US-JennyNeural"', ssml)
-        self.assertNotIn('<prosody', ssml)
+        self.assertIn('<prosody volume="+6%">', ssml)
+
+    def test_python_volume_table_matches_online_typescript_table(self):
+        routing = (SCRIPT_PATH.parents[1] / "functions" / "_shared" / "audio_routing.ts")
+        source = routing.read_text(encoding="utf-8")
+        match = re.search(
+            r"AZURE_VOICE_VOLUME[^=]*=\s*\{(.*?)\n\};",
+            source,
+            flags=re.DOTALL,
+        )
+        self.assertIsNotNone(match)
+        online = {
+            voice: None if volume == "null" else volume.strip('"')
+            for voice, volume in re.findall(
+                r'"([^"]+)"\s*:\s*(null|"[^"]+")', match.group(1)
+            )
+        }
+        self.assertEqual(MODULE.VOICE_VOLUME, online)
 
     def test_voice_output_path_uses_source_zh_hant_filename(self):
         path = MODULE.voice_output_path("seed-001", Path("audio"))
@@ -118,7 +136,7 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
                     )
             request.assert_not_called()
 
-    def test_normalizes_azure_audio_before_atomic_write(self):
+    def test_saves_the_azure_mp3_unchanged_and_indexes_measurements(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             seed_path = root / "seed.json"
@@ -126,11 +144,10 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
                 json.dumps({"sentences": [{"id": "seed-001", "ja_text": "こんにちは。"}]}, ensure_ascii=False),
                 encoding="utf-8",
             )
-            normalized = b"ID3" + b"normalized" * 50
-            metadata = {"integratedLufs": -20.9, "truePeakDbtp": -1.2, "revision": "lufs-v2"}
+            azure_audio = b"ID3" + b"azure-mp3" * 50
             with mock.patch.dict(MODULE.os.environ, {"AZURE_SPEECH_KEY": "test-key", "AZURE_SPEECH_REGION": "japaneast"}), \
-                 mock.patch.object(MODULE, "_azure_speech_request", return_value=b"ID3" + b"raw" * 50) as request, \
-                 mock.patch.object(MODULE, "normalize_mp3", return_value=(normalized, metadata)) as normalize:
+                 mock.patch.object(MODULE, "_azure_speech_request", return_value=azure_audio) as request, \
+                 mock.patch.object(MODULE, "measure_mp3", return_value=(-20.35, -1.2)) as measure:
                 count = MODULE.generate_seed_audio(
                     seed_path=seed_path,
                     audio_dir=root / "audio",
@@ -141,49 +158,22 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
                 )
             output = root / "audio" / "seed-001-source-ja.mp3"
             self.assertEqual(count, 1)
-            self.assertEqual(output.read_bytes(), normalized)
+            self.assertEqual(output.read_bytes(), azure_audio)
             index = json.loads((root / "audio" / "audio-index.json").read_text(encoding="utf-8"))
             self.assertEqual(
                 index["seed-001:source:ja:native-gentle"]["normalizerRevision"],
-                "lufs-v2",
+                "azure-vol-v2",
             )
             self.assertEqual(
                 index["seed-001:source:ja:native-gentle"]["sha256"],
-                hashlib.sha256(normalized).hexdigest(),
+                hashlib.sha256(azure_audio).hexdigest(),
             )
+            self.assertEqual(index["seed-001:source:ja:native-gentle"]["byteSize"], len(azure_audio))
+            self.assertEqual(index["seed-001:source:ja:native-gentle"]["integratedLufs"], -20.35)
+            self.assertEqual(index["seed-001:source:ja:native-gentle"]["truePeakDbtp"], -1.2)
             request.assert_called_once()
             self.assertIn(b"NanamiNeural", request.call_args.args[2].encode())
-            normalize.assert_called_once()
-
-    def test_reuses_calibration_mp3_without_env_access_or_azure_call(self):
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            seed_path = root / "seed.json"
-            seed_path.write_text(
-                json.dumps({"sentences": [{"id": "seed-001", "ja_text": "こんにちは。"}]}, ensure_ascii=False),
-                encoding="utf-8",
-            )
-            raw_dir = root / "raw"
-            raw_dir.mkdir()
-            raw = b"ID3" + b"calibration-source" * 30
-            (raw_dir / "baseline__ja__native-gentle__seed-001__default.mp3").write_bytes(raw)
-            normalized = b"ID3" + b"normalized" * 50
-            metadata = {"integratedLufs": -20.9, "truePeakDbtp": -1.2, "revision": "lufs-v2"}
-            with mock.patch.object(MODULE, "load_local_env", side_effect=AssertionError("offline reuse must not read env")), \
-                 mock.patch.object(MODULE, "_azure_speech_request", side_effect=AssertionError("offline reuse must not call Azure")) as request, \
-                 mock.patch.object(MODULE, "normalize_mp3", return_value=(normalized, metadata)) as normalize:
-                count = MODULE.generate_seed_audio(
-                    seed_path=seed_path,
-                    audio_dir=root / "audio",
-                    env_path=root / ".env",
-                    language="ja",
-                    voice_profile="native-gentle",
-                    raw_audio_dir=raw_dir,
-                )
-            self.assertEqual(count, 1)
-            self.assertEqual((root / "audio" / "seed-001-source-ja.mp3").read_bytes(), normalized)
-            request.assert_not_called()
-            normalize.assert_called_once_with(raw, mock.ANY)
+            measure.assert_called_once_with(azure_audio, mock.ANY)
 
     def test_generates_english_target_audio_with_manifest_identity(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -195,19 +185,14 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
                 ),
                 encoding="utf-8",
             )
-            normalized = b"ID3" + b"normalized" * 50
-            metadata = {
-                "integratedLufs": -20.9,
-                "truePeakDbtp": -1.2,
-                "revision": "lufs-v2",
-            }
+            azure_audio = b"ID3" + b"azure-mp3" * 50
             with mock.patch.dict(
                 MODULE.os.environ,
                 {"AZURE_SPEECH_KEY": "test-key", "AZURE_SPEECH_REGION": "eastasia"},
             ), mock.patch.object(
-                MODULE, "_azure_speech_request", return_value=b"ID3" + b"raw" * 50
+                MODULE, "_azure_speech_request", return_value=azure_audio
             ) as request, mock.patch.object(
-                MODULE, "normalize_mp3", return_value=(normalized, metadata)
+                MODULE, "measure_mp3", return_value=(-20.4, -1.4)
             ):
                 count = MODULE.generate_seed_audio(
                     seed_path=seed_path,
@@ -220,17 +205,32 @@ class AzureSeedAudioScriptTests(unittest.TestCase):
 
             output = root / "audio" / "seed-001-clear-slow.mp3"
             self.assertEqual(count, 1)
-            self.assertEqual(output.read_bytes(), normalized)
+            self.assertEqual(output.read_bytes(), azure_audio)
             index = json.loads((root / "audio" / "audio-index.json").read_text())
             self.assertEqual(
-                index["seed-001:clear-slow"]["normalizerRevision"], "lufs-v2"
+                index["seed-001:clear-slow"]["normalizerRevision"], "azure-vol-v2"
             )
             self.assertEqual(
                 index["seed-001:clear-slow"]["sha256"],
-                hashlib.sha256(normalized).hexdigest(),
+                hashlib.sha256(azure_audio).hexdigest(),
             )
             request.assert_called_once()
             self.assertIn(b"en-US-JennyNeural", request.call_args.args[2].encode())
+
+    def test_measurement_uses_ffmpeg_loudnorm_without_creating_audio_output(self):
+        result = MODULE.subprocess.CompletedProcess(
+            args=["ffmpeg"],
+            returncode=0,
+            stdout=b"",
+            stderr=b'{"input_i":"-20.4","input_tp":"-1.7"}',
+        )
+        with mock.patch.object(MODULE.subprocess, "run", return_value=result) as run:
+            self.assertEqual(MODULE.measure_mp3(b"ID3audio"), (-20.4, -1.7))
+        args = run.call_args.args[0]
+        self.assertIn("pipe:0", args)
+        self.assertIn("null", args)
+        self.assertIn("-20.4", args[args.index("-af") + 1])
+        self.assertEqual(run.call_args.kwargs["input"], b"ID3audio")
 
     def test_is_valid_mp3_accepts_id3_and_mpeg_headers(self):
         self.assertTrue(MODULE.is_valid_mp3(b"ID3" + b"x" * 32))

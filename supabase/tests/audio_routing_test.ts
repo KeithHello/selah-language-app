@@ -129,7 +129,7 @@ Deno.test("cache key includes provider, provider voice, speed and text hash", ()
       speed: 1,
       textHash: "a".repeat(64),
     }),
-    `azure:zh-TW-HsiaoChenNeural@native-gentle:1:azure-vol-v1:${
+    `azure:zh-TW-HsiaoChenNeural@native-gentle:1:azure-vol-v2:${
       "a".repeat(64)
     }`,
   );
@@ -144,7 +144,7 @@ Deno.test("Azure SSML applies the complete calibrated volume table by voice", ()
         voiceProfile: "gentle-natural",
       },
       expected:
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural" xml:lang="en-US">Hello &amp; welcome</voice></speak>',
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural" xml:lang="en-US"><prosody volume="+6%">Hello &amp; welcome</prosody></voice></speak>',
     },
     {
       input: {
@@ -153,7 +153,7 @@ Deno.test("Azure SSML applies the complete calibrated volume table by voice", ()
         voiceProfile: "clear-slow",
       },
       expected:
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural" xml:lang="en-US"><prosody rate="-10%">Hello &amp; welcome</prosody></voice></speak>',
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-JennyNeural" xml:lang="en-US"><prosody rate="-10%" volume="+6%">Hello &amp; welcome</prosody></voice></speak>',
     },
     {
       input: {
@@ -162,7 +162,7 @@ Deno.test("Azure SSML applies the complete calibrated volume table by voice", ()
         voiceProfile: "daily-bright",
       },
       expected:
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-GuyNeural" xml:lang="en-US"><prosody rate="+5%" pitch="+1st" volume="-13%">Hello &amp; welcome</prosody></voice></speak>',
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-US"><voice name="en-US-GuyNeural" xml:lang="en-US"><prosody rate="+5%" pitch="+1st" volume="-8%">Hello &amp; welcome</prosody></voice></speak>',
     },
     {
       input: {
@@ -172,7 +172,7 @@ Deno.test("Azure SSML applies the complete calibrated volume table by voice", ()
         voiceProfile: "elegant-british",
       },
       expected:
-        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-GB"><voice name="en-GB-SoniaNeural" xml:lang="en-GB"><prosody volume="-20%">Hello &amp; welcome</prosody></voice></speak>',
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xml:lang="en-GB"><voice name="en-GB-SoniaNeural" xml:lang="en-GB"><prosody volume="-15%">Hello &amp; welcome</prosody></voice></speak>',
     },
   ];
   for (const { input, expected } of cases) {
@@ -185,8 +185,8 @@ Deno.test("Azure SSML applies the complete calibrated volume table by voice", ()
 
   for (
     const [language, locale, voice, volume] of [
-      ["zh-Hant", "zh-TW", "zh-TW-HsiaoChenNeural", "-19%"],
-      ["ja", "ja-JP", "ja-JP-NanamiNeural", "-35%"],
+      ["zh-Hant", "zh-TW", "zh-TW-HsiaoChenNeural", "-14%"],
+      ["ja", "ja-JP", "ja-JP-NanamiNeural", "-31%"],
     ] as const
   ) {
     for (
@@ -232,13 +232,17 @@ Deno.test("Azure SSML escapes text and billing follows the canonical markup", ()
   assertStringIncludes(japaneseSsml, 'xml:lang="ja-JP"');
   assertStringIncludes(japaneseSsml, "おはよう &lt;友達&gt;");
   const englishCharacters = azureBillableCharacterCount("hello", english.route);
-  assertEquals(englishCharacters, 5);
+  assertEquals(englishCharacters, 37);
+  assertEquals(
+    azureBillableCharacterCount("hello", english.route, { applyVolume: false }),
+    5,
+  );
   assertEquals(azureBillableCharacterCount("漢", japanese.route) > 2, true);
   const rawSsml = buildAzureSsml("おはよう", japanese.route, {
     applyVolume: false,
   });
-  assertEquals(rawSsml.includes('volume="-35%"'), false);
-  assertEquals(AZURE_VOICE_VOLUME["ja-JP-NanamiNeural"], "-35%");
+  assertEquals(rawSsml.includes('volume="-31%"'), false);
+  assertEquals(AZURE_VOICE_VOLUME["ja-JP-NanamiNeural"], "-31%");
 });
 
 Deno.test("provider retry policy retries timeouts, throttling and server errors only", () => {

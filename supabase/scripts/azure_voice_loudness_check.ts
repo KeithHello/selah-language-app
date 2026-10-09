@@ -17,12 +17,12 @@ import {
 } from "../functions/_shared/azure_speech.ts";
 import { isLikelyMp3Audio } from "../functions/_shared/audio_generation_policy.ts";
 
-export const TARGET_LUFS = -20.9;
+export const TARGET_LUFS = -20.4;
 export const BILLABLE_CHARACTER_CAP = 6_000;
 
 const VOICE_CHECKS = [
   {
-    voiceId: "jenny-en",
+    voiceId: "jenny-en-gentle",
     audioRole: "target" as const,
     sourceLanguage: "zh-Hant",
     targetLanguage: "en",
@@ -31,7 +31,16 @@ const VOICE_CHECKS = [
     textField: "en_translation",
   },
   {
-    voiceId: "guy-en",
+    voiceId: "jenny-en-clear",
+    audioRole: "target" as const,
+    sourceLanguage: "zh-Hant",
+    targetLanguage: "en",
+    accent: "en-US",
+    voiceProfile: "clear-slow",
+    textField: "en_translation",
+  },
+  {
+    voiceId: "guy-en-bright",
     audioRole: "target" as const,
     sourceLanguage: "zh-Hant",
     targetLanguage: "en",
@@ -40,7 +49,7 @@ const VOICE_CHECKS = [
     textField: "en_translation",
   },
   {
-    voiceId: "sonia-en",
+    voiceId: "sonia-en-british",
     audioRole: "target" as const,
     sourceLanguage: "zh-Hant",
     targetLanguage: "en",
@@ -49,7 +58,7 @@ const VOICE_CHECKS = [
     textField: "en_translation",
   },
   {
-    voiceId: "hsiaochen-zh",
+    voiceId: "hsiaochen-zh-gentle",
     audioRole: "source" as const,
     sourceLanguage: "zh-Hant",
     targetLanguage: "en",
@@ -58,12 +67,66 @@ const VOICE_CHECKS = [
     textField: "zh_text",
   },
   {
-    voiceId: "nanami-ja",
+    voiceId: "hsiaochen-zh-clear",
+    audioRole: "source" as const,
+    sourceLanguage: "zh-Hant",
+    targetLanguage: "en",
+    accent: "zh-TW",
+    voiceProfile: "native-clear",
+    textField: "zh_text",
+  },
+  {
+    voiceId: "hsiaochen-zh-bright",
+    audioRole: "source" as const,
+    sourceLanguage: "zh-Hant",
+    targetLanguage: "en",
+    accent: "zh-TW",
+    voiceProfile: "native-bright",
+    textField: "zh_text",
+  },
+  {
+    voiceId: "hsiaochen-zh-calm",
+    audioRole: "source" as const,
+    sourceLanguage: "zh-Hant",
+    targetLanguage: "en",
+    accent: "zh-TW",
+    voiceProfile: "native-calm",
+    textField: "zh_text",
+  },
+  {
+    voiceId: "nanami-ja-gentle",
     audioRole: "source" as const,
     sourceLanguage: "ja",
     targetLanguage: "en",
     accent: "ja-JP",
     voiceProfile: "native-gentle",
+    textField: "ja_text",
+  },
+  {
+    voiceId: "nanami-ja-clear",
+    audioRole: "source" as const,
+    sourceLanguage: "ja",
+    targetLanguage: "en",
+    accent: "ja-JP",
+    voiceProfile: "native-clear",
+    textField: "ja_text",
+  },
+  {
+    voiceId: "nanami-ja-bright",
+    audioRole: "source" as const,
+    sourceLanguage: "ja",
+    targetLanguage: "en",
+    accent: "ja-JP",
+    voiceProfile: "native-bright",
+    textField: "ja_text",
+  },
+  {
+    voiceId: "nanami-ja-calm",
+    audioRole: "source" as const,
+    sourceLanguage: "ja",
+    targetLanguage: "en",
+    accent: "ja-JP",
+    voiceProfile: "native-calm",
     textField: "ja_text",
   },
 ] as const;
@@ -116,11 +179,11 @@ export interface ListeningPair {
 export function buildLoudnessCheckWorkItems(
   seeds: readonly SeedSentence[],
 ): LoudnessCheckWorkItem[] {
-  if (seeds.length < 10) {
-    throw new RangeError("At least ten starter seed sentences are required");
+  if (seeds.length < 5) {
+    throw new RangeError("At least five starter seed sentences are required");
   }
   const items: LoudnessCheckWorkItem[] = [];
-  for (const seed of seeds.slice(0, 10)) {
+  for (const seed of seeds.slice(0, 5)) {
     if (!seed.id) throw new Error("Every seed sentence requires an id");
     for (const check of VOICE_CHECKS) {
       const text = seed[check.textField]?.trim();
@@ -175,14 +238,30 @@ export function assertBillableCharacterCap(
 
 export function suggestSsmlVolume(
   measuredAverageLufs: number,
+  maxTruePeakDbtp: number,
   targetLufs = TARGET_LUFS,
 ): string | null {
-  if (!Number.isFinite(measuredAverageLufs) || !Number.isFinite(targetLufs)) {
-    throw new RangeError("LUFS values must be finite");
+  if (
+    !Number.isFinite(measuredAverageLufs) ||
+    !Number.isFinite(maxTruePeakDbtp) ||
+    !Number.isFinite(targetLufs)
+  ) {
+    throw new RangeError("LUFS and true-peak values must be finite");
   }
-  const attenuationDb = Math.min(0, targetLufs - measuredAverageLufs);
-  const percent = Math.round((10 ** (attenuationDb / 20) - 1) * 100);
-  return percent < 0 ? `${percent}%` : null;
+  const desiredGainDb = targetLufs - measuredAverageLufs;
+  const peakLimitedGainDb = -1 - maxTruePeakDbtp;
+  const gainDb = Math.min(desiredGainDb, peakLimitedGainDb);
+  let percent = Math.min(
+    100,
+    Math.max(-100, Math.round((10 ** (gainDb / 20) - 1) * 100)),
+  );
+  while (
+    percent > -100 &&
+    maxTruePeakDbtp + 20 * Math.log10(1 + percent / 100) > -1
+  ) {
+    percent -= 1;
+  }
+  return percent === 0 ? null : `${percent > 0 ? "+" : ""}${percent}%`;
 }
 
 export function summarizeMeasurements(
@@ -209,7 +288,11 @@ export function summarizeMeasurements(
       deviationFromTargetLufs: averageLufs - targetLufs,
       maxTruePeakDbtp: Math.max(...rows.map((row) => row.truePeakDbtp)),
       currentVolume: AZURE_VOICE_VOLUME[voice] ?? null,
-      suggestedVolume: suggestSsmlVolume(averageLufs, targetLufs),
+      suggestedVolume: suggestSsmlVolume(
+        averageLufs,
+        Math.max(...rows.map((row) => row.truePeakDbtp)),
+        targetLufs,
+      ),
     };
   });
 }
@@ -217,7 +300,7 @@ export function summarizeMeasurements(
 export function buildNativeEnglishListeningPairs(
   measurements: readonly VoiceMeasurement[],
   nativeVoiceId: string,
-  englishVoiceId = "jenny-en",
+  englishVoiceId = "jenny-en-gentle",
 ): ListeningPair[] {
   const byVoiceAndSeed = new Map<string, VoiceMeasurement>();
   for (const measurement of measurements) {
@@ -466,11 +549,14 @@ async function run(): Promise<void> {
   const listeningPlaylists = {
     zhEn: {
       path: `${listeningPairRoot}/zh-en-alternating.mp3`,
-      pairs: buildNativeEnglishListeningPairs(measurements, "hsiaochen-zh"),
+      pairs: buildNativeEnglishListeningPairs(
+        measurements,
+        "hsiaochen-zh-gentle",
+      ),
     },
     jaEn: {
       path: `${listeningPairRoot}/ja-en-alternating.mp3`,
-      pairs: buildNativeEnglishListeningPairs(measurements, "nanami-ja"),
+      pairs: buildNativeEnglishListeningPairs(measurements, "nanami-ja-gentle"),
     },
   };
   await writeListeningPlaylist(

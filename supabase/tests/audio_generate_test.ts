@@ -688,7 +688,7 @@ Deno.test("validates input into an Azure route with the current cache revision",
   assertEquals(result.route.provider, "azure");
   assertEquals(result.route.providerVoice, "en-US-JennyNeural@gentle-natural");
   assertEquals(result.route.providerModel, "azure-speech/en-US-JennyNeural");
-  assertEquals(AUDIO_LEVEL_REVISION, "azure-vol-v1");
+  assertEquals(AUDIO_LEVEL_REVISION, "azure-vol-v2");
   assertEquals(mp3DurationMs(1024), 51);
   assertEquals(mp3DurationMs(1000), 50);
   let durationError = false;

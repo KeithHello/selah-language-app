@@ -17,18 +17,18 @@ profile 到 voice 的映射仅用于这一版 Azure 标准神经 voice；真实�
 
 ## 响度处理
 
-- 线上 Azure 音轨使用校准过的 SSML `volume` 按声线衰减，目标声线平均响度约为 `-20.9 LUFS`。校准验收使用每声线 10 句：平均值与目标相差不超过 `0.5 LU`，每句真峰值 `≤ -1 dBTP`。这是一种基于声线的固定增益，不承诺每一句都逐条达到同一 LUFS；极短句允许更大偏差。
-- 响度表 v1：Jenny 不写 `volume`（0 dB）；Guy `-13%`（约 -1.21 dB）；Sonia `-20%`（约 -1.94 dB）；HsiaoChen `-19%`（约 -1.83 dB）；Nanami `-35%`（约 -3.74 dB）。同一 voice 的所有 profile 共用该值。任何声线数值、SSML 生成规则或 Azure 模型变化都须升级 `azure-vol-v1` 并复测。
+- 线上 Azure 音轨使用校准过的 SSML `volume` 按声线调整，目标声线平均响度约为 `-20.4 LUFS`。校准验收使用每种设置 5 句：平均值与目标相差不超过 `0.5 LU`，每句真峰值 `≤ -1 dBTP`。这是一种基于声线的固定增益，不承诺每一句都逐条达到同一 LUFS；极短句允许更大偏差。
+- 响度表 v2：Jenny `+6%`（约 +0.51 dB）；Guy `-8%`；Sonia `-15%`；HsiaoChen `-14%`；Nanami `-31%`。同一 voice 的所有 profile 共用该值。任何声线数值、SSML 生成规则或 Azure 模型变化都须升级 `azure-vol-v2` 并复测。
 - SSML 仅写非默认的 `rate`、`pitch` 和 `volume`；全为默认值时省略 `prosody`。计费字符由同一个 canonical SSML builder 计算，因此省略默认标签会同步减少平台成本预留，会员文本额度口径不变。
 - 线上成品输出使用 Azure REST 格式 `audio-24khz-160kbitrate-mono-mp3`。生成流程为合成、校验 MP3、计算 SHA-256 与时长、上传成品并标记 `ready`；固定 160 kbit/s 下时长按字节数除以 20 计算毫秒。Edge Function 不运行 FFmpeg，也不调用独立标准化服务，不存放源音频中间对象。
-- 随包 60 条种子音轨离线使用 FFmpeg EBU R128 双遍 `loudnorm` 校准；目标成品实测 `-20.9 LUFS ±1 LU`、真峰值 `≤ -1 dBTP`，输出为 24 kHz、单声道、160 kbit/s MP3，revision 为 `lufs-v2`。FFmpeg 仅保留为本地种子资产处理工具。
+- 随包 60 条种子音轨由 Azure 使用相同 SSML 音量表合成，Azure 返回的 MP3 原样保存；FFmpeg 只测量 LUFS 与真峰值，不修改音频。目标平均值为 `-20.4 LUFS ±0.5 LU`，真峰值 `≤ -1 dBTP`，revision 为 `azure-vol-v2`。
 
 ## 计费、额度和缓存
 
 - 会员 `tts` 额度维持当前 `[...text].length` Unicode 码点口径，避免会员套餐无声改变。
 - Azure 平台成本独立计算 `billableCharacters`：SSML voice 内文本和会计费的 prosody markup 按 Unicode code point 计数；Han 字符（覆盖汉字与日文 Kanji）每个按 2 个单位预留。计数函数与 SSML builder 共用同一 canonical SSML，防止文本路由与价格单位漂移。
 - Azure 每百万计费字符价格、Azure 订阅优惠／免费额度取决于真实资源和结算配置；费率和 price version 由显式服务端配置提供，校验失败则阻止新付费 TTS。usage 记录中的 Azure 实际供应商成本保持 unknown／null，除非供应商响应或账单导入能提供可核对的实耗。预算预留采用配置费率，不把预留当成账单实耗。线上 SSML 音量不产生独立处理器运行成本。
-- 请求缓存身份包括语言、provider、voice、profile、speed、文本 hash 和 `azure-vol-v1`。Flutter 浏览器本地音轨的 `audio:v3` 前缀保持不变，并将新生成缓存的响度 revision 更新为 `azure-vol-v1`；旧缓存不再命中。随包种子使用独立的 `lufs-v2` revision，并校验 manifest 与成品 checksum。
+- 请求缓存身份包括语言、provider、voice、profile、speed、文本 hash 和 `azure-vol-v2`。Flutter 浏览器本地音轨的 `audio:v3` 前缀保持不变，并将新生成缓存的响度 revision 更新为 `azure-vol-v2`；旧缓存不再命中。随包种子也使用 `azure-vol-v2` revision，并校验 manifest 与成品 checksum。
 - 生成服务 API 保持现有 membership、idempotency、signed URL 和 `audio/mpeg` 响应契约。迁移后不为 Azure 失败调用 OpenAI TTS；失败音轨不可标记 ready。缓存的 OpenAI 成品不会被归为新 Azure 音频。
 
 ## 实施边界

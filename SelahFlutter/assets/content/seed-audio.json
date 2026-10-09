@@ -1,362 +1,362 @@
 {
   "seed-001:clear-slow": {
     "path": "assets/audio/seed-001-clear-slow.mp3",
-    "sha256": "c2155079001b33d62caaa4a31e3cd168137f9887ba3bb837112ac1c14605592e",
-    "byteSize": 108044,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "37c18b0e847ef14470044902aff0e191a3f6ed8ea96a0e4a1155c9ee855f6e04",
+    "byteSize": 106560,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-001:daily-bright": {
     "path": "assets/audio/seed-001-daily-bright.mp3",
-    "sha256": "744e3ed39519889f92d586db4c05ccb208d1d1aa508a4ad00d3fef64a7b4c76f",
-    "byteSize": 98444,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "2bbc287c677b859a4c5f8d8fa5e4454e5ff7483e54f6ae99acc8011d8b1775d0",
+    "byteSize": 96960,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-001:elegant-british": {
     "path": "assets/audio/seed-001-elegant-british.mp3",
-    "sha256": "31db558f311d293c700d1420f7b985a17bebcc31534972227c538d5436b275ad",
-    "byteSize": 91244,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "858b40b5c6ba0e867cc6818970fa9076bff2e1647aa714037ccdad77c7dc5a71",
+    "byteSize": 89760,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-001:gentle-natural": {
     "path": "assets/audio/seed-001-gentle-natural.mp3",
-    "sha256": "1f0779fd40fd43e67927e2f2cb77632e6b8613e19c01398deec1ca68f1373b12",
-    "byteSize": 97484,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "f820f9e02cdf5e7b18261cb292ad4a3653ab3658c5d494344cef769509d5b3d6",
+    "byteSize": 96000,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-001:source:ja": {
     "path": "assets/audio/seed-001-source-ja.mp3",
-    "sha256": "c0e17c7a8d6c8c1cd1e1ac2df8f5054726959d73f9272adb7c314e68f042fbde",
-    "byteSize": 102764,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "a40201083656ed8dc90b9df88d2b74626dd084ab25b3502fbdee8e348b3fb053",
+    "byteSize": 101280,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-001:source:zh-Hant": {
     "path": "assets/audio/seed-001-source-zh-Hant.mp3",
-    "sha256": "bec4eb53e2d849fe56889a826e4e9d20db56c00220a773121f5a23a6f0cf7951",
-    "byteSize": 79244,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "f0d6c64aa9153555b0c19b9e3706de1c954fa8039a0475082e1a6c8d6f4a8ad6",
+    "byteSize": 77760,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-004:clear-slow": {
     "path": "assets/audio/seed-004-clear-slow.mp3",
-    "sha256": "b1a6c7262fbcb7fca2782e90d8fe2dc52bbbbb1c443d0f4139bd6e4c55d74310",
-    "byteSize": 95564,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "5b5dd2c49bb98fa0426b93bb5c9b0fe629709c0105ac8e52f456b2aefdd8c89e",
+    "byteSize": 94080,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-004:daily-bright": {
     "path": "assets/audio/seed-004-daily-bright.mp3",
-    "sha256": "59c15029b5db456886efd547f768c1f07823dcd0bb0b179260888da6c7e4866e",
-    "byteSize": 77804,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "879dc562ebc170253c4adaec674577a009373ba109808fffeb86d49a6dbca318",
+    "byteSize": 76320,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-004:elegant-british": {
     "path": "assets/audio/seed-004-elegant-british.mp3",
-    "sha256": "9ec5be4e6e73c409ce61c7f690c7ca806c9bfe2d81ac6f61e79195e939b13209",
-    "byteSize": 78764,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "cd931d24d414ff5656a3a4c717a202700ef45c6854bd1584eda389eb23f8709e",
+    "byteSize": 77280,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-004:gentle-natural": {
     "path": "assets/audio/seed-004-gentle-natural.mp3",
-    "sha256": "eaebe45501903be1e11a0f212621de2fd5f0c4c2572f7bae590f6d54b19d03a6",
-    "byteSize": 85964,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "a8685b1a264966c744e410f873ec44aa736efe236e45e994c0c4b8266fdb739c",
+    "byteSize": 84480,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-004:source:ja": {
     "path": "assets/audio/seed-004-source-ja.mp3",
-    "sha256": "8c921c6f8369b07afe3b4be55aa9678d950b5f5a9b82baa58b06063e79f7e2c4",
-    "byteSize": 82124,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "521a83a3f5045318cf4fa15707dedca93e0a5302a8b4510fdbc606f4a74203c9",
+    "byteSize": 80640,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-004:source:zh-Hant": {
     "path": "assets/audio/seed-004-source-zh-Hant.mp3",
-    "sha256": "eeea70cfc6320be41c5d8a01ae78f61f47f06b3dae0975a77a9af8d79fb49a72",
-    "byteSize": 80204,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "6fa2909bdd3bcea6284a604823aca2d9dacca324d045774bb6f18c5f62e52c1f",
+    "byteSize": 78720,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-006:clear-slow": {
     "path": "assets/audio/seed-006-clear-slow.mp3",
-    "sha256": "d7c673d8727f8edf030811a5424ab87bc814736c3c0f079565b24e11b8dcdb83",
-    "byteSize": 98924,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "864683af70a4c869e50f1a4c5cb48a90db5a4d16002730a16de527de3f53988f",
+    "byteSize": 97440,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-006:daily-bright": {
     "path": "assets/audio/seed-006-daily-bright.mp3",
-    "sha256": "2e31ae6cedbfe5aa714e64ebfc1ab9742db0a910c7edb355319cc8498a851c5f",
-    "byteSize": 85964,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "f15feef83550b3fea7e02a3cc41445bf979d59a3ff18430cf06575357f6788b9",
+    "byteSize": 84480,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-006:elegant-british": {
     "path": "assets/audio/seed-006-elegant-british.mp3",
-    "sha256": "0a22aa481656a09dfdbb2f63253ec6fa406706e5f814a5926e8abb372dbce39b",
-    "byteSize": 73484,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "a8c83072d2a890c1d5972fafba8b45f5f80794b0e75c1bf2284321701f9d6445",
+    "byteSize": 72000,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-006:gentle-natural": {
     "path": "assets/audio/seed-006-gentle-natural.mp3",
-    "sha256": "cc48bede2708660081051e778559247be1043811b4a6c6b10da2a85dca112866",
-    "byteSize": 89324,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "5b921b4e811a27a8d5665102bef649b474c8a0630e1e6a4504caa60d0c566ff2",
+    "byteSize": 87840,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-006:source:ja": {
     "path": "assets/audio/seed-006-source-ja.mp3",
-    "sha256": "fd6171fe7fdf094c834615b4d63c9fdaeb09fbcb9735e62693543613fc1ebb29",
-    "byteSize": 78284,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "824bcb57866e6a76cd58bf812e97e749a5b10b4525d9a32360836a2644188286",
+    "byteSize": 76800,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-006:source:zh-Hant": {
     "path": "assets/audio/seed-006-source-zh-Hant.mp3",
-    "sha256": "4f1a36117fa4dde6df7e73bcae1ca5a981f1364140d434ecc9978edd50249697",
-    "byteSize": 68204,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "999df965eaa1c56373560af6e67b780d3ed6cb516daf6846ba245e91f3750179",
+    "byteSize": 66720,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-010:clear-slow": {
     "path": "assets/audio/seed-010-clear-slow.mp3",
-    "sha256": "b71cfe059e6c8a64ae9a17fdc46ff42284fb7a049697dccdb1726b9b3bd56fe5",
-    "byteSize": 136364,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "67088374ba217032190a6c091dfef91a2e2d829db7be4772c446137311622d18",
+    "byteSize": 134880,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-010:daily-bright": {
     "path": "assets/audio/seed-010-daily-bright.mp3",
-    "sha256": "0b144d367e1059ce9cd306d561c3fa5367e0914a76c5d6e0b0a3a5a62ff7dc29",
-    "byteSize": 119564,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "a3586704b39e5a3378967e26e603f51bf600a2b39ba6e286c20421d9c96fc6c3",
+    "byteSize": 118080,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-010:elegant-british": {
     "path": "assets/audio/seed-010-elegant-british.mp3",
-    "sha256": "d645af968d240d4e29a6ca7df2d9be410cd144db291bdba992913d3a6f8bc123",
-    "byteSize": 117164,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "c03e76a443eb900cc29cb3f53cedec0c9cae291551d6dcf1df8c096221965d4c",
+    "byteSize": 115680,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-010:gentle-natural": {
     "path": "assets/audio/seed-010-gentle-natural.mp3",
-    "sha256": "caae38d73a7ee2ec0b6139b44318bbb4652541f97a8a4576fe1bc8d86be72aa6",
-    "byteSize": 123404,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "2f0d04e51856480538a1f58dea5dd6a71b015415e1270ee1e624464c42615354",
+    "byteSize": 121920,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-010:source:ja": {
     "path": "assets/audio/seed-010-source-ja.mp3",
-    "sha256": "33900368fa7c6816481cab0c174e68a8bef2a55a657cfb2c7bf9bfc3faa950d4",
-    "byteSize": 133964,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "f89004a625ef0aacacb0446b5b61cec649449d91f7a487f1ab2c88406e70198b",
+    "byteSize": 132480,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-010:source:zh-Hant": {
     "path": "assets/audio/seed-010-source-zh-Hant.mp3",
-    "sha256": "6f91538db9436169736a0c3efdfc145260ff1ac2a010ace3b0de1fe721dfb529",
-    "byteSize": 107084,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "92564133b41ae5c39a85016e5e0b5d732981bcae064b8165ed99153ec47d9aeb",
+    "byteSize": 105600,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-012:clear-slow": {
     "path": "assets/audio/seed-012-clear-slow.mp3",
-    "sha256": "6d41490bdfa096a8fc73f45ad4948d6702a8aef58ad38051c1374b94862a960d",
-    "byteSize": 123404,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "f1d181f2faf4f5ffaae37b9cb0d84f2a35ae7cf7e99f7e2558b40f36d9581cd8",
+    "byteSize": 121920,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-012:daily-bright": {
     "path": "assets/audio/seed-012-daily-bright.mp3",
-    "sha256": "83865c24ca87b27c02b01a671f314cb88ec9e26129e49021182ee3464af90248",
-    "byteSize": 108524,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "fef86bd8c7f60fc89d6377749bddfb61b4c7b01bf0166c7cd28d700e22dd4040",
+    "byteSize": 107040,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-012:elegant-british": {
     "path": "assets/audio/seed-012-elegant-british.mp3",
-    "sha256": "f9e0ed8b237218159b1020c56adbcdb7e48b07326380097777dd20e89a7a5672",
-    "byteSize": 102764,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "538a193397469a30dd7c1101293fcab5d870f5778f381b2901cab9ffbc73f90e",
+    "byteSize": 101280,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-012:gentle-natural": {
     "path": "assets/audio/seed-012-gentle-natural.mp3",
-    "sha256": "538c80a7aba1898fda1c26e9a159508dc8fcde5df671eb2e7ceff31643eb9fd0",
-    "byteSize": 111404,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "751a3b897dcf98168702c402b68dba3c108e322ba2d736a91e7784da9cfcca11",
+    "byteSize": 109920,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-012:source:ja": {
     "path": "assets/audio/seed-012-source-ja.mp3",
-    "sha256": "df25cd34d46c5e710ad84eaa31a55c1bc4726c2bae49b15fb046a704663516ae",
-    "byteSize": 173804,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "2b6f32cec245418fd19905722c8a0c142d41f6a71d56f02bffde557321445b99",
+    "byteSize": 172320,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-012:source:zh-Hant": {
     "path": "assets/audio/seed-012-source-zh-Hant.mp3",
-    "sha256": "ae92def22149de43feb48ab82e52fbea33b7951e0148e48b4a136185b051649a",
-    "byteSize": 89804,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "e43a11a94cc61aa36fcd9bd3bdf32a473567d57cd24bd2ad983969eb48ad2183",
+    "byteSize": 88320,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-016:clear-slow": {
     "path": "assets/audio/seed-016-clear-slow.mp3",
-    "sha256": "0f8eac43a9762752da5bfefbb813cb7fb044bceee74ce77572b2bbf75590903b",
-    "byteSize": 128684,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "b11f68c91e389cbd4b0f78f3acd30c31ba7517aa1c712fb01db2622538d94c3c",
+    "byteSize": 127200,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-016:daily-bright": {
     "path": "assets/audio/seed-016-daily-bright.mp3",
-    "sha256": "22377ef01f8d5ebd9579b02e16881c2bc062256edc2e82023cf6be8c0b4a0244",
-    "byteSize": 112364,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "92a6be309f6f4d7dfadd25d4cd87a2ccafff4bede5273790aeb24ff5d71ba5e6",
+    "byteSize": 110880,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-016:elegant-british": {
     "path": "assets/audio/seed-016-elegant-british.mp3",
-    "sha256": "27935b6a1b435d734dfd1a0171ede18e8d9e583056844dcf810c801f16491702",
-    "byteSize": 107084,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "f14ce9d583653f9283cb4a32ac3199a3a4aa4998a4277c80a96303a66f59c590",
+    "byteSize": 105600,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-016:gentle-natural": {
     "path": "assets/audio/seed-016-gentle-natural.mp3",
-    "sha256": "31a272a7a512e2c6475ec193c5f60bf323aef428427cceed09c8b847e0497917",
-    "byteSize": 116204,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "b7113d016fc84515a01ca044bb06bfeb5d425d47ef38d19fe6b0ac9b71be1bec",
+    "byteSize": 114720,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-016:source:ja": {
     "path": "assets/audio/seed-016-source-ja.mp3",
-    "sha256": "fc04b015195fe88a33966b6cd9e3d103638605de20809c6cfc7b3e57207a5026",
-    "byteSize": 142124,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "452c3eeb0c1cd6e2604924484dc5667850ab9fdc834583c8a5c82e19dfe93ec8",
+    "byteSize": 140640,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-016:source:zh-Hant": {
     "path": "assets/audio/seed-016-source-zh-Hant.mp3",
-    "sha256": "48debf7039454ec83dabf50604062b114d7b59aa027952d7a05ea25bed661626",
-    "byteSize": 107084,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "75a414a3b8121c17ba514022c95cf148a07d86a6adb0501b9a54fbf93128a54d",
+    "byteSize": 105600,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-020:clear-slow": {
     "path": "assets/audio/seed-020-clear-slow.mp3",
-    "sha256": "e6ea1ad50bbabce2f63da9d1e1a2e337144a3a8ad60fa794156d31db7ed53c87",
-    "byteSize": 114764,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "202c19b65e6ed961d60c9b3b233ab7a84dc416eba87831c805b696f5e72d31f4",
+    "byteSize": 113280,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-020:daily-bright": {
     "path": "assets/audio/seed-020-daily-bright.mp3",
-    "sha256": "8f899f0bab8e63ea82b90049fdfdecc7087802d4ead3c8c81dd1310113801867",
-    "byteSize": 99884,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "46fcd000a3a2d63e202a41ee9f20e8d92ba7feac8bf232503c87d6240a2babdf",
+    "byteSize": 98400,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-020:elegant-british": {
     "path": "assets/audio/seed-020-elegant-british.mp3",
-    "sha256": "ff33f9d763da27bc205014ff48054e9ae3c668e19e270074ec138b41f1a29639",
-    "byteSize": 104204,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "1ec55b88d71ec1c8007a5bc2ba7b9d72f5cd7073507680dac217615091a47414",
+    "byteSize": 102720,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-020:gentle-natural": {
     "path": "assets/audio/seed-020-gentle-natural.mp3",
-    "sha256": "bc13743af520bdd4d414ba5cd90aa60c62d18a9c59c60f147ee7a0ad981a37ad",
-    "byteSize": 103244,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "d437e9c3b41868e1e4d5762ec45edae8290c165983f25ccf4caf2ac05224b579",
+    "byteSize": 101760,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-020:source:ja": {
     "path": "assets/audio/seed-020-source-ja.mp3",
-    "sha256": "b51b9c8405368353aa5070a506dceec2d52ebe89ab7f561ccc3bf716cec1da9a",
-    "byteSize": 130124,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "b81d36a730195ab084788b695db607fef2b83d84fa3d514d3e7b0410ed364887",
+    "byteSize": 128640,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-020:source:zh-Hant": {
     "path": "assets/audio/seed-020-source-zh-Hant.mp3",
-    "sha256": "4b3bbef8dd2dac25e5811af985a85dac741bfa74057788e4253e042709b38c21",
-    "byteSize": 97484,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "05f8ade71e1ee8e8e9d9b0fce907b3c7aece6e1432fa8bd1fa06497808125f65",
+    "byteSize": 96000,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-021:clear-slow": {
     "path": "assets/audio/seed-021-clear-slow.mp3",
-    "sha256": "4876479a4f2bd8a51d7a1158b2293efff6536c07ae37ac08b925689449f05422",
-    "byteSize": 109964,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "79234862382f968574e88195a5c4a1d46d026f6605c357f59f9a70cae515d046",
+    "byteSize": 108480,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-021:daily-bright": {
     "path": "assets/audio/seed-021-daily-bright.mp3",
-    "sha256": "eb9e56ab740fa6515b5e9e1bf4707c7e149fca14deca69dee02682ad9b93b599",
-    "byteSize": 91244,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "37fdf98e60048b50950069a32f16f62873b953b440fe754bae451b5b285a65de",
+    "byteSize": 89760,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-021:elegant-british": {
     "path": "assets/audio/seed-021-elegant-british.mp3",
-    "sha256": "3eb5e3eba8c0cba44c121c2acae59c8cd80b04de14c8b927c1a783f80ae2487a",
-    "byteSize": 94604,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "cca4a3aa0a595f9d41a44e41d1c3f88825ef379ce0a6e7ce9916543a5576ac25",
+    "byteSize": 93120,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-021:gentle-natural": {
     "path": "assets/audio/seed-021-gentle-natural.mp3",
-    "sha256": "4370974e0972999f07cac6f3b12427bf0997a25052f8e3ba1f1b513832d56db4",
-    "byteSize": 99404,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "061b792f5426a5ea17416c87b79756c805c5d097620eabd521aadabfb50257e6",
+    "byteSize": 97920,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-021:source:ja": {
     "path": "assets/audio/seed-021-source-ja.mp3",
-    "sha256": "35b41498a6f7e2e3a70fcd3a2c9cbb2524cf7a3366a4f2c0cd33e438fb79570e",
-    "byteSize": 113804,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "13b96e242f3cd65682a47a31374b0e6ae2253f618bdaa200d94726aec3c41b3b",
+    "byteSize": 112320,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-021:source:zh-Hant": {
     "path": "assets/audio/seed-021-source-zh-Hant.mp3",
-    "sha256": "09fa0d6220a7ceef5859ab7a60c0d0f43d1d4176a8b43b4f53ebe8ab774ab130",
-    "byteSize": 85004,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "f07574dd8be322f7d97db0077f2fbd1d7c6c7ba1008f3fe231544e1c9a1dea08",
+    "byteSize": 83520,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-027:clear-slow": {
     "path": "assets/audio/seed-027-clear-slow.mp3",
-    "sha256": "62ec3908cfc502bec4161eacb833e38c590b60617b0e7f5737b8d3d9981f0440",
-    "byteSize": 124844,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "7f9affa2f73ea4e87d9954efac1e826c471a26a5ff7ae9ec6a63d1794d1a0670",
+    "byteSize": 123360,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-027:daily-bright": {
     "path": "assets/audio/seed-027-daily-bright.mp3",
-    "sha256": "78e66d94db87a2bf89180066c6599881a4311d1e36edb42a142700e29cb19284",
-    "byteSize": 108524,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "da39df69df6cbc866a7f718930da9479adcd54c363b171e7ae384f3a074c0873",
+    "byteSize": 107040,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-027:elegant-british": {
     "path": "assets/audio/seed-027-elegant-british.mp3",
-    "sha256": "5a82be200dea4cd5662136e4cbd561941238f0182d7d75dc3de2e29e7ed57acc",
-    "byteSize": 102284,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "381df5b26bdcb92d912c053e6ebb56d72af1dbd0825404f2401a6a13634a62f5",
+    "byteSize": 100800,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-027:gentle-natural": {
     "path": "assets/audio/seed-027-gentle-natural.mp3",
-    "sha256": "969f91b3fb2bc9b1b0a4af94bdf21e04439798b4ce741ad072553302a17ec3bb",
-    "byteSize": 112844,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "96bd0f22781d6509ad4a08a8aaaf05dc97425a3b7b45d2f192041465026fbbfc",
+    "byteSize": 111360,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-027:source:ja": {
     "path": "assets/audio/seed-027-source-ja.mp3",
-    "sha256": "afbc5bcef8751904512d42ea0d47d2ac208621ef7b295338dff052ef4e615cf6",
-    "byteSize": 148364,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "d81dd608e05aa62e3bb00b70f4c3d34067d4ab714f5dbb8194ba97f7d7d18a63",
+    "byteSize": 146880,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-027:source:zh-Hant": {
     "path": "assets/audio/seed-027-source-zh-Hant.mp3",
-    "sha256": "53b13f0821fdeb66e825c1402e2c44c2e1cda6a29cfe426a087e611174062608",
-    "byteSize": 99884,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "c6e54356b4db307580fd7006b3196dacf317d770a27494ac7063e1b71fe35f34",
+    "byteSize": 98400,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-030:clear-slow": {
     "path": "assets/audio/seed-030-clear-slow.mp3",
-    "sha256": "c6f1e3e0457b21e7627a8878891d56ae790d56bfedf107f4dc9768e3058cffc2",
-    "byteSize": 102284,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "0d276d653ca6d57e4079fee8f4f66f07fbb3ef24739fc3350fa546e41c1fbe2a",
+    "byteSize": 100800,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-030:daily-bright": {
     "path": "assets/audio/seed-030-daily-bright.mp3",
-    "sha256": "feb4e918c6d136f3b759e41bfcc5794ccda986842a4a4c2aaad2c257d0c9f696",
-    "byteSize": 90284,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "7460e5b3174518c07fecd1a46ef442f76ce380f4d2b01e4f6429915f13c089a3",
+    "byteSize": 88800,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-030:elegant-british": {
     "path": "assets/audio/seed-030-elegant-british.mp3",
-    "sha256": "030cf7034c7b360454438624a9269ebd7aa74e765d96cdd1a2530e043b664935",
-    "byteSize": 95084,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "67c0ae7a9586063ce532eb5ee1c9ea946bdabbd8ca22df30f283a4f88dcd6935",
+    "byteSize": 93600,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-030:gentle-natural": {
     "path": "assets/audio/seed-030-gentle-natural.mp3",
-    "sha256": "75828da2e29a2acc2c6a8b0fe2f5756d9e13745f80da7dbf38ae77926fd0201f",
-    "byteSize": 92204,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "23d5736ec12790d22965bcfbea1dd15d6fdb876359cabf6a3272062fe055bcad",
+    "byteSize": 90720,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-030:source:ja": {
     "path": "assets/audio/seed-030-source-ja.mp3",
-    "sha256": "cfd0fc3d5fe678b4428e3717c508180352652f44fd027870a19be1cbedd35f00",
-    "byteSize": 108044,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "9024cab248bff45d86d26f15612f508cbdf9942727af9f0217114dba822b348f",
+    "byteSize": 106560,
+    "normalizerRevision": "azure-vol-v2"
   },
   "seed-030:source:zh-Hant": {
     "path": "assets/audio/seed-030-source-zh-Hant.mp3",
-    "sha256": "352d5c0f0ed5c3322f8b77517e8d9a62726b370d5f0d2c652615c8b8245c4ff5",
-    "byteSize": 112364,
-    "normalizerRevision": "lufs-v2"
+    "sha256": "f0144569128e81a159373f5fd35f2057bdba175fa36486a30905bf0c33c5709b",
+    "byteSize": 110880,
+    "normalizerRevision": "azure-vol-v2"
   }
 }

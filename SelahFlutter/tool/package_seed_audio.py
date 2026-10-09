@@ -7,6 +7,7 @@ import concurrent.futures
 import argparse
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import urllib.parse
@@ -18,7 +19,9 @@ DEFAULT_VOICE = 'gentle-natural'
 VOICES = ('gentle-natural', 'clear-slow', 'daily-bright', 'elegant-british')
 SOURCE_VOICE = 'source'
 NATIVE_LANGUAGES = ('zh-Hant', 'ja')
-NORMALIZER_REVISION = 'lufs-v2'
+SEED_AUDIO_REVISION = 'azure-vol-v2'
+TARGET_LUFS = -20.4
+MAX_TRACK_LUFS_DEVIATION = 2.5
 DEFAULT_LOCAL_AUDIO_DIR = ROOT / 'preview-output' / 'azure-seed-audio'
 VOICE_IDENTITIES = {
     'gentle-natural': ('azure-speech/en-US-JennyNeural', 1),
@@ -27,6 +30,15 @@ VOICE_IDENTITIES = {
     'elegant-british': ('azure-speech/en-GB-SoniaNeural', 1),
 }
 NATIVE_PROFILES = ('native-gentle', 'native-clear', 'native-bright', 'native-calm')
+
+
+def validate_loudness_group(rows, label):
+    average = sum(row['integratedLufs'] for row in rows) / len(rows)
+    peak = max(row['truePeakDbtp'] for row in rows)
+    if abs(average - TARGET_LUFS) > 0.5 or peak > -1.0:
+        raise RuntimeError(
+            f'{label} loudness acceptance failed: {average:.2f} LUFS, '
+            f'{peak:.2f} dBTP')
 
 
 def valid_audio(body, checksum, byte_size):
@@ -46,10 +58,10 @@ def package_default_audio(rows, seeds, audio_dir, read, existing):
         canonical = ' '.join(allowed[seed].strip().split()).lower()
         model, speed = VOICE_IDENTITIES[voice]
         text_hash = hashlib.sha256(
-            f'en|mp3|{NORMALIZER_REVISION}|{canonical}'.encode()).hexdigest()
+            f'en|mp3|{SEED_AUDIO_REVISION}|{canonical}'.encode()).hexdigest()
         provider_voice = f'{model.split("/", 1)[1]}@{voice}'
         content_hash = (
-            f'azure:{provider_voice}:{speed}:{NORMALIZER_REVISION}:{text_hash}')
+            f'azure:{provider_voice}:{speed}:{SEED_AUDIO_REVISION}:{text_hash}')
         if (row.get('content_hash') != content_hash or row.get('tts_model') != model
                 or row.get('speed') != speed or row.get('audio_format') != 'mp3'
                 or row['storage_path'] != f'seed/{seed}/{voice}/{text_hash}.mp3'):
@@ -87,7 +99,7 @@ def package_default_audio(rows, seeds, audio_dir, read, existing):
             target.write_bytes(body)
         entries[f"{row['seed_sentence_id']}:{row['voice_profile']}"] = {
             'path': f'assets/audio/{filename}', 'sha256': row['sha256'],
-            'byteSize': len(body), 'normalizerRevision': NORMALIZER_REVISION}
+            'byteSize': len(body), 'normalizerRevision': SEED_AUDIO_REVISION}
     return dict(sorted(entries.items()))
 
 
@@ -95,6 +107,8 @@ def package_local_native_audio(seeds, audio_dir, existing, source_audio_dir=None
     """Package optional local native MP3s for offline seed loop listening."""
     entries = dict(existing)
     missing = []
+    copies = []
+    measurements = {}
     source_audio_dir = source_audio_dir or audio_dir
     index_path = source_audio_dir / 'audio-index.json'
     audio_index = json.loads(index_path.read_text(encoding='utf-8')) if index_path.exists() else {}
@@ -124,22 +138,35 @@ def package_local_native_audio(seeds, audio_dir, existing, source_audio_dir=None
                 indexed = audio_index.get(
                     f'{seed_id}:{SOURCE_VOICE}:{language}:{profile}')
                 if indexed is not None:
+                    integrated_lufs = indexed.get('integratedLufs')
+                    true_peak_dbtp = indexed.get('truePeakDbtp')
                     if (indexed.get('path') != filename
                             or indexed.get('sha256') != entry['sha256']
                             or indexed.get('byteSize') != entry['byteSize']
-                            or indexed.get('normalizerRevision') != NORMALIZER_REVISION
-                            or not isinstance(indexed.get('integratedLufs'), (int, float))
-                            or abs(indexed['integratedLufs'] + 20.9) > 1.0
-                            or not isinstance(indexed.get('truePeakDbtp'), (int, float))
-                            or indexed['truePeakDbtp'] > -1.0):
-                        raise RuntimeError(f'Native audio normalization proof mismatch: {filename}')
-                    entry['normalizerRevision'] = NORMALIZER_REVISION
+                            or indexed.get('normalizerRevision') != SEED_AUDIO_REVISION
+                            or not isinstance(integrated_lufs, (int, float))
+                            or not math.isfinite(integrated_lufs)
+                            or abs(integrated_lufs - TARGET_LUFS) > MAX_TRACK_LUFS_DEVIATION
+                            or not isinstance(true_peak_dbtp, (int, float))
+                            or not math.isfinite(true_peak_dbtp)
+                            or true_peak_dbtp > -1.0):
+                        raise RuntimeError(f'Native audio measurement metadata mismatch: {filename}')
+                    measurements.setdefault((language, profile), []).append(indexed)
+                    entry['normalizerRevision'] = SEED_AUDIO_REVISION
                 if not target.exists() or target.read_bytes() != body:
-                    target.write_bytes(body)
+                    copies.append((target, body))
                 if profile != 'native-gentle':
                     entries[f'{seed_id}:{SOURCE_VOICE}:{language}:{profile}'] = entry
                 if profile == 'native-gentle':
                     entries[f'{seed_id}:{SOURCE_VOICE}:{language}'] = entry
+    for (language, profile), rows in measurements.items():
+        label = f'{language}/{profile}'
+        if profile == 'native-gentle' and len(rows) != len(seeds):
+            raise RuntimeError(f'Incomplete native audio measurement set: {label}')
+        if len(rows) == len(seeds):
+            validate_loudness_group(rows, label)
+    for target, body in copies:
+        target.write_bytes(body)
     return dict(sorted(entries.items())), missing
 
 
@@ -147,27 +174,36 @@ def package_local_default_audio(seeds, audio_dir, existing, source_audio_dir):
     """Package the complete local English seed set with verified LUFS proof."""
     index_path = source_audio_dir / 'audio-index.json'
     if not index_path.exists():
-        raise RuntimeError('Missing local English audio normalization index.')
+        raise RuntimeError('Missing local English audio measurement index.')
     audio_index = json.loads(index_path.read_text(encoding='utf-8'))
     verified = []
+    measurements_by_voice = {voice: [] for voice in VOICES}
     for seed in seeds:
         seed_id = seed['id']
         for voice in VOICES:
             filename = f'{seed_id}-{voice}.mp3'
             body = (source_audio_dir / filename).read_bytes()
             indexed = audio_index.get(f'{seed_id}:{voice}')
+            integrated_lufs = indexed.get('integratedLufs') if indexed else None
+            true_peak_dbtp = indexed.get('truePeakDbtp') if indexed else None
             if (
                 indexed is None
                 or indexed.get('path') != filename
                 or not valid_audio(body, indexed.get('sha256'), indexed.get('byteSize'))
-                or indexed.get('normalizerRevision') != NORMALIZER_REVISION
-                or not isinstance(indexed.get('integratedLufs'), (int, float))
-                or abs(indexed['integratedLufs'] + 20.9) > 1.0
-                or not isinstance(indexed.get('truePeakDbtp'), (int, float))
-                or indexed['truePeakDbtp'] > -1.0
+                or indexed.get('normalizerRevision') != SEED_AUDIO_REVISION
+                or not isinstance(integrated_lufs, (int, float))
+                or not math.isfinite(integrated_lufs)
+                or abs(integrated_lufs - TARGET_LUFS) > MAX_TRACK_LUFS_DEVIATION
+                or not isinstance(true_peak_dbtp, (int, float))
+                or not math.isfinite(true_peak_dbtp)
+                or true_peak_dbtp > -1.0
             ):
-                raise RuntimeError(f'Local English audio normalization proof mismatch: {filename}')
+                raise RuntimeError(f'Local English audio measurement metadata mismatch: {filename}')
+            measurements_by_voice[voice].append(indexed)
             verified.append((seed_id, voice, filename, body, indexed))
+
+    for voice, rows in measurements_by_voice.items():
+        validate_loudness_group(rows, f'en/{voice}')
 
     audio_dir.mkdir(parents=True, exist_ok=True)
     entries = dict(existing)
@@ -179,7 +215,7 @@ def package_local_default_audio(seeds, audio_dir, existing, source_audio_dir):
             'path': f'assets/audio/{filename}',
             'sha256': indexed['sha256'],
             'byteSize': len(body),
-            'normalizerRevision': NORMALIZER_REVISION,
+            'normalizerRevision': SEED_AUDIO_REVISION,
         }
     return dict(sorted(entries.items()))
 

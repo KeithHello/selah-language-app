@@ -66,7 +66,7 @@ for (const seed of seeds) {
       row.tts_model !== expectedVoices[voice].model ||
       Number(row.speed) !== expectedVoices[voice].speed ||
       typeof row.content_hash !== "string" ||
-      !row.content_hash.includes(":lufs-v2:") ||
+      !row.content_hash.includes(":azure-vol-v2:") ||
       row.audio_format !== "mp3" ||
       typeof row.byte_size !== "number" ||
       row.byte_size <= 0 ||
