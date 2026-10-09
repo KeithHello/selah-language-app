@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Plan or generate normalized Chinese and Japanese native seed audio.
+"""Plan or generate normalized English, Chinese, and Japanese seed audio.
 
 The default mode is a dry-run. ``--execute`` is required for paid Azure calls;
 it writes to a preview directory and refuses to replace existing audio unless
@@ -23,7 +23,7 @@ from xml.sax.saxutils import escape
 
 ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_SEED_PATH = ROOT / "SeedContent" / "seed-sentences.json"
-DEFAULT_AUDIO_DIR = ROOT / "preview-output" / "azure-native-seed-audio"
+DEFAULT_AUDIO_DIR = ROOT / "preview-output" / "azure-seed-audio"
 DEFAULT_ENV_PATH = ROOT / ".env"
 DEFAULT_LANGUAGE = "zh-Hant"
 DEFAULT_VOICE_PROFILE = "native-gentle"
@@ -33,10 +33,16 @@ LANGUAGES = {
     "ja": ("ja-JP", "ja-JP-NanamiNeural", "ja_text"),
 }
 NATIVE_PROFILES = {
-    "native-gentle": ("0%", "0st", 1),
-    "native-clear": ("-5%", "0st", 0.95),
+    "native-gentle": ("0%", "0%", 1),
+    "native-clear": ("-5%", "0%", 0.95),
     "native-bright": ("+5%", "+1st", 1.05),
     "native-calm": ("-8%", "-1st", 0.92),
+}
+ENGLISH_PROFILES = {
+    "gentle-natural": ("en-US", "en-US-JennyNeural", "0%", "0%", 1),
+    "clear-slow": ("en-US", "en-US-JennyNeural", "-10%", "0%", 0.9),
+    "daily-bright": ("en-US", "en-US-GuyNeural", "+5%", "+1st", 1.05),
+    "elegant-british": ("en-GB", "en-GB-SoniaNeural", "0%", "0%", 1),
 }
 
 sys.path.insert(0, str(ROOT / "supabase" / "audio-normalizer"))
@@ -67,14 +73,17 @@ def build_ssml(
     language: str = DEFAULT_LANGUAGE,
     voice_profile: str = DEFAULT_VOICE_PROFILE,
 ) -> str:
-    """Build escaped SSML for the selected native-language Azure route."""
-    locale, voice, _ = LANGUAGES[language]
-    rate, pitch, _speed = NATIVE_PROFILES[voice_profile]
+    """Build escaped SSML for the selected seed-audio Azure route."""
+    if language == "en":
+        locale, voice, rate, pitch, _speed = ENGLISH_PROFILES[voice_profile]
+    else:
+        locale, voice, _ = LANGUAGES[language]
+        rate, pitch, _speed = NATIVE_PROFILES[voice_profile]
     safe_text = escape(text, {"'": "&apos;", '"': "&quot;"})
     safe_voice = escape(voice, {"'": "&apos;", '"': "&quot;"})
     return (
-        '<?xml version="1.0" encoding="UTF-8"?>'
-        f'<speak version="1.0" xml:lang="{locale}">'
+        '<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" '
+        f'xml:lang="{locale}">'
         f'<voice name="{safe_voice}" xml:lang="{locale}">'
         f'<prosody rate="{rate}" pitch="{pitch}">{safe_text}</prosody>'
         '</voice>'
@@ -88,6 +97,8 @@ def voice_output_path(
     language: str = DEFAULT_LANGUAGE,
     voice_profile: str = DEFAULT_VOICE_PROFILE,
 ) -> Path:
+    if language == "en":
+        return audio_dir / f"{seed_id}-{voice_profile}.mp3"
     suffix = "" if voice_profile == DEFAULT_VOICE_PROFILE else f"-{voice_profile}"
     return audio_dir / f"{seed_id}-source-{language}{suffix}.mp3"
 
@@ -106,7 +117,7 @@ def _azure_speech_request(region: str, key: str, ssml: str) -> bytes:
             "Accept": "audio/mpeg",
             "Content-Type": "application/ssml+xml",
             "Ocp-Apim-Subscription-Key": key,
-            "User-Agent": "SelahSeedAudio/1.0",
+            "User-Agent": "selah-audio-generate",
             "X-Microsoft-OutputFormat": OUTPUT_FORMAT,
         },
     )
@@ -154,16 +165,21 @@ def generate_seed_audio(
     dry_run: bool = False,
     overwrite: bool = False,
 ) -> int:
-    if language not in LANGUAGES:
-        raise ValueError(f"Unsupported native language: {language}")
-    if voice_profile not in NATIVE_PROFILES:
-        raise ValueError(f"Unsupported native voice profile: {voice_profile}")
+    if language == "en":
+        profiles = ENGLISH_PROFILES
+        text_field = "en_translation"
+    elif language in LANGUAGES:
+        profiles = NATIVE_PROFILES
+        text_field = LANGUAGES[language][2]
+    else:
+        raise ValueError(f"Unsupported seed language: {language}")
+    if voice_profile not in profiles:
+        raise ValueError(f"Unsupported {language} voice profile: {voice_profile}")
     seed_data = json.loads(seed_path.read_text(encoding="utf-8"))
     sentences = seed_data.get("sentences")
     if not isinstance(sentences, list) or not sentences:
         raise ValueError("Seed content has no sentences")
 
-    text_field = LANGUAGES[language][2]
     work_items: list[tuple[str, str, Path]] = []
     for sentence in sentences:
         seed_id = str(sentence.get("id", "")).strip()
@@ -220,7 +236,11 @@ def generate_seed_audio(
         )
         normalized_audio, metadata = normalize_mp3(raw_audio, normalizer_config)
         _atomic_write(output, normalized_audio)
-        index_key = f"{seed_id}:source:{language}:{voice_profile}"
+        index_key = (
+            f"{seed_id}:{voice_profile}"
+            if language == "en"
+            else f"{seed_id}:source:{language}:{voice_profile}"
+        )
         index[index_key] = {
             "path": output.name,
             "sha256": hashlib.sha256(normalized_audio).hexdigest(),
@@ -247,10 +267,12 @@ def main() -> int:
     parser.add_argument("--seed-path", type=Path, default=DEFAULT_SEED_PATH)
     parser.add_argument("--audio-dir", type=Path, default=DEFAULT_AUDIO_DIR)
     parser.add_argument("--env-file", type=Path, default=DEFAULT_ENV_PATH)
-    parser.add_argument("--language", choices=LANGUAGES, default=DEFAULT_LANGUAGE)
+    parser.add_argument(
+        "--language", choices=(*LANGUAGES, "en"), default=DEFAULT_LANGUAGE
+    )
     parser.add_argument(
         "--voice-profile",
-        choices=NATIVE_PROFILES,
+        choices=(*NATIVE_PROFILES, *ENGLISH_PROFILES),
         default=DEFAULT_VOICE_PROFILE,
     )
     parser.add_argument(
