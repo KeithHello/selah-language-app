@@ -8,6 +8,15 @@
 
 ## 当前阶段
 
+### 2026-10-09 Azure 声线响度实测与 SSML 音量方案（实测完成；方案待确认）
+
+- [x] 主人授权一次付费校准测量：153 次 Azure 请求全部成功，按项目规则约 13,599 个计费字符（按 S1 Neural 公开零售价约 US$0.20，账单未核验）。只从 `.env` 读取 Azure key 与 region，未访问 Supabase，未改代码、规范、配置或随包音频；原始音频与逐条数据在 `output/azure-loudness-calibration-2026-10-09/`（Git 忽略）。
+- [x] 实测结论：五个 Azure 声线的原始平均响度从 Nanami -17.15 到 Jenny -20.86 LUFS，相差约 3.7 LU；同一句日语母语比 Jenny 英语平均响 3.75 LU。各声线句间标准差 0.27～0.76 LU，profile 影响不超过 0.24 LU；SSML `volume` 为精确的线性增益，误差不超过 0.02 dB。按声线固定音量模拟，120 句中 117 句落在 ±1 LU 内，最大偏差 1.59 LU。
+- [x] 费用复核：现行 SSML 每次请求另计约 40 个标记字符；计入后，月会员额度用满的 TTS 成本约为仅英语 US$0.71、英语＋繁中 US$0.95，此前按正文的估算偏低。
+- [x] 整理 [校准实测记录](docs/2026-10-09-azure-tts-loudness-calibration.md) 与 [SSML 声线音量开发方案](docs/superpowers/plans/2026-10-09-azure-tts-ssml-volume-plan.md) ：建议线上改为 SSML 按声线衰减到 -20.9 LUFS，不部署 Azure Container Apps；按新规则，上述两个场景分别降至约 US$0.45 与 US$0.71。
+- [ ] 待主人确认方案与开发授权、删除处理服务相关的 3 个文件、实施阶段约 US$0.16 的付费合成，以及 push `main` 触发的 Cloudflare 生产发布。确认前，`CLAUDE.md` 中的 FFmpeg 处理服务规则仍然有效。
+- [ ] 本机 `main` 与 `origin/main` 已分叉（领先 5、落后 4），发布前须先整合。
+
 ### 2026-10-09 网站性能 P0/P1 优化（本地实现与验证完成；未部署）
 
 - [x] P0：缓存 Flutter ThemeData 与根主题；空闲轮询改为 5 秒、播放／录音等活跃状态维持 450ms；只在平台或播放语义变化时通知页面，进度通过独立 ValueNotifier 更新；心跳不再写入本地快照或触发同步。
