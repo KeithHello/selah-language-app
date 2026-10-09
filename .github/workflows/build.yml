@@ -219,7 +219,7 @@ jobs:
       - name: Compute deploy alias
         id: alias
         run: |
-          BRANCH="${GITHUB_REF_NAME//\/-}"
+          BRANCH="${GITHUB_REF_NAME//\//-}"
           echo "name=$BRANCH" >> "$GITHUB_OUTPUT"
 
       - name: Deploy preview to Cloudflare Pages

@@ -28,7 +28,7 @@
 - [x] 提交 `99e6890` 已推送至 GitHub 分支 `codex/fix-loop-audio-mute`。Actions run `37745090867` 的 Swift、iOS、Deno、数据库 migration／pgTAP／并发、Flutter Analyze／测试与 Web 构建均通过；Cloudflare Pages 预览部署步骤成功。
 - [x] Cloudflare Pages 预览别名 `https://codex-fix-loop-audio-mute.selah-language-app.pages.dev` 返回版本 `1.8.1`、Build ID `815e5e0638e822eb`；首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
 - [x] 合并提交 `4348318` 已推送至 GitHub `main`。Actions run `37747244102` 全部通过；Cloudflare Pages 正式站 `https://selah-language-app.pages.dev` 已更新至版本 `1.8.1`、Build ID `815e5e0638e822eb`。首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
-- [ ] Actions 最终 Build ID 校验因现有 `.github/workflows/build.yml` 将带斜杠的原始分支名用于校验 URL 而失败；Wrangler 实际生成的是连字符别名，线上资源已独立核验匹配。修复 CI/CD workflow 需单独确认，本次未修改该配置。
+- [x] 修复 `.github/workflows/build.yml` 的预览别名计算，将分支名中的 `/` 转成 `-`，使最终 Build ID 校验 URL 与 Wrangler 实际别名一致；Bash 分支名替换与 diff 检查通过。修复目前只在本地分支，尚未 push，也未重跑会触发 Cloudflare Pages 预览部署的 workflow。
 
 ### 2026-10-05 平台日预算用户提示与管理员监控（已完成；生产 v1.8.0 已发布）
 
