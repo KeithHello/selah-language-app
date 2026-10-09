@@ -14,13 +14,13 @@
 - [x] P1：远端句子、词汇、事件使用本地游标与待同步 ID 增量读取；新记录按 100 条批量写入，保留冲突校验，并修复同步期间同一记录被再次编辑时待同步标记可能丢失的问题。
 - [x] P1：快照复制与本地保存绕过 JSON 字符串往返；显式打包 Roboto、Plus Jakarta Sans 与 Noto Sans SC 子集；Service Worker 以文件 SHA-256 复用未变化资源，并在最终 Build ID 写入后刷新首页哈希。
 - [x] P1：50 个动画姿态切换为 q85 动画 WebP，逐帧时长、16 帧与无限循环保持；原始源文件保留。总资源由 92,179,495 字节降至 21,774,008 字节，减少 76.4%。
-- [x] 版本更新为 `1.9.0+15`。`flutter analyze --no-pub` 无问题；Flutter 全量 439 项通过；45 项 Node 浏览器桥接／Service Worker／构建测试通过；WebP 资产契约通过，原始 50 张设计母版哈希另行只读核验通过。
+- [x] 性能优化版本 `1.9.0+15` 的本地验证：`flutter analyze --no-pub` 无问题；Flutter 全量 439 项通过；45 项 Node 浏览器桥接／Service Worker／构建测试通过；WebP 资产契约通过，原始 50 张设计母版哈希另行只读核验通过。为修复预览别名校验并满足生产版本唯一性，最终发布版本升至 `1.9.1+16`。
 - [x] 最新源码 Release 本地构建与浏览器冒烟通过：版本 `1.9.0`、Build ID `62b700ce76fa0bcf`；预缓存清单 123 项、152 个哈希全部匹配；Service Worker 已接管并缓存 101 项；动画 WebP 在 Chromium 解码为 16 帧且时长匹配。此为本地静态服务器测量，不代表生产 Web Vitals。
 - [ ] IndexedDB 拆分存储及版本化数据迁移暂缓：尚未获得针对该本地数据库结构／数据迁移的明确授权；本轮未改 IndexedDB schema、Supabase 数据库或云端配置。
-- [x] 提交 `eb8415e` 已合入 `main`；Actions run `37810208625` 全部必要任务通过。Cloudflare Pages 生产站为版本 `1.9.0`、Build ID `d1de370743546f1e`；首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200。
+- [x] 性能优化提交 `eb8415e` 已合入 `main`；最终发布提交 `98d57ec` 已推送至 `main`。Actions run `37894635014` 的 Deno、隔离数据库迁移／pgTAP／并发、Swift、iOS、Flutter Analyze／测试、Web 构建与 Cloudflare Pages 生产部署全部通过。生产站已更新至版本 `1.9.1`、Build ID `bc28b1c16598e8b3`；首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200。
 - [ ] 真实用户 Core Web Vitals 尚未采集；需上线观测数据后与发布前基线对比。当前生产检查只确认版本、Build ID 和静态资源状态。
 
-### 2026-10-08 循环听音档静音（已合入 main 并生产部署；预览别名校验修复已验证，待合入 main）
+### 2026-10-08 循环听音档静音（已合入 main 并生产部署；预览别名校验修复已合入并随 1.9.1 发布）
 
 - [x] 根因：浏览器解锁时创建的循环听预热音轨以静音状态播放；首次正式循环音档复用该元素，但没有恢复 `muted` 与 `volume`，所以时间轴前进而没有声音。
 - [x] 修复：循环听控制器准备正式音档元素时显式设为 `muted = false`、`volume = 1`；测试验证静音预热与正式播放各自状态。
@@ -29,8 +29,7 @@
 - [x] 提交 `99e6890` 已推送至 GitHub 分支 `codex/fix-loop-audio-mute`。Actions run `37745090867` 的 Swift、iOS、Deno、数据库 migration／pgTAP／并发、Flutter Analyze／测试与 Web 构建均通过；Cloudflare Pages 预览部署步骤成功。
 - [x] Cloudflare Pages 预览别名 `https://codex-fix-loop-audio-mute.selah-language-app.pages.dev` 返回版本 `1.8.1`、Build ID `815e5e0638e822eb`；首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
 - [x] 合并提交 `4348318` 已推送至 GitHub `main`。Actions run `37747244102` 全部通过；Cloudflare Pages 正式站 `https://selah-language-app.pages.dev` 已更新至版本 `1.8.1`、Build ID `815e5e0638e822eb`。首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
-- [x] Actions run `37891694261` 暴露 Pages 长别名截短导致的误校验；提交 `85fb498` 修正斜杠转换，`42d1ee8` 改为读取 Wrangler 返回的实际 alias URL 供校验与摘要使用。Actions run `37893350454` 全部通过；预览 `https://codex-fix-preview-pages-alia.selah-language-app.pages.dev` 为版本 `1.9.0`、Build ID `d1de370743546f1e`，首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200。修复仍待合入 `main`。
-- [ ] 为合入 workflow 修复并满足生产版本唯一性门禁，本地发布版本源已准备升至 `1.9.1+16`；生产部署尚未执行。
+- [x] Actions run `37891694261` 暴露 Pages 长别名截短导致的误校验；提交 `85fb498` 修正斜杠转换，`42d1ee8` 改为读取 Wrangler 返回的实际 alias URL 供校验与摘要使用。Actions run `37893350454` 验证预览成功；预览 `https://codex-fix-preview-pages-alia.selah-language-app.pages.dev` 为版本 `1.9.0`、Build ID `d1de370743546f1e`，首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200。随后 `98d57ec` 合入 `main`，正式版本升级为 `1.9.1+16` 并完成生产部署。
 
 ### 2026-10-05 平台日预算用户提示与管理员监控（已完成；生产 v1.8.0 已发布）
 
