@@ -24,16 +24,17 @@
 - [ ] T9 尚未执行：远端 Azure 价格 secrets、`audio-generate` 部署、生产账号三语动态音频核验、`origin/main` 集成与 GitHub push／Cloudflare Pages 生产发布，均按具体步骤另行确认。
 - [ ] 本机 `main` 与 `origin/main` 最后一次核对为本地领先 6、落后 4；T9 集成前需重新 fetch 并核对远端提交。
 
-### 2026-10-09 网站性能 P0/P1 优化（本地实现与验证完成；未部署）
+### 2026-10-09 网站性能 P0/P1 优化（已合入 main 并生产部署；真实用户性能复测待补）
 
 - [x] P0：缓存 Flutter ThemeData 与根主题；空闲轮询改为 5 秒、播放／录音等活跃状态维持 450ms；只在平台或播放语义变化时通知页面，进度通过独立 ValueNotifier 更新；心跳不再写入本地快照或触发同步。
 - [x] P1：远端句子、词汇、事件使用本地游标与待同步 ID 增量读取；新记录按 100 条批量写入，保留冲突校验，并修复同步期间同一记录被再次编辑时待同步标记可能丢失的问题。
 - [x] P1：快照复制与本地保存绕过 JSON 字符串往返；显式打包 Roboto、Plus Jakarta Sans 与 Noto Sans SC 子集；Service Worker 以文件 SHA-256 复用未变化资源，并在最终 Build ID 写入后刷新首页哈希。
 - [x] P1：50 个动画姿态切换为 q85 动画 WebP，逐帧时长、16 帧与无限循环保持；原始源文件保留。总资源由 92,179,495 字节降至 21,774,008 字节，减少 76.4%。
-- [x] 版本更新为 `1.9.0+15`。`flutter analyze --no-pub` 无问题；Flutter 全量 439 项通过；45 项 Node 浏览器桥接／Service Worker／构建测试通过；WebP 资产契约通过，原始 50 张设计母版哈希另行只读核验通过。
+- [x] 性能优化版本 `1.9.0+15` 的本地验证：`flutter analyze --no-pub` 无问题；Flutter 全量 439 项通过；45 项 Node 浏览器桥接／Service Worker／构建测试通过；WebP 资产契约通过，原始 50 张设计母版哈希另行只读核验通过。为修复预览别名校验并满足生产版本唯一性，最终发布版本升至 `1.9.1+16`。
 - [x] 最新源码 Release 本地构建与浏览器冒烟通过：版本 `1.9.0`、Build ID `62b700ce76fa0bcf`；预缓存清单 123 项、152 个哈希全部匹配；Service Worker 已接管并缓存 101 项；动画 WebP 在 Chromium 解码为 16 帧且时长匹配。此为本地静态服务器测量，不代表生产 Web Vitals。
 - [ ] IndexedDB 拆分存储及版本化数据迁移暂缓：尚未获得针对该本地数据库结构／数据迁移的明确授权；本轮未改 IndexedDB schema、Supabase 数据库或云端配置。
-- [ ] 未部署预览或生产环境。后续需在获准发布后采集真实用户 Core Web Vitals，与生产基线对比。
+- [x] 性能优化提交 `eb8415e` 已合入 `main`；最终发布提交 `98d57ec` 已推送至 `main`。Actions run `37894635014` 的 Deno、隔离数据库迁移／pgTAP／并发、Swift、iOS、Flutter Analyze／测试、Web 构建与 Cloudflare Pages 生产部署全部通过。生产站已更新至版本 `1.9.1`、Build ID `bc28b1c16598e8b3`；首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200。
+- [ ] 真实用户 Core Web Vitals 尚未采集；需上线观测数据后与发布前基线对比。当前生产检查只确认版本、Build ID 和静态资源状态。
 
 ### 2026-10-09 Azure 三语 TTS 与响度校准统一初版（已由本节 SSML 声线音量方案取代）
 
@@ -49,7 +50,7 @@
 - [ ] 主人于 2026-10-09 追加授权读取／使用本项目所需 Supabase 与音频标准化服务配置并部署后端。本轮只读核对远端：`audio-generate` 仍为 ACTIVE v18；`AZURE_SPEECH_KEY`／`AZURE_SPEECH_REGION` 已配置，但 `AUDIO_NORMALIZER_URL`／`AUDIO_NORMALIZER_TOKEN`、`AZURE_TTS_NANO_USD_PER_BILLABLE_CHARACTER`／`AZURE_TTS_PRICE_VERSION`、`AUDIO_NORMALIZER_NANO_USD_PER_REQUEST` 均缺失；未写入 secrets、未部署函数、未改数据库 schema／migration。主机无 Azure CLI、登录缓存或 Azure 管理凭据，且 Docker daemon 未运行；需要 Azure 订阅管理身份及经核实的 Azure／处理器费率后，才能创建 Azure Container Apps 处理器、配置 Supabase secrets 并部署 `audio-generate`。
 - [ ] 生产 Cloudflare Pages 发布尚未执行；须先完成后端依赖，并按全局 `AGENTS.md` 的 Cloudflare 逐步说明流程取得此步确认。
 
-### 2026-10-08 循环听音档静音（已合入 main 并生产部署；分支预览校验缺陷待修）
+### 2026-10-08 循环听音档静音（已合入 main 并生产部署；预览别名校验修复已合入并随 1.9.1 发布）
 
 - [x] 根因：浏览器解锁时创建的循环听预热音轨以静音状态播放；首次正式循环音档复用该元素，但没有恢复 `muted` 与 `volume`，所以时间轴前进而没有声音。
 - [x] 修复：循环听控制器准备正式音档元素时显式设为 `muted = false`、`volume = 1`；测试验证静音预热与正式播放各自状态。
@@ -58,7 +59,7 @@
 - [x] 提交 `99e6890` 已推送至 GitHub 分支 `codex/fix-loop-audio-mute`。Actions run `37745090867` 的 Swift、iOS、Deno、数据库 migration／pgTAP／并发、Flutter Analyze／测试与 Web 构建均通过；Cloudflare Pages 预览部署步骤成功。
 - [x] Cloudflare Pages 预览别名 `https://codex-fix-loop-audio-mute.selah-language-app.pages.dev` 返回版本 `1.8.1`、Build ID `815e5e0638e822eb`；首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
 - [x] 合并提交 `4348318` 已推送至 GitHub `main`。Actions run `37747244102` 全部通过；Cloudflare Pages 正式站 `https://selah-language-app.pages.dev` 已更新至版本 `1.8.1`、Build ID `815e5e0638e822eb`。首页、`selah_bridge.js`、`main.dart.js`、`selah-precache.json` 与 Service Worker 均 HTTP 200，线上桥接脚本包含解除静音修复。
-- [ ] Actions 最终 Build ID 校验因现有 `.github/workflows/build.yml` 将带斜杠的原始分支名用于校验 URL 而失败；Wrangler 实际生成的是连字符别名，线上资源已独立核验匹配。修复 CI/CD workflow 需单独确认，本次未修改该配置。
+- [x] Actions run `37891694261` 暴露 Pages 长别名截短导致的误校验；提交 `85fb498` 修正斜杠转换，`42d1ee8` 改为读取 Wrangler 返回的实际 alias URL 供校验与摘要使用。Actions run `37893350454` 验证预览成功；预览 `https://codex-fix-preview-pages-alia.selah-language-app.pages.dev` 为版本 `1.9.0`、Build ID `d1de370743546f1e`，首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200。随后 `98d57ec` 合入 `main`，正式版本升级为 `1.9.1+16` 并完成生产部署。
 
 ### 2026-10-05 平台日预算用户提示与管理员监控（已完成；生产 v1.8.0 已发布）
 

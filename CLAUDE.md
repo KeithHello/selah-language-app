@@ -83,7 +83,7 @@ Selah 是 Web 优先的语言学习应用，并保留 iOS 17+ 原生客户端。
 - 合并后的主分支核验：push 后确认 GitHub `main` 指向预期合并提交、`origin/main` 与本地已发布提交一致，且 GitHub Actions 全部必要任务通过；生产部署还须按本规范核对线上版本、Build ID 与静态资源 HTTP 状态。
 - 源分支清理：仅在合并成功、主分支及生产发布核验完成后，才考虑删除已合并的本地／远端源分支；先确认分支提交已包含在 `main` 且没有独有提交，并遵循全局 `AGENTS.md` 对远端删除操作的授权要求。
 - 生产项目：`selah-language-app`（生产域名 https://selah-language-app.pages.dev ），唯一生产分支为 `main`。
-- 预览：非 `main` 分支由同一 workflow 部署到同一项目的分支别名 `<branch>.selah-language-app.pages.dev`（分支名中的 `/` 替换为 `-`）；独立项目 `selah-language-app-preview` 停用并保留归档，不再部署。
+- 预览：非 `main` 分支由同一 workflow 部署到同一项目的 Pages 分支别名；Pages 会规范化分支名，且可能截短长别名，因此 CI 校验与部署摘要必须使用 Wrangler 返回的实际 alias URL，不能只凭 Git 分支名拼接。独立项目 `selah-language-app-preview` 停用并保留归档，不再部署。
 - 构建唯一入口：`SelahFlutter/tool/web.ps1 -Action build`（负责 Supabase 公共配置注入、selah-precache.json 生成与 Build ID 计算）；禁止绕过该脚本产出部署包。
 - 部署验证口径：线上 index.html 的 selah-build-id 与 selah-version 必须与构建一致，且 main.dart.js、selah-precache.json 返回 200；结果记入 ROADMAP。
 - 版本规则：SelahFlutter/pubspec.yaml 的 version 字段是唯一人工版本源（语义版本）；功能轮升次版本、修复轮升补丁，构建序号同步递增。web.ps1 构建时先注入版本到产物 index.html 的 selah-version，再计算 Build ID 指纹，版本变化必然改变指纹。设置页「版本」行展示「语义版本 · 指纹」。
