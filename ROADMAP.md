@@ -29,9 +29,9 @@
 - [x] Azure 实现分支验证通过：Deno 386 项、Flutter 435 项、Python 19 项、Node 成本策略 12 项；`flutter analyze --no-pub` 无问题；Deno 格式／脚本检查通过；功能分支 Web Release 版本 `1.8.1+14`、Build ID `e9ed47f02251d65d`。
 - [x] 2026-10-09 后续授权并重建静态 starter 音轨：英语四声线 40 条、繁体中文 10 条、日语 10 条，共 60 个 MP3；按现有 Azure SSML profile 计算约 5,979 个计费字符。只使用 `.env` 的 Azure key／region，生成仅写本地暂存与静态资产，未访问 Supabase；80 个旧的未引用 MP3 保留未动。
 - [x] 60 条音轨全部通过 SHA-256、24 kHz／单声道／160 kbit/s MP3、`lufs-v1`、`-22.46` 至 `-22.43 LUFS` 与真峰值不高于 `-3.14 dBTP` 核验；Flutter manifest 为 60 个键且与构建包内 60 个文件一致。
-- [x] 合入本地 `main` 后重新验证：Flutter 全量 441 项通过，`flutter analyze --no-pub` 无问题；Azure 生成脚本 11 项、打包器 9 项、响度处理器 4 项通过；直接 Flutter Release 编译成功，构建包中 60 个音频及哈希全部通过。未重跑自定义 `tool/web.ps1` 打包，因为它会读取本轮未获准访问的 `SUPABASE_URL` 与 `SUPABASE_PUBLISHABLE_KEY`；主分支自定义 Build ID／预缓存产物尚待授权配置后的正式构建。实际 Azure 账单未从订阅门户核验。
-- [ ] 远端 normalizer／Azure 及 Supabase 服务密钥与费率配置、Edge Function 部署、真实动态 TTS 流程和线上试听待单独完成；未改数据库 schema 或 migration。
-- [ ] 生产 Cloudflare Pages 发布待最终逐步授权，并须先解决生产端 Azure／normalizer 配置与后端部署依赖。
+- [x] 合入本地 `main` 后重新验证：Flutter 全量 441 项通过，`flutter analyze --no-pub` 无问题；Azure 生成脚本 11 项、打包器 9 项、响度处理器 4 项通过。经后续配置授权，正式 Web 打包脚本成功构建版本 `1.9.0+15`、Build ID `8b46d1201106a802`，公开 Supabase 配置已校验；预缓存清单 123 项、152 个哈希；60 个种子音频均在包中且 SHA-256／字节数匹配。实际 Azure 账单未从订阅门户核验。
+- [ ] 主人于 2026-10-09 追加授权读取／使用本项目所需 Supabase 与音频标准化服务配置并部署后端。本轮只读核对远端：`audio-generate` 仍为 ACTIVE v18；`AZURE_SPEECH_KEY`／`AZURE_SPEECH_REGION` 已配置，但 `AUDIO_NORMALIZER_URL`／`AUDIO_NORMALIZER_TOKEN`、`AZURE_TTS_NANO_USD_PER_BILLABLE_CHARACTER`／`AZURE_TTS_PRICE_VERSION`、`AUDIO_NORMALIZER_NANO_USD_PER_REQUEST` 均缺失；未写入 secrets、未部署函数、未改数据库 schema／migration。主机无 Azure CLI、登录缓存或 Azure 管理凭据，且 Docker daemon 未运行；需要 Azure 订阅管理身份及经核实的 Azure／处理器费率后，才能创建 Azure Container Apps 处理器、配置 Supabase secrets 并部署 `audio-generate`。
+- [ ] 生产 Cloudflare Pages 发布尚未执行；须先完成后端依赖，并按全局 `AGENTS.md` 的 Cloudflare 逐步说明流程取得此步确认。
 
 ### 2026-10-08 循环听音档静音（已合入 main 并生产部署；分支预览校验缺陷待修）
 
