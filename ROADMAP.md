@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-09 Azure 声线响度实测与 SSML 音量方案（T0—T8 完成；远端发布待逐步确认）
+### 2026-10-09 Azure 声线响度实测与 SSML 音量方案（客观验收完成；试听及远端发布待确认）
 
 - [x] 主人授权一次付费校准测量：153 次 Azure 请求全部成功，按项目规则约 13,599 个计费字符（按 S1 Neural 公开零售价约 US$0.20，账单未核验）。只从 `.env` 读取 Azure key 与 region，未访问 Supabase，未改代码、规范、配置或随包音频；原始音频与逐条数据在 `output/azure-loudness-calibration-2026-10-09/`（Git 忽略）。
 - [x] 实测结论：五个 Azure 声线的原始平均响度从 Nanami -17.15 到 Jenny -20.86 LUFS，相差约 3.7 LU；同一句日语母语比 Jenny 英语平均响 3.75 LU。各声线句间标准差 0.27～0.76 LU，profile 影响不超过 0.24 LU；SSML `volume` 为精确的线性增益，误差不超过 0.02 dB。按声线固定音量模拟，120 句中 117 句落在 ±1 LU 内，最大偏差 1.59 LU。
@@ -18,11 +18,10 @@
 - [x] T0—T3：更新项目规范、设计规格、`.env.example` 与离线校准说明；按 Azure 声线写 SSML `volume`，在线合成后直接校验、计算 SHA／时长并上传；移除在线标准化预留成本。线上缓存修订为 `azure-vol-v1`，随包种子修订为 `lufs-v2`。
 - [x] T4—T5：客户端缓存与种子版本拆分完成。60 条随包种子复用已有原始 Azure 音频离线重做，没有重复合成；成品 `-21.36` 至 `-21.33 LUFS`、最高真峰值 `-2.05 dBTP`。manifest 60 项、唯一文件 60 个，SHA-256、字节数和 revision 全部匹配。
 - [x] T6—T7：新增默认 dry-run、计费字符上限、五声线 10 句测量与音量建议工具；移除已授权的 Dockerfile、在线标准化调用模块及其测试，保留 FFmpeg 离线种子处理器。
-- [x] T8：50 条 Azure 校准全部通过，4,359 计费字符，按公开 S1 单价估算约 US$0.0654（实际账单未核验）。声线均值：Jenny `-20.886`、Guy `-20.928`、Sonia `-20.894`、HsiaoChen `-20.874`、Nanami `-20.875 LUFS`；均在 `-20.9 ±0.5 LU` 内，最高真峰值均低于 `-1 dBTP`。已生成中文／英语和日语／英语各 10 组交替试听样本。
-- [x] 本地验证：Deno 383 项、lint 95 个文件、Edge Function 类型检查 20 个；Python 24 项、Node 11 项、Flutter 441 项；`flutter analyze --no-pub` 无问题；Deno 格式检查通过（规范化临时副本行尾）；Web Release 构建版本 `1.9.0`、Build ID `af01bc05037f3b98`。
-- [ ] T9 远端 secrets／Edge Function 部署与 Cloudflare 生产发布按各自授权边界处理；Cloudflare push `main` 前须取得当步确认。
-- [ ] T9 尚未执行：远端 Azure 价格 secrets、`audio-generate` 部署、生产账号三语动态音频核验、`origin/main` 集成与 GitHub push／Cloudflare Pages 生产发布，均按具体步骤另行确认。
-- [ ] 本机 `main` 与 `origin/main` 最后一次核对为本地领先 6、落后 4；T9 集成前需重新 fetch 并核对远端提交。
+- [x] T8：50 条 Azure 校准全部通过，4,359 计费字符，按公开 S1 单价估算约 US$0.0654（实际账单未核验）。声线均值：Jenny `-20.886`、Guy `-20.928`、Sonia `-20.894`、HsiaoChen `-20.874`、Nanami `-20.875 LUFS`；均在 `-20.9 ±0.5 LU` 内，最高真峰值均低于 `-1 dBTP`。已生成中文／英语和日语／英语各 10 组交替试听样本，待主人试听确认。
+- [x] 本地验证：Deno 383 项、lint 95 个文件、Edge Function 类型检查 20 个；Python 24 项、Node 11 项、Flutter 441 项；`flutter analyze --no-pub` 无问题；Deno 格式检查通过（规范化临时副本行尾）；Web Release `1.10.0+17`、Build ID `3abd7a0aa020dfa7`，构建包内 60 条种子均通过 SHA-256、字节数与 revision 核验。
+- [x] T9 本地集成：已将最新 `origin/main` 合入功能分支（`45726f0`），版本升至 `1.10.0+17`，并将本地 `main` 快进至 `0920996`；含本路线图记录提交后，本地 `main` 比 `origin/main` ahead 10、behind 0。
+- [ ] T9 远端仍待执行：Azure 价格 secrets、`audio-generate` Edge Function 部署、生产账号三语动态音频核验、GitHub push 与 Cloudflare Pages 生产发布。密钥和部署操作须先取得对应确认；push `main` 前须按 Cloudflare 规则逐步说明并取得当步确认。
 
 ### 2026-10-09 网站性能 P0/P1 优化（已合入 main 并生产部署；真实用户性能复测待补）
 

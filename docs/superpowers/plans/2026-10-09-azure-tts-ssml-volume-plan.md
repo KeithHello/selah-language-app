@@ -1,6 +1,6 @@
 # Azure 语音 SSML 声线音量开发方案
 
-日期：2026-10-09。状态：T0—T8 已完成并通过本地验收。T9 的远端密钥与 Edge Function 发布、`main` 推送及 Cloudflare Pages 生产部署，按各自边界暂缓。
+日期：2026-10-09。状态：T0—T8 实施、资产与客观验收完成，试听待主人确认。T9 已完成远端主线集成、本地版本升级与 `main` 快进；远端密钥、Edge Function 和 Cloudflare Pages 生产发布仍待逐步确认。
 
 依据：[Azure 语音响度校准实测](../../2026-10-09-azure-tts-loudness-calibration.md) 、[Azure 三语 TTS 与响度统一设计](../specs/2026-10-09-azure-tts-unification-design.md) ，以及项目 `CLAUDE.md` 的 2026-10-09 Azure 段落。本方案获批后，取代其中「每条音轨经独立 FFmpeg 处理服务校准」的规定。
 
@@ -170,5 +170,6 @@ T0～T8 在功能分支 `codex/azure-ssml-volume` 上完成（从本机 `main` �
 - 60 条随包种子使用已保存的原始校准音频离线重做，没有重复调用 Azure；成品为 24 kHz、单声道、160 kbit/s MP3，响度 `-21.36` 至 `-21.33 LUFS`，最高真峰值 `-2.05 dBTP`。manifest 60 项、60 个唯一文件，SHA-256、字节数与 `lufs-v2` 全部匹配。
 - Azure 复测实际合成 50 条，计费字符估算 4,359，按 US$15／百万字符估算约 US$0.0654；实际账单未从 Azure 门户核验。五个声线的 10 句平均值分别为 Jenny `-20.886`、Guy `-20.928`、Sonia `-20.894`、HsiaoChen `-20.874`、Nanami `-20.875 LUFS`，均在目标 `-20.9 ±0.5 LU` 内；各自最高真峰值均低于 `-1 dBTP`。
 - 已导出 10 组「繁中母语／Jenny 英语」及 10 组「日语母语／Jenny 英语」交替试听清单，保存在本机 `output/azure-voice-loudness-2026-10-09T09-51-18-313Z/listening-pairs/`。
-- 验证通过：Deno 383 项、95 个文件 lint、20 个 Edge Function 类型检查；Python 24 项、Node 11 项；Flutter 441 项与静态分析；Web Release 构建版本 `1.9.0`、Build ID `af01bc05037f3b98`。Deno 全目录格式检查通过（临时副本统一换行后检查）。
-- T9 未执行远端 secrets 写入、Edge Function 部署、GitHub push 或 Cloudflare 操作；需在具体操作前按项目规则说明并取得对应确认。
+- 验证通过：Deno 383 项、95 个文件 lint、20 个 Edge Function 类型检查；Python 24 项、Node 11 项；Flutter 441 项与静态分析；Deno 全目录格式检查通过（临时副本统一换行后检查）。最终 Web Release 为 `1.10.0+17`、Build ID `3abd7a0aa020dfa7`；包内 60 个种子文件的 SHA-256、字节数和 `lufs-v2` 全部匹配。
+- T9 已将 `origin/main` 合入功能分支（`45726f0`），并将 `main` 快进至 `0920996`；完成本记录提交后，本地 `main` 比 `origin/main` ahead 10、behind 0。未 push、未写入远端 secrets、未部署 Edge Function，也未执行 Cloudflare 操作。
+- 试听样本已生成，但「主人试听确认」仍待完成。后续远端 secrets、`audio-generate` 部署与真实动态音频验收，以及 GitHub／Cloudflare 发布，须依项目规则逐步确认。
