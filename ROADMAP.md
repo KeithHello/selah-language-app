@@ -8,7 +8,7 @@
 
 ## 当前阶段
 
-### 2026-10-10 Web 动效修整（本机开发、验证与合入 main 完成；push 与生产部署待当步确认）
+### 2026-10-10 Web 动效修整（开发、验证、合入 main 与生产部署完成）
 
 - [x] 动效评估与复核：对照 10/3 动效方案、10/4 稽核与 Flutter 3.44.9 SDK 源码，并在专案外临时副本用 widget 探针复现问题；撤回「全面收敛按压」「导览弹跳过强」「揭示答案加淡入」三项旧建议。方案见 `docs/superpowers/plans/2026-10-10-web-motion-refinement-plan.md`。
 - [x] 主人授权完整开发、合入 `main` 并部署；`CLAUDE.md` 已记录授权边界与三条动效原则。
@@ -17,8 +17,8 @@
 - [x] T3 首次分页判断改在 `initState` 记录，修复第一次切页误播 100ms 页面淡入；T4 入场序位不计间距元件、最多三波（总长 ≤ 490ms，350ms／70ms／20px／0.98 不变）并改用 `FadeTransition`；T5 筆記页标题区去掉独立入场，搜索框与卡片同时出现。
 - [x] T6 聆听三键统一 0.96 次级按压；T7 精灵完成跳动 15px→8px、答对 27px→14px（采用推荐值，未录两版对比，常量可随时调回）；T8 抽屉内容仅淡入；T9 网页主题使用 Flutter 的 Web 默认 `InkRipple`，原生 `SelahTheme` 不变（Web 水波的闪光纹理未在浏览器录像中单独确认）。
 - [x] 本地验证：`flutter analyze --no-pub` 无问题；Flutter 全量 467 项通过（基线 446 项，新增 21 项覆盖 T1—T9）；Release 构建版本 `1.10.1+19`、本地 Build ID `837952bf8babb588`（无 Supabase 公开配置，为本机构建）。动画时序以 widget 测试逐毫秒核对；浏览器（Chrome 无头）在 390×844 走通引导、今天、聆听、练习、筆记、设置并关闭「動畫效果」，1280×800 检查了引导与今天页，控制台 0 错误；1180px 以上陪伴栏未单独检查。浏览器录屏帧率不稳定，不作为动画时长证据；手机真机与受控网络验收待确认。
-- [x] 合入本机 `main`（快进）。
-- [ ] push `main`（触发 GitHub Actions 与 Cloudflare Pages 生产部署）待主人当步确认；部署后须核对线上版本 `1.10.1` 与 Build ID。
+- [x] 合入本机 `main`（快进），并推送至 GitHub `main`；已删除完整合入后的本地分支 `codex/web-motion-refinement`。
+- [x] 生产发布：提交 `060a19f` 已推送到 GitHub `main`；[Actions run 38012882640](https://github.com/KeithHello/selah-language-app/actions/runs/38012882640) 的五个工作全部成功。Cloudflare Pages 正式站版本 `1.10.1`、Build ID `edb6b5cc8a271011`；首页、`main.dart.js` 与 `selah-precache.json` 均 HTTP 200，线上版本与 Build ID 匹配。
 
 ### 2026-10-10 Azure 音量 v2 开发（本机开发、main 集成与后端发布已完成；Pages 发布及账户验收待完成）
 
