@@ -441,6 +441,39 @@ void main() {
     expect(state.isAnimating, true);
   });
 
+  testWidgets('completion and correct-answer bounces stay gentle', (
+    tester,
+  ) async {
+    // Both cues fire after every sentence, so their peak lift stays small.
+    Future<double> peakLift(SpriteActionId action) async {
+      await tester.pumpWidget(host(action: action));
+      await tester.pump(const Duration(milliseconds: 500));
+      final lift = find
+          .ancestor(
+            of: find.byType(PlushPoseImage),
+            matching: find.byType(Transform),
+          )
+          .evaluate()
+          .fold<double>(
+            0,
+            (sum, element) =>
+                sum +
+                (element.widget as Transform).transform.getTranslation().y,
+          );
+      await tester.pumpWidget(const SizedBox.shrink());
+      return lift;
+    }
+
+    expect(
+      await peakLift(SpriteActionId.listenComplete),
+      moreOrLessEquals(-8, epsilon: 0.5),
+    );
+    expect(
+      await peakLift(SpriteActionId.quizGood),
+      moreOrLessEquals(-14, epsilon: 0.5),
+    );
+  });
+
   testWidgets('every action keeps the same frame and accessible description', (
     tester,
   ) async {

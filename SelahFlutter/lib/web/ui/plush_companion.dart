@@ -287,13 +287,14 @@ class PlushCompanionState extends State<PlushCompanion>
                 case SpriteActionId.listenPlaying:
                   lift = -4 * (1 - math.cos(2 * math.pi * t));
                 case SpriteActionId.listenComplete:
-                  lift = -15 * pulse;
+                  // Fires after every sentence heard, so keep the hop small.
+                  lift = -8 * pulse;
                 case SpriteActionId.recRecording:
                   lift = 4 * pulse;
                 case SpriteActionId.recDone:
                   lift = -10 * pulse;
                 case SpriteActionId.quizGood:
-                  lift = -27 * pulse;
+                  lift = -14 * pulse;
                   angle = .022 * math.sin(2 * math.pi * t) * pulse;
                 case SpriteActionId.quizFail:
                   lift = 7 * pulse;

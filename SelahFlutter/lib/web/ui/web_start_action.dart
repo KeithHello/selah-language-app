@@ -74,6 +74,7 @@ class WebStartAction extends StatelessWidget {
                 message: _strings.text('onboarding.start'),
                 excludeFromSemantics: true,
                 child: SelahPressable(
+                  enabled: enabled,
                   child: SizedBox.square(
                     dimension: 64,
                     child: FilledButton(

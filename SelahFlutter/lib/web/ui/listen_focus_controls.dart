@@ -163,9 +163,10 @@ class _ListenControlButton extends StatelessWidget {
     return Tooltip(
       message: label,
       child: SelahPressable(
-        variant: primary
-            ? SelahPressVariant.primary
-            : SelahPressVariant.secondary,
+        enabled: onPressed != null,
+        // The three controls are pressed again and again while studying, so
+        // all of them share the lighter secondary press.
+        variant: SelahPressVariant.secondary,
         child: button,
       ),
     );

@@ -105,6 +105,9 @@ class _WebLearningAppState extends State<WebLearningApp> {
   bool _initializing = false;
   late ({String locale, bool motionEnabled}) _rootConfiguration;
   late final ThemeData _theme = SelahTheme.light().copyWith(
+    // Flutter's own web default; the Android-style sparkle stays with the
+    // native theme.
+    splashFactory: InkRipple.splashFactory,
     textTheme: SelahTheme.light().textTheme.apply(
       fontFamily: 'Plus Jakarta Sans',
       fontFamilyFallback: const ['Noto Sans SC'],
@@ -273,7 +276,10 @@ class _WebRootState extends State<_WebRoot> {
                   right: right,
                   width: toastWidth,
                   child: AnimatedSwitcher(
-                    duration: SelahMotion.toastOut,
+                    duration: MotionScope.durationOf(
+                      context,
+                      SelahMotion.toastOut,
+                    ),
                     switchInCurve: SelahMotion.standardCurve,
                     switchOutCurve: SelahMotion.exitCurve,
                     transitionBuilder: (child, animation) => FadeTransition(
@@ -488,6 +494,7 @@ class _WebShell extends StatelessWidget {
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: controller.tab.clamp(0, tabs.length - 1),
+        animationDuration: MotionScope.of(context) ? null : Duration.zero,
         onDestinationSelected: controller.navigate,
         destinations: tabs.indexed.map((entry) {
           final tab = entry.$2;
@@ -972,9 +979,18 @@ class _Content extends StatefulWidget {
 class _ContentState extends State<_Content> {
   final Set<int> _staggeredTabs = <int>{};
   bool _currentTabFirstEntry = true;
-  late int _lastTab = widget.controller.tab;
+  late int _lastTab;
 
   LearningController get controller => widget.controller;
+
+  @override
+  void initState() {
+    super.initState();
+    // Record the opening tab up front; reading it lazily would already see
+    // the next tab and mistake a first visit for a return.
+    _lastTab = widget.controller.tab;
+    _staggeredTabs.add(_lastTab);
+  }
 
   @override
   void didUpdateWidget(covariant _Content oldWidget) {
@@ -1050,7 +1066,6 @@ class _ContentState extends State<_Content> {
                 ),
                 _NotesPage(
                   controller: controller,
-                  entrance: _entranceForTab(3),
                   key: const ValueKey('notes'),
                 ),
                 _SettingsPage(
@@ -4686,6 +4701,7 @@ class _PlaybackControls extends StatelessWidget {
           Row(
             children: [
               SelahPressable(
+                enabled: !controller.busy,
                 child: FilledButton.icon(
                   onPressed: controller.busy
                       ? null
@@ -5199,17 +5215,9 @@ class _LearnedPicker extends StatelessWidget {
 }
 
 class _NotesPage extends StatefulWidget {
-  const _NotesPage({
-    required this.controller,
-    this.entrance = false,
-    super.key,
-  });
+  const _NotesPage({required this.controller, super.key});
 
   final LearningController controller;
-
-  /// True while the shell enters this page for the first time this session;
-  /// drives the one-time card stagger.
-  final bool entrance;
 
   @override
   State<_NotesPage> createState() => _NotesPageState();
@@ -5274,8 +5282,7 @@ class _NotesPageState extends State<_NotesPage> {
         query,
       );
     }).toList();
-    final header = SelahStaggerEntrance(
-      animate: widget.entrance,
+    final header = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -6309,6 +6316,7 @@ class _SettingsPageState extends State<_SettingsPage> {
                 Row(
                   children: [
                     SelahPressable(
+                      enabled: !c.syncing,
                       child: FilledButton.icon(
                         onPressed: c.syncing
                             ? null

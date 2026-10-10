@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
+import '../../design/selah_motion_scope.dart';
 import '../domain/companion_names.dart';
 
 class CompanionDiceButton extends StatefulWidget {
@@ -65,7 +66,7 @@ class _CompanionDiceButtonState extends State<CompanionDiceButton>
 
   void _roll() {
     if (!widget.enabled || _controller.isAnimating) return;
-    _controller.forward(from: 0.0);
+    if (MotionScope.of(context)) _controller.forward(from: 0.0);
     final newName = CompanionNamePool.randomName(
       widget.languageCode,
       currentName: widget.currentName,

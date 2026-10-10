@@ -9,6 +9,11 @@ import 'selah_motion_scope.dart';
 /// visits keep the cards static and rely on the page transition. The tree
 /// shape is stable regardless of the 「動畫效果」 switch: the animation
 /// always exists and rests fully visible when motion is off.
+///
+/// Spacers (a [SizedBox] without a child) keep their layout space but take no
+/// entrance slot, and content items enter in at most three waves 70ms apart.
+/// The whole entrance therefore never runs longer than [SelahMotion.standard]
+/// plus two intervals (490ms), however long the page is.
 class SelahStaggerEntrance extends StatefulWidget {
   const SelahStaggerEntrance({
     super.key,
@@ -28,6 +33,9 @@ class SelahStaggerEntrance extends StatefulWidget {
 class _SelahStaggerEntranceState extends State<SelahStaggerEntrance>
     with SingleTickerProviderStateMixin {
   static const Duration _interval = Duration(milliseconds: 70);
+  static const int _maxWaves = 3;
+  static const double _riseDistance = 20;
+  static const double _startScale = 0.98;
 
   late final AnimationController _controller = AnimationController(
     vsync: this,
@@ -35,9 +43,16 @@ class _SelahStaggerEntranceState extends State<SelahStaggerEntrance>
     value: widget.animate ? 0 : 1,
   );
 
-  Duration get _window =>
-      SelahMotion.standard +
-      _interval * (widget.children.length - 1).clamp(0, 64);
+  static bool _isSpacer(Widget child) =>
+      child is SizedBox && child.child == null;
+
+  /// Number of entrance waves the current content needs.
+  int get _waves => widget.children
+      .where((child) => !_isSpacer(child))
+      .length
+      .clamp(1, _maxWaves);
+
+  Duration get _window => SelahMotion.standard + _interval * (_waves - 1);
 
   @override
   void initState() {
@@ -64,14 +79,12 @@ class _SelahStaggerEntranceState extends State<SelahStaggerEntrance>
   @override
   void didUpdateWidget(covariant SelahStaggerEntrance oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.children.length != oldWidget.children.length) {
+    if (_controller.duration != _window) {
       _controller.duration = _window;
     }
     if (widget.animate == oldWidget.animate) return;
     if (widget.animate && MotionScope.of(context)) {
-      _controller
-        ..duration = _window
-        ..forward(from: 0);
+      _controller.forward(from: 0);
     } else if (!widget.animate) {
       _controller.value = 1;
     }
@@ -83,6 +96,34 @@ class _SelahStaggerEntranceState extends State<SelahStaggerEntrance>
     super.dispose();
   }
 
+  Widget _entrance(Widget child, int wave) {
+    final window = _window.inMicroseconds;
+    final delay = _interval * wave;
+    final progress = _controller.drive(
+      CurveTween(
+        curve: Interval(
+          delay.inMicroseconds / window,
+          (delay + SelahMotion.standard).inMicroseconds / window,
+          curve: SelahMotion.standardCurve,
+        ),
+      ),
+    );
+    return FadeTransition(
+      opacity: progress,
+      child: AnimatedBuilder(
+        animation: progress,
+        builder: (context, child) => Transform.translate(
+          offset: Offset(0, _riseDistance * (1 - progress.value)),
+          child: child,
+        ),
+        child: ScaleTransition(
+          scale: progress.drive(Tween<double>(begin: _startScale, end: 1)),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final motionOn = MotionScope.of(context);
@@ -91,34 +132,19 @@ class _SelahStaggerEntranceState extends State<SelahStaggerEntrance>
         ..stop()
         ..value = 1;
     }
-    final curve = SelahMotion.standardCurve;
+    final children = <Widget>[];
+    var slot = 0;
+    for (final child in widget.children) {
+      if (_isSpacer(child)) {
+        children.add(child);
+        continue;
+      }
+      children.add(_entrance(child, slot < _maxWaves ? slot : _maxWaves - 1));
+      slot++;
+    }
     return Column(
       crossAxisAlignment: widget.crossAxisAlignment,
-      children: [
-        for (var index = 0; index < widget.children.length; index++)
-          AnimatedBuilder(
-            animation: _controller,
-            builder: (context, child) {
-              final raw =
-                  (_controller.value * _window.inMicroseconds -
-                      _interval.inMicroseconds * index) /
-                  SelahMotion.standard.inMicroseconds;
-              final t = motionOn ? raw.clamp(0.0, 1.0).toDouble() : 1.0;
-              final eased = curve.transform(t);
-              return Opacity(
-                opacity: eased,
-                child: Transform.translate(
-                  offset: Offset(0, 20 * (1 - eased)),
-                  child: Transform.scale(
-                    scale: 0.98 + 0.02 * eased,
-                    child: child,
-                  ),
-                ),
-              );
-            },
-            child: widget.children[index],
-          ),
-      ],
+      children: children,
     );
   }
 }

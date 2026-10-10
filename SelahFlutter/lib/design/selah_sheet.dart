@@ -28,7 +28,9 @@ Future<T?> showSelahSheet<T>({
   );
 }
 
-/// 抽屉内容入场：淡入＋16px 上移，280ms easeOutCubic。
+/// 抽屉内容入场：只淡入，240ms easeOutCubic。
+///
+/// 抽屉本身已由路由上滑，内容不再叠加第二层位移。
 class SelahSheetEntrance extends StatefulWidget {
   const SelahSheetEntrance({super.key, required this.child});
 
@@ -79,19 +81,6 @@ class _SelahSheetEntranceState extends State<SelahSheetEntrance>
         ..stop()
         ..value = 1;
     }
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, child) {
-        final eased = motionOn ? _fade.value : 1.0;
-        return Opacity(
-          opacity: eased,
-          child: Transform.translate(
-            offset: Offset(0, 12 * (1 - eased)),
-            child: child,
-          ),
-        );
-      },
-      child: widget.child,
-    );
+    return FadeTransition(opacity: _fade, child: widget.child);
   }
 }

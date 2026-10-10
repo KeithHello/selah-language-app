@@ -72,6 +72,7 @@ class SpeedSelector extends StatelessWidget {
         ),
         SelahPressable(
           variant: SelahPressVariant.secondary,
+          enabled: !controller.busy,
           child: OutlinedButton(
             onPressed: controller.busy
                 ? null

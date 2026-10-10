@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../design/selah_colors.dart';
 import '../../design/selah_dialog.dart';
+import '../../design/selah_motion_scope.dart';
 import '../../design/selah_sheet.dart';
 import '../../design/selah_pressable.dart';
 import '../../design/selah_spacing.dart';
@@ -74,6 +75,9 @@ class _ResearchProfileFormState extends State<ResearchProfileForm> {
           ExpansionTile(
             tilePadding: EdgeInsets.zero,
             maintainState: true,
+            expansionAnimationStyle: MotionScope.of(context)
+                ? null
+                : AnimationStyle.noAnimation,
             initiallyExpanded:
                 widget.initial.ageGroup != null ||
                 widget.initial.lifeStage != null ||
@@ -137,6 +141,7 @@ class _ResearchProfileFormState extends State<ResearchProfileForm> {
             ),
             const Spacer(),
             SelahPressable(
+              enabled: !c.saving,
               child: FilledButton(
                 onPressed: c.saving
                     ? null
